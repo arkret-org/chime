@@ -1,0 +1,26 @@
+[package]
+name = "chime"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.89"
+license = "Apache-2.0"
+repository = "https://github.com/palpo-im/chime"
+description = "Matrix push notification gateway types and pusher registration, with support for domestic Chinese Android OEM providers (JPush, Huawei, Xiaomi, OPPO, vivo, HONOR) via the Bugle push gateway."
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+tracing = "0.1"
+
+# Matrix SDK — only needed when registering pushers with a homeserver.
+[dependencies.matrix-sdk]
+version = "0.16.0"
+default-features = false
+features = ["rustls-tls"]
+optional = true
+
+[features]
+default = []
+## Enable pusher registration / unregistration via matrix-sdk Client.
+matrix = ["dep:matrix-sdk"]
