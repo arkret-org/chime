@@ -1,25 +1,25 @@
 # chime
 
-> **Warning:** This project is in a very early stage and is not functional yet. APIs will change without notice.
+> **Warning:** This project is in a very early stage and APIs may change without notice.
 
-Matrix push notification gateway types, preferences, and pusher registration library.
+Contrix push notification gateway types, preferences, and device registration helpers.
 
-**chime** provides the shared data types and logic used by Matrix chat clients to configure and register push notification gateways with a Matrix homeserver. It is designed for use by multiple front-end projects (e.g. [Synpad](https://github.com/nickkuk/synpad), [Robrix](https://github.com/nickkuk/robrix)) that need a common push notification layer.
+**chime** provides shared data types and request-building logic for Contrix clients that need to register push-capable devices with a Principal Server, Sync Service, or delegated Push Gateway.
 
 ## Gateway Support
 
-| Gateway    | Description |
-|------------|-------------|
-| **Sygnal** | Standard Matrix push gateway using FCM (Android) and APNs (iOS). Works globally. |
-| **Bugle**  | Push gateway with domestic Chinese Android OEM provider support. Routes through JPush `third_party_channel` to Huawei Push Kit, Xiaomi Mi Push, OPPO Push, vivo Push, HONOR Push, and HarmonyOS. Ideal for mainland China where Google FCM is unavailable. |
+| Gateway | Description |
+| --- | --- |
+| **Standard** | Contrix Push Gateway using platform adapters such as FCM, APNs, Web Push, or desktop notification bridges. |
+| **Bugle** | Contrix Push Gateway with domestic Chinese Android OEM provider support through JPush, Huawei, Xiaomi, OPPO, vivo, HONOR, and HarmonyOS routes. |
 | **Custom** | User-provided gateway URL for self-hosted or third-party gateways. |
 
 ## Features
 
-| Feature  | Description |
-|----------|-------------|
-| _(default)_ | Core types (`PushGatewayType`, `PushPreferences`) and JSON serialization helpers. No network dependencies. |
-| `matrix` | Adds `register_pusher()` and `unregister_pusher()` functions that use `matrix_sdk::Client` to register/unregister HTTP pushers with a Matrix homeserver. Invalid platforms are rejected explicitly, and disabled preferences trigger unregister instead of re-registering. |
+| Feature | Description |
+| --- | --- |
+| _(default)_ | Core types, JSON serialization helpers, and Contrix register/unregister request builders. No network dependencies. |
+| `http` | Adds `ContrixPushClient`, a small `reqwest` helper for `POST /api/v1/push/register-device` and `POST /api/v1/push/unregister-device`. |
 
 ## Quick Start
 
@@ -28,16 +28,15 @@ Add to your `Cargo.toml`:
 ```toml
 [dependencies]
 chime = { path = "../chime" }
-# or with pusher registration:
-# chime = { path = "../chime", features = ["matrix"] }
+# or with Contrix HTTP registration:
+# chime = { path = "../chime", features = ["http"] }
 ```
 
-### Core types (no network)
+### Core types
 
 ```rust
 use chime::{PushGatewayType, PushPreferences};
 
-// Create preferences with Bugle gateway for China users
 let mut prefs = PushPreferences {
     enabled: true,
     gateway_type: PushGatewayType::Bugle,
@@ -45,60 +44,91 @@ let mut prefs = PushPreferences {
 };
 prefs.apply_gateway_type_defaults();
 
-// Resolve the correct app ID for the gateway
-let app_id = prefs.android_app_id("app.example.android", "app.example.android.cn");
-assert_eq!(app_id, "app.example.android.cn");
+let app_id = prefs.app_id(
+    Some(chime::PushPlatform::Android),
+    Some("app.example.android"),
+    Some("app.example.android.cn"),
+);
+assert_eq!(app_id, Some("app.example.android.cn"));
 
-// Serialize to JSON for persistence
 let json = chime::to_json(&prefs).unwrap();
 let loaded = chime::from_json(&json);
 assert_eq!(loaded.gateway_type, PushGatewayType::Bugle);
 ```
 
-### Pusher registration (requires `matrix` feature)
+### Build a Contrix registration body
 
-```rust,ignore
-use chime::{PushPreferences, PusherConfig, register_pusher};
+```rust
+use chime::{PushDeviceConfig, PushPreferences, build_register_device_request};
 
-let config = PusherConfig {
-    token: "fcm-or-apns-device-token",
-    platform: "android",
-    android_app_id: "app.example.android",
-    domestic_android_app_id: "app.example.android.cn",
-    ios_app_id: "app.example.ios",
-    app_display_name: "MyApp",
-    device_display_name: "MyApp Mobile",
+let config = PushDeviceConfig {
+    device_id: "did:web:alice.example#device-phone",
+    push_key: "fcm-or-apns-device-token",
+    platform: Some("android"),
+    app_id: Some("app.example.android"),
+    domestic_app_id: Some("app.example.android.cn"),
+    display_name: Some("Alice Phone"),
+    idempotency_key: Some("device-phone-register-v1"),
 };
 
-let prefs = PushPreferences::default();
-register_pusher(&matrix_client, &config, &prefs).await?;
+let prefs = PushPreferences {
+    enabled: true,
+    push_gateway: "https://push.example.com/api/v1/push/notify".to_owned(),
+    ..Default::default()
+};
+
+let request = build_register_device_request(&config, &prefs).unwrap();
+assert_eq!(request.device_id, "did:web:alice.example#device-phone");
 ```
+
+### Register through HTTP
+
+```rust,ignore
+use chime::{ContrixPushClient, PushDeviceConfig, PushPreferences};
+
+let client = ContrixPushClient::new("https://principal.example")
+    .with_bearer_token("session-token");
+
+let response = client.register_device(&config, &prefs).await?;
+assert!(response.ok);
+```
+
+## Protocol Mapping
+
+The crate maps to the Contrix v1 push HTTP binding:
+
+| Operation ID | HTTP Binding | Request builder |
+| --- | --- | --- |
+| `cx.push.register_device` | `POST /api/v1/push/register-device` | `build_register_device_request()` |
+| `cx.push.unregister_device` | `POST /api/v1/push/unregister-device` | `build_unregister_device_request()` |
+| `cx.push.notify` | `POST /api/v1/push/notify` | Gateway/server-side operation, not a client registration call. |
+
+Push notifications are derived wakeups, not canonical truth. For E2EE Spaces, push gateways should receive only minimized metadata such as `space_id`, event type, counts, and optional body-free `push_hint`.
 
 ## Architecture
 
-```
-Matrix Client (Synpad / Robrix / ...)
+```text
+Contrix Client
         |
         v
-   ┌─────────┐     PushPreferences
-   │  chime  │───> PushGatewayType { Sygnal, Bugle, Custom }
-   └────┬─────┘     register_pusher() / unregister_pusher()
+   +---------+     PushPreferences
+   |  chime  | --> PushGatewayType { Standard, Bugle, Custom }
+   +----+----+     build_register_device_request()
+        |          ContrixPushClient (optional)
+        v
+Principal Server / Sync Service
         |
         v
-  Matrix Homeserver
+Contrix Push Gateway
         |
-        v
-  Push Gateway (Sygnal or Bugle)
-        |
-        ├── FCM ──> Android (global)
-        ├── APNs ─> iOS
-        └── Bugle domestic providers:
-            ├── JPush (aggregation layer)
-            ├── Huawei Push Kit / HarmonyOS
-            ├── Xiaomi Mi Push
-            ├── OPPO / OnePlus Push
-            ├── vivo Push
-            └── HONOR Push
+        +-- FCM / APNs / Web Push / Desktop
+        +-- Bugle domestic providers:
+            +-- JPush
+            +-- Huawei / HarmonyOS
+            +-- Xiaomi
+            +-- OPPO / OnePlus
+            +-- vivo
+            +-- HONOR
 ```
 
 ## License
