@@ -1,6 +1,6 @@
 # chime Active TODO
 
-> 更新日期: 2026-04-29
+> 更新日期: 2026-04-30
 > 范围: Contrix 客户端侧 push device registration SDK。`chime` 负责类型、builder、HTTP helper、本地持久化接口和可选 wire model；`cx.push.notify` 的真实网关投递属于 `floria`。
 
 ## 0. 当前边界
@@ -127,6 +127,10 @@
   - [x] rejects message body。
   - [x] rejects encrypted payload bytes。
   - [x] rejects SDP / ICE / TURN credential。
+- [ ] Facet-aware notification metadata boundary:
+  - [ ] notify helper examples make clear entity facets/view renderer are routing/context hints only when explicitly authorized。
+  - [ ] blind-wakeup validator rejects attempts to smuggle facet-derived title/body/space name into provider payload。
+  - [ ] cotest vector covers latest facet/view renderer spec drift against push metadata leakage。
 
 ## P1: Tests
 
