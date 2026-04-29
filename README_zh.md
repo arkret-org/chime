@@ -20,6 +20,7 @@ Contrix 推送通知网关类型、偏好设置和设备注册辅助库。
 | --- | --- |
 | _(默认)_ | 核心类型、JSON 序列化辅助函数，以及 Contrix 注册/注销请求构建器。无网络依赖。 |
 | `http` | 添加 `ContrixPushClient`，使用 `reqwest` 调用 `POST /api/v1/push/register-device` 和 `POST /api/v1/push/unregister-device`。 |
+| `notify` | 添加服务端/网关侧 `cx.push.notify` wire 类型和 blind-wakeup 隐私校验。 |
 
 ## 快速开始
 
@@ -28,8 +29,9 @@ Contrix 推送通知网关类型、偏好设置和设备注册辅助库。
 ```toml
 [dependencies]
 chime = { path = "../chime" }
-# 如需 Contrix HTTP 注册功能：
+# 如需 Contrix HTTP 注册功能和网关 notify wire 类型：
 # chime = { path = "../chime", features = ["http"] }
+# chime = { path = "../chime", features = ["http", "notify"] }
 ```
 
 ### 核心类型
@@ -63,12 +65,15 @@ use chime::{PushDeviceConfig, PushPreferences, build_register_device_request};
 
 let config = PushDeviceConfig {
     device_id: "did:web:alice.example#device-phone",
-    push_key: "fcm-or-apns-device-token",
+    push_key: Some("fcm-or-apns-device-token"),
     platform: Some("android"),
     app_id: Some("app.example.android"),
     domestic_app_id: Some("app.example.android.cn"),
+    registration_id: None,
     display_name: Some("Alice Phone"),
     idempotency_key: Some("device-phone-register-v1"),
+    request_id: Some("cx:req:01JS0KE000000000000000000"),
+    proof: None,
 };
 
 let prefs = PushPreferences {
@@ -87,11 +92,47 @@ assert_eq!(request.device_id, "did:web:alice.example#device-phone");
 use chime::{ContrixPushClient, PushDeviceConfig, PushPreferences};
 
 let client = ContrixPushClient::new("https://principal.example")
-    .with_bearer_token("session-token");
+    .with_bearer_token("session-token")
+    .with_timeout(std::time::Duration::from_secs(10))
+    .with_retry_policy(chime::PushRetryPolicy::conservative());
 
-let response = client.register_device(&config, &prefs).await?;
-assert!(response.ok);
+let response = client.register_device_with_context(&config, &prefs).await?;
+assert!(response.body.ok);
 ```
+
+生产接入注意事项：
+
+- 认证材料只通过 header 发送。不要把 session token、API key、签名或 bearer token 放进 `push_gateway` query string。
+- `push_gateway` 必须使用 HTTPS；只有 localhost 开发场景可以显式打开 `allow_insecure_loopback_push_gateway`。
+- `push_key` 在 debug output 和日志中会脱敏；调用方仍应按 secret 存储。
+- `allow_push_hint` 只允许不含正文的唤醒提示，不允许 E2EE Space 的明文消息正文。
+
+### Token rotation
+
+```rust,ignore
+use chime::{plan_token_rotation, PushRegistrationState};
+
+let existing: Option<PushRegistrationState> = store.load_push_registration()?;
+let plan = plan_token_rotation(existing.as_ref(), &config, &prefs)?;
+
+if let Some(unregister_old) = plan.unregister_old {
+    // 使用 ContrixPushClient 或你自己的 HTTP stack 发送。
+}
+if let Some(register_new) = plan.register_new {
+    // 发送新注册请求，成功后持久化新的 registration state。
+}
+```
+
+## 从旧 Matrix pusher 术语迁移
+
+| 旧术语 | Contrix 术语 |
+| --- | --- |
+| `matrix` feature | `http` feature |
+| `PusherConfig` | `PushDeviceConfig` |
+| `register_pusher` | `ContrixPushClient::register_device` 或 `build_register_device_request` |
+| `unregister_pusher` | `ContrixPushClient::unregister_device` 或 `build_unregister_device_request` |
+| `gateway_url` | `push_gateway` |
+| `show_message_preview` | `allow_push_hint` |
 
 ## 协议映射
 

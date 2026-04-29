@@ -20,6 +20,7 @@ Contrix push notification gateway types, preferences, and device registration he
 | --- | --- |
 | _(default)_ | Core types, JSON serialization helpers, and Contrix register/unregister request builders. No network dependencies. |
 | `http` | Adds `ContrixPushClient`, a small `reqwest` helper for `POST /api/v1/push/register-device` and `POST /api/v1/push/unregister-device`. |
+| `notify` | Adds server/gateway-side `cx.push.notify` wire types and blind-wakeup privacy validation. |
 
 ## Quick Start
 
@@ -28,8 +29,9 @@ Add to your `Cargo.toml`:
 ```toml
 [dependencies]
 chime = { path = "../chime" }
-# or with Contrix HTTP registration:
+# or with Contrix HTTP registration and gateway notify wire types:
 # chime = { path = "../chime", features = ["http"] }
+# chime = { path = "../chime", features = ["http", "notify"] }
 ```
 
 ### Core types
@@ -63,12 +65,15 @@ use chime::{PushDeviceConfig, PushPreferences, build_register_device_request};
 
 let config = PushDeviceConfig {
     device_id: "did:web:alice.example#device-phone",
-    push_key: "fcm-or-apns-device-token",
+    push_key: Some("fcm-or-apns-device-token"),
     platform: Some("android"),
     app_id: Some("app.example.android"),
     domestic_app_id: Some("app.example.android.cn"),
+    registration_id: None,
     display_name: Some("Alice Phone"),
     idempotency_key: Some("device-phone-register-v1"),
+    request_id: Some("cx:req:01JS0KE000000000000000000"),
+    proof: None,
 };
 
 let prefs = PushPreferences {
@@ -87,11 +92,47 @@ assert_eq!(request.device_id, "did:web:alice.example#device-phone");
 use chime::{ContrixPushClient, PushDeviceConfig, PushPreferences};
 
 let client = ContrixPushClient::new("https://principal.example")
-    .with_bearer_token("session-token");
+    .with_bearer_token("session-token")
+    .with_timeout(std::time::Duration::from_secs(10))
+    .with_retry_policy(chime::PushRetryPolicy::conservative());
 
-let response = client.register_device(&config, &prefs).await?;
-assert!(response.ok);
+let response = client.register_device_with_context(&config, &prefs).await?;
+assert!(response.body.ok);
 ```
+
+Production notes:
+
+- Authentication material is only sent through headers. Do not put session tokens, API keys, signatures, or bearer tokens in `push_gateway` query strings.
+- `push_gateway` must be HTTPS unless `allow_insecure_loopback_push_gateway` is enabled for localhost development.
+- `push_key` is redacted in debug output and logs; callers should still store it as a secret.
+- `allow_push_hint` only permits body-free wakeup hints. It does not permit plaintext message bodies for E2EE Spaces.
+
+### Token rotation
+
+```rust,ignore
+use chime::{plan_token_rotation, PushRegistrationState};
+
+let existing: Option<PushRegistrationState> = store.load_push_registration()?;
+let plan = plan_token_rotation(existing.as_ref(), &config, &prefs)?;
+
+if let Some(unregister_old) = plan.unregister_old {
+    // Send with ContrixPushClient or your own HTTP stack.
+}
+if let Some(register_new) = plan.register_new {
+    // Send with ContrixPushClient or your own HTTP stack, then persist success.
+}
+```
+
+## Migration from legacy Matrix pusher terms
+
+| Legacy term | Contrix term |
+| --- | --- |
+| `matrix` feature | `http` feature |
+| `PusherConfig` | `PushDeviceConfig` |
+| `register_pusher` | `ContrixPushClient::register_device` or `build_register_device_request` |
+| `unregister_pusher` | `ContrixPushClient::unregister_device` or `build_unregister_device_request` |
+| `gateway_url` | `push_gateway` |
+| `show_message_preview` | `allow_push_hint` |
 
 ## Protocol Mapping
 

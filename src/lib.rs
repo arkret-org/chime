@@ -25,16 +25,32 @@
 
 use serde::{Deserialize, Serialize};
 
+#[cfg(feature = "notify")]
+mod notify;
 mod push;
+mod state;
+
+#[cfg(feature = "notify")]
+pub use notify::{
+    PushNotification, PushNotificationDevice, PushNotifyPrivacyError, PushNotifyRequest,
+    PushNotifyResponse, RejectedPushToken,
+};
+
 pub use push::{
-    ContrixError, ContrixErrorEnvelope, PushDeviceConfig, PushPlatform, PushRegistrationError,
-    REGISTER_DEVICE_PATH, RegisterDeviceRequest, RegisterDeviceResponse, UNREGISTER_DEVICE_PATH,
-    UnregisterDeviceRequest, UnregisterDeviceResponse, build_register_device_request,
-    build_unregister_device_request, contrix_api_url,
+    CONTRIX_REQUEST_ID_HEADER, ContrixError, ContrixErrorEnvelope, PushDeviceConfig, PushErrorKind,
+    PushPlatform, PushRegistrationError, PushRequestSigningContext, REGISTER_DEVICE_PATH,
+    RegisterDeviceRequest, RegisterDeviceResponse, UNREGISTER_DEVICE_PATH, UnregisterDeviceRequest,
+    UnregisterDeviceResponse, build_register_device_request, build_register_signing_context,
+    build_unregister_device_request, build_unregister_signing_context, content_digest_sha256,
+    contrix_api_url, redact_push_key, validate_push_gateway_url,
+};
+pub use state::{
+    PushRegistrationState, PushRegistrationStore, PushTokenRotationPlan, build_registration_state,
+    hash_push_key, plan_token_rotation, token_rotation_required,
 };
 
 #[cfg(feature = "http")]
-pub use push::ContrixPushClient;
+pub use push::{ContrixPushClient, ContrixResponse, PushRetryPolicy};
 
 // -- Constants ---------------------------------------------------------------
 
@@ -144,6 +160,10 @@ pub struct PushPreferences {
     /// The push gateway URL sent as `push_gateway` during Contrix registration.
     #[serde(alias = "gateway_url")]
     pub push_gateway: String,
+    /// Allow non-HTTPS push gateways for loopback development URLs only.
+    ///
+    /// Production gateway URLs must use HTTPS.
+    pub allow_insecure_loopback_push_gateway: bool,
     /// Whether a sender-provided, body-free `push_hint` may be used.
     ///
     /// Contrix push hints are blind wakeup metadata. They must not contain
@@ -158,6 +178,7 @@ impl Default for PushPreferences {
             enabled: false,
             gateway_type: PushGatewayType::default(),
             push_gateway: DEFAULT_CONTRIX_PUSH_GATEWAY_URL.to_owned(),
+            allow_insecure_loopback_push_gateway: false,
             allow_push_hint: true,
         }
     }
@@ -207,6 +228,7 @@ mod tests {
         assert!(!prefs.enabled);
         assert_eq!(prefs.gateway_type, PushGatewayType::Standard);
         assert!(prefs.push_gateway.is_empty());
+        assert!(!prefs.allow_insecure_loopback_push_gateway);
         assert!(prefs.allow_push_hint);
     }
 
@@ -277,6 +299,7 @@ mod tests {
             enabled: true,
             gateway_type: PushGatewayType::Bugle,
             push_gateway: "https://example.com/api/v1/push/notify".to_owned(),
+            allow_insecure_loopback_push_gateway: false,
             allow_push_hint: false,
         };
         let json = to_json(&prefs).unwrap();

@@ -8,13 +8,23 @@ repository = "https://github.com/contrix-dev/chime"
 description = "Contrix push notification gateway types and device registration helpers, with support for domestic Chinese Android OEM providers through Bugle."
 
 [dependencies]
+base64 = "0.22"
+httpdate = "1"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+sha2 = "0.10"
 thiserror = "2"
 tracing = "0.1"
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"], optional = true }
+tokio = { version = "1", features = ["time"], optional = true }
+url = "2"
 
 [features]
 default = []
 ## Enable Contrix HTTP push device registration via reqwest.
-http = ["dep:reqwest"]
+http = ["dep:reqwest", "dep:tokio"]
+## Enable server/gateway-side cx.push.notify wire types.
+notify = []
+
+[dev-dependencies]
+tokio = { version = "1", features = ["io-util", "macros", "net", "rt-multi-thread", "time"] }
