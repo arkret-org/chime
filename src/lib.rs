@@ -32,21 +32,33 @@ mod state;
 
 #[cfg(feature = "notify")]
 pub use notify::{
-    PushNotification, PushNotificationDevice, PushNotifyPrivacyError, PushNotifyRequest,
-    PushNotifyResponse, RejectedPushToken,
+    ProviderRetryHint, PushDeliveryReceipt, PushNotification, PushNotificationDevice,
+    PushNotifyPrivacyError, PushNotifyPrivacyMode, PushNotifyPrivacyVector, PushNotifyRequest,
+    PushNotifyResponse, RejectedPushToken, shared_push_notify_privacy_vectors,
 };
 
 pub use push::{
-    CONTRIX_REQUEST_ID_HEADER, ContrixError, ContrixErrorEnvelope, PushDeviceConfig, PushErrorKind,
-    PushPlatform, PushRegistrationError, PushRequestSigningContext, REGISTER_DEVICE_PATH,
-    RegisterDeviceRequest, RegisterDeviceResponse, UNREGISTER_DEVICE_PATH, UnregisterDeviceRequest,
-    UnregisterDeviceResponse, build_register_device_request, build_register_signing_context,
-    build_unregister_device_request, build_unregister_signing_context, content_digest_sha256,
-    contrix_api_url, redact_push_key, validate_push_gateway_url,
+    CONTENT_DIGEST_HEADER, CONTRIX_ACTOR_DID_HEADER, CONTRIX_AUDIENCE_HEADER,
+    CONTRIX_CREATED_AT_HEADER, CONTRIX_DESTINATION_SERVICE_DID_HEADER, CONTRIX_DEVICE_ID_HEADER,
+    CONTRIX_EXPIRES_AT_HEADER, CONTRIX_IDEMPOTENCY_KEY_HEADER, CONTRIX_NONCE_HEADER,
+    CONTRIX_OPERATION_ID_HEADER, CONTRIX_ORIGIN_HEADER, CONTRIX_ORIGIN_SERVICE_DID_HEADER,
+    CONTRIX_REQUEST_ID_HEADER, CONTRIX_SESSION_GRANT_HEADER, ContrixError, ContrixErrorEnvelope,
+    PushDeviceConfig, PushErrorKind, PushPlatform, PushRegistrationError,
+    PushRequestSigningContext, PushRequestSigningOptions, REGISTER_DEVICE_PATH,
+    RegisterDeviceRequest, RegisterDeviceResponse, SIGNATURE_HEADER, SIGNATURE_INPUT_HEADER,
+    UNREGISTER_DEVICE_PATH, UnregisterDeviceRequest, UnregisterDeviceResponse,
+    build_register_device_request, build_register_signing_context,
+    build_register_signing_context_with_options, build_unregister_device_request,
+    build_unregister_signing_context, build_unregister_signing_context_with_options,
+    content_digest_sha256, contrix_api_url, redact_push_key, validate_push_gateway_url,
+    validate_webpush_endpoint_allowlist,
 };
 pub use state::{
-    PushRegistrationState, PushRegistrationStore, PushTokenRotationPlan, build_registration_state,
-    hash_push_key, plan_token_rotation, token_rotation_required,
+    PUSH_REGISTRATION_STATE_SCHEMA_VERSION, PushRegistrationLastError, PushRegistrationState,
+    PushRegistrationStore, PushTokenRotationPlan, PushTokenRotationStrategy,
+    build_registration_state, find_registration_by_token, find_registration_for_device,
+    hash_push_key, plan_token_rotation, plan_token_rotation_with_strategy,
+    token_moved_to_different_device, token_rotation_required,
 };
 
 #[cfg(feature = "http")]
@@ -170,6 +182,14 @@ pub struct PushPreferences {
     /// plaintext message bodies for E2EE Spaces.
     #[serde(alias = "show_message_preview")]
     pub allow_push_hint: bool,
+    /// Optional allowlist for WebPush endpoint origins.
+    ///
+    /// When non-empty and the platform is `web`, registration rejects WebPush
+    /// endpoints whose origin is not present in this list. Entries may be full
+    /// origins such as `https://fcm.googleapis.com` or host patterns such as
+    /// `.push.apple.com` / `*.push.services.mozilla.com`.
+    #[serde(default)]
+    pub webpush_endpoint_allowlist: Vec<String>,
 }
 
 impl Default for PushPreferences {
@@ -180,6 +200,7 @@ impl Default for PushPreferences {
             push_gateway: DEFAULT_CONTRIX_PUSH_GATEWAY_URL.to_owned(),
             allow_insecure_loopback_push_gateway: false,
             allow_push_hint: true,
+            webpush_endpoint_allowlist: Vec::new(),
         }
     }
 }
@@ -284,6 +305,7 @@ mod tests {
         let mut prefs = PushPreferences {
             gateway_type: PushGatewayType::Custom,
             push_gateway: "https://custom.example.com/api/v1/push/notify".to_owned(),
+            webpush_endpoint_allowlist: Vec::new(),
             ..Default::default()
         };
         prefs.apply_gateway_type_defaults();
@@ -301,6 +323,7 @@ mod tests {
             push_gateway: "https://example.com/api/v1/push/notify".to_owned(),
             allow_insecure_loopback_push_gateway: false,
             allow_push_hint: false,
+            webpush_endpoint_allowlist: vec!["https://fcm.googleapis.com".to_owned()],
         };
         let json = to_json(&prefs).unwrap();
         let loaded = from_json(&json);
@@ -308,6 +331,10 @@ mod tests {
         assert_eq!(loaded.gateway_type, prefs.gateway_type);
         assert_eq!(loaded.push_gateway, prefs.push_gateway);
         assert_eq!(loaded.allow_push_hint, prefs.allow_push_hint);
+        assert_eq!(
+            loaded.webpush_endpoint_allowlist,
+            prefs.webpush_endpoint_allowlist
+        );
     }
 
     #[test]

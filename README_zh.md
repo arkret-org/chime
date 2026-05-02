@@ -64,6 +64,7 @@ assert_eq!(loaded.gateway_type, PushGatewayType::Bugle);
 use chime::{PushDeviceConfig, PushPreferences, build_register_device_request};
 
 let config = PushDeviceConfig {
+    principal_did: Some("did:web:alice.example"),
     device_id: "did:web:alice.example#device-phone",
     push_key: Some("fcm-or-apns-device-token"),
     platform: Some("android"),
@@ -94,7 +95,8 @@ use chime::{ContrixPushClient, PushDeviceConfig, PushPreferences};
 let client = ContrixPushClient::new("https://principal.example")
     .with_bearer_token("session-token")
     .with_timeout(std::time::Duration::from_secs(10))
-    .with_retry_policy(chime::PushRetryPolicy::conservative());
+    .with_retry_policy(chime::PushRetryPolicy::conservative())
+    .with_default_request_id("cx:req:01JS0KE000000000000000000");
 
 let response = client.register_device_with_context(&config, &prefs).await?;
 assert!(response.body.ok);
@@ -104,22 +106,67 @@ assert!(response.body.ok);
 
 - 认证材料只通过 header 发送。不要把 session token、API key、签名或 bearer token 放进 `push_gateway` query string。
 - `push_gateway` 必须使用 HTTPS；只有 localhost 开发场景可以显式打开 `allow_insecure_loopback_push_gateway`。
+- WebPush 注册可以设置 `webpush_endpoint_allowlist`，在浏览器 endpoint 发送给服务端前限制允许的 origin 或 host pattern。
 - `push_key` 在 debug output 和日志中会脱敏；调用方仍应按 secret 存储。
+- `ContrixPushClient` 只重试安全的幂等请求：register 需要 idempotency key，unregister 按幂等处理。客户端会优先遵守 `Retry-After`，再使用 exponential backoff 和有界 jitter。
 - `allow_push_hint` 只允许不含正文的唤醒提示，不允许 E2EE Space 的明文消息正文。
+
+### 请求签名辅助
+
+`chime` 不托管认证 secret 或私钥。调用方可以基于即将发送的请求构建 canonical proof body 或 HTTP Message Signature header：
+
+```rust,ignore
+use chime::{
+    PushRequestSigningOptions, build_register_device_request,
+    build_register_signing_context_with_options,
+};
+
+let request = build_register_device_request(&config, &prefs)?;
+let context = build_register_signing_context_with_options(
+    "https://principal.example",
+    &request,
+    PushRequestSigningOptions::new("2026-04-29T00:00:00Z", "https://principal.example")
+        .with_actor_did("did:web:alice.example")
+        .with_expires_at("2026-04-29T00:05:00Z")
+        .with_origin("https://app.example")
+        .with_origin_service_did("did:web:sync.example.com")
+        .with_destination_service_did("did:web:principal.example")
+        .with_nonce("device-phone-register-v1")
+        .with_idempotency_key("device-phone-register-v1")
+        .with_session_grant("externally-issued-coauth-or-soland-grant"),
+)?;
+
+let proof_body = context.canonical_proof_body()?;
+let signature = signer.sign_http_message(&context)?;
+let headers = context.http_message_signature_headers("sig1", &signature)?;
+```
+
+`proof_body` 由调用方签名，再通过 `PushDeviceConfig::proof` 带回请求体。HTTP signature headers 会包含 `Content-Digest`、Contrix device/audience/actor/expiry/origin/destination metadata、nonce/idempotency context、`Signature-Input` 和 `Signature`；调用方可用自己的 HTTP stack 发送，也可通过 `ContrixPushClient::with_header` 注入。`chime` 可以携带外部提供的 coauth/soland grant，但不会托管私钥，也不会自己签发 grant。
+
+### 本地注册状态
+
+`PushRegistrationState` 存储非 secret 的本地状态：principal DID、device id、platform/app id、gateway、token hash/preview、registration id、expiry/refresh hint，以及 last success/error 摘要。`PushRegistrationStore` 保留旧的单条注册方法，并添加 multi-registration 默认方法（`load_push_registrations`、`save_push_registrations`、`delete_push_registration`），方便应用同时保存多个账号、app 或设备。
+
+存储实现应使用系统 keychain、加密应用存储或其它本地受保护存储。state 中包含 `schema_version`，便于应用迁移持久化记录，同时不暴露原始平台 token。
 
 ### Token rotation
 
 ```rust,ignore
-use chime::{plan_token_rotation, PushRegistrationState};
+use chime::{plan_token_rotation_with_strategy, PushRegistrationState, PushTokenRotationStrategy};
 
 let existing: Option<PushRegistrationState> = store.load_push_registration()?;
-let plan = plan_token_rotation(existing.as_ref(), &config, &prefs)?;
+let plan = plan_token_rotation_with_strategy(
+    existing.as_ref(),
+    &config,
+    &prefs,
+    PushTokenRotationStrategy::RegisterNewFirst,
+)?;
 
-if let Some(unregister_old) = plan.unregister_old {
-    // 使用 ContrixPushClient 或你自己的 HTTP stack 发送。
-}
 if let Some(register_new) = plan.register_new {
     // 发送新注册请求，成功后持久化新的 registration state。
+}
+if let Some(unregister_old) = plan.unregister_old {
+    // RegisterNewFirst 策略下，在新注册成功后再发送旧 token 注销请求。
 }
 ```
 
@@ -144,7 +191,13 @@ if let Some(register_new) = plan.register_new {
 | `cx.push.unregister_device` | `POST /api/v1/push/unregister-device` | `build_unregister_device_request()` |
 | `cx.push.notify` | `POST /api/v1/push/notify` | 网关/服务端操作，不是客户端设备注册调用。 |
 
-推送通知是派生唤醒，不是 canonical truth。E2EE Space 下，推送网关只应收到最小化元数据，例如 `space_id`、事件类型、计数，以及可选的不含正文的 `push_hint`。
+Register/unregister 请求体会携带 canonical operation id、可选 `principal_did`、`device_id`、app id、gateway URL、idempotency key、request id 和调用方提供的 proof。响应会在服务端返回时暴露 accepted gateway、token hash/preview、过期或 refresh hint、warnings 与 request id。
+
+推送通知是派生唤醒，不是 canonical truth。E2EE Space 下，推送网关只应收到最小化元数据，例如 `space_id`、事件类型、计数、目标设备引用、priority/TTL/collapse hint，以及可选的不含正文的 `push_hint`。
+
+启用 `notify` feature 后，`PushNotifyRequest::validate_blind_wakeup()` 会强制执行这条边界。Entity facets 和 view renderer 输出只有在应用明确授权时才可作为路由或上下文提示；不要把 facet 派生出的 title、body、display name 或 space name 序列化进 provider payload。校验器会在网关投递前拒绝 `space_name`、`sender_display_name`、provider payload 包装、title/body/preview 字段，以及 facet/view-renderer 扩展键。
+
+`shared_push_notify_privacy_vectors()` 会导出 E2EE invalid cases 和显式 plaintext-visible service allow case，方便 `floria` 等网关实现复用同一组向量。
 
 ## 架构
 

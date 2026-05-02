@@ -22,6 +22,51 @@ pub const UNREGISTER_DEVICE_PATH: &str = "/api/v1/push/unregister-device";
 /// Header used to correlate Contrix requests across clients and services.
 pub const CONTRIX_REQUEST_ID_HEADER: &str = "X-Contrix-Request-Id";
 
+/// RFC 9530 content digest header covered by request signatures.
+pub const CONTENT_DIGEST_HEADER: &str = "Content-Digest";
+
+/// Contrix operation id header covered by request signatures.
+pub const CONTRIX_OPERATION_ID_HEADER: &str = "X-Contrix-Operation-Id";
+
+/// Contrix device id header covered by request signatures.
+pub const CONTRIX_DEVICE_ID_HEADER: &str = "X-Contrix-Device-Id";
+
+/// Contrix request creation timestamp header covered by request signatures.
+pub const CONTRIX_CREATED_AT_HEADER: &str = "X-Contrix-Created-At";
+
+/// Contrix request audience header covered by request signatures.
+pub const CONTRIX_AUDIENCE_HEADER: &str = "X-Contrix-Audience";
+
+/// Contrix actor DID header covered by request signatures.
+pub const CONTRIX_ACTOR_DID_HEADER: &str = "X-Contrix-Actor-Did";
+
+/// Contrix request expiry timestamp header covered by request signatures.
+pub const CONTRIX_EXPIRES_AT_HEADER: &str = "X-Contrix-Expires-At";
+
+/// Contrix request origin URL header covered by request signatures.
+pub const CONTRIX_ORIGIN_HEADER: &str = "X-Contrix-Origin";
+
+/// Contrix origin service DID header covered by request signatures.
+pub const CONTRIX_ORIGIN_SERVICE_DID_HEADER: &str = "X-Contrix-Origin-Service-Did";
+
+/// Contrix destination service DID header covered by request signatures.
+pub const CONTRIX_DESTINATION_SERVICE_DID_HEADER: &str = "X-Contrix-Destination-Service-Did";
+
+/// Contrix nonce header covered by request signatures.
+pub const CONTRIX_NONCE_HEADER: &str = "X-Contrix-Nonce";
+
+/// Contrix idempotency key metadata header covered by request signatures.
+pub const CONTRIX_IDEMPOTENCY_KEY_HEADER: &str = "X-Contrix-Idempotency-Key";
+
+/// Header used to carry an externally supplied coauth/soland session grant.
+pub const CONTRIX_SESSION_GRANT_HEADER: &str = "X-Contrix-Session-Grant";
+
+/// HTTP Message Signatures input header.
+pub const SIGNATURE_INPUT_HEADER: &str = "Signature-Input";
+
+/// HTTP Message Signatures signature header.
+pub const SIGNATURE_HEADER: &str = "Signature";
+
 #[cfg(feature = "http")]
 const SDK_USER_AGENT: &str = concat!("chime/", env!("CARGO_PKG_VERSION"));
 #[cfg(feature = "http")]
@@ -65,6 +110,8 @@ impl TryFrom<&str> for PushPlatform {
 /// Device configuration supplied by the host app.
 #[derive(Clone, Copy)]
 pub struct PushDeviceConfig<'a> {
+    /// Contrix principal DID that owns this device registration.
+    pub principal_did: Option<&'a str>,
     /// Contrix device id, usually a DID fragment such as
     /// `did:web:alice.example#device-phone`.
     pub device_id: &'a str,
@@ -95,6 +142,7 @@ pub struct PushDeviceConfig<'a> {
 impl fmt::Debug for PushDeviceConfig<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("PushDeviceConfig")
+            .field("principal_did", &self.principal_did)
             .field("device_id", &self.device_id)
             .field("push_key", &self.push_key.map(redact_push_key))
             .field("platform", &self.platform)
@@ -112,6 +160,9 @@ impl fmt::Debug for PushDeviceConfig<'_> {
 /// Request body for `POST /api/v1/push/register-device`.
 #[derive(Clone, PartialEq, Serialize, Deserialize)]
 pub struct RegisterDeviceRequest {
+    pub operation_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub principal_did: Option<String>,
     pub device_id: String,
     pub push_gateway: String,
     pub push_key: String,
@@ -124,12 +175,16 @@ pub struct RegisterDeviceRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub idempotency_key: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub request_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub proof: Option<Value>,
 }
 
 impl fmt::Debug for RegisterDeviceRequest {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("RegisterDeviceRequest")
+            .field("operation_id", &self.operation_id)
+            .field("principal_did", &self.principal_did)
             .field("device_id", &self.device_id)
             .field("push_gateway", &redact_url(&self.push_gateway))
             .field("push_key", &redact_push_key(&self.push_key))
@@ -137,6 +192,7 @@ impl fmt::Debug for RegisterDeviceRequest {
             .field("app_id", &self.app_id)
             .field("display_name", &self.display_name)
             .field("idempotency_key", &self.idempotency_key)
+            .field("request_id", &self.request_id)
             .field("proof", &self.proof.as_ref().map(|_| "<present>"))
             .finish()
     }
@@ -149,21 +205,44 @@ pub struct RegisterDeviceResponse {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub registration_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub accepted_gateway: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub push_key_hash: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub push_key_preview: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub expires_at: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub refresh_hint: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub warnings: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub request_id: Option<String>,
 }
 
 /// Request body for `POST /api/v1/push/unregister-device`.
 #[derive(Clone, PartialEq, Serialize, Deserialize)]
 pub struct UnregisterDeviceRequest {
+    pub operation_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub principal_did: Option<String>,
     pub device_id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub registration_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub push_gateway: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub push_key: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub push_key_hash: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub push_key_preview: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub app_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub idempotency_key: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub request_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub proof: Option<Value>,
 }
@@ -171,11 +250,20 @@ pub struct UnregisterDeviceRequest {
 impl fmt::Debug for UnregisterDeviceRequest {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("UnregisterDeviceRequest")
+            .field("operation_id", &self.operation_id)
+            .field("principal_did", &self.principal_did)
             .field("device_id", &self.device_id)
             .field("registration_id", &self.registration_id)
+            .field(
+                "push_gateway",
+                &self.push_gateway.as_deref().map(redact_url),
+            )
             .field("push_key", &self.push_key.as_deref().map(redact_push_key))
+            .field("push_key_hash", &self.push_key_hash)
+            .field("push_key_preview", &self.push_key_preview)
             .field("app_id", &self.app_id)
             .field("idempotency_key", &self.idempotency_key)
+            .field("request_id", &self.request_id)
             .field("proof", &self.proof.as_ref().map(|_| "<present>"))
             .finish()
     }
@@ -185,10 +273,16 @@ impl fmt::Debug for UnregisterDeviceRequest {
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct UnregisterDeviceResponse {
     pub ok: bool,
+    #[serde(default)]
+    pub already_removed: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub removed_registration_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub request_id: Option<String>,
 }
 
 /// Contrix standard error object.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Serialize, Deserialize)]
 pub struct ContrixError {
     pub code: String,
     pub message: String,
@@ -198,13 +292,34 @@ pub struct ContrixError {
     pub details: Option<Value>,
 }
 
+impl fmt::Debug for ContrixError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("ContrixError")
+            .field("code", &self.code)
+            .field("message", &"<redacted>")
+            .field("retry_after_ms", &self.retry_after_ms)
+            .field("details_present", &self.details.is_some())
+            .finish()
+    }
+}
+
 /// Contrix standard error envelope.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Serialize, Deserialize)]
 pub struct ContrixErrorEnvelope {
     pub ok: bool,
     pub error: ContrixError,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub request_id: Option<String>,
+}
+
+impl fmt::Debug for ContrixErrorEnvelope {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("ContrixErrorEnvelope")
+            .field("ok", &self.ok)
+            .field("error", &self.error)
+            .field("request_id", &self.request_id)
+            .finish()
+    }
 }
 
 /// Stable high-level category for push registration failures.
@@ -213,6 +328,8 @@ pub enum PushErrorKind {
     MissingField,
     InvalidPlatform,
     InvalidPushGatewayUrl,
+    InvalidWebPushEndpoint,
+    WebPushEndpointNotAllowed,
     ForbiddenPushGatewayQueryParam,
     InvalidHeader,
     Unauthenticated,
@@ -229,8 +346,9 @@ pub enum PushErrorKind {
 }
 
 /// Canonical data that callers can bind into DID proofs or HTTP Message Signatures.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PushRequestSigningContext {
+    pub operation_id: String,
     pub method: String,
     pub path: String,
     pub target_uri: String,
@@ -238,6 +356,267 @@ pub struct PushRequestSigningContext {
     pub device_id: String,
     pub created_at: String,
     pub audience: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub actor_did: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expires_at: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub origin: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub origin_service_did: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub destination_service_did: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub nonce: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub idempotency_key: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub session_grant: Option<String>,
+}
+
+impl fmt::Debug for PushRequestSigningContext {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("PushRequestSigningContext")
+            .field("operation_id", &self.operation_id)
+            .field("method", &self.method)
+            .field("path", &self.path)
+            .field("target_uri", &redact_url(&self.target_uri))
+            .field("content_digest", &self.content_digest)
+            .field("device_id", &self.device_id)
+            .field("created_at", &self.created_at)
+            .field("audience", &self.audience)
+            .field("actor_did", &self.actor_did)
+            .field("expires_at", &self.expires_at)
+            .field("origin", &self.origin)
+            .field("origin_service_did", &self.origin_service_did)
+            .field("destination_service_did", &self.destination_service_did)
+            .field("nonce", &self.nonce)
+            .field("idempotency_key", &self.idempotency_key)
+            .field(
+                "session_grant",
+                &self.session_grant.as_ref().map(|_| "<redacted>"),
+            )
+            .finish()
+    }
+}
+
+impl PushRequestSigningContext {
+    /// Return the canonical JSON value callers can sign as a DID proof body.
+    pub fn canonical_proof_body(&self) -> Result<Value, PushRegistrationError> {
+        Ok(serde_json::to_value(self)?)
+    }
+
+    /// Return deterministic metadata headers that should be present on the
+    /// HTTP request and covered by HTTP Message Signatures.
+    pub fn signed_metadata_headers(&self) -> Vec<(&'static str, String)> {
+        let mut headers = vec![
+            (CONTENT_DIGEST_HEADER, self.content_digest.clone()),
+            (CONTRIX_OPERATION_ID_HEADER, self.operation_id.clone()),
+            (CONTRIX_DEVICE_ID_HEADER, self.device_id.clone()),
+            (CONTRIX_CREATED_AT_HEADER, self.created_at.clone()),
+            (CONTRIX_AUDIENCE_HEADER, self.audience.clone()),
+        ];
+
+        if let Some(actor_did) = &self.actor_did {
+            headers.push((CONTRIX_ACTOR_DID_HEADER, actor_did.clone()));
+        }
+        if let Some(expires_at) = &self.expires_at {
+            headers.push((CONTRIX_EXPIRES_AT_HEADER, expires_at.clone()));
+        }
+        if let Some(origin) = &self.origin {
+            headers.push((CONTRIX_ORIGIN_HEADER, origin.clone()));
+        }
+        if let Some(origin_service_did) = &self.origin_service_did {
+            headers.push((
+                CONTRIX_ORIGIN_SERVICE_DID_HEADER,
+                origin_service_did.clone(),
+            ));
+        }
+        if let Some(destination_service_did) = &self.destination_service_did {
+            headers.push((
+                CONTRIX_DESTINATION_SERVICE_DID_HEADER,
+                destination_service_did.clone(),
+            ));
+        }
+        if let Some(nonce) = &self.nonce {
+            headers.push((CONTRIX_NONCE_HEADER, nonce.clone()));
+        }
+        if let Some(idempotency_key) = &self.idempotency_key {
+            headers.push((CONTRIX_IDEMPOTENCY_KEY_HEADER, idempotency_key.clone()));
+        }
+        if let Some(session_grant) = &self.session_grant {
+            headers.push((CONTRIX_SESSION_GRANT_HEADER, session_grant.clone()));
+        }
+
+        headers
+    }
+
+    /// Build the `Signature-Input` header value for this request context.
+    pub fn http_message_signature_input(
+        &self,
+        label: &str,
+    ) -> Result<String, PushRegistrationError> {
+        validate_signature_label(label)?;
+
+        let mut components = vec![
+            "@method",
+            "@target-uri",
+            "content-digest",
+            "x-contrix-operation-id",
+            "x-contrix-device-id",
+            "x-contrix-created-at",
+            "x-contrix-audience",
+        ];
+
+        if self.actor_did.is_some() {
+            components.push("x-contrix-actor-did");
+        }
+        if self.expires_at.is_some() {
+            components.push("x-contrix-expires-at");
+        }
+        if self.origin.is_some() {
+            components.push("x-contrix-origin");
+        }
+        if self.origin_service_did.is_some() {
+            components.push("x-contrix-origin-service-did");
+        }
+        if self.destination_service_did.is_some() {
+            components.push("x-contrix-destination-service-did");
+        }
+        if self.nonce.is_some() {
+            components.push("x-contrix-nonce");
+        }
+        if self.idempotency_key.is_some() {
+            components.push("x-contrix-idempotency-key");
+        }
+        if self.session_grant.is_some() {
+            components.push("x-contrix-session-grant");
+        }
+
+        let covered = components
+            .into_iter()
+            .map(|component| format!("\"{component}\""))
+            .collect::<Vec<_>>()
+            .join(" ");
+
+        Ok(format!("{label}=({covered})"))
+    }
+
+    /// Build the `Signature` header value from a precomputed base64 signature.
+    pub fn http_message_signature_header(
+        label: &str,
+        signature: &str,
+    ) -> Result<String, PushRegistrationError> {
+        validate_signature_label(label)?;
+        validate_signature_value(signature)?;
+        Ok(format!("{label}=:{signature}:"))
+    }
+
+    /// Return the metadata, `Signature-Input`, and `Signature` headers needed
+    /// to attach a precomputed HTTP Message Signature to the request.
+    pub fn http_message_signature_headers(
+        &self,
+        label: &str,
+        signature: &str,
+    ) -> Result<Vec<(&'static str, String)>, PushRegistrationError> {
+        let mut headers = self.signed_metadata_headers();
+        headers.push((
+            SIGNATURE_INPUT_HEADER,
+            self.http_message_signature_input(label)?,
+        ));
+        headers.push((
+            SIGNATURE_HEADER,
+            Self::http_message_signature_header(label, signature)?,
+        ));
+        Ok(headers)
+    }
+}
+
+/// Inputs used to build a request signing context.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PushRequestSigningOptions {
+    pub created_at: String,
+    pub audience: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub actor_did: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expires_at: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub origin: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub origin_service_did: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub destination_service_did: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub nonce: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub idempotency_key: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub session_grant: Option<String>,
+}
+
+impl PushRequestSigningOptions {
+    pub fn new(created_at: impl Into<String>, audience: impl Into<String>) -> Self {
+        Self {
+            created_at: created_at.into(),
+            audience: audience.into(),
+            actor_did: None,
+            expires_at: None,
+            origin: None,
+            origin_service_did: None,
+            destination_service_did: None,
+            nonce: None,
+            idempotency_key: None,
+            session_grant: None,
+        }
+    }
+
+    pub fn with_actor_did(mut self, actor_did: impl Into<String>) -> Self {
+        self.actor_did = Some(actor_did.into());
+        self
+    }
+
+    pub fn with_expires_at(mut self, expires_at: impl Into<String>) -> Self {
+        self.expires_at = Some(expires_at.into());
+        self
+    }
+
+    pub fn with_origin(mut self, origin: impl Into<String>) -> Self {
+        self.origin = Some(origin.into());
+        self
+    }
+
+    pub fn with_origin_service_did(mut self, origin_service_did: impl Into<String>) -> Self {
+        self.origin_service_did = Some(origin_service_did.into());
+        self
+    }
+
+    pub fn with_destination_service_did(
+        mut self,
+        destination_service_did: impl Into<String>,
+    ) -> Self {
+        self.destination_service_did = Some(destination_service_did.into());
+        self
+    }
+
+    pub fn with_nonce(mut self, nonce: impl Into<String>) -> Self {
+        self.nonce = Some(nonce.into());
+        self
+    }
+
+    pub fn with_idempotency_key(mut self, idempotency_key: impl Into<String>) -> Self {
+        self.idempotency_key = Some(idempotency_key.into());
+        self
+    }
+
+    /// Attach an externally supplied coauth/soland session grant.
+    ///
+    /// `chime` only carries this value into the signing context and metadata
+    /// headers; it never owns private keys or attempts to mint grants.
+    pub fn with_session_grant(mut self, session_grant: impl Into<String>) -> Self {
+        self.session_grant = Some(session_grant.into());
+        self
+    }
 }
 
 #[derive(Error)]
@@ -248,6 +627,10 @@ pub enum PushRegistrationError {
     InvalidPlatform(String),
     #[error("invalid push gateway URL: {reason}")]
     InvalidPushGatewayUrl { url: String, reason: String },
+    #[error("invalid WebPush endpoint: {reason}")]
+    InvalidWebPushEndpoint { endpoint: String, reason: String },
+    #[error("WebPush endpoint origin is not allowed: {origin}")]
+    WebPushEndpointNotAllowed { endpoint: String, origin: String },
     #[error("push gateway URL contains forbidden query parameter: {param}")]
     ForbiddenPushGatewayQueryParam { param: String },
     #[error("invalid HTTP header `{name}`")]
@@ -279,6 +662,16 @@ impl fmt::Debug for PushRegistrationError {
                 .debug_struct("InvalidPushGatewayUrl")
                 .field("url", &redact_url(url))
                 .field("reason", reason)
+                .finish(),
+            Self::InvalidWebPushEndpoint { endpoint, reason } => f
+                .debug_struct("InvalidWebPushEndpoint")
+                .field("endpoint", &redact_webpush_endpoint(endpoint))
+                .field("reason", reason)
+                .finish(),
+            Self::WebPushEndpointNotAllowed { endpoint, origin } => f
+                .debug_struct("WebPushEndpointNotAllowed")
+                .field("endpoint", &redact_webpush_endpoint(endpoint))
+                .field("origin", origin)
                 .finish(),
             Self::ForbiddenPushGatewayQueryParam { param } => f
                 .debug_struct("ForbiddenPushGatewayQueryParam")
@@ -316,6 +709,8 @@ impl PushRegistrationError {
             Self::MissingField(_) => PushErrorKind::MissingField,
             Self::InvalidPlatform(_) => PushErrorKind::InvalidPlatform,
             Self::InvalidPushGatewayUrl { .. } => PushErrorKind::InvalidPushGatewayUrl,
+            Self::InvalidWebPushEndpoint { .. } => PushErrorKind::InvalidWebPushEndpoint,
+            Self::WebPushEndpointNotAllowed { .. } => PushErrorKind::WebPushEndpointNotAllowed,
             Self::ForbiddenPushGatewayQueryParam { .. } => {
                 PushErrorKind::ForbiddenPushGatewayQueryParam
             }
@@ -439,6 +834,77 @@ pub fn validate_push_gateway_url(
     }
 }
 
+/// Validate a WebPush endpoint against an optional allowlist.
+///
+/// Empty allowlists accept both opaque WebPush tokens and HTTPS endpoints. When
+/// an allowlist is provided, `push_key` must be a WebPush endpoint URL, either
+/// directly or prefixed as `webpush:<endpoint>`, and its origin/host must match
+/// an allowlist entry.
+pub fn validate_webpush_endpoint_allowlist(
+    push_key: &str,
+    allowlist: &[String],
+) -> Result<(), PushRegistrationError> {
+    let Some(endpoint) = webpush_endpoint_from_push_key(push_key) else {
+        return if allowlist.is_empty() {
+            Ok(())
+        } else {
+            Err(PushRegistrationError::InvalidWebPushEndpoint {
+                endpoint: push_key.to_owned(),
+                reason: "allowlisted WebPush registrations must use an endpoint URL".to_owned(),
+            })
+        };
+    };
+
+    let url =
+        Url::parse(endpoint).map_err(|error| PushRegistrationError::InvalidWebPushEndpoint {
+            endpoint: push_key.to_owned(),
+            reason: error.to_string(),
+        })?;
+
+    if !url.username().is_empty() || url.password().is_some() {
+        return Err(PushRegistrationError::InvalidWebPushEndpoint {
+            endpoint: push_key.to_owned(),
+            reason: "embedded credentials are not allowed".to_owned(),
+        });
+    }
+
+    for (param, _) in url.query_pairs() {
+        if is_forbidden_secret_query_param(&param) {
+            return Err(PushRegistrationError::ForbiddenPushGatewayQueryParam {
+                param: param.into_owned(),
+            });
+        }
+    }
+
+    if url.scheme() != "https" {
+        return Err(PushRegistrationError::InvalidWebPushEndpoint {
+            endpoint: push_key.to_owned(),
+            reason: "WebPush endpoints must use HTTPS".to_owned(),
+        });
+    }
+
+    if allowlist.is_empty() {
+        return Ok(());
+    }
+
+    let origin = url_origin(&url).ok_or_else(|| PushRegistrationError::InvalidWebPushEndpoint {
+        endpoint: push_key.to_owned(),
+        reason: "endpoint URL has no host".to_owned(),
+    })?;
+
+    if allowlist
+        .iter()
+        .any(|entry| webpush_allowlist_entry_matches(&url, entry))
+    {
+        Ok(())
+    } else {
+        Err(PushRegistrationError::WebPushEndpointNotAllowed {
+            endpoint: push_key.to_owned(),
+            origin,
+        })
+    }
+}
+
 /// Return a non-secret preview of a platform push token.
 pub fn redact_push_key(value: &str) -> String {
     let value = value.trim();
@@ -464,6 +930,7 @@ pub fn redact_push_key(value: &str) -> String {
 /// use chime::{PushDeviceConfig, PushPreferences, build_register_device_request};
 ///
 /// let config = PushDeviceConfig {
+///     principal_did: Some("did:web:alice.example"),
 ///     device_id: "did:web:alice.example#device-phone",
 ///     push_key: Some("fcm:token"),
 ///     platform: Some("android"),
@@ -497,8 +964,13 @@ pub fn build_register_device_request(
 
     let platform = parse_platform(config.platform)?;
     let app_id = prefs.app_id(platform, config.app_id, config.domestic_app_id);
+    if platform == Some(PushPlatform::Web) {
+        validate_webpush_endpoint_allowlist(push_key, &prefs.webpush_endpoint_allowlist)?;
+    }
 
     Ok(RegisterDeviceRequest {
+        operation_id: crate::OPERATION_PUSH_REGISTER_DEVICE.to_owned(),
+        principal_did: config.principal_did.and_then(non_empty).map(str::to_owned),
         device_id: config.device_id.to_owned(),
         push_gateway: prefs.push_gateway.clone(),
         push_key: push_key.to_owned(),
@@ -506,6 +978,7 @@ pub fn build_register_device_request(
         app_id: app_id.map(str::to_owned),
         display_name: config.display_name.map(str::to_owned),
         idempotency_key: config.idempotency_key.map(str::to_owned),
+        request_id: config.request_id.map(str::to_owned),
         proof: config.proof.cloned(),
     })
 }
@@ -517,6 +990,7 @@ pub fn build_register_device_request(
 /// use chime::{PushDeviceConfig, PushPreferences, build_unregister_device_request};
 ///
 /// let config = PushDeviceConfig {
+///     principal_did: Some("did:web:alice.example"),
 ///     device_id: "did:web:alice.example#device-phone",
 ///     push_key: None,
 ///     platform: Some("android"),
@@ -536,16 +1010,29 @@ pub fn build_unregister_device_request(
     prefs: &PushPreferences,
 ) -> Result<UnregisterDeviceRequest, PushRegistrationError> {
     require_non_empty("device_id", config.device_id)?;
+    if non_empty(&prefs.push_gateway).is_some() {
+        validate_push_gateway_url(
+            &prefs.push_gateway,
+            prefs.allow_insecure_loopback_push_gateway,
+        )?;
+    }
 
     let platform = parse_platform(config.platform)?;
     let app_id = prefs.app_id(platform, config.app_id, config.domestic_app_id);
+    let push_key = config.push_key.and_then(non_empty);
 
     Ok(UnregisterDeviceRequest {
+        operation_id: crate::OPERATION_PUSH_UNREGISTER_DEVICE.to_owned(),
+        principal_did: config.principal_did.and_then(non_empty).map(str::to_owned),
         device_id: config.device_id.to_owned(),
         registration_id: non_empty(config.registration_id.unwrap_or_default()).map(str::to_owned),
-        push_key: config.push_key.and_then(non_empty).map(str::to_owned),
+        push_gateway: non_empty(&prefs.push_gateway).map(str::to_owned),
+        push_key: push_key.map(str::to_owned),
+        push_key_hash: push_key.map(hash_push_key_for_wire),
+        push_key_preview: push_key.map(redact_push_key),
         app_id: app_id.map(str::to_owned),
         idempotency_key: config.idempotency_key.map(str::to_owned),
+        request_id: config.request_id.map(str::to_owned),
         proof: config.proof.cloned(),
     })
 }
@@ -559,6 +1046,7 @@ pub fn build_unregister_device_request(
 /// };
 ///
 /// let config = PushDeviceConfig {
+///     principal_did: Some("did:web:alice.example"),
 ///     device_id: "did:web:alice.example#device-phone",
 ///     push_key: Some("fcm:token"),
 ///     platform: Some("android"),
@@ -592,13 +1080,27 @@ pub fn build_register_signing_context(
     created_at: impl Into<String>,
     audience: impl Into<String>,
 ) -> Result<PushRequestSigningContext, PushRegistrationError> {
+    build_register_signing_context_with_options(
+        service_base_url,
+        request,
+        PushRequestSigningOptions::new(created_at, audience),
+    )
+}
+
+/// Build the signing context for `cx.push.register_device` with actor and
+/// expiry metadata.
+pub fn build_register_signing_context_with_options(
+    service_base_url: &str,
+    request: &RegisterDeviceRequest,
+    options: PushRequestSigningOptions,
+) -> Result<PushRequestSigningContext, PushRegistrationError> {
     build_signing_context(
         service_base_url,
+        crate::OPERATION_PUSH_REGISTER_DEVICE,
         REGISTER_DEVICE_PATH,
         &request.device_id,
         request,
-        created_at,
-        audience,
+        options,
     )
 }
 
@@ -609,13 +1111,27 @@ pub fn build_unregister_signing_context(
     created_at: impl Into<String>,
     audience: impl Into<String>,
 ) -> Result<PushRequestSigningContext, PushRegistrationError> {
+    build_unregister_signing_context_with_options(
+        service_base_url,
+        request,
+        PushRequestSigningOptions::new(created_at, audience),
+    )
+}
+
+/// Build the signing context for `cx.push.unregister_device` with actor and
+/// expiry metadata.
+pub fn build_unregister_signing_context_with_options(
+    service_base_url: &str,
+    request: &UnregisterDeviceRequest,
+    options: PushRequestSigningOptions,
+) -> Result<PushRequestSigningContext, PushRegistrationError> {
     build_signing_context(
         service_base_url,
+        crate::OPERATION_PUSH_UNREGISTER_DEVICE,
         UNREGISTER_DEVICE_PATH,
         &request.device_id,
         request,
-        created_at,
-        audience,
+        options,
     )
 }
 
@@ -660,6 +1176,7 @@ pub struct PushRetryPolicy {
     pub max_retries: u32,
     pub initial_backoff: Duration,
     pub max_backoff: Duration,
+    pub jitter: Duration,
 }
 
 #[cfg(feature = "http")]
@@ -669,6 +1186,7 @@ impl PushRetryPolicy {
             max_retries: 0,
             initial_backoff: Duration::from_millis(0),
             max_backoff: Duration::from_millis(0),
+            jitter: Duration::from_millis(0),
         }
     }
 
@@ -677,6 +1195,7 @@ impl PushRetryPolicy {
             max_retries: 2,
             initial_backoff: Duration::from_millis(200),
             max_backoff: Duration::from_secs(3),
+            jitter: Duration::from_millis(100),
         }
     }
 }
@@ -696,8 +1215,11 @@ pub struct ContrixPushClient {
     bearer_token: Option<String>,
     timeout: Option<Duration>,
     retry_policy: PushRetryPolicy,
+    retry_jitter_seed: u64,
     user_agent: String,
     headers: Vec<(reqwest::header::HeaderName, reqwest::header::HeaderValue)>,
+    default_idempotency_key: Option<String>,
+    default_request_id: Option<String>,
 }
 
 #[cfg(feature = "http")]
@@ -713,6 +1235,8 @@ impl fmt::Debug for ContrixPushClient {
             .field("retry_policy", &self.retry_policy)
             .field("user_agent", &self.user_agent)
             .field("header_count", &self.headers.len())
+            .field("default_idempotency_key", &self.default_idempotency_key)
+            .field("default_request_id", &self.default_request_id)
             .finish()
     }
 }
@@ -726,8 +1250,11 @@ impl ContrixPushClient {
             bearer_token: None,
             timeout: None,
             retry_policy: PushRetryPolicy::disabled(),
+            retry_jitter_seed: retry_jitter_seed(),
             user_agent: SDK_USER_AGENT.to_owned(),
             headers: Vec::new(),
+            default_idempotency_key: None,
+            default_request_id: None,
         }
     }
 
@@ -759,6 +1286,23 @@ impl ContrixPushClient {
     pub fn with_user_agent(mut self, user_agent: impl Into<String>) -> Self {
         self.user_agent = user_agent.into();
         self
+    }
+
+    pub fn with_default_idempotency_key(mut self, idempotency_key: impl Into<String>) -> Self {
+        self.default_idempotency_key = Some(idempotency_key.into());
+        self
+    }
+
+    pub fn with_default_request_id(mut self, request_id: impl Into<String>) -> Self {
+        self.default_request_id = Some(request_id.into());
+        self
+    }
+
+    pub fn with_session_grant(
+        self,
+        session_grant: impl AsRef<str>,
+    ) -> Result<Self, PushRegistrationError> {
+        self.with_header(CONTRIX_SESSION_GRANT_HEADER, session_grant)
     }
 
     /// Add a caller-supplied header, for example HTTP Message Signature fields.
@@ -819,7 +1363,13 @@ impl ContrixPushClient {
             return Ok(response.map_body(|body| RegisterDeviceResponse {
                 ok: body.ok,
                 registration_id: None,
+                accepted_gateway: None,
+                push_key_hash: None,
+                push_key_preview: None,
                 expires_at: None,
+                refresh_hint: None,
+                warnings: Vec::new(),
+                request_id: body.request_id,
             }));
         }
 
@@ -874,7 +1424,12 @@ impl ContrixPushClient {
         {
             Ok(response) => response,
             Err(error) if error.kind() == PushErrorKind::NotFound => ContrixResponse {
-                body: UnregisterDeviceResponse { ok: true },
+                body: UnregisterDeviceResponse {
+                    ok: true,
+                    already_removed: true,
+                    removed_registration_id: None,
+                    request_id: error.request_id().map(str::to_owned),
+                },
                 request_id: error.request_id().map(str::to_owned),
                 retry_after: error.retry_after().map(str::to_owned),
             },
@@ -903,6 +1458,9 @@ impl ContrixPushClient {
         R: for<'de> Deserialize<'de>,
     {
         let mut retry_count = 0;
+        let idempotency_key = idempotency_key.or(self.default_idempotency_key.as_deref());
+        let request_id = request_id.or(self.default_request_id.as_deref());
+        let retry_is_safe = idempotency_key.is_some() || path == UNREGISTER_DEVICE_PATH;
 
         loop {
             let result = self
@@ -912,7 +1470,9 @@ impl ContrixPushClient {
             match result {
                 Ok(response) => return Ok(response),
                 Err(error)
-                    if retry_count < self.retry_policy.max_retries && error.is_retryable() =>
+                    if retry_is_safe
+                        && retry_count < self.retry_policy.max_retries
+                        && error.is_retryable() =>
                 {
                     let delay = error
                         .retry_after_duration()
@@ -938,7 +1498,7 @@ impl ContrixPushClient {
         T: Serialize + ?Sized,
         R: for<'de> Deserialize<'de>,
     {
-        let url = contrix_api_url(&self.service_base_url, path);
+        let url = try_contrix_api_url(&self.service_base_url, path)?;
         let mut request = self
             .http
             .post(url)
@@ -1001,10 +1561,33 @@ impl ContrixPushClient {
 
     fn backoff_delay(&self, retry_count: u32) -> Duration {
         let factor = 1_u32.checked_shl(retry_count.min(31)).unwrap_or(u32::MAX);
-        self.retry_policy
+        let base = self
+            .retry_policy
             .initial_backoff
             .saturating_mul(factor)
+            .min(self.retry_policy.max_backoff);
+        base.saturating_add(self.jitter_delay(retry_count))
             .min(self.retry_policy.max_backoff)
+    }
+
+    fn jitter_delay(&self, retry_count: u32) -> Duration {
+        if self.retry_policy.jitter.is_zero() {
+            return Duration::ZERO;
+        }
+
+        let max_nanos = self.retry_policy.jitter.as_nanos().min(u64::MAX as u128) as u64;
+        if max_nanos == 0 {
+            return Duration::ZERO;
+        }
+
+        let mut value =
+            self.retry_jitter_seed ^ ((retry_count as u64).wrapping_add(1) * 0x9E37_79B9_7F4A_7C15);
+        value ^= value >> 30;
+        value = value.wrapping_mul(0xBF58_476D_1CE4_E5B9);
+        value ^= value >> 27;
+        value = value.wrapping_mul(0x94D0_49BB_1331_11EB);
+        value ^= value >> 31;
+        Duration::from_nanos(value % (max_nanos.saturating_add(1)))
     }
 }
 
@@ -1014,23 +1597,48 @@ fn parse_platform(value: Option<&str>) -> Result<Option<PushPlatform>, PushRegis
 
 fn build_signing_context<T>(
     service_base_url: &str,
+    operation_id: &str,
     path: &str,
     device_id: &str,
     body: &T,
-    created_at: impl Into<String>,
-    audience: impl Into<String>,
+    options: PushRequestSigningOptions,
 ) -> Result<PushRequestSigningContext, PushRegistrationError>
 where
     T: Serialize + ?Sized,
 {
+    let created_at = require_owned_non_empty("created_at", options.created_at)?;
+    let audience = require_owned_non_empty("audience", options.audience)?;
+    let actor_did = require_optional_owned_non_empty("actor_did", options.actor_did)?;
+    let expires_at = require_optional_owned_non_empty("expires_at", options.expires_at)?;
+    let origin = require_optional_owned_non_empty("origin", options.origin)?;
+    let origin_service_did =
+        require_optional_owned_non_empty("origin_service_did", options.origin_service_did)?;
+    let destination_service_did = require_optional_owned_non_empty(
+        "destination_service_did",
+        options.destination_service_did,
+    )?;
+    let nonce = require_optional_owned_non_empty("nonce", options.nonce)?;
+    let idempotency_key =
+        require_optional_owned_non_empty("idempotency_key", options.idempotency_key)?;
+    let session_grant = require_optional_owned_non_empty("session_grant", options.session_grant)?;
+
     Ok(PushRequestSigningContext {
+        operation_id: operation_id.to_owned(),
         method: "POST".to_owned(),
         path: path.to_owned(),
-        target_uri: contrix_api_url(service_base_url, path),
+        target_uri: try_contrix_api_url(service_base_url, path)?,
         content_digest: content_digest_sha256(body)?,
         device_id: device_id.to_owned(),
-        created_at: created_at.into(),
-        audience: audience.into(),
+        created_at,
+        audience,
+        actor_did,
+        expires_at,
+        origin,
+        origin_service_did,
+        destination_service_did,
+        nonce,
+        idempotency_key,
+        session_grant,
     })
 }
 
@@ -1051,9 +1659,68 @@ fn require_optional_non_empty<'a>(
         .ok_or(PushRegistrationError::MissingField(name))
 }
 
+fn require_owned_non_empty(
+    name: &'static str,
+    value: String,
+) -> Result<String, PushRegistrationError> {
+    non_empty(&value)
+        .map(str::to_owned)
+        .ok_or(PushRegistrationError::MissingField(name))
+}
+
+fn require_optional_owned_non_empty(
+    name: &'static str,
+    value: Option<String>,
+) -> Result<Option<String>, PushRegistrationError> {
+    value
+        .map(|value| require_owned_non_empty(name, value))
+        .transpose()
+}
+
 fn non_empty(value: &str) -> Option<&str> {
     let value = value.trim();
     (!value.is_empty()).then_some(value)
+}
+
+fn hash_push_key_for_wire(push_key: &str) -> String {
+    let digest = Sha256::digest(push_key.as_bytes());
+    let mut output = String::with_capacity("sha256:".len() + digest.len() * 2);
+    output.push_str("sha256:");
+    for byte in digest {
+        use std::fmt::Write as _;
+        let _ = write!(output, "{byte:02x}");
+    }
+    output
+}
+
+fn validate_signature_label(label: &str) -> Result<(), PushRegistrationError> {
+    let valid = !label.is_empty()
+        && label
+            .chars()
+            .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '_' | '-' | '.'));
+
+    if valid {
+        Ok(())
+    } else {
+        Err(PushRegistrationError::InvalidHeader {
+            name: SIGNATURE_INPUT_HEADER.to_owned(),
+        })
+    }
+}
+
+fn validate_signature_value(signature: &str) -> Result<(), PushRegistrationError> {
+    let valid = non_empty(signature).is_some()
+        && signature
+            .bytes()
+            .all(|byte| byte.is_ascii_graphic() && byte != b':');
+
+    if valid {
+        Ok(())
+    } else {
+        Err(PushRegistrationError::InvalidHeader {
+            name: SIGNATURE_HEADER.to_owned(),
+        })
+    }
 }
 
 fn is_forbidden_secret_query_param(name: &str) -> bool {
@@ -1089,6 +1756,108 @@ fn is_safe_token_prefix(prefix: &str) -> bool {
             .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '_' | '-' | '.'))
 }
 
+fn try_contrix_api_url(
+    service_base_url: &str,
+    path: &str,
+) -> Result<String, PushRegistrationError> {
+    validate_service_base_url(service_base_url)?;
+    Ok(contrix_api_url(service_base_url, path))
+}
+
+fn validate_service_base_url(value: &str) -> Result<(), PushRegistrationError> {
+    require_non_empty("service_base_url", value)?;
+
+    let url = Url::parse(value).map_err(|error| PushRegistrationError::InvalidPushGatewayUrl {
+        url: value.to_owned(),
+        reason: error.to_string(),
+    })?;
+
+    if !url.username().is_empty() || url.password().is_some() {
+        return Err(PushRegistrationError::InvalidPushGatewayUrl {
+            url: value.to_owned(),
+            reason: "embedded credentials are not allowed".to_owned(),
+        });
+    }
+
+    for (param, _) in url.query_pairs() {
+        if is_forbidden_secret_query_param(&param) {
+            return Err(PushRegistrationError::ForbiddenPushGatewayQueryParam {
+                param: param.into_owned(),
+            });
+        }
+    }
+
+    if url.query().is_some() {
+        return Err(PushRegistrationError::InvalidPushGatewayUrl {
+            url: value.to_owned(),
+            reason: "service base URL must not contain a query string".to_owned(),
+        });
+    }
+
+    if url.fragment().is_some() {
+        return Err(PushRegistrationError::InvalidPushGatewayUrl {
+            url: value.to_owned(),
+            reason: "service base URL must not contain a fragment".to_owned(),
+        });
+    }
+
+    match url.scheme() {
+        "https" => Ok(()),
+        "http" if is_loopback_url(&url) => Ok(()),
+        "http" => Err(PushRegistrationError::InvalidPushGatewayUrl {
+            url: value.to_owned(),
+            reason: "plain HTTP service URLs are only allowed for loopback development".to_owned(),
+        }),
+        scheme => Err(PushRegistrationError::InvalidPushGatewayUrl {
+            url: value.to_owned(),
+            reason: format!("unsupported URL scheme `{scheme}`"),
+        }),
+    }
+}
+
+fn webpush_endpoint_from_push_key(push_key: &str) -> Option<&str> {
+    let value = push_key.trim();
+    let endpoint = value.strip_prefix("webpush:").unwrap_or(value);
+    (endpoint.starts_with("https://") || endpoint.starts_with("http://")).then_some(endpoint)
+}
+
+fn webpush_allowlist_entry_matches(endpoint: &Url, entry: &str) -> bool {
+    let entry = entry.trim();
+    if entry.is_empty() {
+        return false;
+    }
+
+    if let Ok(allowed) = Url::parse(entry) {
+        return endpoint.scheme() == allowed.scheme()
+            && endpoint.host_str() == allowed.host_str()
+            && endpoint.port_or_known_default() == allowed.port_or_known_default();
+    }
+
+    let Some(host) = endpoint.host_str() else {
+        return false;
+    };
+    let host = host.to_ascii_lowercase();
+    let pattern = entry.to_ascii_lowercase();
+
+    if let Some(suffix) = pattern.strip_prefix("*.") {
+        host == suffix || host.ends_with(&format!(".{suffix}"))
+    } else if let Some(suffix) = pattern.strip_prefix('.') {
+        host.ends_with(&format!(".{suffix}"))
+    } else {
+        host == pattern
+    }
+}
+
+fn url_origin(url: &Url) -> Option<String> {
+    let host = url.host_str()?;
+    let mut origin = format!("{}://{}", url.scheme(), host);
+    if let Some(port) = url.port() {
+        origin.push(':');
+        origin.push_str(&port.to_string());
+    }
+    Some(origin)
+}
+
 fn redact_url(value: &str) -> String {
     match Url::parse(value) {
         Ok(mut url) => {
@@ -1101,6 +1870,10 @@ fn redact_url(value: &str) -> String {
         }
         Err(_) => format!("<invalid-url,len={}>", value.chars().count()),
     }
+}
+
+fn redact_webpush_endpoint(value: &str) -> String {
+    format!("<redacted-webpush-endpoint,len={}>", value.chars().count())
 }
 
 #[cfg(any(test, feature = "http"))]
@@ -1145,6 +1918,14 @@ fn parse_retry_after(value: &str) -> Option<Duration> {
 }
 
 #[cfg(feature = "http")]
+fn retry_jitter_seed() -> u64 {
+    SystemTime::now()
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .map(|duration| duration.as_nanos().min(u64::MAX as u128) as u64)
+        .unwrap_or(0xC0DE_CAFE)
+}
+
+#[cfg(feature = "http")]
 fn header_value(headers: &reqwest::header::HeaderMap, name: &str) -> Option<String> {
     headers
         .get(name)
@@ -1159,6 +1940,7 @@ mod tests {
 
     fn config<'a>(platform: Option<&'a str>) -> PushDeviceConfig<'a> {
         PushDeviceConfig {
+            principal_did: Some("did:web:alice.example"),
             device_id: "did:web:alice.example#device-phone",
             push_key: Some("fcm:very-secret-token"),
             platform,
@@ -1197,6 +1979,11 @@ mod tests {
 
         let request = build_register_device_request(&config(Some("android")), &prefs).unwrap();
 
+        assert_eq!(request.operation_id, crate::OPERATION_PUSH_REGISTER_DEVICE);
+        assert_eq!(
+            request.principal_did.as_deref(),
+            Some("did:web:alice.example")
+        );
         assert_eq!(request.device_id, "did:web:alice.example#device-phone");
         assert_eq!(request.push_gateway, DEFAULT_BUGLE_PUSH_GATEWAY_URL);
         assert_eq!(request.push_key, "fcm:very-secret-token");
@@ -1204,6 +1991,10 @@ mod tests {
         assert_eq!(request.app_id.as_deref(), Some("app.example.android.cn"));
         assert_eq!(request.display_name.as_deref(), Some("Alice Phone"));
         assert_eq!(request.idempotency_key.as_deref(), Some("idem-1"));
+        assert_eq!(
+            request.request_id.as_deref(),
+            Some("cx:req:01JS0KE000000000000000000")
+        );
     }
 
     #[test]
@@ -1212,14 +2003,82 @@ mod tests {
             build_unregister_device_request(&config(Some("ios")), &PushPreferences::default())
                 .unwrap();
 
+        assert_eq!(
+            request.operation_id,
+            crate::OPERATION_PUSH_UNREGISTER_DEVICE
+        );
+        assert_eq!(
+            request.principal_did.as_deref(),
+            Some("did:web:alice.example")
+        );
         assert_eq!(request.device_id, "did:web:alice.example#device-phone");
         assert_eq!(
             request.registration_id.as_deref(),
             Some("cx:pushreg:01JS0KE000000000000000000")
         );
         assert_eq!(request.push_key.as_deref(), Some("fcm:very-secret-token"));
+        assert!(
+            request
+                .push_key_hash
+                .as_deref()
+                .is_some_and(|value| value.starts_with("sha256:"))
+        );
+        assert_eq!(
+            request.push_key_preview.as_deref(),
+            Some("fcm:<redacted,len=17>")
+        );
         assert_eq!(request.app_id.as_deref(), Some("app.example.android"));
         assert_eq!(request.idempotency_key.as_deref(), Some("idem-1"));
+        assert_eq!(
+            request.request_id.as_deref(),
+            Some("cx:req:01JS0KE000000000000000000")
+        );
+    }
+
+    #[test]
+    fn response_models_cover_frozen_wire_metadata() {
+        let register: RegisterDeviceResponse = serde_json::from_value(serde_json::json!({
+            "ok": true,
+            "registration_id": "reg-1",
+            "accepted_gateway": "https://push.example.com/api/v1/push/notify",
+            "push_key_hash": "sha256:abc",
+            "push_key_preview": "fcm:<redacted,len=17>",
+            "expires_at": "2026-05-02T00:00:00Z",
+            "refresh_hint": "rotate_before_expiry",
+            "warnings": ["duplicate-safe"],
+            "request_id": "cx:req:123"
+        }))
+        .unwrap();
+
+        assert!(register.ok);
+        assert_eq!(
+            register.accepted_gateway.as_deref(),
+            Some("https://push.example.com/api/v1/push/notify")
+        );
+        assert_eq!(register.push_key_hash.as_deref(), Some("sha256:abc"));
+        assert_eq!(
+            register.push_key_preview.as_deref(),
+            Some("fcm:<redacted,len=17>")
+        );
+        assert_eq!(
+            register.refresh_hint.as_deref(),
+            Some("rotate_before_expiry")
+        );
+        assert_eq!(register.warnings, vec!["duplicate-safe"]);
+        assert_eq!(register.request_id.as_deref(), Some("cx:req:123"));
+
+        let unregister: UnregisterDeviceResponse = serde_json::from_value(serde_json::json!({
+            "ok": true,
+            "already_removed": true,
+            "removed_registration_id": "reg-1",
+            "request_id": "cx:req:456"
+        }))
+        .unwrap();
+
+        assert!(unregister.ok);
+        assert!(unregister.already_removed);
+        assert_eq!(unregister.removed_registration_id.as_deref(), Some("reg-1"));
+        assert_eq!(unregister.request_id.as_deref(), Some("cx:req:456"));
     }
 
     #[test]
@@ -1288,6 +2147,43 @@ mod tests {
     }
 
     #[test]
+    fn validates_webpush_endpoint_allowlist() {
+        let mut web_config = config(Some("web"));
+        web_config.push_key =
+            Some("webpush:https://updates.push.services.mozilla.com/wpush/v2/token-secret");
+        let prefs = PushPreferences {
+            enabled: true,
+            push_gateway: "https://push.example.com/api/v1/push/notify".to_owned(),
+            webpush_endpoint_allowlist: vec![
+                "https://updates.push.services.mozilla.com".to_owned(),
+            ],
+            ..Default::default()
+        };
+
+        build_register_device_request(&web_config, &prefs).unwrap();
+
+        let mut blocked = prefs;
+        blocked.webpush_endpoint_allowlist = vec!["https://fcm.googleapis.com".to_owned()];
+        let err = build_register_device_request(&web_config, &blocked).unwrap_err();
+        assert_eq!(err.kind(), PushErrorKind::WebPushEndpointNotAllowed);
+
+        let debug = format!("{err:?}");
+        assert!(!debug.contains("token-secret"));
+        assert!(!debug.contains("wpush/v2"));
+    }
+
+    #[test]
+    fn rejects_insecure_webpush_endpoint_when_url_is_present() {
+        let err = validate_webpush_endpoint_allowlist(
+            "webpush:http://push.example.com/wpush/v2/token-secret",
+            &[],
+        )
+        .unwrap_err();
+
+        assert_eq!(err.kind(), PushErrorKind::InvalidWebPushEndpoint);
+    }
+
+    #[test]
     fn rejects_non_loopback_http_push_gateway_url() {
         let err = validate_push_gateway_url("http://push.example.com/api/v1/push/notify", true)
             .unwrap_err();
@@ -1314,6 +2210,15 @@ mod tests {
         let config_debug = format!("{:?}", config(Some("android")));
         assert!(config_debug.contains("fcm:<redacted"));
         assert!(!config_debug.contains("very-secret-token"));
+
+        let unregister = build_unregister_device_request(
+            &config(Some("android")),
+            &prefs("https://push.example.com/api/v1/push/notify?debug=true"),
+        )
+        .unwrap();
+        let unregister_debug = format!("{unregister:?}");
+        assert!(!unregister_debug.contains("very-secret-token"));
+        assert!(!unregister_debug.contains("debug=true"));
     }
 
     #[test]
@@ -1351,6 +2256,7 @@ mod tests {
         )
         .unwrap();
 
+        assert_eq!(context.operation_id, crate::OPERATION_PUSH_REGISTER_DEVICE);
         assert_eq!(context.method, "POST");
         assert_eq!(context.path, REGISTER_DEVICE_PATH);
         assert_eq!(
@@ -1360,6 +2266,131 @@ mod tests {
         assert_eq!(context.device_id, "did:web:alice.example#device-phone");
         assert!(context.content_digest.starts_with("sha-256=:"));
         assert!(context.content_digest.ends_with(':'));
+    }
+
+    #[test]
+    fn builds_signing_context_with_actor_expiry_and_signature_headers() {
+        let request = build_register_device_request(
+            &config(Some("android")),
+            &prefs("https://push.example.com/api/v1/push/notify"),
+        )
+        .unwrap();
+
+        let context = build_register_signing_context_with_options(
+            "https://principal.example",
+            &request,
+            PushRequestSigningOptions::new("2026-04-29T00:00:00Z", "https://principal.example")
+                .with_actor_did("did:web:alice.example")
+                .with_expires_at("2026-04-29T00:05:00Z")
+                .with_origin("https://app.example")
+                .with_origin_service_did("did:web:sync.example.com")
+                .with_destination_service_did("did:web:principal.example")
+                .with_nonce("idem-1")
+                .with_idempotency_key("idem-1")
+                .with_session_grant("coauth-grant-secret"),
+        )
+        .unwrap();
+
+        assert_eq!(context.actor_did.as_deref(), Some("did:web:alice.example"));
+        assert_eq!(context.expires_at.as_deref(), Some("2026-04-29T00:05:00Z"));
+
+        let proof_body = context.canonical_proof_body().unwrap();
+        assert_eq!(
+            proof_body["operation_id"],
+            crate::OPERATION_PUSH_REGISTER_DEVICE
+        );
+        assert_eq!(proof_body["actor_did"], "did:web:alice.example");
+        assert_eq!(proof_body["expires_at"], "2026-04-29T00:05:00Z");
+        assert_eq!(proof_body["origin"], "https://app.example");
+        assert_eq!(proof_body["nonce"], "idem-1");
+
+        let metadata_headers = context.signed_metadata_headers();
+        assert!(
+            metadata_headers
+                .contains(&(CONTRIX_ACTOR_DID_HEADER, "did:web:alice.example".to_owned()))
+        );
+        assert!(
+            metadata_headers
+                .contains(&(CONTRIX_EXPIRES_AT_HEADER, "2026-04-29T00:05:00Z".to_owned()))
+        );
+        assert!(metadata_headers.contains(&(
+            CONTRIX_ORIGIN_SERVICE_DID_HEADER,
+            "did:web:sync.example.com".to_owned()
+        )));
+        assert!(metadata_headers.contains(&(
+            CONTRIX_DESTINATION_SERVICE_DID_HEADER,
+            "did:web:principal.example".to_owned()
+        )));
+        assert!(metadata_headers.contains(&(
+            CONTRIX_SESSION_GRANT_HEADER,
+            "coauth-grant-secret".to_owned()
+        )));
+
+        let signature_input = context.http_message_signature_input("sig1").unwrap();
+        assert!(signature_input.contains("\"x-contrix-actor-did\""));
+        assert!(signature_input.contains("\"x-contrix-expires-at\""));
+        assert!(signature_input.contains("\"x-contrix-origin-service-did\""));
+        assert!(signature_input.contains("\"x-contrix-destination-service-did\""));
+        assert!(signature_input.contains("\"x-contrix-session-grant\""));
+
+        let debug = format!("{context:?}");
+        assert!(debug.contains("session_grant"));
+        assert!(!debug.contains("coauth-grant-secret"));
+
+        let signature_headers = context
+            .http_message_signature_headers("sig1", "YWJjZA==")
+            .unwrap();
+        assert!(signature_headers.contains(&(SIGNATURE_INPUT_HEADER, signature_input)));
+        assert!(signature_headers.contains(&(SIGNATURE_HEADER, "sig1=:YWJjZA==:".to_owned())));
+    }
+
+    #[test]
+    fn rejects_invalid_signature_header_inputs() {
+        let request = build_register_device_request(
+            &config(Some("android")),
+            &prefs("https://push.example.com/api/v1/push/notify"),
+        )
+        .unwrap();
+        let context = build_register_signing_context(
+            "https://principal.example",
+            &request,
+            "2026-04-29T00:00:00Z",
+            "https://principal.example",
+        )
+        .unwrap();
+
+        assert_eq!(
+            context
+                .http_message_signature_input("bad label")
+                .unwrap_err()
+                .kind(),
+            PushErrorKind::InvalidHeader
+        );
+        assert_eq!(
+            PushRequestSigningContext::http_message_signature_header("sig1", "bad:sig")
+                .unwrap_err()
+                .kind(),
+            PushErrorKind::InvalidHeader
+        );
+    }
+
+    #[test]
+    fn signing_context_rejects_url_tokens() {
+        let request = build_register_device_request(
+            &config(Some("android")),
+            &prefs("https://push.example.com/api/v1/push/notify"),
+        )
+        .unwrap();
+
+        let err = build_register_signing_context(
+            "https://principal.example?access_token=secret",
+            &request,
+            "2026-04-29T00:00:00Z",
+            "https://principal.example",
+        )
+        .unwrap_err();
+
+        assert_eq!(err.kind(), PushErrorKind::ForbiddenPushGatewayQueryParam);
     }
 }
 
@@ -1415,6 +2446,7 @@ mod http_tests {
 
     fn config<'a>() -> PushDeviceConfig<'a> {
         PushDeviceConfig {
+            principal_did: Some("did:web:alice.example"),
             device_id: "did:web:alice.example#device-phone",
             push_key: Some("fcm:very-secret-token"),
             platform: Some("android"),
@@ -1467,6 +2499,32 @@ mod http_tests {
         assert!(request.contains("x-contrix-request-id: cx:req:test"));
         assert!(request.contains("user-agent: test-agent"));
         assert!(request.contains("\"idempotency_key\":\"idem-1\""));
+    }
+
+    #[tokio::test]
+    async fn client_default_headers_fill_request_metadata() {
+        let (base_url, requests) = spawn_mock_server(vec![MockResponse {
+            status: "200 OK",
+            headers: vec![],
+            body: r#"{"ok":true}"#,
+        }]);
+        let mut config = config();
+        config.idempotency_key = None;
+        config.request_id = None;
+
+        ContrixPushClient::new(base_url)
+            .with_default_idempotency_key("client-idem")
+            .with_default_request_id("cx:req:client")
+            .with_session_grant("coauth-grant-secret")
+            .unwrap()
+            .register_device(&config, &prefs())
+            .await
+            .unwrap();
+
+        let request = requests.lock().unwrap().join("\n");
+        assert!(request.contains("idempotency-key: client-idem"));
+        assert!(request.contains("x-contrix-request-id: cx:req:client"));
+        assert!(request.contains("x-contrix-session-grant: coauth-grant-secret"));
     }
 
     #[tokio::test]
@@ -1569,6 +2627,42 @@ mod http_tests {
     }
 
     #[tokio::test]
+    async fn invalid_success_schema_is_invalid_response() {
+        let (base_url, _) = spawn_mock_server(vec![MockResponse {
+            status: "200 OK",
+            headers: vec![],
+            body: r#"{"ok":"yes","registration_id":42}"#,
+        }]);
+
+        let err = ContrixPushClient::new(base_url)
+            .register_device(&config(), &prefs())
+            .await
+            .unwrap_err();
+
+        assert_eq!(err.kind(), PushErrorKind::InvalidResponse);
+    }
+
+    #[tokio::test]
+    async fn error_debug_redacts_envelope_message_and_details() {
+        let (base_url, _) = spawn_mock_server(vec![MockResponse {
+            status: "403 Forbidden",
+            headers: vec![],
+            body: r#"{"ok":false,"error":{"code":"capability_denied","message":"token fcm:very-secret-token proof super-secret-proof","details":{"proof":"super-secret-proof","push_key":"fcm:very-secret-token"}}}"#,
+        }]);
+
+        let err = ContrixPushClient::new(base_url)
+            .register_device(&config(), &prefs())
+            .await
+            .unwrap_err();
+
+        let debug = format!("{err:?}");
+        assert_eq!(err.kind(), PushErrorKind::CapabilityDenied);
+        assert!(!debug.contains("very-secret-token"));
+        assert!(!debug.contains("super-secret-proof"));
+        assert!(debug.contains("details_present"));
+    }
+
+    #[tokio::test]
     async fn retries_429_and_honors_retry_after() {
         let (base_url, requests) = spawn_mock_server(vec![
             MockResponse {
@@ -1588,6 +2682,7 @@ mod http_tests {
                 max_retries: 1,
                 initial_backoff: Duration::ZERO,
                 max_backoff: Duration::ZERO,
+                jitter: Duration::ZERO,
             })
             .register_device(&config(), &prefs())
             .await
@@ -1595,6 +2690,31 @@ mod http_tests {
 
         assert!(response.ok);
         assert_eq!(requests.lock().unwrap().len(), 2);
+    }
+
+    #[tokio::test]
+    async fn register_retry_requires_idempotency_key() {
+        let (base_url, requests) = spawn_mock_server(vec![MockResponse {
+            status: "503 Service Unavailable",
+            headers: vec![(RETRY_AFTER_HEADER, "0")],
+            body: r#"{"ok":false,"error":{"code":"temporarily_unavailable","message":"try later"}}"#,
+        }]);
+        let mut config = config();
+        config.idempotency_key = None;
+
+        let err = ContrixPushClient::new(base_url)
+            .with_retry_policy(PushRetryPolicy {
+                max_retries: 1,
+                initial_backoff: Duration::ZERO,
+                max_backoff: Duration::ZERO,
+                jitter: Duration::ZERO,
+            })
+            .register_device(&config, &prefs())
+            .await
+            .unwrap_err();
+
+        assert_eq!(err.kind(), PushErrorKind::TemporarilyUnavailable);
+        assert_eq!(requests.lock().unwrap().len(), 1);
     }
 
     #[tokio::test]
@@ -1610,6 +2730,7 @@ mod http_tests {
                 max_retries: 2,
                 initial_backoff: Duration::ZERO,
                 max_backoff: Duration::ZERO,
+                jitter: Duration::ZERO,
             })
             .register_device(&config(), &prefs())
             .await
@@ -1639,6 +2760,7 @@ mod http_tests {
                 max_retries: 1,
                 initial_backoff: Duration::ZERO,
                 max_backoff: Duration::ZERO,
+                jitter: Duration::ZERO,
             })
             .register_device(&config(), &prefs())
             .await

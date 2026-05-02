@@ -64,6 +64,7 @@ assert_eq!(loaded.gateway_type, PushGatewayType::Bugle);
 use chime::{PushDeviceConfig, PushPreferences, build_register_device_request};
 
 let config = PushDeviceConfig {
+    principal_did: Some("did:web:alice.example"),
     device_id: "did:web:alice.example#device-phone",
     push_key: Some("fcm-or-apns-device-token"),
     platform: Some("android"),
@@ -94,7 +95,8 @@ use chime::{ContrixPushClient, PushDeviceConfig, PushPreferences};
 let client = ContrixPushClient::new("https://principal.example")
     .with_bearer_token("session-token")
     .with_timeout(std::time::Duration::from_secs(10))
-    .with_retry_policy(chime::PushRetryPolicy::conservative());
+    .with_retry_policy(chime::PushRetryPolicy::conservative())
+    .with_default_request_id("cx:req:01JS0KE000000000000000000");
 
 let response = client.register_device_with_context(&config, &prefs).await?;
 assert!(response.body.ok);
@@ -104,22 +106,67 @@ Production notes:
 
 - Authentication material is only sent through headers. Do not put session tokens, API keys, signatures, or bearer tokens in `push_gateway` query strings.
 - `push_gateway` must be HTTPS unless `allow_insecure_loopback_push_gateway` is enabled for localhost development.
+- WebPush registrations can set `webpush_endpoint_allowlist` to restrict accepted endpoint origins or host patterns before a browser endpoint is sent to the service.
 - `push_key` is redacted in debug output and logs; callers should still store it as a secret.
+- `ContrixPushClient` retries only safe idempotent requests: register calls need an idempotency key, while unregister is treated as idempotent. `Retry-After` is honored before exponential backoff plus bounded jitter.
 - `allow_push_hint` only permits body-free wakeup hints. It does not permit plaintext message bodies for E2EE Spaces.
+
+### Request signing helpers
+
+`chime` does not own authentication secrets or private keys. Callers can build a canonical proof body or HTTP Message Signature headers from the request they are about to send:
+
+```rust,ignore
+use chime::{
+    PushRequestSigningOptions, build_register_device_request,
+    build_register_signing_context_with_options,
+};
+
+let request = build_register_device_request(&config, &prefs)?;
+let context = build_register_signing_context_with_options(
+    "https://principal.example",
+    &request,
+    PushRequestSigningOptions::new("2026-04-29T00:00:00Z", "https://principal.example")
+        .with_actor_did("did:web:alice.example")
+        .with_expires_at("2026-04-29T00:05:00Z")
+        .with_origin("https://app.example")
+        .with_origin_service_did("did:web:sync.example.com")
+        .with_destination_service_did("did:web:principal.example")
+        .with_nonce("device-phone-register-v1")
+        .with_idempotency_key("device-phone-register-v1")
+        .with_session_grant("externally-issued-coauth-or-soland-grant"),
+)?;
+
+let proof_body = context.canonical_proof_body()?;
+let signature = signer.sign_http_message(&context)?;
+let headers = context.http_message_signature_headers("sig1", &signature)?;
+```
+
+`proof_body` is caller-signed and passed back through `PushDeviceConfig::proof`. The returned HTTP signature headers include `Content-Digest`, Contrix device/audience/actor/expiry/origin/destination metadata, nonce/idempotency context, `Signature-Input`, and `Signature`; attach them with your HTTP stack or `ContrixPushClient::with_header`. `chime` can carry an externally supplied coauth/soland grant, but it never owns private keys or mints grants.
+
+### Local registration state
+
+`PushRegistrationState` stores non-secret local state: principal DID, device id, platform/app id, gateway, token hash/preview, registration id, expiry/refresh hint, and last success/error summary. The `PushRegistrationStore` trait keeps the legacy single-registration methods and adds multi-registration defaults (`load_push_registrations`, `save_push_registrations`, and `delete_push_registration`) for apps that store several accounts, apps, or devices.
+
+Store implementations should use OS keychain, encrypted app storage, or another locally protected store. The state includes `schema_version` so applications can migrate persisted records without exposing raw platform tokens.
 
 ### Token rotation
 
 ```rust,ignore
-use chime::{plan_token_rotation, PushRegistrationState};
+use chime::{plan_token_rotation_with_strategy, PushRegistrationState, PushTokenRotationStrategy};
 
 let existing: Option<PushRegistrationState> = store.load_push_registration()?;
-let plan = plan_token_rotation(existing.as_ref(), &config, &prefs)?;
+let plan = plan_token_rotation_with_strategy(
+    existing.as_ref(),
+    &config,
+    &prefs,
+    PushTokenRotationStrategy::RegisterNewFirst,
+)?;
 
-if let Some(unregister_old) = plan.unregister_old {
-    // Send with ContrixPushClient or your own HTTP stack.
-}
 if let Some(register_new) = plan.register_new {
     // Send with ContrixPushClient or your own HTTP stack, then persist success.
+}
+if let Some(unregister_old) = plan.unregister_old {
+    // For RegisterNewFirst, send this after the replacement succeeds.
 }
 ```
 
@@ -144,7 +191,13 @@ The crate maps to the Contrix v1 push HTTP binding:
 | `cx.push.unregister_device` | `POST /api/v1/push/unregister-device` | `build_unregister_device_request()` |
 | `cx.push.notify` | `POST /api/v1/push/notify` | Gateway/server-side operation, not a client registration call. |
 
-Push notifications are derived wakeups, not canonical truth. For E2EE Spaces, push gateways should receive only minimized metadata such as `space_id`, event type, counts, and optional body-free `push_hint`.
+Register/unregister bodies carry the canonical operation id, optional `principal_did`, `device_id`, app id, gateway URL, idempotency key, request id, and caller-supplied proof. Responses expose the accepted gateway, token hash/preview, expiry or refresh hints, warnings, and request id when the service returns them.
+
+Push notifications are derived wakeups, not canonical truth. For E2EE Spaces, push gateways should receive only minimized metadata such as `space_id`, event type, counts, target device references, priority/TTL/collapse hints, and optional body-free `push_hint`.
+
+With the `notify` feature, `PushNotifyRequest::validate_blind_wakeup()` enforces that boundary. Entity facets and view-renderer output are routing or context hints only when the application has explicitly authorized that use; do not serialize facet-derived title, body, display name, or space name into provider payloads. The validator rejects `space_name`, `sender_display_name`, provider payload wrappers, title/body/preview fields, and facet/view-renderer extension keys before gateway delivery.
+
+`shared_push_notify_privacy_vectors()` exposes the E2EE invalid cases and the explicit plaintext-visible service allow case so gateway implementations such as `floria` can run the same vectors.
 
 ## Architecture
 
