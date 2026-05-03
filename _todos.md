@@ -1,201 +1,46 @@
 # chime Active TODO
 
-更新时间: 2026-05-02
+更新时间: 2026-05-03
 
-`chime` 是客户端/服务端共享的 Contrix push SDK。它提供 push preferences、device register/unregister builders、可选 HTTP client、可选 gateway notify wire model 和隐私校验；不实现 APNs/FCM/OEM provider 投递。
+`chime` 是客户端 / 服务端共享的 Push SDK。它的协议面虽然小，但必须和 `floria`、`soland`、`yougen` 一起完成 `flow` 收口，确保 push 注册和 notify 不再残留 room/card/subject 旧字段。
 
-## 0. 当前边界
+## 执行顺序
 
-- [x] 已有 `PushPreferences`、`PushDeviceConfig`、register/unregister request builder、optional `http` client。
-- [x] 已有 optional `notify` feature、`cx.push.notify` wire model、blind wakeup validator、token hash/preview、rotation plan。
-- [x] 已对齐 `cx.profile.push_gateway.v1`、`discovery/push-notifications.md`、`data-structures.md` 的 SDK 边界：push gateway 只做 blind/minimized wakeup；notification/read marker 是派生投影，不是 canonical truth。
-- [ ] 仍处于 0.1 API shaping 阶段，未完成与真实 `soland` / `floria` 的端到端 contract test。
+- [x] Block A: 先冻结 register / unregister / notify 的 active wire model。
+- [x] Block B: 再完成本地状态、token rotation、HTTP client、错误分类。
+- [ ] Block C: 最后联调 `soland`、`floria`、`yougen`、`cotest`。
 
-## P0: Register / Unregister Contract
+## 可并行 Lane
 
-- [x] Freeze `cx.push.register_device`:
-  - principal DID。
-  - device id。
-  - platform。
-  - app id / domestic app id。
-  - push gateway URL。
-  - push key/token。
-  - preferences。
-  - idempotency key。
-  - proof。
-  - request id。
-- [x] Register response:
-  - ok。
-  - registration id。
-  - accepted gateway。
-  - token hash/preview。
-  - expires/refresh hint。
-  - warnings。
-  - request id。
-- [x] Freeze `cx.push.unregister_device`:
-  - device id。
-  - registration id or token hash。
-  - gateway URL。
-  - idempotency key。
-  - proof。
-  - request id。
-- [x] Unregister response:
-  - ok。
-  - already removed semantics。
-  - removed registration id。
-  - request id。
-- [x] URL/security validation:
-  - HTTPS by default。
-  - loopback exception behind explicit dev flag。
-  - no query string credentials。
-  - WebPush endpoint allowlist support。
+- [x] Lane 1: type model / validator。
+- [x] Lane 2: HTTP client / retry / auth hooks。
+- [x] Lane 3: local state / token rotation。
+- [x] Lane 4: shared invalid vectors。
+- [ ] Lane 5: cross-project contract tests。
 
-## P0: Authentication and Signing Hooks
+## P0: Active Register and Notify Model
 
-- [x] Bearer helper:
-  - header-only。
-  - debug redaction。
-  - no URL token。
-- [x] DID proof helper:
-  - canonical proof body。
-  - actor DID。
-  - device id。
-  - audience / service DID。
-  - origin。
-  - expiry。
-  - nonce/idempotency。
-- [x] HTTP Message Signature helper:
-  - Content-Digest。
-  - Signature-Input。
-  - Signature。
-  - created/expires。
-  - origin/destination service DID metadata。
-- [x] Session grant integration:
-  - accept externally supplied coauth/soland grant。
-  - never own private keys。
-  - expose signing context only。
+- [x] register / unregister request/response 保持 `cx.profile.push_gateway.v1` 对齐。
+- [x] notify request 里的对象引用只允许 active `flow` / `message` / `event` / `notification projection` 语义。
+- [x] SDK validator 明确拒绝 legacy `room` / `card` / `subject` typed ID、event kind、schema id、字段别名。
+- [x] proof、bearer、HTTP Message Signature helper 的 audience / origin / service DID 绑定继续稳定。
 
-## P0: HTTP Client Runtime
+## P0: Runtime and Local State
 
-- [x] Client config:
-  - base URL。
-  - timeout。
-  - retry policy。
-  - default headers。
-  - request id。
-  - idempotency。
-- [x] Error taxonomy:
-  - decode Contrix error envelope。
-  - preserve request id。
-  - classify retryable / non-retryable。
-  - expose `Retry-After`。
-  - redact token/proof。
-- [x] Retry behavior:
-  - retry only safe idempotent requests。
-  - exponential backoff + jitter。
-  - duplicate safe success。
-  - duplicate conflict surfaced to caller。
-- [x] Contract tests:
-  - mocked soland register/unregister。
-  - 401/403/409/429/5xx。
-  - invalid response schema。
-  - token not leaked in debug/error。
-
-## P0: Notify Wire Model and Privacy Validator
-
-- [x] `cx.push.notify` request:
-  - idempotency key。
-  - origin/destination service DID。
-  - app id。
-  - target device/token refs。
-  - event refs or notification refs。
-  - push hint。
-  - priority/ttl/collapse key。
-- [x] `PushNotification` privacy boundary:
-  - notification is projection, not canonical truth。
-  - body-free wakeup default。
-  - no message body。
-  - no encrypted payload bytes。
-  - no plaintext attachment filename/preview。
-  - no SDP/ICE/TURN credentials。
-  - no facet/view-renderer derived title/body unless explicitly authorized。
-- [x] Response/rejection:
-  - accepted count。
-  - rejected token hashes。
-  - rejection reason enum。
-  - retry-after。
-  - provider message id optional。
-- [x] Shared vectors:
-  - chime validator and floria validator reject the same invalid payloads。
-  - E2EE and non-E2EE cases separated。
-  - plaintext-visible service allow case explicit。
-
-## P1: Local State and Token Rotation
-
-- [x] Registration state:
-  - account/principal DID。
-  - device id。
-  - gateway。
-  - platform/app id。
-  - token hash/preview。
-  - registration id。
-  - last success/error。
-  - expiry/refresh hint。
-- [x] Storage trait:
-  - load/save/delete。
-  - multiple registrations per device。
-  - encrypted/local storage guidance。
-  - migration version。
-- [x] Token rotation:
-  - unregister old then register new where required。
-  - register new first where platform requires overlap。
-  - idempotent recovery after partial failure。
-  - stale local state repair。
-- [x] Multi-device:
-  - same principal multiple device ids。
-  - same platform token moved to new device。
-  - revoked device cleanup。
+- [x] HTTP client 的 request id、retry-after、duplicate conflict、retryable classification 与 `soland` / `floria` 的错误模型对齐。
+- [x] registration state 持久化继续只存 token hash/preview、gateway、device、app id、refresh hint。
+- [x] token rotation、multi-device、partial failure recovery、stale local state repair 补齐真实平台行为。
+- [x] debug / error / diagnostics 一律不输出原始 token、proof、WebPush endpoint secret。
 
 ## P1: Cross-Project Integration
 
-- [ ] `soland`:
-  - register/unregister payloads pass Principal Server HTTP tests。
-  - session grant / bearer / DID proof hooks work in production mode。
-  - response fields match SDK types。
-- [ ] `floria`:
-  - notify model matches gateway endpoint。
-  - rejected token reason round-trips。
-  - blind wakeup invalid vectors shared。
-- [ ] `yougen`:
-  - web/desktop/mobile push registration uses chime builder。
-  - local state/token rotation stored through platform storage。
-  - UI shows generic E2EE wakeup state only。
-- [ ] `cotest`:
-  - `yougen/chime -> soland register -> floria notify mock` scenario。
-
-说明：这些项需要修改或运行相邻仓库的真实 contract/E2E 流程，不能仅在 `chime` crate 内闭环完成。
-
-## P1: Documentation and Release
-
-- [x] README:
-  - clarify chime is not provider delivery runtime。
-  - map to `cx.profile.push_gateway.v1`。
-  - document privacy boundary and plaintext-visible service exception。
-- [x] Rustdoc:
-  - register/unregister examples。
-  - signing context examples。
-  - token rotation examples。
-  - notify validator examples。
-- [x] Release gates:
-  - `cargo fmt --all -- --check`。
-  - `cargo check --all-features`。
-  - `cargo test --all-features`。
-  - semver audit for 0.1 API。
+- [ ] `soland` 的 register/unregister HTTP contract 与 SDK 类型一字不漂移。
+- [ ] `floria` 的 notify validator 与 `chime` 使用同一组 invalid vector。
+- [ ] `yougen` 通过 `chime` 完成真实注册、注销、轮换、wake-up 处理。
+- [ ] `cotest` 覆盖 `yougen/chime -> soland -> floria` 至少一条真实 happy path。
 
 ## Definition of Done
 
-- [ ] Register/unregister payloads pass `soland` contract tests。
-- [ ] Notify payloads pass `floria` contract tests。
-- [x] Tokens, bearer credentials, proofs and full WebPush endpoints are never printed in debug/errors。
-- [x] Retry and error behavior is deterministic and documented。
-- [ ] `cotest` covers at least one real push registration + gateway notify flow。
+- [x] SDK 不再暴露或接受 removed legacy push 引用语义。
+- [ ] `soland` / `floria` / `yougen` 三方 contract 对齐。
+- [x] token、proof、endpoint secret 在任何错误和日志路径上都不会泄露。

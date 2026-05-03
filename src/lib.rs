@@ -54,11 +54,11 @@ pub use push::{
     validate_webpush_endpoint_allowlist,
 };
 pub use state::{
-    PUSH_REGISTRATION_STATE_SCHEMA_VERSION, PushRegistrationLastError, PushRegistrationState,
-    PushRegistrationStore, PushTokenRotationPlan, PushTokenRotationStrategy,
+    PUSH_REGISTRATION_STATE_SCHEMA_VERSION, PushRegistrationLastError, PushRegistrationRepairPlan,
+    PushRegistrationState, PushRegistrationStore, PushTokenRotationPlan, PushTokenRotationStrategy,
     build_registration_state, find_registration_by_token, find_registration_for_device,
-    hash_push_key, plan_token_rotation, plan_token_rotation_with_strategy,
-    token_moved_to_different_device, token_rotation_required,
+    hash_push_key, merge_registration_state, plan_registration_repair, plan_token_rotation,
+    plan_token_rotation_with_strategy, token_moved_to_different_device, token_rotation_required,
 };
 
 #[cfg(feature = "http")]
@@ -93,16 +93,13 @@ pub enum PushGatewayType {
     /// Standard Contrix push gateway using FCM, APNs, Web Push, or desktop
     /// notification adapters.
     #[default]
-    #[serde(alias = "Sygnal", alias = "sygnal")]
     Standard,
     /// Bugle push gateway with domestic Chinese Android OEM support.
     ///
     /// Routes through JPush `third_party_channel` to Huawei / Xiaomi / OPPO /
     /// vivo / HONOR / HarmonyOS providers.
-    #[serde(alias = "Bugle")]
     Bugle,
     /// User-provided gateway URL.
-    #[serde(alias = "Custom")]
     Custom,
 }
 
@@ -163,14 +160,13 @@ impl PushGatewayType {
 /// Serializable to JSON. The file path and persistence strategy are left to
 /// the consumer application.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(default)]
+#[serde(default, deny_unknown_fields)]
 pub struct PushPreferences {
     /// Whether push notifications are enabled.
     pub enabled: bool,
     /// The selected downstream push gateway type.
     pub gateway_type: PushGatewayType,
     /// The push gateway URL sent as `push_gateway` during Contrix registration.
-    #[serde(alias = "gateway_url")]
     pub push_gateway: String,
     /// Allow non-HTTPS push gateways for loopback development URLs only.
     ///
@@ -180,7 +176,6 @@ pub struct PushPreferences {
     ///
     /// Contrix push hints are blind wakeup metadata. They must not contain
     /// plaintext message bodies for E2EE Spaces.
-    #[serde(alias = "show_message_preview")]
     pub allow_push_hint: bool,
     /// Optional allowlist for WebPush endpoint origins.
     ///
@@ -232,9 +227,14 @@ pub fn to_json(prefs: &PushPreferences) -> Result<String, serde_json::Error> {
     serde_json::to_string_pretty(prefs)
 }
 
+/// Strictly deserialize preferences from a JSON string.
+pub fn try_from_json(json: &str) -> Result<PushPreferences, serde_json::Error> {
+    serde_json::from_str(json)
+}
+
 /// Deserialize preferences from a JSON string, with fallback to defaults.
 pub fn from_json(json: &str) -> PushPreferences {
-    serde_json::from_str(json).unwrap_or_default()
+    try_from_json(json).unwrap_or_default()
 }
 
 // -- Tests -------------------------------------------------------------------
@@ -353,7 +353,20 @@ mod tests {
     }
 
     #[test]
-    fn from_json_accepts_legacy_names() {
+    fn try_from_json_rejects_legacy_names() {
+        let loaded = try_from_json(
+            r#"{
+                "enabled": true,
+                "gateway_type": "Sygnal",
+                "gateway_url": "https://legacy.example/push/notify",
+                "show_message_preview": false
+            }"#,
+        );
+        assert!(loaded.is_err());
+    }
+
+    #[test]
+    fn from_json_legacy_names_fall_back_to_default() {
         let loaded = from_json(
             r#"{
                 "enabled": true,
@@ -362,9 +375,8 @@ mod tests {
                 "show_message_preview": false
             }"#,
         );
-        assert!(loaded.enabled);
         assert_eq!(loaded.gateway_type, PushGatewayType::Standard);
-        assert_eq!(loaded.push_gateway, "https://legacy.example/push/notify");
-        assert!(!loaded.allow_push_hint);
+        assert!(loaded.push_gateway.is_empty());
+        assert!(loaded.allow_push_hint);
     }
 }

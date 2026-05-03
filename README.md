@@ -56,6 +56,9 @@ assert_eq!(app_id, Some("app.example.android.cn"));
 let json = chime::to_json(&prefs).unwrap();
 let loaded = chime::from_json(&json);
 assert_eq!(loaded.gateway_type, PushGatewayType::Bugle);
+
+let strict = chime::try_from_json(&json).unwrap();
+assert_eq!(strict.gateway_type, PushGatewayType::Bugle);
 ```
 
 ### Build a Contrix registration body
@@ -149,6 +152,8 @@ let headers = context.http_message_signature_headers("sig1", &signature)?;
 
 Store implementations should use OS keychain, encrypted app storage, or another locally protected store. The state includes `schema_version` so applications can migrate persisted records without exposing raw platform tokens.
 
+After a successful register, `merge_registration_state()` drops stale logical duplicates and same-token records that were left behind on another device entry. When a client needs to recover from partial failures or stale local storage, `plan_registration_repair()` produces the unregister/register work needed to reconcile old token state with the current device token.
+
 ### Token rotation
 
 ```rust,ignore
@@ -181,6 +186,8 @@ if let Some(unregister_old) = plan.unregister_old {
 | `gateway_url` | `push_gateway` |
 | `show_message_preview` | `allow_push_hint` |
 
+Use these direct renames when migrating persisted config or API payloads. Strict parsers and validators no longer accept legacy alias fields.
+
 ## Protocol Mapping
 
 The crate maps to the Contrix v1 push HTTP binding:
@@ -195,9 +202,9 @@ Register/unregister bodies carry the canonical operation id, optional `principal
 
 Push notifications are derived wakeups, not canonical truth. For E2EE Spaces, push gateways should receive only minimized metadata such as `space_id`, event type, counts, target device references, priority/TTL/collapse hints, and optional body-free `push_hint`.
 
-With the `notify` feature, `PushNotifyRequest::validate_blind_wakeup()` enforces that boundary. Entity facets and view-renderer output are routing or context hints only when the application has explicitly authorized that use; do not serialize facet-derived title, body, display name, or space name into provider payloads. The validator rejects `space_name`, `sender_display_name`, provider payload wrappers, title/body/preview fields, and facet/view-renderer extension keys before gateway delivery.
+With the `notify` feature, `PushNotifyRequest::validate_wire_model()` and `PushNotifyRequest::validate_blind_wakeup()` enforce that boundary. Entity facets and view-renderer output are routing or context hints only when the application has explicitly authorized that use; do not serialize facet-derived title, body, display name, or space name into provider payloads. The validator rejects removed legacy `room` / `card` / `subject` references, `schema_id` / `kind` aliases, `sender_service_did`, provider payload wrappers, title/body/preview fields, and facet/view-renderer extension keys before gateway delivery.
 
-`shared_push_notify_privacy_vectors()` exposes the E2EE invalid cases and the explicit plaintext-visible service allow case so gateway implementations such as `floria` can run the same vectors.
+`shared_push_notify_privacy_vectors()` exposes the E2EE invalid cases, including legacy-reference rejections, and the explicit plaintext-visible service allow case so gateway implementations such as `floria` can run the same vectors.
 
 ## Architecture
 

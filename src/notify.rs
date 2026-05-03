@@ -18,16 +18,13 @@ use crate::redact_push_key;
 
 /// Request body for `POST /api/v1/push/notify`.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct PushNotifyRequest {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub operation_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub idempotency_key: Option<String>,
-    #[serde(
-        default,
-        alias = "sender_service_did",
-        skip_serializing_if = "Option::is_none"
-    )]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub origin_service_did: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub destination_service_did: Option<String>,
@@ -43,8 +40,22 @@ pub struct PushNotifyRequest {
 }
 
 impl PushNotifyRequest {
+    /// Validate the active `cx.push.notify` wire model.
+    pub fn validate_wire_model(&self) -> Result<(), PushNotifyPrivacyError> {
+        if let Some(operation_id) = &self.operation_id {
+            if operation_id != crate::OPERATION_PUSH_NOTIFY {
+                return Err(PushNotifyPrivacyError::InvalidFieldValue {
+                    field: "operation_id".to_owned(),
+                });
+            }
+        }
+
+        self.notification.validate_wire_model()
+    }
+
     /// Validate this notification as an E2EE blind wakeup payload.
     pub fn validate_blind_wakeup(&self) -> Result<(), PushNotifyPrivacyError> {
+        self.validate_wire_model()?;
         self.notification.validate_blind_wakeup()
     }
 
@@ -56,6 +67,7 @@ impl PushNotifyRequest {
         match mode {
             PushNotifyPrivacyMode::E2eeBlindWakeup => self.validate_blind_wakeup(),
             PushNotifyPrivacyMode::PlaintextVisibleService => {
+                self.validate_wire_model()?;
                 self.notification.validate_plaintext_visible_service()
             }
         }
@@ -113,6 +125,35 @@ pub struct PushNotification {
 }
 
 impl PushNotification {
+    /// Validate the active `cx.push.notify` notification contract.
+    pub fn validate_wire_model(&self) -> Result<(), PushNotifyPrivacyError> {
+        validate_required("type", &self.notification_type)?;
+        validate_typed_id("event_id", self.event_id.as_deref(), "cx:event:")?;
+        validate_typed_id("space_id", self.space_id.as_deref(), "cx:space:")?;
+
+        if self.devices.is_empty() {
+            return Err(PushNotifyPrivacyError::MissingField {
+                field: "devices".to_owned(),
+            });
+        }
+
+        if is_legacy_notification_type(&self.notification_type) {
+            return Err(PushNotifyPrivacyError::LegacyField {
+                field: "type".to_owned(),
+            });
+        }
+
+        for device in &self.devices {
+            device.validate_wire_model()?;
+        }
+
+        for (key, value) in &self.extra {
+            validate_active_reference_extension(key, value)?;
+        }
+
+        Ok(())
+    }
+
     /// Validate this notification as a minimized E2EE blind wakeup.
     ///
     /// The validator is intentionally conservative. It rejects explicit body,
@@ -120,6 +161,8 @@ impl PushNotification {
     /// payload, SDP, ICE, and TURN fields in extension data. It also rejects
     /// push hints that look like call setup material or structured previews.
     pub fn validate_blind_wakeup(&self) -> Result<(), PushNotifyPrivacyError> {
+        self.validate_wire_model()?;
+
         if self.sender_display_name.is_some() {
             return Err(PushNotifyPrivacyError::SensitiveField {
                 field: "sender_display_name".to_owned(),
@@ -159,6 +202,8 @@ impl PushNotification {
     /// encrypted payload bytes, provider wrappers, SDP/ICE/TURN credentials,
     /// and call setup material.
     pub fn validate_plaintext_visible_service(&self) -> Result<(), PushNotifyPrivacyError> {
+        self.validate_wire_model()?;
+
         if let Some(push_hint) = &self.push_hint {
             validate_hint(push_hint)?;
         }
@@ -178,6 +223,7 @@ impl PushNotification {
 
 /// Target device entry for `cx.push.notify`.
 #[derive(Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct PushNotificationDevice {
     pub push_key: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -199,6 +245,12 @@ impl fmt::Debug for PushNotificationDevice {
             .field("push_key_hash", &self.push_key_hash)
             .field("platform", &self.platform)
             .finish()
+    }
+}
+
+impl PushNotificationDevice {
+    fn validate_wire_model(&self) -> Result<(), PushNotifyPrivacyError> {
+        validate_required("devices[].push_key", &self.push_key)
     }
 }
 
@@ -274,6 +326,119 @@ pub enum PushNotifyPrivacyError {
     SensitiveField { field: String },
     #[error("push_hint appears to contain call setup or credential material")]
     SensitiveHint,
+    #[error("push notification is missing required field `{field}`")]
+    MissingField { field: String },
+    #[error("push notification contains removed legacy field or alias `{field}`")]
+    LegacyField { field: String },
+    #[error("push notification field `{field}` contains an invalid value")]
+    InvalidFieldValue { field: String },
+}
+
+fn validate_required(field: &str, value: &str) -> Result<(), PushNotifyPrivacyError> {
+    if value.trim().is_empty() {
+        Err(PushNotifyPrivacyError::MissingField {
+            field: field.to_owned(),
+        })
+    } else {
+        Ok(())
+    }
+}
+
+fn validate_typed_id(
+    field: &str,
+    value: Option<&str>,
+    expected_prefix: &str,
+) -> Result<(), PushNotifyPrivacyError> {
+    let Some(value) = value else {
+        return Ok(());
+    };
+
+    if value.trim().is_empty() || !value.starts_with(expected_prefix) {
+        return Err(PushNotifyPrivacyError::InvalidFieldValue {
+            field: field.to_owned(),
+        });
+    }
+
+    Ok(())
+}
+
+fn validate_active_reference_extension(
+    path: &str,
+    value: &Value,
+) -> Result<(), PushNotifyPrivacyError> {
+    if is_legacy_contract_key(path) {
+        return Err(PushNotifyPrivacyError::LegacyField {
+            field: path.to_owned(),
+        });
+    }
+
+    match (path, value) {
+        ("flow_id", Value::String(value)) => validate_typed_id("flow_id", Some(value), "cx:flow:"),
+        ("message_id", Value::String(value)) => {
+            validate_typed_id("message_id", Some(value), "cx:message:")
+        }
+        ("notification_projection_id", Value::String(value)) => validate_typed_id(
+            "notification_projection_id",
+            Some(value),
+            "cx:notification_projection:",
+        ),
+        (_, Value::String(value)) if carries_legacy_typed_id(value) => {
+            Err(PushNotifyPrivacyError::LegacyField {
+                field: path.to_owned(),
+            })
+        }
+        (_, Value::Object(map)) => {
+            for (key, value) in map {
+                let path = format!("{path}.{key}");
+                validate_active_reference_extension(&path, value)?;
+            }
+            Ok(())
+        }
+        (_, Value::Array(values)) => {
+            for (index, value) in values.iter().enumerate() {
+                validate_active_reference_extension(&format!("{path}[{index}]"), value)?;
+            }
+            Ok(())
+        }
+        _ => Ok(()),
+    }
+}
+
+fn is_legacy_notification_type(value: &str) -> bool {
+    let normalized = value.trim().to_ascii_lowercase();
+    normalized.starts_with("room.")
+        || normalized.starts_with("card.")
+        || normalized.starts_with("subject.")
+        || normalized.starts_with("cx.room.")
+        || normalized.starts_with("cx.card.")
+        || normalized.starts_with("cx.subject.")
+}
+
+fn is_legacy_contract_key(path: &str) -> bool {
+    let key = path.rsplit(['.', '[']).next().unwrap_or(path);
+    matches!(
+        key.to_ascii_lowercase().as_str(),
+        "sender_service_did"
+            | "room"
+            | "room_id"
+            | "room_ref"
+            | "card"
+            | "card_id"
+            | "card_ref"
+            | "subject"
+            | "subject_id"
+            | "subject_ref"
+            | "event_kind"
+            | "schema_id"
+            | "projection_id"
+    ) || path == "kind"
+}
+
+fn carries_legacy_typed_id(value: &str) -> bool {
+    let normalized = value.trim().to_ascii_lowercase();
+    normalized.starts_with("cx:room:")
+        || normalized.starts_with("cx:card:")
+        || normalized.starts_with("cx:subject:")
 }
 
 fn validate_hint(push_hint: &str) -> Result<(), PushNotifyPrivacyError> {
@@ -527,6 +692,36 @@ pub fn shared_push_notify_privacy_vectors() -> Vec<PushNotifyPrivacyVector> {
             expected_error_field: Some("sdp".to_owned()),
         },
         PushNotifyPrivacyVector {
+            name: "e2ee-rejects-legacy-room-reference".to_owned(),
+            mode: PushNotifyPrivacyMode::E2eeBlindWakeup,
+            payload: serde_json::json!({
+                "notification": {
+                    "event_id": "cx:event:01JS0EV000000000000000000",
+                    "space_id": "cx:space:01JS0SP000000000000000000",
+                    "type": "cx.message.create",
+                    "room_id": "cx:room:legacy-room",
+                    "devices": [{ "push_key": "fcm:very-secret-token" }]
+                }
+            }),
+            should_accept: false,
+            expected_error_field: Some("room_id".to_owned()),
+        },
+        PushNotifyPrivacyVector {
+            name: "e2ee-rejects-legacy-schema-id".to_owned(),
+            mode: PushNotifyPrivacyMode::E2eeBlindWakeup,
+            payload: serde_json::json!({
+                "notification": {
+                    "event_id": "cx:event:01JS0EV000000000000000000",
+                    "space_id": "cx:space:01JS0SP000000000000000000",
+                    "type": "cx.message.create",
+                    "schema_id": "legacy.room.schema",
+                    "devices": [{ "push_key": "fcm:very-secret-token" }]
+                }
+            }),
+            should_accept: false,
+            expected_error_field: Some("schema_id".to_owned()),
+        },
+        PushNotifyPrivacyVector {
             name: "plaintext-visible-service-allows-title-body".to_owned(),
             mode: PushNotifyPrivacyMode::PlaintextVisibleService,
             payload: serde_json::json!({
@@ -617,11 +812,16 @@ mod tests {
             );
 
             if let Some(expected_field) = vector.expected_error_field {
-                assert!(matches!(
-                    result,
+                match result {
                     Err(PushNotifyPrivacyError::SensitiveField { ref field })
-                        if field == &expected_field
-                ));
+                    | Err(PushNotifyPrivacyError::LegacyField { ref field }) => {
+                        assert_eq!(field, &expected_field, "{}", vector.name);
+                    }
+                    other => panic!(
+                        "{} expected error field `{expected_field}`, got {other:?}",
+                        vector.name
+                    ),
+                }
             }
         }
     }
@@ -652,7 +852,7 @@ mod tests {
         let request: PushNotifyRequest = serde_json::from_value(serde_json::json!({
             "operation_id": "cx.push.notify",
             "idempotency_key": "notify-1",
-            "sender_service_did": "did:web:sync.example.com",
+            "origin_service_did": "did:web:sync.example.com",
             "destination_service_did": "did:web:push.example.com",
             "app_id": "app.example.android",
             "priority": "high",
@@ -715,6 +915,77 @@ mod tests {
         assert_eq!(encoded["accepted"], 1);
         assert_eq!(encoded["rejected"][0]["push_key_hash"], "pkh_abc");
         assert_eq!(encoded["delivery_receipts"][0]["provider"], "fcm");
+    }
+
+    #[test]
+    fn rejects_legacy_sender_service_alias_during_decode() {
+        let request = serde_json::from_value::<PushNotifyRequest>(serde_json::json!({
+            "operation_id": "cx.push.notify",
+            "sender_service_did": "did:web:sync.example.com",
+            "notification": {
+                "event_id": "cx:event:01JS0EV000000000000000000",
+                "space_id": "cx:space:01JS0SP000000000000000000",
+                "type": "cx.message.create",
+                "devices": [{ "push_key": "fcm:very-secret-token" }]
+            }
+        }));
+
+        assert!(request.is_err());
+    }
+
+    #[test]
+    fn accepts_active_flow_message_and_projection_references() {
+        let mut notification = notification();
+        notification.extra.insert(
+            "flow_id".to_owned(),
+            Value::String("cx:flow:01JS0FL000000000000000000".to_owned()),
+        );
+        notification.extra.insert(
+            "message_id".to_owned(),
+            Value::String("cx:message:01JS0MS000000000000000000".to_owned()),
+        );
+        notification.extra.insert(
+            "notification_projection_id".to_owned(),
+            Value::String("cx:notification_projection:01JS0NP000000000000000000".to_owned()),
+        );
+
+        notification.validate_blind_wakeup().unwrap();
+    }
+
+    #[test]
+    fn rejects_legacy_contract_fields_and_types() {
+        let mut with_room = notification();
+        with_room.extra.insert(
+            "room_id".to_owned(),
+            Value::String("cx:room:legacy-room".to_owned()),
+        );
+        assert_eq!(
+            with_room.validate_blind_wakeup().unwrap_err(),
+            PushNotifyPrivacyError::LegacyField {
+                field: "room_id".to_owned()
+            }
+        );
+
+        let mut with_schema = notification();
+        with_schema.extra.insert(
+            "schema_id".to_owned(),
+            Value::String("legacy.room.schema".to_owned()),
+        );
+        assert_eq!(
+            with_schema.validate_blind_wakeup().unwrap_err(),
+            PushNotifyPrivacyError::LegacyField {
+                field: "schema_id".to_owned()
+            }
+        );
+
+        let mut with_kind = notification();
+        with_kind.notification_type = "cx.room.message".to_owned();
+        assert_eq!(
+            with_kind.validate_blind_wakeup().unwrap_err(),
+            PushNotifyPrivacyError::LegacyField {
+                field: "type".to_owned()
+            }
+        );
     }
 
     #[test]

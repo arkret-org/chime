@@ -56,6 +56,9 @@ assert_eq!(app_id, Some("app.example.android.cn"));
 let json = chime::to_json(&prefs).unwrap();
 let loaded = chime::from_json(&json);
 assert_eq!(loaded.gateway_type, PushGatewayType::Bugle);
+
+let strict = chime::try_from_json(&json).unwrap();
+assert_eq!(strict.gateway_type, PushGatewayType::Bugle);
 ```
 
 ### 构建 Contrix 注册请求体
@@ -149,6 +152,8 @@ let headers = context.http_message_signature_headers("sig1", &signature)?;
 
 存储实现应使用系统 keychain、加密应用存储或其它本地受保护存储。state 中包含 `schema_version`，便于应用迁移持久化记录，同时不暴露原始平台 token。
 
+注册成功后，`merge_registration_state()` 会清理同一逻辑注册和同一 token 遗留的 stale 记录。需要处理部分失败或本地状态陈旧时，`plan_registration_repair()` 会生成需要执行的 unregister/register 修复计划。
+
 ### Token rotation
 
 ```rust,ignore
@@ -181,6 +186,8 @@ if let Some(unregister_old) = plan.unregister_old {
 | `gateway_url` | `push_gateway` |
 | `show_message_preview` | `allow_push_hint` |
 
+迁移时请直接改成新字段名。严格解析和校验路径已经不再接受 legacy alias 字段。
+
 ## 协议映射
 
 本 crate 映射到 Contrix v1 推送 HTTP binding：
@@ -195,9 +202,9 @@ Register/unregister 请求体会携带 canonical operation id、可选 `principa
 
 推送通知是派生唤醒，不是 canonical truth。E2EE Space 下，推送网关只应收到最小化元数据，例如 `space_id`、事件类型、计数、目标设备引用、priority/TTL/collapse hint，以及可选的不含正文的 `push_hint`。
 
-启用 `notify` feature 后，`PushNotifyRequest::validate_blind_wakeup()` 会强制执行这条边界。Entity facets 和 view renderer 输出只有在应用明确授权时才可作为路由或上下文提示；不要把 facet 派生出的 title、body、display name 或 space name 序列化进 provider payload。校验器会在网关投递前拒绝 `space_name`、`sender_display_name`、provider payload 包装、title/body/preview 字段，以及 facet/view-renderer 扩展键。
+启用 `notify` feature 后，`PushNotifyRequest::validate_wire_model()` 和 `PushNotifyRequest::validate_blind_wakeup()` 会强制执行这条边界。Entity facets 和 view renderer 输出只有在应用明确授权时才可作为路由或上下文提示；不要把 facet 派生出的 title、body、display name 或 space name 序列化进 provider payload。校验器会在网关投递前拒绝已移除的 `room` / `card` / `subject` 引用、`schema_id` / `kind` 别名、`sender_service_did`、provider payload 包装、title/body/preview 字段，以及 facet/view-renderer 扩展键。
 
-`shared_push_notify_privacy_vectors()` 会导出 E2EE invalid cases 和显式 plaintext-visible service allow case，方便 `floria` 等网关实现复用同一组向量。
+`shared_push_notify_privacy_vectors()` 会导出 E2EE invalid cases（包含 legacy 引用拒绝样例）和显式 plaintext-visible service allow case，方便 `floria` 等网关实现复用同一组向量。
 
 ## 架构
 
