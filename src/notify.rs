@@ -966,6 +966,42 @@ mod tests {
             }
         );
 
+        let mut with_card = notification();
+        with_card.extra.insert(
+            "card_id".to_owned(),
+            Value::String("cx:card:legacy-card".to_owned()),
+        );
+        assert_eq!(
+            with_card.validate_blind_wakeup().unwrap_err(),
+            PushNotifyPrivacyError::LegacyField {
+                field: "card_id".to_owned()
+            }
+        );
+
+        let mut with_subject = notification();
+        with_subject.extra.insert(
+            "subject_id".to_owned(),
+            Value::String("cx:subject:legacy-subject".to_owned()),
+        );
+        assert_eq!(
+            with_subject.validate_blind_wakeup().unwrap_err(),
+            PushNotifyPrivacyError::LegacyField {
+                field: "subject_id".to_owned()
+            }
+        );
+
+        let mut with_flow_id = notification();
+        with_flow_id.extra.insert(
+            "flow_id".to_owned(),
+            Value::String("cx:card:legacy-card".to_owned()),
+        );
+        assert_eq!(
+            with_flow_id.validate_blind_wakeup().unwrap_err(),
+            PushNotifyPrivacyError::InvalidFieldValue {
+                field: "flow_id".to_owned()
+            }
+        );
+
         let mut with_schema = notification();
         with_schema.extra.insert(
             "schema_id".to_owned(),
