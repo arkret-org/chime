@@ -849,6 +849,70 @@ pub fn contrix_api_url(service_base_url: &str, path: &str) -> String {
     }
 }
 
+/// Derive the gateway service base URL from a configured push notify endpoint.
+pub fn push_gateway_service_base_url(
+    push_gateway_url: &str,
+) -> Result<String, PushRegistrationError> {
+    require_non_empty("push_gateway", push_gateway_url)?;
+
+    let mut url =
+        Url::parse(push_gateway_url).map_err(|error| PushRegistrationError::InvalidPushGatewayUrl {
+            url: push_gateway_url.to_owned(),
+            reason: error.to_string(),
+        })?;
+
+    if !url.username().is_empty() || url.password().is_some() {
+        return Err(PushRegistrationError::InvalidPushGatewayUrl {
+            url: push_gateway_url.to_owned(),
+            reason: "embedded credentials are not allowed".to_owned(),
+        });
+    }
+
+    for (param, _) in url.query_pairs() {
+        if is_forbidden_secret_query_param(&param) {
+            return Err(PushRegistrationError::ForbiddenPushGatewayQueryParam {
+                param: param.into_owned(),
+            });
+        }
+    }
+
+    url.set_query(None);
+    url.set_fragment(None);
+
+    let mut path = url.path().trim_end_matches('/').to_owned();
+    for suffix in [
+        "/api/v1/push/bridge/describe",
+        "/contrix/push/v1/bridge/describe",
+        "/api/v1/push/notify",
+        "/contrix/push/v1/notify",
+        "/api/v1/push",
+        "/contrix/push/v1",
+    ] {
+        if let Some(prefix) = path.strip_suffix(suffix) {
+            path = prefix.to_owned();
+            break;
+        }
+    }
+
+    if path.is_empty() {
+        url.set_path("/");
+    } else {
+        url.set_path(&path);
+    }
+
+    Ok(url.to_string().trim_end_matches('/').to_owned())
+}
+
+/// Derive the active bridge-describe URL from a configured push gateway URL.
+pub fn push_bridge_describe_url(
+    push_gateway_url: &str,
+) -> Result<String, PushRegistrationError> {
+    Ok(contrix_api_url(
+        &push_gateway_service_base_url(push_gateway_url)?,
+        PUSH_BRIDGE_DESCRIBE_PATH,
+    ))
+}
+
 /// Validate a Contrix push gateway endpoint.
 ///
 /// Production gateway URLs must be HTTPS. Plain HTTP is accepted only for

@@ -52,7 +52,8 @@ pub use push::{
     build_register_device_request, build_register_signing_context,
     build_register_signing_context_with_options, build_unregister_device_request,
     build_unregister_signing_context, build_unregister_signing_context_with_options,
-    content_digest_sha256, contrix_api_url, redact_push_key, validate_push_gateway_url,
+    content_digest_sha256, contrix_api_url, push_bridge_describe_url,
+    push_gateway_service_base_url, redact_push_key, validate_push_gateway_url,
     validate_webpush_endpoint_allowlist,
 };
 pub use state::{
