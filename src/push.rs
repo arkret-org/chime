@@ -21,6 +21,8 @@ pub const UNREGISTER_DEVICE_PATH: &str = "/api/v1/push/unregister-device";
 
 /// Contrix HTTP path for discovering the active push gateway bridge contract.
 pub const PUSH_BRIDGE_DESCRIBE_PATH: &str = "/api/v1/push/bridge/describe";
+/// Contrix HTTP path for discovering the service-level push gateway integration manifest.
+pub const PUSH_INTEGRATION_DESCRIBE_PATH: &str = "/api/v1/integration/describe";
 
 /// Header used to correlate Contrix requests across clients and services.
 pub const CONTRIX_REQUEST_ID_HEADER: &str = "X-Contrix-Request-Id";
@@ -350,6 +352,44 @@ pub struct PushBridgeDescribeExamples {
     pub blind_wakeup_request: Value,
     #[serde(default)]
     pub plaintext_visible_service_request: Value,
+}
+
+/// Response body for `GET /api/v1/integration/describe`.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PushGatewayIntegrationDescribeResponse {
+    pub contract: String,
+    pub version: String,
+    pub service: String,
+    pub service_kind: String,
+    pub api_base_path: String,
+    pub describe_path: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub dependencies: Vec<PushGatewayIntegrationDependency>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub surfaces: Vec<PushGatewayIntegrationSurface>,
+    #[serde(default)]
+    pub examples: Value,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub todos: Vec<String>,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PushGatewayIntegrationDependency {
+    pub service: String,
+    pub purpose: String,
+    pub required_contract: String,
+    pub discovery_path: String,
+    pub mode: String,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PushGatewayIntegrationSurface {
+    pub name: String,
+    pub method: String,
+    pub path: String,
+    pub contract: String,
+    pub stability: String,
+    pub todo: String,
 }
 
 /// Contrix standard error object.
@@ -925,6 +965,16 @@ pub fn push_bridge_describe_url(
     ))
 }
 
+/// Derive the active integration-describe URL from a configured push gateway URL.
+pub fn push_integration_describe_url(
+    push_gateway_url: &str,
+) -> Result<String, PushRegistrationError> {
+    Ok(contrix_api_url(
+        &push_gateway_service_base_url(push_gateway_url)?,
+        PUSH_INTEGRATION_DESCRIBE_PATH,
+    ))
+}
+
 /// Validate a Contrix push gateway endpoint.
 ///
 /// Production gateway URLs must be HTTPS. Plain HTTP is accepted only for
@@ -1475,6 +1525,20 @@ impl ContrixPushClient {
         &self,
     ) -> Result<ContrixResponse<PushBridgeDescribeResponse>, PushRegistrationError> {
         self.get_json(PUSH_BRIDGE_DESCRIBE_PATH).await
+    }
+
+    /// Discover the service-level push gateway integration manifest.
+    pub async fn integration_describe(
+        &self,
+    ) -> Result<PushGatewayIntegrationDescribeResponse, PushRegistrationError> {
+        Ok(self.integration_describe_with_context().await?.body)
+    }
+
+    /// Discover the service-level push gateway integration manifest and return response metadata.
+    pub async fn integration_describe_with_context(
+        &self,
+    ) -> Result<ContrixResponse<PushGatewayIntegrationDescribeResponse>, PushRegistrationError> {
+        self.get_json(PUSH_INTEGRATION_DESCRIBE_PATH).await
     }
 
     /// Register a push-capable device with a Contrix service.
