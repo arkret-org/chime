@@ -293,6 +293,8 @@ pub struct PushBridgeDescribeResponse {
     pub gateway: PushBridgeDescribeGatewayDescriptor,
     pub notify: PushBridgeDescribeNotifyDescriptor,
     pub privacy: PushBridgeDescribePrivacyDescriptor,
+    #[serde(default)]
+    pub examples: PushBridgeDescribeExamples,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub todos: Vec<String>,
 }
@@ -338,6 +340,16 @@ pub struct PushBridgeDescribePrivacyDescriptor {
     pub active_reference_fields: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub rejected_legacy_fields: Vec<String>,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PushBridgeDescribeExamples {
+    #[serde(default)]
+    pub notify_headers: Value,
+    #[serde(default)]
+    pub blind_wakeup_request: Value,
+    #[serde(default)]
+    pub plaintext_visible_service_request: Value,
 }
 
 /// Contrix standard error object.
