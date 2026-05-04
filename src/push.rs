@@ -19,6 +19,9 @@ pub const REGISTER_DEVICE_PATH: &str = "/api/v1/push/register-device";
 /// Contrix HTTP path for `cx.push.unregister_device`.
 pub const UNREGISTER_DEVICE_PATH: &str = "/api/v1/push/unregister-device";
 
+/// Contrix HTTP path for discovering the active push gateway bridge contract.
+pub const PUSH_BRIDGE_DESCRIBE_PATH: &str = "/api/v1/push/bridge/describe";
+
 /// Header used to correlate Contrix requests across clients and services.
 pub const CONTRIX_REQUEST_ID_HEADER: &str = "X-Contrix-Request-Id";
 
@@ -279,6 +282,62 @@ pub struct UnregisterDeviceResponse {
     pub removed_registration_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub request_id: Option<String>,
+}
+
+/// Response body for `GET /api/v1/push/bridge/describe`.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PushBridgeDescribeResponse {
+    pub contract: String,
+    pub version: String,
+    pub api_base_path: String,
+    pub gateway: PushBridgeDescribeGatewayDescriptor,
+    pub notify: PushBridgeDescribeNotifyDescriptor,
+    pub privacy: PushBridgeDescribePrivacyDescriptor,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub todos: Vec<String>,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PushBridgeDescribeGatewayDescriptor {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub service_did: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub supported_profiles: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub supported_providers: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub auth_modes: Vec<String>,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PushBridgeDescribeNotifyDescriptor {
+    pub notify_path: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub legacy_notify_aliases: Vec<String>,
+    pub operation_id: String,
+    pub request_id_header: String,
+    pub idempotency_key_header: String,
+    pub origin_service_did_header: String,
+    pub destination_service_did_header: String,
+    pub max_request_size_bytes: usize,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub dedup_backend: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub dedup_ttl_seconds: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rate_limit_window_seconds: Option<u64>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub rate_limit_scopes: Vec<String>,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PushBridgeDescribePrivacyDescriptor {
+    pub default_mode: String,
+    pub plaintext_visibility_class: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub active_reference_fields: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub rejected_legacy_fields: Vec<String>,
 }
 
 /// Contrix standard error object.
@@ -1328,6 +1387,20 @@ impl ContrixPushClient {
         Ok(self)
     }
 
+    /// Discover the active push gateway bridge contract.
+    pub async fn bridge_describe(
+        &self,
+    ) -> Result<PushBridgeDescribeResponse, PushRegistrationError> {
+        Ok(self.bridge_describe_with_context().await?.body)
+    }
+
+    /// Discover the active push gateway bridge contract and return response metadata.
+    pub async fn bridge_describe_with_context(
+        &self,
+    ) -> Result<ContrixResponse<PushBridgeDescribeResponse>, PushRegistrationError> {
+        self.get_json(PUSH_BRIDGE_DESCRIBE_PATH).await
+    }
+
     /// Register a push-capable device with a Contrix service.
     ///
     /// When `prefs.enabled` is false, this method performs an idempotent
@@ -1487,6 +1560,33 @@ impl ContrixPushClient {
         }
     }
 
+    async fn get_json<R>(&self, path: &str) -> Result<ContrixResponse<R>, PushRegistrationError>
+    where
+        R: for<'de> Deserialize<'de>,
+    {
+        let mut retry_count = 0;
+
+        loop {
+            let result = self.get_json_once(path).await;
+
+            match result {
+                Ok(response) => return Ok(response),
+                Err(error)
+                    if retry_count < self.retry_policy.max_retries && error.is_retryable() =>
+                {
+                    let delay = error
+                        .retry_after_duration()
+                        .unwrap_or_else(|| self.backoff_delay(retry_count));
+                    if !delay.is_zero() {
+                        tokio::time::sleep(delay).await;
+                    }
+                    retry_count += 1;
+                }
+                Err(error) => return Err(error),
+            }
+        }
+    }
+
     async fn post_json_once<T, R>(
         &self,
         path: &str,
@@ -1518,6 +1618,66 @@ impl ContrixPushClient {
         }
 
         if let Some(request_id) = request_id {
+            let request_id = reqwest::header::HeaderValue::from_str(request_id).map_err(|_| {
+                PushRegistrationError::InvalidHeader {
+                    name: CONTRIX_REQUEST_ID_HEADER.to_owned(),
+                }
+            })?;
+            request = request.header(CONTRIX_REQUEST_ID_HEADER, request_id);
+        }
+
+        for (name, value) in &self.headers {
+            request = request.header(name, value);
+        }
+
+        let response = request.send().await?;
+        let status = response.status();
+        let headers = response.headers().clone();
+        let retry_after = header_value(&headers, RETRY_AFTER_HEADER);
+        let request_id = header_value(&headers, CONTRIX_REQUEST_ID_HEADER);
+        let body = response.text().await?;
+
+        if !status.is_success() {
+            let error = serde_json::from_str::<ContrixErrorEnvelope>(&body)
+                .ok()
+                .map(Box::new);
+            let kind = classify_http_error(status.as_u16(), error.as_deref());
+            return Err(PushRegistrationError::HttpStatus {
+                status: status.as_u16(),
+                kind,
+                error,
+                body,
+                retry_after,
+                request_id,
+            });
+        }
+
+        Ok(ContrixResponse {
+            body: serde_json::from_str(&body)?,
+            request_id,
+            retry_after,
+        })
+    }
+
+    async fn get_json_once<R>(&self, path: &str) -> Result<ContrixResponse<R>, PushRegistrationError>
+    where
+        R: for<'de> Deserialize<'de>,
+    {
+        let url = try_contrix_api_url(&self.service_base_url, path)?;
+        let mut request = self
+            .http
+            .get(url)
+            .header(reqwest::header::USER_AGENT, self.user_agent.as_str());
+
+        if let Some(timeout) = self.timeout {
+            request = request.timeout(timeout);
+        }
+
+        if let Some(token) = &self.bearer_token {
+            request = request.bearer_auth(token);
+        }
+
+        if let Some(request_id) = self.default_request_id.as_deref() {
             let request_id = reqwest::header::HeaderValue::from_str(request_id).map_err(|_| {
                 PushRegistrationError::InvalidHeader {
                     name: CONTRIX_REQUEST_ID_HEADER.to_owned(),
