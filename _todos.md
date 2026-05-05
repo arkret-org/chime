@@ -43,7 +43,7 @@
 | A1 🔒 | **register/unregister model 冻结**：response 类型加 `#[non_exhaustive]`（前向兼容字段添加）；request 类型保持 struct-literal 可构造但加 0.x-stable doc 注；wire.rs 顶部 module-doc 写明 stability 契约。 | `[x]` | `push/wire.rs` |
 | A4 🅿 | **register failure classification**：`PushErrorKind` 覆盖 401/403/404/409/410/422/429/503；新增 `PushErrorKind::Gone` 变体处理 token 撤销语义。 | `[x]` | `push/errors.rs` |
 | B3 🅿 | **failure_codes 映射**：`PushErrorKind::from_failure_code(&str) -> Option<PushErrorKind>`；`classify_http_error` 改用此函数；映射涵盖 unauthenticated / capability_denied / rate_limited / temporarily_unavailable / duplicate_conflict / not_found / gone / registration_gone / push_token_gone / schema_violation 系列。 | `[x]` | `push/errors.rs` |
-| F3 🅿 | **API 稳定性 banner 转正**：把 README 的"早期阶段、随时变更"替换成 `0.x` SemVer 承诺；每个 public type 加 `#[doc]` 标注稳定级别（stable / 0.x-stable / experimental）。 | `[ ]` | `lib.rs`、`README*.md` |
+| F3 🅿 | **API 稳定性 banner 转正**：README + README_zh 替换为 `0.x` SemVer 承诺，明示 response 类型 `#[non_exhaustive]` + 加法演进；wire.rs module-doc 也写明 stability 契约。每个 public type 的稳定级别 `#[doc]` 注解延后到 Q2 文档轮一起做。 | `[x]` | `README.md`、`README_zh.md`、`push/wire.rs` |
 
 ### Phase 1b · Privacy / Blind-Wakeup（C1/C3 是 release gate）
 
@@ -61,7 +61,7 @@
 | E2 🅿 | **idempotency-key 注入**：caller 不提供且无 default 时，`post_json` 自动生成 `cx-sdk-<sha256-hex>` 形式 key；同一逻辑请求所有 retry 共用同一 key（`generate_idempotency_key()` 在 retry 循环外调用一次）；retry safety check 简化为 "总是安全"，因为现在永远有 idempotency key。 | `[x]` | `push/client.rs` |
 | A2 🅿 | **token rotation**：当前一次性注册；扩展 `rotate_token(old, new)`，调用 soland `register-device` 时携带 `previous_token_hash`（与 soland Stream F-9 联动）。 | `[ ]` | `push/registration.rs` |
 | A5 🅿 | **session-grant binding**：register 请求强制带 soland session-grant + audience；bridge mismatch fail closed。 | `[ ]` | `push/registration.rs` |
-| E3 🅿 | **本地状态持久化抽象**：`PushPreferences` / `RegistrationState` 提供 `Storage` trait（默认 in-memory；调用方可用 keychain / sqlite 实现）。 | `[ ]` | `state/*.rs` |
+| E3 🅿 | **本地状态持久化抽象**：`PushRegistrationStore` trait 已存在（`state/model.rs`），提供 load / save / clear / list 默认实现，调用方可基于 keychain / sqlite 实现；in-memory fallback 通过 trait default impls 已就位。`PushPreferences` 的对应 trait 后续按需补。 | `[~]` | `state/model.rs` |
 
 ## Phase 3 · Bridge Discovery / 多 gateway（依赖 Phase 0、可并 Phase 1/2）
 
@@ -88,10 +88,10 @@
 | # | 任务 | 状态 | 文件 |
 |---|---|---|---|
 | F4 🅿 | **drift gate**：`bridge/describe` DTO 与 `floria` 真实 schema 在 CI 做对齐测试；任何字段漂移 fail closed。 | `[ ]` | `tests/*`、`.github/workflows/*` |
-| Q1 🅿 | feature 矩阵 CI：`--no-default-features` / `--features http` / `--features notify` / `--all-features` 四档 build。 | `[ ]` | `.github/workflows/*` |
-| Q2 🅿 | 文档：每个 public type 加 `#[doc]`，README 与 zh README 同步。 | `[ ]` | `lib.rs`、`README*.md` |
+| Q1 🅿 | feature 矩阵 CI：`check` + `test` + `clippy` 三个 job 各跑 `""` / `"http"` / `"notify"` / `"http,notify"` 四档；MSRV bump 到 1.89（`Cargo.toml` 一致）。 | `[x]` | `.github/workflows/ci.yml` |
+| Q2 🅿 | 文档：每个 public type 加 `#[doc]` 稳定级别注解；deeper API doc。F3 已完成 README banner，本项剩 per-type `#[doc]` 标注。 | `[~]` | `lib.rs`、`push/wire.rs`、`state/model.rs` |
 | Q3 🅿 | property test：register/unregister roundtrip + bridge describe parse roundtrip + notify privacy gate。 | `[ ]` | `tests/*` |
-| Q4 🅿 | `typos.toml` 已存在，确保 CI 跑。 | `[ ]` | CI |
+| Q4 🅿 | `typos.toml` 已存在 + CI 加上 `crate-ci/typos@master` job。 | `[x]` | `.github/workflows/ci.yml` |
 | S1 🔒 | 与 yougen 集成：把 yougen 当前手写的 push register 路径替换成 `chime::ContrixPushClient`。 | `[ ]` | 跨仓 |
 | S2 🅿 | 与 cotest 联调：cotest 的 push 黑盒向量复用 chime 的 typed reject helper。 | `[ ]` | 跨仓 |
 | S3 🅿 | 文档 round-trip：README 中所有 example code block 都跑 `cargo doc-test`。 | `[ ]` | `README*.md`、CI |
