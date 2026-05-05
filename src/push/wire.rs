@@ -127,6 +127,11 @@ pub struct RegisterDeviceRequest {
     pub idempotency_key: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub request_id: Option<String>,
+    /// SHA-256 fingerprint of the previously registered push token, set by
+    /// token-rotation flows so the gateway can correlate the new registration
+    /// with the old one and reclaim it server-side.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub previous_token_hash: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub proof: Option<Value>,
 }
@@ -144,6 +149,7 @@ impl fmt::Debug for RegisterDeviceRequest {
             .field("display_name", &self.display_name)
             .field("idempotency_key", &self.idempotency_key)
             .field("request_id", &self.request_id)
+            .field("previous_token_hash", &self.previous_token_hash)
             .field("proof", &self.proof.as_ref().map(|_| "<present>"))
             .finish()
     }

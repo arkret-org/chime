@@ -59,7 +59,7 @@
 |---|---|---|---|
 | E1 🅿 | **HTTP retry policy**：`PushRetryPolicy` 已有骨架；429 走 `Retry-After`、5xx 指数退避、上限保护、jitter — 本仓已实现；进一步可补 429 jitter 上限策略 / 关闭重试细粒度控制。 | `[~]` | `push/client.rs` |
 | E2 🅿 | **idempotency-key 注入**：caller 不提供且无 default 时，`post_json` 自动生成 `cx-sdk-<sha256-hex>` 形式 key；同一逻辑请求所有 retry 共用同一 key（`generate_idempotency_key()` 在 retry 循环外调用一次）；retry safety check 简化为 "总是安全"，因为现在永远有 idempotency key。 | `[x]` | `push/client.rs` |
-| A2 🅿 | **token rotation**：当前一次性注册；扩展 `rotate_token(old, new)`，调用 soland `register-device` 时携带 `previous_token_hash`（与 soland Stream F-9 联动）。 | `[ ]` | `push/registration.rs` |
+| A2 🅿 | **token rotation**：`RegisterDeviceRequest` 新增 `previous_token_hash: Option<String>`（serde skip-if-none，向前兼容）；`plan_token_rotation_with_strategy` 在存在旧 state 时把 `state.push_key_hash` 写入新 register 请求。两条 regression test 锁定行为。`rotate_token(old, new)` 顶层 client 方法可后续按需补。 | `[~]` | `push/wire.rs`、`state/rotation.rs` |
 | A5 🅿 | **session-grant binding**：register 请求强制带 soland session-grant + audience；bridge mismatch fail closed。 | `[ ]` | `push/registration.rs` |
 | E3 🅿 | **本地状态持久化抽象**：`PushRegistrationStore` trait 已存在（`state/model.rs`），提供 load / save / clear / list 默认实现，调用方可基于 keychain / sqlite 实现；in-memory fallback 通过 trait default impls 已就位。`PushPreferences` 的对应 trait 后续按需补。 | `[~]` | `state/model.rs` |
 

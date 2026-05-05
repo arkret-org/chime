@@ -79,9 +79,14 @@ pub fn plan_token_rotation_with_strategy(
         build_unregister_device_request(&old_config, prefs)
     });
 
+    let mut register_new = build_register_device_request(config, prefs)?;
+    if let Some(state) = existing {
+        register_new.previous_token_hash = Some(state.push_key_hash.clone());
+    }
+
     Ok(PushTokenRotationPlan {
         unregister_old: unregister_old.transpose()?,
-        register_new: Some(build_register_device_request(config, prefs)?),
+        register_new: Some(register_new),
         token_changed: true,
         strategy,
     })
@@ -160,6 +165,44 @@ mod tests {
                 .as_ref()
                 .map(|request| request.push_key.as_str()),
             Some("fcm:new-token")
+        );
+    }
+
+    #[test]
+    fn rotation_plan_attaches_previous_token_hash_to_register_request() {
+        let request = build_register_device_request(&config("fcm:old-token"), &prefs()).unwrap();
+        let response = RegisterDeviceResponse {
+            ok: true,
+            registration_id: Some("reg-old".to_owned()),
+            ..Default::default()
+        };
+        let state = build_registration_state(
+            &config("fcm:old-token"),
+            &prefs(),
+            &request,
+            &response,
+            None,
+        );
+        let old_hash = state.push_key_hash.clone();
+
+        let plan = plan_token_rotation(Some(&state), &config("fcm:new-token"), &prefs()).unwrap();
+
+        let attached = plan
+            .register_new
+            .as_ref()
+            .and_then(|request| request.previous_token_hash.clone());
+        assert_eq!(attached.as_deref(), Some(old_hash.as_str()));
+    }
+
+    #[test]
+    fn rotation_plan_omits_previous_token_hash_when_no_existing_state() {
+        let plan = plan_token_rotation(None, &config("fcm:new-token"), &prefs()).unwrap();
+        assert!(plan.token_changed);
+        assert!(
+            plan.register_new
+                .as_ref()
+                .and_then(|request| request.previous_token_hash.as_ref())
+                .is_none()
         );
     }
 

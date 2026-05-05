@@ -72,6 +72,7 @@ pub fn build_register_device_request(
         display_name: config.display_name.map(str::to_owned),
         idempotency_key: config.idempotency_key.map(str::to_owned),
         request_id: config.request_id.map(str::to_owned),
+        previous_token_hash: None,
         proof: config.proof.cloned(),
     })
 }
