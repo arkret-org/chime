@@ -43,7 +43,7 @@ pub use push::{
     CONTRIX_EXPIRES_AT_HEADER, CONTRIX_IDEMPOTENCY_KEY_HEADER, CONTRIX_NONCE_HEADER,
     CONTRIX_OPERATION_ID_HEADER, CONTRIX_ORIGIN_HEADER, CONTRIX_ORIGIN_SERVICE_DID_HEADER,
     CONTRIX_REQUEST_ID_HEADER, CONTRIX_SESSION_GRANT_HEADER, ContrixError, ContrixErrorEnvelope,
-    PushBridgeDescribeGatewayDescriptor, PushBridgeDescribeNotifyDescriptor,
+    IntegrationView, PushBridgeDescribeGatewayDescriptor, PushBridgeDescribeNotifyDescriptor,
     PushBridgeDescribePrivacyDescriptor, PushBridgeDescribeResponse, PushDeviceConfig,
     PushGatewayIntegrationDependency, PushGatewayIntegrationDescribeResponse,
     PushGatewayIntegrationSurface,

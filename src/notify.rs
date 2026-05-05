@@ -131,6 +131,14 @@ impl PushNotification {
         validate_typed_id("event_id", self.event_id.as_deref(), "cx:event:")?;
         validate_typed_id("space_id", self.space_id.as_deref(), "cx:space:")?;
 
+        if let Some(sender) = self.sender.as_deref()
+            && carries_legacy_typed_id(sender)
+        {
+            return Err(PushNotifyPrivacyError::LegacyField {
+                field: "sender".to_owned(),
+            });
+        }
+
         if self.devices.is_empty() {
             return Err(PushNotifyPrivacyError::MissingField {
                 field: "devices".to_owned(),
@@ -777,6 +785,17 @@ mod tests {
                 platform: Some("android".to_owned()),
             }],
             extra: Map::new(),
+        }
+    }
+
+    #[test]
+    fn rejects_legacy_typed_id_in_sender_field() {
+        let mut notification = notification();
+        notification.sender = Some("cx:room:legacy-room".to_owned());
+        let result = notification.validate_wire_model();
+        match result {
+            Err(PushNotifyPrivacyError::LegacyField { field }) => assert_eq!(field, "sender"),
+            other => panic!("expected LegacyField for sender, got {other:?}"),
         }
     }
 
