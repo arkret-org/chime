@@ -1,6 +1,11 @@
 # chime
 
-> **Warning:** This project is in a very early stage and APIs may change without notice.
+> **Stability:** `0.x`. Within a `0.x` minor release, the public surface evolves
+> additively — new optional fields, new enum variants, new helper methods. Renames
+> and removals require bumping the minor (`0.x → 0.x+1`). Response wire types
+> (`RegisterDeviceResponse`, `UnregisterDeviceResponse`, `ContrixErrorEnvelope`)
+> carry `#[non_exhaustive]` so server-driven field additions do not break
+> downstream consumers.
 
 Contrix push notification gateway types, preferences, and device registration helpers.
 

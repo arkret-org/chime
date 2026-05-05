@@ -221,7 +221,8 @@ impl ContrixPushClient {
     /// Discover the service-level push gateway integration manifest and return response metadata.
     pub async fn integration_describe_with_context(
         &self,
-    ) -> Result<ContrixResponse<PushGatewayIntegrationDescribeResponse>, PushRegistrationError> {
+    ) -> Result<ContrixResponse<PushGatewayIntegrationDescribeResponse>, PushRegistrationError>
+    {
         self.get_json(PUSH_INTEGRATION_DESCRIBE_PATH).await
     }
 
@@ -493,7 +494,10 @@ impl ContrixPushClient {
         })
     }
 
-    async fn get_json_once<R>(&self, path: &str) -> Result<ContrixResponse<R>, PushRegistrationError>
+    async fn get_json_once<R>(
+        &self,
+        path: &str,
+    ) -> Result<ContrixResponse<R>, PushRegistrationError>
     where
         R: for<'de> Deserialize<'de>,
     {
@@ -956,7 +960,11 @@ mod tests {
         assert!(response.ok);
 
         let recorded = requests.lock().unwrap();
-        assert_eq!(recorded.len(), 2, "auto-generated key should make POST retryable");
+        assert_eq!(
+            recorded.len(),
+            2,
+            "auto-generated key should make POST retryable"
+        );
 
         let key_of = |raw: &String| -> Option<String> {
             raw.lines()

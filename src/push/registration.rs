@@ -5,16 +5,12 @@ use sha2::{Digest, Sha256};
 use crate::PushPreferences;
 
 use super::errors::PushRegistrationError;
-use super::signing::{
-    PushRequestSigningContext, PushRequestSigningOptions, build_signing_context,
-};
+use super::signing::{PushRequestSigningContext, PushRequestSigningOptions, build_signing_context};
 use super::urls::{
     redact_push_key, require_non_empty, require_optional_non_empty, validate_push_gateway_url,
     validate_webpush_endpoint_allowlist,
 };
-use super::wire::{
-    PushDeviceConfig, PushPlatform, RegisterDeviceRequest, UnregisterDeviceRequest,
-};
+use super::wire::{PushDeviceConfig, PushPlatform, RegisterDeviceRequest, UnregisterDeviceRequest};
 use super::{REGISTER_DEVICE_PATH, UNREGISTER_DEVICE_PATH};
 
 /// Build the Contrix register-device request body from app configuration and

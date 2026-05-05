@@ -1,6 +1,9 @@
 # chime
 
-> **警告：** 本项目处于非常早期阶段，API 可能随时变更，恕不另行通知。
+> **稳定性：** `0.x`。在同一 `0.x` 小版本内，公开 API 仅做加法演进 —— 新增可选字段、
+> 新增 enum 变体、新增辅助方法。改名或删除需要升级小版本（`0.x → 0.x+1`）。
+> 响应 wire 类型（`RegisterDeviceResponse` / `UnregisterDeviceResponse` /
+> `ContrixErrorEnvelope`）已加 `#[non_exhaustive]`，服务端追加字段不会打断下游消费。
 
 Contrix 推送通知网关类型、偏好设置和设备注册辅助库。
 

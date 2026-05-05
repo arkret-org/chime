@@ -29,11 +29,12 @@ pub fn push_gateway_service_base_url(
 ) -> Result<String, PushRegistrationError> {
     require_non_empty("push_gateway", push_gateway_url)?;
 
-    let mut url =
-        Url::parse(push_gateway_url).map_err(|error| PushRegistrationError::InvalidPushGatewayUrl {
+    let mut url = Url::parse(push_gateway_url).map_err(|error| {
+        PushRegistrationError::InvalidPushGatewayUrl {
             url: push_gateway_url.to_owned(),
             reason: error.to_string(),
-        })?;
+        }
+    })?;
 
     if !url.username().is_empty() || url.password().is_some() {
         return Err(PushRegistrationError::InvalidPushGatewayUrl {
@@ -78,9 +79,7 @@ pub fn push_gateway_service_base_url(
 }
 
 /// Derive the active bridge-describe URL from a configured push gateway URL.
-pub fn push_bridge_describe_url(
-    push_gateway_url: &str,
-) -> Result<String, PushRegistrationError> {
+pub fn push_bridge_describe_url(push_gateway_url: &str) -> Result<String, PushRegistrationError> {
     Ok(contrix_api_url(
         &push_gateway_service_base_url(push_gateway_url)?,
         PUSH_BRIDGE_DESCRIBE_PATH,

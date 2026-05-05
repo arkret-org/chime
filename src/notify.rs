@@ -42,12 +42,12 @@ pub struct PushNotifyRequest {
 impl PushNotifyRequest {
     /// Validate the active `cx.push.notify` wire model.
     pub fn validate_wire_model(&self) -> Result<(), PushNotifyPrivacyError> {
-        if let Some(operation_id) = &self.operation_id {
-            if operation_id != crate::OPERATION_PUSH_NOTIFY {
-                return Err(PushNotifyPrivacyError::InvalidFieldValue {
-                    field: "operation_id".to_owned(),
-                });
-            }
+        if let Some(operation_id) = &self.operation_id
+            && operation_id != crate::OPERATION_PUSH_NOTIFY
+        {
+            return Err(PushNotifyPrivacyError::InvalidFieldValue {
+                field: "operation_id".to_owned(),
+            });
         }
 
         self.notification.validate_wire_model()

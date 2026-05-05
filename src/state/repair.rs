@@ -7,9 +7,7 @@ use crate::{
     UnregisterDeviceRequest, build_register_device_request,
 };
 
-use super::model::{
-    PushRegistrationState, build_unregister_request_for_state, hash_push_key,
-};
+use super::model::{PushRegistrationState, build_unregister_request_for_state, hash_push_key};
 
 /// State repair plan for stale local records, token moves, and partial
 /// register/unregister failures.
@@ -150,12 +148,9 @@ mod tests {
             "fcm:new-token",
             "reg-new",
         );
-        let plan = plan_registration_repair(
-            &[old_state, new_state],
-            &config("fcm:new-token"),
-            &prefs(),
-        )
-        .unwrap();
+        let plan =
+            plan_registration_repair(&[old_state, new_state], &config("fcm:new-token"), &prefs())
+                .unwrap();
 
         assert_eq!(
             plan.active_state
