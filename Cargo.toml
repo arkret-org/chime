@@ -5,7 +5,21 @@ edition = "2024"
 rust-version = "1.89"
 license = "Apache-2.0"
 repository = "https://github.com/contrix-dev/chime"
+homepage = "https://github.com/contrix-dev/chime"
+documentation = "https://docs.rs/chime"
+readme = "README.md"
 description = "Contrix push notification gateway types and device registration helpers, with support for domestic Chinese Android OEM providers through Bugle."
+keywords = ["contrix", "push", "notification", "fcm", "apns"]
+categories = ["api-bindings", "network-programming", "web-programming"]
+exclude = [
+    "_todos.md",
+    ".claude/",
+    ".github/",
+]
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
 
 [dependencies]
 base64 = "0.22"
@@ -27,4 +41,5 @@ http = ["dep:reqwest", "dep:tokio"]
 notify = []
 
 [dev-dependencies]
+proptest = { version = "1", default-features = false, features = ["std"] }
 tokio = { version = "1", features = ["io-util", "macros", "net", "rt-multi-thread", "time"] }

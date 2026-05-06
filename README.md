@@ -33,10 +33,16 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-chime = { path = "../chime" }
+chime = "0.1"
 # or with Contrix HTTP registration and gateway notify wire types:
-# chime = { path = "../chime", features = ["http"] }
-# chime = { path = "../chime", features = ["http", "notify"] }
+# chime = { version = "0.1", features = ["http"] }
+# chime = { version = "0.1", features = ["http", "notify"] }
+```
+
+In-tree workspace consumers can also pull a path dependency:
+
+```toml
+chime = { path = "../chime", features = ["http"] }
 ```
 
 ### Core types
@@ -59,11 +65,8 @@ let app_id = prefs.app_id(
 assert_eq!(app_id, Some("app.example.android.cn"));
 
 let json = chime::to_json(&prefs).unwrap();
-let loaded = chime::from_json(&json);
+let loaded = chime::from_json(&json).unwrap();
 assert_eq!(loaded.gateway_type, PushGatewayType::Bugle);
-
-let strict = chime::try_from_json(&json).unwrap();
-assert_eq!(strict.gateway_type, PushGatewayType::Bugle);
 ```
 
 ### Build a Contrix registration body
@@ -179,6 +182,78 @@ if let Some(unregister_old) = plan.unregister_old {
     // For RegisterNewFirst, send this after the replacement succeeds.
 }
 ```
+
+## Configuration & Operations
+
+`chime` is a library, not a service — it has no daemon, no config file
+of its own, and no environment variables it reads. Operational concerns
+live entirely in the host application that wires `ContrixPushClient`
+into a Contrix Principal Server / Sync Service deployment.
+
+### Build profile
+
+| Knob | Value | Note |
+| ---- | ----- | ---- |
+| MSRV | `1.89` | Enforced by CI; bump only with a minor release. |
+| TLS backend | `rustls-tls` (via reqwest) | No system OpenSSL dependency. |
+| Tokio runtime | optional via `http` feature | Multi-thread or current-thread, host's choice. |
+| Logging | `tracing` events on the `chime` target | No allocator on the hot path; subscribe at info-level for register/unregister breadcrumbs. |
+
+### Production checklist
+
+- **HTTPS only.** `validate_push_gateway_url` rejects non-HTTPS gateway
+  URLs unless the host opts in by setting
+  `PushPreferences::allow_insecure_loopback_push_gateway = true` for a
+  loopback dev URL.
+- **WebPush origins.** Set
+  `PushPreferences::webpush_endpoint_allowlist` to the list of FCM /
+  Apple / Mozilla origins or host patterns you accept; `*.push.services.mozilla.com`
+  and `https://fcm.googleapis.com` are typical entries.
+- **Auth in headers, not URLs.** Session tokens, bearer tokens, API
+  keys, and HTTP message signatures must travel in headers. Putting
+  them in `push_gateway` query strings is rejected.
+- **Session grant fail-closed.** `ContrixPushClient::new(...)` defaults
+  to `with_required_session_grant(true)`. Always attach
+  `X-Contrix-Session-Grant` via `with_session_grant("...")` (or
+  `with_header(...)`) before calling register/unregister. Dev sandboxes
+  that need to skip this can flip the flag.
+- **Idempotency.** If you do not provide an idempotency key, the
+  client generates one and reuses it across retries. Persist your own
+  key for server-side dedup if you care about cross-process
+  deduplication.
+- **Retries.** Default `PushRetryPolicy::disabled()`. Use
+  `PushRetryPolicy::conservative()` for `429`/`503`/network-timeout
+  retries with `Retry-After` honoring and bounded jitter.
+- **Token storage.** Implement `PushRegistrationStore` over an OS
+  keychain, encrypted app storage, or another locally protected store.
+  Never log raw `push_key`; the crate redacts it in `Debug` impls and
+  tracing fields, and you should mirror that in your own code.
+- **Privacy gate.** When you build the `notify` feature into a
+  gateway, validate every outbound payload through
+  `PushNotifyRequest::assert_payload_safe(&policy)`. Empty
+  `PushNotifyPolicyContext` means every notification is treated as
+  blind wakeup, which is the safest default.
+
+### Observability
+
+`chime` emits `tracing` events with the target prefix `chime`:
+
+```text
+INFO  chime::push::client  Contrix push device registered  platform=android gateway="Contrix Standard" operation_id=cx.push.register_device request_id=cx:req:01JS0KE000000000000000000
+```
+
+Subscribe with any `tracing-subscriber` layer; Sentry / OpenTelemetry
+exporters work without further glue.
+
+### Troubleshooting
+
+| Symptom | Likely cause |
+| ------- | ------------ |
+| `MissingField("session_grant")` returned before any HTTP request | `with_required_session_grant(true)` is on but no `X-Contrix-Session-Grant` header is attached. |
+| `InvalidPushGatewayUrl { reason: "scheme must be https" }` | HTTP push gateway URL in production. Allow loopback only if you're testing locally. |
+| `WebPushEndpointNotAllowed` | The browser-issued endpoint origin is not in `webpush_endpoint_allowlist`. Add the origin or host pattern. |
+| `Gone` (HTTP 410) | The push token was retired. Drop the local registration and let the device generate a new token before re-registering. |
+| `Unauthenticated` after token refresh | The bearer token rotated mid-request. Refresh `with_bearer_token(...)` and retry. |
 
 ## Migration from legacy Matrix pusher terms
 

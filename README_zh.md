@@ -31,10 +31,16 @@ Contrix 推送通知网关类型、偏好设置和设备注册辅助库。
 
 ```toml
 [dependencies]
-chime = { path = "../chime" }
+chime = "0.1"
 # 如需 Contrix HTTP 注册功能和网关 notify wire 类型：
-# chime = { path = "../chime", features = ["http"] }
-# chime = { path = "../chime", features = ["http", "notify"] }
+# chime = { version = "0.1", features = ["http"] }
+# chime = { version = "0.1", features = ["http", "notify"] }
+```
+
+工作区内的同仓库消费方也可以使用 path 依赖：
+
+```toml
+chime = { path = "../chime", features = ["http"] }
 ```
 
 ### 核心类型
@@ -57,11 +63,8 @@ let app_id = prefs.app_id(
 assert_eq!(app_id, Some("app.example.android.cn"));
 
 let json = chime::to_json(&prefs).unwrap();
-let loaded = chime::from_json(&json);
+let loaded = chime::from_json(&json).unwrap();
 assert_eq!(loaded.gateway_type, PushGatewayType::Bugle);
-
-let strict = chime::try_from_json(&json).unwrap();
-assert_eq!(strict.gateway_type, PushGatewayType::Bugle);
 ```
 
 ### 构建 Contrix 注册请求体
@@ -177,6 +180,74 @@ if let Some(unregister_old) = plan.unregister_old {
     // RegisterNewFirst 策略下，在新注册成功后再发送旧 token 注销请求。
 }
 ```
+
+## 配置与运维
+
+`chime` 是一个库，不是服务 —— 它没有自己的守护进程、配置文件，
+也不读取任何环境变量。所有运维相关的拼装工作都发生在把
+`ContrixPushClient` 连进 Contrix Principal Server / Sync Service
+的宿主应用里。
+
+### 构建参数
+
+| 项 | 值 | 说明 |
+| --- | --- | --- |
+| MSRV | `1.89` | CI 强制；只随 minor 版本一起 bump。 |
+| TLS 后端 | `rustls-tls`（通过 reqwest） | 不依赖系统 OpenSSL。 |
+| Tokio runtime | `http` feature 启用时按需 | 多线程或当前线程都行，由宿主选择。 |
+| 日志 | `tracing` events，`chime` target | 热路径无堆分配；`info` 级别就能拿到 register/unregister 面包屑。 |
+
+### 生产清单
+
+- **强制 HTTPS。** `validate_push_gateway_url` 在非 HTTPS 网关 URL 上
+  直接拒绝；除非宿主显式设置
+  `PushPreferences::allow_insecure_loopback_push_gateway = true` 用于
+  loopback 开发地址。
+- **WebPush 来源白名单。** 给
+  `PushPreferences::webpush_endpoint_allowlist` 填上你接受的 FCM /
+  Apple / Mozilla 来源或主机通配；`*.push.services.mozilla.com` 与
+  `https://fcm.googleapis.com` 是常见条目。
+- **认证只走 header，不走 URL。** Session token、bearer token、API
+  key、HTTP message signature 都必须通过 header 传递。把它们放在
+  `push_gateway` 的 query string 里会被直接拒。
+- **Session grant 默认 fail-closed。** `ContrixPushClient::new(...)`
+  默认 `with_required_session_grant(true)`。register/unregister 调用前
+  务必先 `with_session_grant("...")`（或 `with_header(...)`）挂上
+  `X-Contrix-Session-Grant`。开发沙箱可以关掉这一保护。
+- **幂等性。** 不传 idempotency key 时客户端会自动生成一个并在重试中
+  复用。如果需要跨进程去重，请自行持久化 key 并显式传入。
+- **重试策略。** 默认 `PushRetryPolicy::disabled()`。
+  `PushRetryPolicy::conservative()` 提供 `429` / `503` / 网络超时
+  的有限重试，带 `Retry-After` 与有界 jitter。
+- **令牌存储。** 在 OS keychain、加密应用存储或其他本地受保护存储上
+  实现 `PushRegistrationStore`。永远不要日志原文 `push_key`；本
+  crate 已经在 `Debug` 与 tracing 字段中做 redact，业务代码里也请
+  保持同样的边界。
+- **隐私门控。** 把 `notify` feature 编进网关时，每个出站载荷都通过
+  `PushNotifyRequest::assert_payload_safe(&policy)` 校验。空的
+  `PushNotifyPolicyContext` 把所有通知都视作 blind wakeup —— 这是
+  最稳妥的默认值。
+
+### 可观察性
+
+`chime` 发出的 `tracing` 事件带 target 前缀 `chime`：
+
+```text
+INFO  chime::push::client  Contrix push device registered  platform=android gateway="Contrix Standard" operation_id=cx.push.register_device request_id=cx:req:01JS0KE000000000000000000
+```
+
+任何 `tracing-subscriber` layer 都能消费；Sentry / OpenTelemetry
+导出器无需额外胶水。
+
+### 故障排查
+
+| 现象 | 常见原因 |
+| --- | --- |
+| 还没发请求就返回 `MissingField("session_grant")` | `with_required_session_grant(true)` 开着但没挂 `X-Contrix-Session-Grant` header。 |
+| `InvalidPushGatewayUrl { reason: "scheme must be https" }` | 生产环境用了 HTTP 推送网关；只有本地测试才允许 loopback。 |
+| `WebPushEndpointNotAllowed` | 浏览器签发的 endpoint 来源不在 `webpush_endpoint_allowlist` 里。把来源或 host 通配加进去。 |
+| `Gone`（HTTP 410） | Push token 已被服务端撤销。本地 drop 注册，让设备生成新 token 后再注册。 |
+| 刷新 token 后仍 `Unauthenticated` | bearer token 在请求中途轮换。重新 `with_bearer_token(...)` 后重试。 |
 
 ## 从旧 Matrix pusher 术语迁移
 
