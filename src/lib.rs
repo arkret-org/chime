@@ -58,8 +58,9 @@ pub use push::{
     validate_push_gateway_url, validate_webpush_endpoint_allowlist,
 };
 pub use state::{
-    PUSH_REGISTRATION_STATE_SCHEMA_VERSION, PushRegistrationLastError, PushRegistrationRepairPlan,
-    PushRegistrationState, PushRegistrationStore, PushTokenRotationPlan, PushTokenRotationStrategy,
+    BridgeContractCache, BridgeContractDriftVerdict, PUSH_REGISTRATION_STATE_SCHEMA_VERSION,
+    PushRegistrationLastError, PushRegistrationRepairPlan, PushRegistrationState,
+    PushRegistrationStore, PushTokenRotationPlan, PushTokenRotationStrategy,
     build_registration_state, find_registration_by_token, find_registration_for_device,
     hash_push_key, merge_registration_state, plan_registration_repair, plan_token_rotation,
     plan_token_rotation_with_strategy, token_moved_to_different_device, token_rotation_required,

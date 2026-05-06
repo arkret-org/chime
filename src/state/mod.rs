@@ -4,7 +4,9 @@
 //! - [`model`]: persisted state types, store trait, hash + finder helpers
 //! - [`rotation`]: token rotation plans
 //! - [`repair`]: stale-state repair plans
+//! - [`bridge_cache`]: cached bridge-describe digest for drift detection
 
+mod bridge_cache;
 mod model;
 mod repair;
 mod rotation;
@@ -15,6 +17,7 @@ pub(crate) mod test_fixtures;
 /// Schema version recorded with each persisted [`PushRegistrationState`].
 pub const PUSH_REGISTRATION_STATE_SCHEMA_VERSION: u16 = 1;
 
+pub use bridge_cache::{BridgeContractCache, BridgeContractDriftVerdict};
 pub use model::{
     PushRegistrationLastError, PushRegistrationState, PushRegistrationStore,
     build_registration_state, find_registration_by_token, find_registration_for_device,

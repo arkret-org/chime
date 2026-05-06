@@ -69,7 +69,7 @@
 |---|---|---|---|
 | B1 🅿 | **`integration_describe()` SDK helper**：新增 `IntegrationView { manifest, bridge }` 类型 + `IntegrationView::requires(service, purpose)` / `contract_digest()` 便利方法；`ContrixPushClient::integration_view()` async 方法顺序拉取并合并；任一失败短路。 | `[x]` | `push/bridge_describe.rs`、`push/client.rs` |
 | B2 🅿 | **多 gateway 自动 capability negotiation**：根据 `bridge/describe` 的 `provider_capabilities` 决定是否启用 batch / TTL / collapse_key / topic-fanout。 | `[ ]` | `push/client.rs` |
-| B4 🅿 | **contract digest cache**：本地缓存 `bridge/describe` 的 `contract_digest`，drift 时 emit warning（不强制阻断，由调用方决定）。 | `[ ]` | `state/bridge_cache.rs` |
+| B4 🅿 | **contract digest cache**：`state/bridge_cache.rs` 提供 `BridgeContractCache::from_response` + `evaluate -> BridgeContractDriftVerdict { Unchanged \| Drifted { cached/fresh digest+contract+version } }`；hex SHA-256 of canonical JSON 当作指纹，cache 类型 JSON 可往返；advisory only — SDK 不阻断请求，由调用方决定告警 / 失效本地状态。 | `[x]` | `state/bridge_cache.rs` |
 | A3 🅿 | **multi-gateway 注册**：客户端可同时注册到多个 gateway（standard + bugle + custom）；`PushPreferences` 的 `gateways: Vec<GatewayBinding>`。 | `[ ]` | `lib.rs`、`state/registration.rs` |
 | C4 🅿 | **encrypted envelope handoff**：`notify` feature 下的 wire 类型与 `contrix-rust-sdk` 的 `EncryptedEnvelope` 对齐；DID-bound payload 进 envelope，绝不裸传。 | `[ ]` | `notify.rs` |
 
