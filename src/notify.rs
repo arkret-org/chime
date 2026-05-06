@@ -72,6 +72,23 @@ impl PushNotifyRequest {
             }
         }
     }
+
+    /// Validate this notification against a policy context — the C1 release
+    /// gate.
+    ///
+    /// The policy decides the mode: if `destination_service_did` is on the
+    /// `plaintext_visible_services` allowlist, the request is checked under
+    /// `PlaintextVisibleService`; otherwise (including the missing-DID case)
+    /// it must satisfy `E2eeBlindWakeup`. Callers cannot override this from
+    /// the request side — there is no `mode` field on the wire payload that
+    /// can lift restrictions.
+    pub fn assert_payload_safe(
+        &self,
+        policy: &PushNotifyPolicyContext,
+    ) -> Result<(), PushNotifyPrivacyError> {
+        let mode = policy.mode_for(self.destination_service_did.as_deref());
+        self.validate_privacy(mode)
+    }
 }
 
 /// Explicit privacy mode used by shared chime/floria validation vectors.
@@ -84,6 +101,52 @@ pub enum PushNotifyPrivacyMode {
     /// metadata. Call setup credentials and encrypted payload bytes are still
     /// rejected.
     PlaintextVisibleService,
+}
+
+/// Policy context that drives privacy-mode selection per request.
+///
+/// The release-gate model: every notification is **blind wakeup by default**.
+/// The application explicitly opts certain destination services into
+/// plaintext-visible delivery by listing their service DIDs. Anything not on
+/// the allowlist falls back to E2EE blind wakeup, even if the caller
+/// requested otherwise. There is no global "trust me" toggle.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[non_exhaustive]
+pub struct PushNotifyPolicyContext {
+    /// Destination service DIDs that are explicitly allowed to receive
+    /// plaintext-visible notifications (`PlaintextVisibleService` mode).
+    /// Compared exactly — case-sensitive — against the request's
+    /// `destination_service_did`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub plaintext_visible_services: Vec<String>,
+}
+
+impl PushNotifyPolicyContext {
+    /// Construct an empty policy. Equivalent to "every request is treated as
+    /// blind wakeup".
+    pub fn blind_wakeup_only() -> Self {
+        Self::default()
+    }
+
+    /// Whether `destination_service_did` is explicitly cleared for plaintext.
+    pub fn allows_plaintext_for(&self, destination_service_did: &str) -> bool {
+        self.plaintext_visible_services
+            .iter()
+            .any(|service| service == destination_service_did)
+    }
+
+    /// Resolve the privacy mode for a given destination DID.
+    ///
+    /// `None` (no destination provided) falls back to blind wakeup — the
+    /// safest default.
+    pub fn mode_for(&self, destination_service_did: Option<&str>) -> PushNotifyPrivacyMode {
+        match destination_service_did {
+            Some(did) if self.allows_plaintext_for(did) => {
+                PushNotifyPrivacyMode::PlaintextVisibleService
+            }
+            _ => PushNotifyPrivacyMode::E2eeBlindWakeup,
+        }
+    }
 }
 
 /// Shared privacy validation vector for gateway and SDK tests.
@@ -992,6 +1055,89 @@ mod tests {
             }],
             extra: Map::new(),
         }
+    }
+
+    #[test]
+    fn policy_context_blind_wakeup_only_by_default() {
+        let policy = PushNotifyPolicyContext::default();
+        assert_eq!(
+            policy.mode_for(Some("did:web:gateway.example")),
+            PushNotifyPrivacyMode::E2eeBlindWakeup
+        );
+        assert_eq!(
+            policy.mode_for(None),
+            PushNotifyPrivacyMode::E2eeBlindWakeup
+        );
+    }
+
+    #[test]
+    fn policy_context_picks_plaintext_only_for_allowlisted_service() {
+        let policy = PushNotifyPolicyContext {
+            plaintext_visible_services: vec!["did:web:public.example".to_owned()],
+        };
+        assert_eq!(
+            policy.mode_for(Some("did:web:public.example")),
+            PushNotifyPrivacyMode::PlaintextVisibleService
+        );
+        // Different DID still falls back to blind wakeup.
+        assert_eq!(
+            policy.mode_for(Some("did:web:other.example")),
+            PushNotifyPrivacyMode::E2eeBlindWakeup
+        );
+        // Missing DID always falls back to blind wakeup.
+        assert_eq!(
+            policy.mode_for(None),
+            PushNotifyPrivacyMode::E2eeBlindWakeup
+        );
+    }
+
+    #[test]
+    fn assert_payload_safe_routes_through_policy() {
+        // Request with a body field violates blind wakeup but passes
+        // plaintext-visible mode.
+        let request = PushNotifyRequest {
+            destination_service_did: Some("did:web:public.example".to_owned()),
+            notification: {
+                let mut n = notification();
+                n.extra
+                    .insert("title".to_owned(), Value::String("Public".to_owned()));
+                n
+            },
+            ..Default::default()
+        };
+
+        // Empty policy → blind wakeup → rejected because of `title`.
+        let strict = PushNotifyPolicyContext::blind_wakeup_only();
+        assert!(matches!(
+            request.assert_payload_safe(&strict),
+            Err(PushNotifyPrivacyError::SensitiveField { .. })
+        ));
+
+        // Allowlisted destination → plaintext-visible → still rejects
+        // provider-payload keys but accepts a plain `title`.
+        let permissive = PushNotifyPolicyContext {
+            plaintext_visible_services: vec!["did:web:public.example".to_owned()],
+        };
+        request.assert_payload_safe(&permissive).unwrap();
+    }
+
+    #[test]
+    fn assert_payload_safe_blind_wakeup_when_destination_missing() {
+        // No destination DID + allowlist → falls back to blind wakeup, even
+        // if the allowlist is non-empty. Cannot be lifted by the caller.
+        let request = PushNotifyRequest {
+            notification: {
+                let mut n = notification();
+                n.extra
+                    .insert("title".to_owned(), Value::String("Public".to_owned()));
+                n
+            },
+            ..Default::default()
+        };
+        let permissive = PushNotifyPolicyContext {
+            plaintext_visible_services: vec!["did:web:public.example".to_owned()],
+        };
+        assert!(request.assert_payload_safe(&permissive).is_err());
     }
 
     #[test]
