@@ -91,6 +91,7 @@ pub struct ContrixPushClient {
     headers: Vec<(reqwest::header::HeaderName, reqwest::header::HeaderValue)>,
     default_idempotency_key: Option<String>,
     default_request_id: Option<String>,
+    require_session_grant: bool,
 }
 
 impl fmt::Debug for ContrixPushClient {
@@ -107,6 +108,7 @@ impl fmt::Debug for ContrixPushClient {
             .field("header_count", &self.headers.len())
             .field("default_idempotency_key", &self.default_idempotency_key)
             .field("default_request_id", &self.default_request_id)
+            .field("require_session_grant", &self.require_session_grant)
             .finish()
     }
 }
@@ -124,6 +126,7 @@ impl ContrixPushClient {
             headers: Vec::new(),
             default_idempotency_key: None,
             default_request_id: None,
+            require_session_grant: false,
         }
     }
 
@@ -172,6 +175,24 @@ impl ContrixPushClient {
         session_grant: impl AsRef<str>,
     ) -> Result<Self, PushRegistrationError> {
         self.with_header(CONTRIX_SESSION_GRANT_HEADER, session_grant)
+    }
+
+    /// Require register/unregister calls to carry an `X-Contrix-Session-Grant`
+    /// header.
+    ///
+    /// When enabled, [`register_device`](Self::register_device) /
+    /// [`unregister_device`](Self::unregister_device) (and their
+    /// `_with_context` variants) fail-closed with
+    /// [`PushRegistrationError::MissingField("session_grant")`] before sending
+    /// any request when no session grant header has been attached via
+    /// [`with_session_grant`](Self::with_session_grant) or
+    /// [`with_header`](Self::with_header).
+    ///
+    /// Default is `false`. Recommended for production deployments where
+    /// register operations must be tied to a soland session.
+    pub fn with_required_session_grant(mut self, required: bool) -> Self {
+        self.require_session_grant = required;
+        self
     }
 
     /// Add a caller-supplied header, for example HTTP Message Signature fields.
@@ -266,6 +287,7 @@ impl ContrixPushClient {
         config: &PushDeviceConfig<'_>,
         prefs: &PushPreferences,
     ) -> Result<ContrixResponse<RegisterDeviceResponse>, PushRegistrationError> {
+        self.assert_session_grant_if_required()?;
         if !prefs.enabled {
             let response = self.unregister_device_with_context(config, prefs).await?;
             return Ok(response.map_body(|body| RegisterDeviceResponse {
@@ -320,6 +342,7 @@ impl ContrixPushClient {
         config: &PushDeviceConfig<'_>,
         prefs: &PushPreferences,
     ) -> Result<ContrixResponse<UnregisterDeviceResponse>, PushRegistrationError> {
+        self.assert_session_grant_if_required()?;
         let body = build_unregister_device_request(config, prefs)?;
         let response = match self
             .post_json(
@@ -555,6 +578,19 @@ impl ContrixPushClient {
             request_id,
             retry_after,
         })
+    }
+
+    fn assert_session_grant_if_required(&self) -> Result<(), PushRegistrationError> {
+        if self.require_session_grant && !self.has_header(CONTRIX_SESSION_GRANT_HEADER) {
+            return Err(PushRegistrationError::MissingField("session_grant"));
+        }
+        Ok(())
+    }
+
+    fn has_header(&self, name: &str) -> bool {
+        self.headers
+            .iter()
+            .any(|(header_name, _)| header_name.as_str().eq_ignore_ascii_case(name))
     }
 
     fn backoff_delay(&self, retry_count: u32) -> Duration {
@@ -927,6 +963,50 @@ mod tests {
 
         assert!(response.ok);
         assert_eq!(requests.lock().unwrap().len(), 2);
+    }
+
+    #[tokio::test]
+    async fn require_session_grant_rejects_register_without_header() {
+        // No mock server needed — the call fails before sending.
+        let err = ContrixPushClient::new("https://principal.example")
+            .with_required_session_grant(true)
+            .register_device(&config(), &prefs())
+            .await
+            .unwrap_err();
+
+        assert_eq!(err.kind(), PushErrorKind::MissingField);
+    }
+
+    #[tokio::test]
+    async fn require_session_grant_allows_register_when_header_present() {
+        let (base_url, requests) = spawn_mock_server(vec![MockResponse {
+            status: "200 OK",
+            headers: vec![],
+            body: r#"{"ok":true,"registration_id":"reg-1"}"#,
+        }]);
+
+        let response = ContrixPushClient::new(base_url)
+            .with_required_session_grant(true)
+            .with_session_grant("coauth-grant-secret")
+            .unwrap()
+            .register_device(&config(), &prefs())
+            .await
+            .unwrap();
+
+        assert!(response.ok);
+        let raw = requests.lock().unwrap().join("\n");
+        assert!(raw.contains("x-contrix-session-grant: coauth-grant-secret"));
+    }
+
+    #[tokio::test]
+    async fn require_session_grant_rejects_unregister_without_header() {
+        let err = ContrixPushClient::new("https://principal.example")
+            .with_required_session_grant(true)
+            .unregister_device(&config(), &prefs())
+            .await
+            .unwrap_err();
+
+        assert_eq!(err.kind(), PushErrorKind::MissingField);
     }
 
     #[tokio::test]
