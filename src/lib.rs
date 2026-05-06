@@ -32,9 +32,10 @@ mod state;
 
 #[cfg(feature = "notify")]
 pub use notify::{
-    ProviderRetryHint, PushDeliveryReceipt, PushHint, PushNotification, PushNotificationDevice,
-    PushNotifyPrivacyError, PushNotifyPrivacyMode, PushNotifyPrivacyVector, PushNotifyRequest,
-    PushNotifyResponse, RejectedPushToken, shared_push_notify_privacy_vectors,
+    EncryptedEnvelope, EncryptedEnvelopeError, ProviderRetryHint, PushDeliveryReceipt, PushHint,
+    PushNotification, PushNotificationDevice, PushNotifyPrivacyError, PushNotifyPrivacyMode,
+    PushNotifyPrivacyVector, PushNotifyRequest, PushNotifyResponse, RejectedPushToken,
+    shared_push_notify_privacy_vectors,
 };
 
 pub use push::{

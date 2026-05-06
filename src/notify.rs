@@ -381,6 +381,132 @@ pub enum PushNotifyPrivacyError {
     InvalidFieldValue { field: String },
 }
 
+// -- Encrypted envelope ------------------------------------------------------
+
+/// DID-bound encrypted payload envelope mirroring the
+/// `contrix-rust-sdk` shape.
+///
+/// `chime` does not encrypt or decrypt — it only carries the wire shape so
+/// gateway and SDK code agree on field names, validation, and the rule that
+/// **DID-bound payload bytes never travel as plaintext extension data**.
+/// Callers that need to attach an encrypted payload to a notification must
+/// build an `EncryptedEnvelope` (which fail-closes invalid recipients,
+/// algorithms, or empty ciphertext) and serialize it through
+/// `validate_wire_model`-clean transport.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[non_exhaustive]
+pub struct EncryptedEnvelope {
+    /// Recipient DID. The only place chime accepts a DID in the encrypted-
+    /// payload path; validated to start with `did:`.
+    pub recipient: String,
+    /// IANA-style algorithm identifier, e.g.
+    /// `"x25519-xsalsa20-poly1305"`.
+    pub algorithm: String,
+    /// Base64-encoded ciphertext bytes. Must be non-empty, well-formed
+    /// base64 (`A-Z a-z 0-9 + / =` only).
+    pub ciphertext: String,
+    /// Optional nonce / IV in the same base64 alphabet.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub nonce: Option<String>,
+    /// Optional server-side key identifier (opaque to chime).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub key_id: Option<String>,
+    /// Associated data (AAD) bound to the ciphertext during encryption — the
+    /// gateway re-derives this on decrypt. Often `<operation_id>|<audience>`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub aad: Option<String>,
+}
+
+#[derive(Clone, Debug, Error, PartialEq, Eq)]
+pub enum EncryptedEnvelopeError {
+    #[error("encrypted envelope recipient must be a DID, got `{got}`")]
+    InvalidRecipient { got: String },
+    #[error("encrypted envelope is missing required field `{field}`")]
+    MissingField { field: &'static str },
+    #[error("encrypted envelope `{field}` is not valid base64")]
+    InvalidBase64 { field: &'static str },
+}
+
+impl EncryptedEnvelope {
+    /// Build a validated envelope from the three required fields.
+    pub fn new(
+        recipient: impl Into<String>,
+        algorithm: impl Into<String>,
+        ciphertext: impl Into<String>,
+    ) -> Result<Self, EncryptedEnvelopeError> {
+        let envelope = Self {
+            recipient: recipient.into(),
+            algorithm: algorithm.into(),
+            ciphertext: ciphertext.into(),
+            nonce: None,
+            key_id: None,
+            aad: None,
+        };
+        envelope.validate()?;
+        Ok(envelope)
+    }
+
+    /// Attach a base64-encoded nonce.
+    pub fn with_nonce(mut self, nonce: impl Into<String>) -> Result<Self, EncryptedEnvelopeError> {
+        let nonce = nonce.into();
+        if !is_base64_token(&nonce) {
+            return Err(EncryptedEnvelopeError::InvalidBase64 { field: "nonce" });
+        }
+        self.nonce = Some(nonce);
+        Ok(self)
+    }
+
+    /// Attach an opaque `key_id`.
+    pub fn with_key_id(mut self, key_id: impl Into<String>) -> Self {
+        self.key_id = Some(key_id.into());
+        self
+    }
+
+    /// Attach an AAD string.
+    pub fn with_aad(mut self, aad: impl Into<String>) -> Self {
+        self.aad = Some(aad.into());
+        self
+    }
+
+    /// Run the full validator. Constructors call this internally; this
+    /// public method lets callers re-validate a deserialized envelope (since
+    /// `serde::Deserialize` skips the constructor).
+    pub fn validate(&self) -> Result<(), EncryptedEnvelopeError> {
+        if !self.recipient.starts_with("did:") {
+            return Err(EncryptedEnvelopeError::InvalidRecipient {
+                got: self.recipient.clone(),
+            });
+        }
+        if self.algorithm.trim().is_empty() {
+            return Err(EncryptedEnvelopeError::MissingField { field: "algorithm" });
+        }
+        if self.ciphertext.is_empty() {
+            return Err(EncryptedEnvelopeError::MissingField {
+                field: "ciphertext",
+            });
+        }
+        if !is_base64_token(&self.ciphertext) {
+            return Err(EncryptedEnvelopeError::InvalidBase64 {
+                field: "ciphertext",
+            });
+        }
+        if let Some(nonce) = &self.nonce
+            && !is_base64_token(nonce)
+        {
+            return Err(EncryptedEnvelopeError::InvalidBase64 { field: "nonce" });
+        }
+        Ok(())
+    }
+}
+
+fn is_base64_token(value: &str) -> bool {
+    !value.is_empty()
+        && value
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '+' | '/' | '=' | '-' | '_'))
+}
+
 fn validate_required(field: &str, value: &str) -> Result<(), PushNotifyPrivacyError> {
     if value.trim().is_empty() {
         Err(PushNotifyPrivacyError::MissingField {
@@ -1305,6 +1431,78 @@ mod tests {
         assert!(bad.is_err(), "bad hints must error on deserialize");
         let good = serde_json::from_str::<PushHint>("\"wakeup-1\"").unwrap();
         assert_eq!(good.as_str(), "wakeup-1");
+    }
+
+    #[test]
+    fn encrypted_envelope_accepts_did_recipient_and_base64() {
+        let envelope = EncryptedEnvelope::new(
+            "did:web:alice.example",
+            "x25519-xsalsa20-poly1305",
+            "Y2lwaGVydGV4dA==",
+        )
+        .unwrap()
+        .with_nonce("bm9uY2VfYWJj")
+        .unwrap()
+        .with_key_id("kid-1")
+        .with_aad("cx.push.notify|did:web:gateway.example");
+
+        envelope.validate().unwrap();
+        let json = serde_json::to_string(&envelope).unwrap();
+        let loaded: EncryptedEnvelope = serde_json::from_str(&json).unwrap();
+        loaded.validate().unwrap();
+        assert_eq!(loaded, envelope);
+    }
+
+    #[test]
+    fn encrypted_envelope_rejects_non_did_recipient() {
+        let err = EncryptedEnvelope::new("alice", "x25519", "Y2lwaGVydGV4dA==").unwrap_err();
+        match err {
+            EncryptedEnvelopeError::InvalidRecipient { got } => assert_eq!(got, "alice"),
+            other => panic!("expected InvalidRecipient, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn encrypted_envelope_rejects_empty_algorithm_or_ciphertext() {
+        assert!(matches!(
+            EncryptedEnvelope::new("did:web:alice", " ", "Y2lwaGVydGV4dA=="),
+            Err(EncryptedEnvelopeError::MissingField { field: "algorithm" })
+        ));
+        assert!(matches!(
+            EncryptedEnvelope::new("did:web:alice", "x25519", ""),
+            Err(EncryptedEnvelopeError::MissingField {
+                field: "ciphertext"
+            })
+        ));
+    }
+
+    #[test]
+    fn encrypted_envelope_rejects_non_base64_payload() {
+        let err = EncryptedEnvelope::new("did:web:alice", "x25519", "not base64!").unwrap_err();
+        assert!(matches!(
+            err,
+            EncryptedEnvelopeError::InvalidBase64 {
+                field: "ciphertext"
+            }
+        ));
+    }
+
+    #[test]
+    fn encrypted_envelope_deserialize_then_validate_catches_drift() {
+        // Synthesize a JSON payload that bypasses the constructor — e.g. a
+        // gateway response with a tampered recipient — and confirm the
+        // re-validate catches it.
+        let raw = r#"{
+            "recipient": "alice@example",
+            "algorithm": "x25519",
+            "ciphertext": "Y2lwaGVydGV4dA=="
+        }"#;
+        let envelope: EncryptedEnvelope = serde_json::from_str(raw).unwrap();
+        let err = envelope.validate().unwrap_err();
+        assert!(matches!(
+            err,
+            EncryptedEnvelopeError::InvalidRecipient { .. }
+        ));
     }
 
     #[test]
