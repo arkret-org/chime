@@ -2,14 +2,11 @@
 //!
 //! ## Stability
 //!
-//! These types are **0.x-stable**: within the `0.x` series, fields are only
-//! added (never removed or renamed). Renames and removals require a SemVer
-//! bump.
-//!
-//! Response types carry `#[non_exhaustive]` so the SDK can absorb new
-//! server-driven fields without breaking downstream consumers; request types
-//! stay constructible via struct-literal syntax for ergonomics, and new
-//! optional request fields default to `None`.
+//! Pre-1.0 (`0.x`): the wire shape evolves additively, but the SDK leans on
+//! `#[non_exhaustive]` + `#[derive(Default)]` for both request and response
+//! types so adding optional fields never breaks downstream construction. Use
+//! `..Default::default()` when building these types in external crates.
+//! Renames and removals require a SemVer bump.
 
 use std::fmt;
 
@@ -106,10 +103,11 @@ impl fmt::Debug for PushDeviceConfig<'_> {
 
 /// Request body for `POST /api/v1/push/register-device`.
 ///
-/// Stability: 0.x-stable. Field additions in 0.x will default to `None` /
-/// empty so existing struct-literal call sites keep compiling; renames or
-/// removals require a SemVer bump.
-#[derive(Clone, PartialEq, Serialize, Deserialize)]
+/// Stability: 0.x-stable + `#[non_exhaustive]`. Build via
+/// `RegisterDeviceRequest { ..Default::default() }` from external crates so
+/// future field additions stay source-compatible.
+#[derive(Clone, Default, PartialEq, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct RegisterDeviceRequest {
     pub operation_id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -182,9 +180,10 @@ pub struct RegisterDeviceResponse {
 
 /// Request body for `POST /api/v1/push/unregister-device`.
 ///
-/// Stability: 0.x-stable. Field additions in 0.x will default to `None` /
-/// empty so existing struct-literal call sites keep compiling.
-#[derive(Clone, PartialEq, Serialize, Deserialize)]
+/// Stability: 0.x-stable + `#[non_exhaustive]`. Build via
+/// `UnregisterDeviceRequest { ..Default::default() }` from external crates.
+#[derive(Clone, Default, PartialEq, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct UnregisterDeviceRequest {
     pub operation_id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -248,7 +247,10 @@ pub struct UnregisterDeviceResponse {
 }
 
 /// Contrix standard error object.
-#[derive(Clone, PartialEq, Serialize, Deserialize)]
+///
+/// Stability: 0.x-stable + `#[non_exhaustive]`. Server-controlled shape.
+#[derive(Clone, Default, PartialEq, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct ContrixError {
     pub code: String,
     pub message: String,

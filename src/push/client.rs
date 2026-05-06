@@ -126,7 +126,10 @@ impl ContrixPushClient {
             headers: Vec::new(),
             default_idempotency_key: None,
             default_request_id: None,
-            require_session_grant: false,
+            // Default: register/unregister fail-closed unless the caller
+            // attaches a session grant. Tests / dev sandboxes that want to
+            // opt out can call `.with_required_session_grant(false)`.
+            require_session_grant: true,
         }
     }
 
@@ -177,19 +180,16 @@ impl ContrixPushClient {
         self.with_header(CONTRIX_SESSION_GRANT_HEADER, session_grant)
     }
 
-    /// Require register/unregister calls to carry an `X-Contrix-Session-Grant`
-    /// header.
+    /// Toggle the session-grant requirement for register/unregister calls.
     ///
-    /// When enabled, [`register_device`](Self::register_device) /
-    /// [`unregister_device`](Self::unregister_device) (and their
-    /// `_with_context` variants) fail-closed with
+    /// **Default is `true`.** When required, the client fail-closes with
     /// [`PushRegistrationError::MissingField("session_grant")`] before sending
-    /// any request when no session grant header has been attached via
-    /// [`with_session_grant`](Self::with_session_grant) or
+    /// any request unless an `X-Contrix-Session-Grant` header has been
+    /// attached via [`with_session_grant`](Self::with_session_grant) or
     /// [`with_header`](Self::with_header).
     ///
-    /// Default is `false`. Recommended for production deployments where
-    /// register operations must be tied to a soland session.
+    /// Pass `false` for development sandboxes or test fixtures that
+    /// intentionally skip soland session binding.
     pub fn with_required_session_grant(mut self, required: bool) -> Self {
         self.require_session_grant = required;
         self
@@ -741,6 +741,17 @@ mod tests {
         }
     }
 
+    /// Build a happy-path client with a dummy session grant pre-attached.
+    ///
+    /// Mirrors production usage where every register/unregister call is
+    /// expected to carry a soland session grant. Tests that specifically
+    /// exercise the "missing grant" path use raw `ContrixPushClient::new`.
+    fn client(base_url: impl Into<String>) -> ContrixPushClient {
+        ContrixPushClient::new(base_url)
+            .with_session_grant("test-session-grant")
+            .expect("test session grant header is valid")
+    }
+
     #[tokio::test]
     async fn register_success_exposes_response_context_and_headers() {
         let (base_url, requests) = spawn_mock_server(vec![MockResponse {
@@ -749,7 +760,7 @@ mod tests {
             body: r#"{"ok":true,"registration_id":"reg-1","expires_at":"2026-04-29T00:00:00Z"}"#,
         }]);
 
-        let response = ContrixPushClient::new(base_url)
+        let response = client(base_url)
             .with_bearer_token("session-secret")
             .with_user_agent("test-agent")
             .with_header(
@@ -808,7 +819,7 @@ mod tests {
             body: r#"{"ok":true}"#,
         }]);
 
-        let response = ContrixPushClient::new(base_url)
+        let response = client(base_url)
             .unregister_device(&config(), &prefs())
             .await
             .unwrap();
@@ -827,7 +838,7 @@ mod tests {
             body: r#"{"ok":false,"error":{"code":"not_found","message":"missing"}}"#,
         }]);
 
-        let response = ContrixPushClient::new(base_url)
+        let response = client(base_url)
             .unregister_device_with_context(&config(), &prefs())
             .await
             .unwrap();
@@ -871,7 +882,7 @@ mod tests {
                 body: Box::leak(body.into_boxed_str()),
             }]);
 
-            let err = ContrixPushClient::new(base_url)
+            let err = client(base_url)
                 .register_device(&config(), &prefs())
                 .await
                 .unwrap_err();
@@ -889,7 +900,7 @@ mod tests {
             body: "not json",
         }]);
 
-        let err = ContrixPushClient::new(base_url)
+        let err = client(base_url)
             .register_device(&config(), &prefs())
             .await
             .unwrap_err();
@@ -907,7 +918,7 @@ mod tests {
             body: r#"{"ok":"yes","registration_id":42}"#,
         }]);
 
-        let err = ContrixPushClient::new(base_url)
+        let err = client(base_url)
             .register_device(&config(), &prefs())
             .await
             .unwrap_err();
@@ -923,7 +934,7 @@ mod tests {
             body: r#"{"ok":false,"error":{"code":"capability_denied","message":"token fcm:very-secret-token proof super-secret-proof","details":{"proof":"super-secret-proof","push_key":"fcm:very-secret-token"}}}"#,
         }]);
 
-        let err = ContrixPushClient::new(base_url)
+        let err = client(base_url)
             .register_device(&config(), &prefs())
             .await
             .unwrap_err();
@@ -950,7 +961,7 @@ mod tests {
             },
         ]);
 
-        let response = ContrixPushClient::new(base_url)
+        let response = client(base_url)
             .with_retry_policy(PushRetryPolicy {
                 max_retries: 1,
                 initial_backoff: Duration::ZERO,
@@ -966,10 +977,10 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn require_session_grant_rejects_register_without_header() {
-        // No mock server needed — the call fails before sending.
+    async fn default_register_rejects_without_session_grant() {
+        // Default `require_session_grant = true` ⇒ no mock server needed:
+        // the call fails fast before any request is sent.
         let err = ContrixPushClient::new("https://principal.example")
-            .with_required_session_grant(true)
             .register_device(&config(), &prefs())
             .await
             .unwrap_err();
@@ -978,7 +989,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn require_session_grant_allows_register_when_header_present() {
+    async fn default_register_allows_with_session_grant_header() {
         let (base_url, requests) = spawn_mock_server(vec![MockResponse {
             status: "200 OK",
             headers: vec![],
@@ -986,7 +997,6 @@ mod tests {
         }]);
 
         let response = ContrixPushClient::new(base_url)
-            .with_required_session_grant(true)
             .with_session_grant("coauth-grant-secret")
             .unwrap()
             .register_device(&config(), &prefs())
@@ -999,14 +1009,30 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn require_session_grant_rejects_unregister_without_header() {
+    async fn default_unregister_rejects_without_session_grant() {
         let err = ContrixPushClient::new("https://principal.example")
-            .with_required_session_grant(true)
             .unregister_device(&config(), &prefs())
             .await
             .unwrap_err();
 
         assert_eq!(err.kind(), PushErrorKind::MissingField);
+    }
+
+    #[tokio::test]
+    async fn opting_out_session_grant_allows_register_without_header() {
+        let (base_url, _) = spawn_mock_server(vec![MockResponse {
+            status: "200 OK",
+            headers: vec![],
+            body: r#"{"ok":true}"#,
+        }]);
+
+        let response = ContrixPushClient::new(base_url)
+            .with_required_session_grant(false)
+            .register_device(&config(), &prefs())
+            .await
+            .unwrap();
+
+        assert!(response.ok);
     }
 
     #[tokio::test]
@@ -1026,7 +1052,7 @@ mod tests {
         let mut config = config();
         config.idempotency_key = None;
 
-        let response = ContrixPushClient::new(base_url)
+        let response = client(base_url)
             .with_retry_policy(PushRetryPolicy {
                 max_retries: 1,
                 initial_backoff: Duration::ZERO,
@@ -1067,7 +1093,7 @@ mod tests {
             body: r#"{"ok":false,"error":{"code":"duplicate_conflict","message":"different body"}}"#,
         }]);
 
-        let err = ContrixPushClient::new(base_url)
+        let err = client(base_url)
             .with_retry_policy(PushRetryPolicy {
                 max_retries: 2,
                 initial_backoff: Duration::ZERO,
@@ -1097,7 +1123,7 @@ mod tests {
             },
         ]);
 
-        let response = ContrixPushClient::new(base_url)
+        let response = client(base_url)
             .with_retry_policy(PushRetryPolicy {
                 max_retries: 1,
                 initial_backoff: Duration::ZERO,

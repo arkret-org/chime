@@ -232,14 +232,15 @@ pub fn to_json(prefs: &PushPreferences) -> Result<String, serde_json::Error> {
     serde_json::to_string_pretty(prefs)
 }
 
-/// Strictly deserialize preferences from a JSON string.
-pub fn try_from_json(json: &str) -> Result<PushPreferences, serde_json::Error> {
+/// Deserialize preferences from a JSON string.
+///
+/// Strict: unknown fields (including legacy gateway-type aliases such as
+/// `Sygnal`, legacy field names such as `gateway_url` /
+/// `show_message_preview`) cause an error rather than a silent fallback.
+/// Callers that want graceful recovery should match on the error and decide
+/// what to do — there is no longer a permissive variant.
+pub fn from_json(json: &str) -> Result<PushPreferences, serde_json::Error> {
     serde_json::from_str(json)
-}
-
-/// Deserialize preferences from a JSON string, with fallback to defaults.
-pub fn from_json(json: &str) -> PushPreferences {
-    try_from_json(json).unwrap_or_default()
 }
 
 // -- Tests -------------------------------------------------------------------
@@ -331,7 +332,7 @@ mod tests {
             webpush_endpoint_allowlist: vec!["https://fcm.googleapis.com".to_owned()],
         };
         let json = to_json(&prefs).unwrap();
-        let loaded = from_json(&json);
+        let loaded = from_json(&json).unwrap();
         assert_eq!(loaded.enabled, prefs.enabled);
         assert_eq!(loaded.gateway_type, prefs.gateway_type);
         assert_eq!(loaded.push_gateway, prefs.push_gateway);
@@ -343,14 +344,8 @@ mod tests {
     }
 
     #[test]
-    fn from_json_invalid_returns_default() {
-        let loaded = from_json("not valid json");
-        assert_eq!(loaded.gateway_type, PushGatewayType::Standard);
-    }
-
-    #[test]
     fn from_json_partial_uses_field_defaults() {
-        let loaded = from_json(r#"{"enabled":true}"#);
+        let loaded = from_json(r#"{"enabled":true}"#).unwrap();
         assert!(loaded.enabled);
         assert_eq!(loaded.gateway_type, PushGatewayType::Standard);
         assert!(loaded.push_gateway.is_empty());
@@ -358,20 +353,12 @@ mod tests {
     }
 
     #[test]
-    fn try_from_json_rejects_legacy_names() {
-        let loaded = try_from_json(
-            r#"{
-                "enabled": true,
-                "gateway_type": "Sygnal",
-                "gateway_url": "https://legacy.example/push/notify",
-                "show_message_preview": false
-            }"#,
-        );
-        assert!(loaded.is_err());
+    fn from_json_rejects_invalid_payload() {
+        assert!(from_json("not valid json").is_err());
     }
 
     #[test]
-    fn from_json_legacy_names_fall_back_to_default() {
+    fn from_json_rejects_legacy_aliases_strictly() {
         let loaded = from_json(
             r#"{
                 "enabled": true,
@@ -380,8 +367,9 @@ mod tests {
                 "show_message_preview": false
             }"#,
         );
-        assert_eq!(loaded.gateway_type, PushGatewayType::Standard);
-        assert!(loaded.push_gateway.is_empty());
-        assert!(loaded.allow_push_hint);
+        assert!(
+            loaded.is_err(),
+            "legacy aliases must error, not silently default"
+        );
     }
 }
