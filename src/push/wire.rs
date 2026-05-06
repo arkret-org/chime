@@ -17,6 +17,9 @@ use super::errors::PushRegistrationError;
 use super::urls::{redact_push_key, redact_url};
 
 /// Supported Contrix push platform values.
+///
+/// Stability: `0.x`-stable. New variants are additive; renaming or
+/// removing a variant requires a SemVer bump.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum PushPlatform {
@@ -52,6 +55,11 @@ impl TryFrom<&str> for PushPlatform {
 }
 
 /// Device configuration supplied by the host app.
+///
+/// Stability: `0.x`-stable. The struct is borrowed (every field is
+/// `Option<&'a str>` or `&'a str`) so adding a new optional field is
+/// always source-compatible. Renaming or removing fields requires a
+/// SemVer bump.
 #[derive(Clone, Copy)]
 pub struct PushDeviceConfig<'a> {
     /// Contrix principal DID that owns this device registration.

@@ -13,6 +13,12 @@ use crate::{
 use super::PUSH_REGISTRATION_STATE_SCHEMA_VERSION;
 
 /// Persistable local state for a successful push registration.
+///
+/// Stability: `0.x`-stable. The struct is versioned with
+/// `schema_version`; new fields are added with `#[serde(default)]` so
+/// older persisted blobs continue to deserialize. Renaming or
+/// removing a field bumps `schema_version` and requires a SemVer
+/// minor bump.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PushRegistrationState {
     #[serde(default = "default_state_schema_version")]
@@ -47,6 +53,39 @@ pub struct PushRegistrationLastError {
     pub retry_after: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub occurred_at: Option<String>,
+}
+
+/// Minimal storage abstraction for host application push preferences.
+///
+/// `PushPreferences` is a small JSON-serializable struct (gateway type,
+/// gateway URL, allowlists, dnd flags, …) that callers will typically
+/// keep next to their other application settings — a config file, a
+/// keychain entry, an encrypted blob in the host app's database, etc.
+/// Defining it as a trait lets `chime` consumers (yougen, soland test
+/// harnesses, …) reuse the same lifecycle helpers without re-rolling
+/// the file IO each time.
+///
+/// The default implementations are intentionally minimal: `clear` is
+/// expressed as `save(PushPreferences::default())` so backends only
+/// need to implement `load` + `save`. Backends that can do better
+/// (true delete, atomic replace) should override.
+pub trait PushPreferencesStore {
+    type Error;
+
+    /// Load the persisted preferences, or `None` when the host app has
+    /// not yet stored any.
+    fn load_push_preferences(&self) -> Result<Option<crate::PushPreferences>, Self::Error>;
+
+    /// Persist the preferences, replacing any prior value.
+    fn save_push_preferences(&self, prefs: &crate::PushPreferences) -> Result<(), Self::Error>;
+
+    /// Clear the persisted preferences. Default impl writes the
+    /// `PushPreferences::default()` value, which on most backends is
+    /// equivalent to "disabled, no gateway URL". Backends that support
+    /// true deletion should override.
+    fn clear_push_preferences(&self) -> Result<(), Self::Error> {
+        self.save_push_preferences(&crate::PushPreferences::default())
+    }
 }
 
 /// Minimal storage abstraction for host applications.
@@ -425,5 +464,54 @@ mod tests {
         assert_eq!(merged.len(), 1);
         assert_eq!(merged[0].registration_id.as_deref(), Some("reg-new-phone"));
         assert_eq!(merged[0].device_id, "did:web:alice.example#device-phone");
+    }
+
+    /// Tiny in-memory `PushPreferencesStore` so we can lock the trait
+    /// surface without bringing in test-only crates.
+    struct InMemoryPrefsStore {
+        inner: std::sync::Mutex<Option<crate::PushPreferences>>,
+    }
+
+    impl PushPreferencesStore for InMemoryPrefsStore {
+        type Error = std::convert::Infallible;
+
+        fn load_push_preferences(
+            &self,
+        ) -> Result<Option<crate::PushPreferences>, Self::Error> {
+            Ok(self.inner.lock().unwrap().clone())
+        }
+
+        fn save_push_preferences(
+            &self,
+            prefs: &crate::PushPreferences,
+        ) -> Result<(), Self::Error> {
+            *self.inner.lock().unwrap() = Some(prefs.clone());
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn push_preferences_store_default_clear_resets_to_default() {
+        let store = InMemoryPrefsStore {
+            inner: std::sync::Mutex::new(None),
+        };
+        assert!(store.load_push_preferences().unwrap().is_none());
+
+        let prefs = crate::PushPreferences {
+            enabled: true,
+            gateway_type: crate::PushGatewayType::Bugle,
+            ..crate::PushPreferences::default()
+        };
+        store.save_push_preferences(&prefs).unwrap();
+        assert_eq!(
+            store.load_push_preferences().unwrap().unwrap().gateway_type,
+            crate::PushGatewayType::Bugle
+        );
+
+        // Default `clear` writes back the default preferences.
+        store.clear_push_preferences().unwrap();
+        let cleared = store.load_push_preferences().unwrap().unwrap();
+        assert!(!cleared.enabled);
+        assert_eq!(cleared.gateway_type, crate::PushGatewayType::Standard);
     }
 }

@@ -25,9 +25,20 @@
 
 use serde::{Deserialize, Serialize};
 
+/// Compile the README's rust code blocks as doc-tests so the public
+/// quick-start examples cannot drift away from the actual API.
+///
+/// Each `rust,ignore` block stays unexecuted (it requires a live
+/// service); plain `rust` blocks are compiled and run.
+#[cfg(doctest)]
+#[doc = include_str!("../README.md")]
+mod readme_doctest {}
+
+mod gateway_binding;
 #[cfg(feature = "notify")]
 mod notify;
 mod push;
+mod push_route;
 mod state;
 
 #[cfg(feature = "notify")]
@@ -35,7 +46,7 @@ pub use notify::{
     EncryptedEnvelope, EncryptedEnvelopeError, ProviderRetryHint, PushDeliveryReceipt, PushHint,
     PushNotification, PushNotificationDevice, PushNotifyPolicyContext, PushNotifyPrivacyError,
     PushNotifyPrivacyMode, PushNotifyPrivacyVector, PushNotifyRequest, PushNotifyResponse,
-    RejectedPushToken, shared_push_notify_privacy_vectors,
+    PushTargetId, RejectedPushToken, WakeupKind, shared_push_notify_privacy_vectors,
 };
 
 pub use push::{
@@ -58,13 +69,16 @@ pub use push::{
     push_gateway_service_base_url, push_integration_describe_url, redact_push_key,
     validate_push_gateway_url, validate_webpush_endpoint_allowlist,
 };
+pub use gateway_binding::GatewayBinding;
+pub use push_route::{PushRoute, PushRouteCapability, PushRouteError, PushRouteId};
 pub use state::{
     BridgeContractCache, BridgeContractDriftVerdict, PUSH_REGISTRATION_STATE_SCHEMA_VERSION,
-    PushRegistrationLastError, PushRegistrationRepairPlan, PushRegistrationState,
-    PushRegistrationStore, PushTokenRotationPlan, PushTokenRotationStrategy,
-    build_registration_state, find_registration_by_token, find_registration_for_device,
-    hash_push_key, merge_registration_state, plan_registration_repair, plan_token_rotation,
-    plan_token_rotation_with_strategy, token_moved_to_different_device, token_rotation_required,
+    PushPreferencesStore, PushRegistrationLastError, PushRegistrationRepairPlan,
+    PushRegistrationState, PushRegistrationStore, PushTokenRotationPlan,
+    PushTokenRotationStrategy, build_registration_state, find_registration_by_token,
+    find_registration_for_device, hash_push_key, merge_registration_state,
+    plan_registration_repair, plan_token_rotation, plan_token_rotation_with_strategy,
+    token_moved_to_different_device, token_rotation_required,
 };
 
 #[cfg(feature = "http")]
@@ -93,6 +107,9 @@ pub const DEFAULT_BUGLE_PUSH_GATEWAY_URL: &str = "https://push.palpo.im/api/v1/p
 // -- PushGatewayType ---------------------------------------------------------
 
 /// Which downstream push gateway to ask the Contrix service to use.
+///
+/// Stability: `0.x`-stable. New variants are additive; renaming or
+/// removing a variant requires a SemVer bump.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum PushGatewayType {
@@ -164,7 +181,12 @@ impl PushGatewayType {
 /// Persisted Contrix push notification preferences.
 ///
 /// Serializable to JSON. The file path and persistence strategy are left to
-/// the consumer application.
+/// the consumer application — see [`PushPreferencesStore`] for a minimal
+/// trait abstraction.
+///
+/// Stability: `0.x`-stable. New optional fields are added with
+/// `#[serde(default)]` so old persisted JSON keeps deserializing.
+/// Renaming or removing a field requires a SemVer bump.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct PushPreferences {
@@ -191,6 +213,17 @@ pub struct PushPreferences {
     /// `.push.apple.com` / `*.push.services.mozilla.com`.
     #[serde(default)]
     pub webpush_endpoint_allowlist: Vec<String>,
+    /// Multi-gateway bindings.
+    ///
+    /// When empty, registration uses the singular
+    /// [`push_gateway`](Self::push_gateway) +
+    /// [`gateway_type`](Self::gateway_type) fields (legacy
+    /// single-gateway flow). When non-empty, every binding is
+    /// exercised independently and the singular fields are ignored —
+    /// see `ContrixPushClient::register_device_all` (under the `http`
+    /// feature) for the multi-gateway register helper.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub gateways: Vec<GatewayBinding>,
 }
 
 impl Default for PushPreferences {
@@ -202,6 +235,7 @@ impl Default for PushPreferences {
             allow_insecure_loopback_push_gateway: false,
             allow_push_hint: true,
             webpush_endpoint_allowlist: Vec::new(),
+            gateways: Vec::new(),
         }
     }
 }
@@ -222,6 +256,24 @@ impl PushPreferences {
     pub fn apply_gateway_type_defaults(&mut self) {
         if self.gateway_type != PushGatewayType::Custom {
             self.push_gateway = self.gateway_type.default_url().to_owned();
+        }
+    }
+
+    /// Resolve the list of gateway bindings to actually exercise.
+    ///
+    /// When [`gateways`](Self::gateways) is non-empty, returns a clone
+    /// of that list. When it is empty, returns a single synthesized
+    /// binding from the legacy
+    /// [`gateway_type`](Self::gateway_type)/[`push_gateway`](Self::push_gateway)
+    /// pair so single-gateway callers keep working with no changes.
+    pub fn effective_gateways(&self) -> Vec<GatewayBinding> {
+        if self.gateways.is_empty() {
+            vec![GatewayBinding::new(
+                self.gateway_type.clone(),
+                self.push_gateway.clone(),
+            )]
+        } else {
+            self.gateways.clone()
         }
     }
 }
@@ -333,6 +385,7 @@ mod tests {
             allow_insecure_loopback_push_gateway: false,
             allow_push_hint: false,
             webpush_endpoint_allowlist: vec!["https://fcm.googleapis.com".to_owned()],
+            gateways: Vec::new(),
         };
         let json = to_json(&prefs).unwrap();
         let loaded = from_json(&json).unwrap();
@@ -358,6 +411,72 @@ mod tests {
     #[test]
     fn from_json_rejects_invalid_payload() {
         assert!(from_json("not valid json").is_err());
+    }
+
+    #[test]
+    fn effective_gateways_synthesizes_single_binding_when_empty() {
+        let prefs = PushPreferences {
+            enabled: true,
+            gateway_type: PushGatewayType::Bugle,
+            push_gateway: "https://push.palpo.im/api/v1/push/notify".to_owned(),
+            ..Default::default()
+        };
+        let resolved = prefs.effective_gateways();
+        assert_eq!(resolved.len(), 1);
+        assert_eq!(resolved[0].gateway_type, PushGatewayType::Bugle);
+        assert_eq!(resolved[0].push_gateway, prefs.push_gateway);
+        assert!(resolved[0].push_key.is_none());
+        assert!(resolved[0].app_id.is_none());
+    }
+
+    #[test]
+    fn effective_gateways_returns_explicit_list_when_present() {
+        let prefs = PushPreferences {
+            enabled: true,
+            gateway_type: PushGatewayType::Standard,
+            push_gateway: "https://push.example.com/api/v1/push/notify".to_owned(),
+            gateways: vec![
+                GatewayBinding::new(
+                    PushGatewayType::Standard,
+                    "https://push-a.example.com/api/v1/push/notify",
+                ),
+                GatewayBinding::new(
+                    PushGatewayType::Bugle,
+                    "https://push.palpo.im/api/v1/push/notify",
+                )
+                .with_app_id("app.example.android.cn"),
+            ],
+            ..Default::default()
+        };
+        let resolved = prefs.effective_gateways();
+        // Singular `push_gateway` is ignored when `gateways` is non-empty.
+        assert_eq!(resolved.len(), 2);
+        assert_eq!(resolved[0].gateway_type, PushGatewayType::Standard);
+        assert_eq!(resolved[1].gateway_type, PushGatewayType::Bugle);
+        assert_eq!(resolved[1].app_id.as_deref(), Some("app.example.android.cn"));
+    }
+
+    #[test]
+    fn gateways_round_trip_through_json() {
+        let prefs = PushPreferences {
+            enabled: true,
+            gateways: vec![
+                GatewayBinding::new(
+                    PushGatewayType::Standard,
+                    "https://push-a.example.com/api/v1/push/notify",
+                ),
+                GatewayBinding::new(
+                    PushGatewayType::Bugle,
+                    "https://push.palpo.im/api/v1/push/notify",
+                )
+                .with_push_key("vendor-token-cn-aaaaaaaaaa"),
+            ],
+            ..Default::default()
+        };
+        let json = to_json(&prefs).unwrap();
+        let loaded = from_json(&json).unwrap();
+        assert_eq!(loaded.gateways.len(), 2);
+        assert_eq!(loaded.gateways, prefs.gateways);
     }
 
     #[test]

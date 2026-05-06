@@ -45,12 +45,23 @@ impl<T> ContrixResponse<T> {
 }
 
 /// Retry configuration for `ContrixPushClient`.
+///
+/// Stability: `0.x`-stable. Stays `Copy` + `const`-constructible so
+/// callers can stash it in static config. The `disabled_kinds_mask`
+/// is a bitmask indexed by [`PushErrorKind`] discriminant ordinal —
+/// see [`PushRetryPolicy::with_disabled_kinds`] for ergonomic builder
+/// access.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PushRetryPolicy {
     pub max_retries: u32,
     pub initial_backoff: Duration,
     pub max_backoff: Duration,
     pub jitter: Duration,
+    /// Bitmask of `PushErrorKind` ordinals that should *not* be
+    /// retried even when `is_retryable()` would say yes. Useful when
+    /// the host application wants to bypass retries for `RateLimited`
+    /// to surface 429 immediately, etc.
+    pub disabled_kinds_mask: u32,
 }
 
 impl PushRetryPolicy {
@@ -60,6 +71,7 @@ impl PushRetryPolicy {
             initial_backoff: Duration::from_millis(0),
             max_backoff: Duration::from_millis(0),
             jitter: Duration::from_millis(0),
+            disabled_kinds_mask: 0,
         }
     }
 
@@ -69,7 +81,25 @@ impl PushRetryPolicy {
             initial_backoff: Duration::from_millis(200),
             max_backoff: Duration::from_secs(3),
             jitter: Duration::from_millis(100),
+            disabled_kinds_mask: 0,
         }
+    }
+
+    /// Disable retries for the listed error kinds. Returns a new
+    /// policy; the input slice is OR-folded into the existing mask so
+    /// callers can layer this on top of `conservative()`.
+    pub const fn with_disabled_kinds(mut self, kinds: &[super::PushErrorKind]) -> Self {
+        let mut i = 0;
+        while i < kinds.len() {
+            self.disabled_kinds_mask |= 1u32 << kinds[i].ordinal();
+            i += 1;
+        }
+        self
+    }
+
+    /// Whether retries are explicitly disabled for `kind`.
+    pub const fn retries_disabled_for(&self, kind: super::PushErrorKind) -> bool {
+        self.disabled_kinds_mask & (1u32 << kind.ordinal()) != 0
     }
 }
 
@@ -183,9 +213,10 @@ impl ContrixPushClient {
     /// Toggle the session-grant requirement for register/unregister calls.
     ///
     /// **Default is `true`.** When required, the client fail-closes with
-    /// [`PushRegistrationError::MissingField("session_grant")`] before sending
-    /// any request unless an `X-Contrix-Session-Grant` header has been
-    /// attached via [`with_session_grant`](Self::with_session_grant) or
+    /// [`PushRegistrationError::MissingField`] (with field
+    /// `"session_grant"`) before sending any request unless an
+    /// `X-Contrix-Session-Grant` header has been attached via
+    /// [`with_session_grant`](Self::with_session_grant) or
     /// [`with_header`](Self::with_header).
     ///
     /// Pass `false` for development sandboxes or test fixtures that
@@ -377,6 +408,101 @@ impl ContrixPushClient {
         Ok(response)
     }
 
+    /// Register the device against every binding in
+    /// [`PushPreferences::effective_gateways`](crate::PushPreferences::effective_gateways).
+    ///
+    /// Each binding is exercised independently — a failure on one
+    /// binding does not abort the others. Returns one
+    /// `Result<RegisterDeviceResponse, _>` per binding, in the order
+    /// they were resolved (legacy single-gateway flow yields a
+    /// `vec![result]` of length one).
+    ///
+    /// Per-binding `push_key` and `app_id` overrides take priority
+    /// over the values in `config`. The base `device_id`,
+    /// `principal_did`, `platform`, `idempotency_key`, `request_id`,
+    /// and `proof` are shared across bindings.
+    pub async fn register_device_all(
+        &self,
+        config: &PushDeviceConfig<'_>,
+        prefs: &PushPreferences,
+    ) -> Vec<Result<RegisterDeviceResponse, PushRegistrationError>> {
+        let bindings = prefs.effective_gateways();
+        let mut out = Vec::with_capacity(bindings.len());
+        for binding in &bindings {
+            let mut per_binding_prefs = prefs.clone();
+            per_binding_prefs.gateway_type = binding.gateway_type.clone();
+            per_binding_prefs.push_gateway = binding.push_gateway.clone();
+            // Force the singular fields to win during the per-binding
+            // build so build_register_device_request does not see the
+            // multi-gateway list.
+            per_binding_prefs.gateways = Vec::new();
+
+            let push_key = binding.push_key.as_deref().or(config.push_key);
+            let app_id = binding.app_id.as_deref().or(config.app_id);
+            let per_binding_config = PushDeviceConfig {
+                push_key,
+                app_id,
+                ..*config
+            };
+
+            out.push(
+                self.register_device(&per_binding_config, &per_binding_prefs)
+                    .await,
+            );
+        }
+        out
+    }
+
+    /// Rotate a push token: unregister the prior registration (if any)
+    /// and register the new token in one call. Wraps
+    /// [`plan_token_rotation_with_strategy`] +
+    /// [`register_device`](Self::register_device) /
+    /// [`unregister_device`](Self::unregister_device) so callers do not
+    /// have to thread the request bodies themselves.
+    ///
+    /// Returns `Ok(None)` when the token has not changed (no work to
+    /// do); returns `Ok(Some(response))` with the fresh registration
+    /// response on success. Errors from either leg short-circuit.
+    ///
+    /// `existing` should be the locally stored
+    /// [`PushRegistrationState`](crate::PushRegistrationState) for this
+    /// device — typically loaded from `PushRegistrationStore::load_push_registration`.
+    /// `config.push_key` MUST be set to the new platform token.
+    ///
+    /// [`plan_token_rotation_with_strategy`]:
+    /// crate::plan_token_rotation_with_strategy
+    pub async fn rotate_token(
+        &self,
+        existing: Option<&crate::PushRegistrationState>,
+        config: &PushDeviceConfig<'_>,
+        prefs: &PushPreferences,
+        strategy: crate::PushTokenRotationStrategy,
+    ) -> Result<Option<RegisterDeviceResponse>, PushRegistrationError> {
+        let plan = crate::plan_token_rotation_with_strategy(existing, config, prefs, strategy)?;
+
+        if !plan.token_changed {
+            return Ok(None);
+        }
+
+        let response = match strategy {
+            crate::PushTokenRotationStrategy::UnregisterOldFirst => {
+                if plan.unregister_old.is_some() {
+                    self.unregister_device(config, prefs).await.ok();
+                }
+                self.register_device(config, prefs).await?
+            }
+            crate::PushTokenRotationStrategy::RegisterNewFirst => {
+                let response = self.register_device(config, prefs).await?;
+                if plan.unregister_old.is_some() {
+                    self.unregister_device(config, prefs).await.ok();
+                }
+                response
+            }
+        };
+
+        Ok(Some(response))
+    }
+
     async fn post_json<T, R>(
         &self,
         path: &str,
@@ -403,7 +529,9 @@ impl ContrixPushClient {
             match result {
                 Ok(response) => return Ok(response),
                 Err(error)
-                    if retry_count < self.retry_policy.max_retries && error.is_retryable() =>
+                    if retry_count < self.retry_policy.max_retries
+                        && error.is_retryable()
+                        && !self.retry_policy.retries_disabled_for(error.kind()) =>
                 {
                     let delay = error
                         .retry_after_duration()
@@ -430,7 +558,9 @@ impl ContrixPushClient {
             match result {
                 Ok(response) => return Ok(response),
                 Err(error)
-                    if retry_count < self.retry_policy.max_retries && error.is_retryable() =>
+                    if retry_count < self.retry_policy.max_retries
+                        && error.is_retryable()
+                        && !self.retry_policy.retries_disabled_for(error.kind()) =>
                 {
                     let delay = error
                         .retry_after_duration()
@@ -967,6 +1097,7 @@ mod tests {
                 initial_backoff: Duration::ZERO,
                 max_backoff: Duration::ZERO,
                 jitter: Duration::ZERO,
+                disabled_kinds_mask: 0,
             })
             .register_device(&config(), &prefs())
             .await
@@ -1058,6 +1189,7 @@ mod tests {
                 initial_backoff: Duration::ZERO,
                 max_backoff: Duration::ZERO,
                 jitter: Duration::ZERO,
+                disabled_kinds_mask: 0,
             })
             .register_device(&config, &prefs())
             .await
@@ -1099,6 +1231,7 @@ mod tests {
                 initial_backoff: Duration::ZERO,
                 max_backoff: Duration::ZERO,
                 jitter: Duration::ZERO,
+                disabled_kinds_mask: 0,
             })
             .register_device(&config(), &prefs())
             .await
@@ -1129,6 +1262,7 @@ mod tests {
                 initial_backoff: Duration::ZERO,
                 max_backoff: Duration::ZERO,
                 jitter: Duration::ZERO,
+                disabled_kinds_mask: 0,
             })
             .register_device(&config(), &prefs())
             .await
@@ -1136,5 +1270,109 @@ mod tests {
 
         assert!(response.ok);
         assert_eq!(requests.lock().unwrap().len(), 2);
+    }
+
+    #[tokio::test]
+    async fn disabled_kinds_skip_otherwise_retryable_error() {
+        // 503 normally retries, but with TemporarilyUnavailable disabled
+        // the very first response should be surfaced immediately.
+        let (base_url, requests) = spawn_mock_server(vec![MockResponse {
+            status: "503 Service Unavailable",
+            headers: vec![(RETRY_AFTER_HEADER, "0")],
+            body: r#"{"ok":false,"error":{"code":"temporarily_unavailable","message":"down"}}"#,
+        }]);
+
+        let policy = PushRetryPolicy {
+            max_retries: 3,
+            initial_backoff: Duration::ZERO,
+            max_backoff: Duration::ZERO,
+            jitter: Duration::ZERO,
+            disabled_kinds_mask: 0,
+        }
+        .with_disabled_kinds(&[PushErrorKind::TemporarilyUnavailable]);
+
+        assert!(policy.retries_disabled_for(PushErrorKind::TemporarilyUnavailable));
+        assert!(!policy.retries_disabled_for(PushErrorKind::RateLimited));
+
+        let err = client(base_url)
+            .with_retry_policy(policy)
+            .register_device(&config(), &prefs())
+            .await
+            .unwrap_err();
+
+        assert_eq!(err.kind(), PushErrorKind::TemporarilyUnavailable);
+        assert_eq!(requests.lock().unwrap().len(), 1);
+    }
+
+    #[tokio::test]
+    async fn register_device_all_exercises_each_binding_independently() {
+        // Two bindings → two responses. We pre-load the mock server
+        // with one response per expected request.
+        let (base_url, requests) = spawn_mock_server(vec![
+            MockResponse {
+                status: "200 OK",
+                headers: vec![],
+                body: r#"{"ok":true,"registration_id":"reg-standard"}"#,
+            },
+            MockResponse {
+                status: "200 OK",
+                headers: vec![],
+                body: r#"{"ok":true,"registration_id":"reg-bugle"}"#,
+            },
+        ]);
+
+        let prefs = PushPreferences {
+            enabled: true,
+            push_gateway: "https://ignored.example/api/v1/push/notify".to_owned(),
+            gateways: vec![
+                crate::GatewayBinding::new(
+                    crate::PushGatewayType::Standard,
+                    "https://push.example.com/api/v1/push/notify",
+                ),
+                crate::GatewayBinding::new(
+                    crate::PushGatewayType::Bugle,
+                    "https://push.palpo.im/api/v1/push/notify",
+                )
+                .with_push_key("vendor-token-cn-aaaaaaaaaa")
+                .with_app_id("app.example.android.cn"),
+            ],
+            ..Default::default()
+        };
+
+        let results = client(base_url)
+            .register_device_all(&config(), &prefs)
+            .await;
+
+        assert_eq!(results.len(), 2);
+        let r0 = results[0].as_ref().unwrap();
+        let r1 = results[1].as_ref().unwrap();
+        assert_eq!(r0.registration_id.as_deref(), Some("reg-standard"));
+        assert_eq!(r1.registration_id.as_deref(), Some("reg-bugle"));
+
+        let raw = requests.lock().unwrap().join("\n");
+        // Standard gateway uses caller-supplied token; Bugle uses
+        // per-binding override.
+        assert!(raw.contains("https://push.example.com"));
+        assert!(raw.contains("https://push.palpo.im"));
+        assert!(raw.contains("vendor-token-cn-aaaaaaaaaa"));
+        // Per-binding app_id override propagates to the Bugle request.
+        assert!(raw.contains("app.example.android.cn"));
+    }
+
+    #[tokio::test]
+    async fn register_device_all_falls_back_to_single_binding_when_gateways_empty() {
+        let (base_url, requests) = spawn_mock_server(vec![MockResponse {
+            status: "200 OK",
+            headers: vec![],
+            body: r#"{"ok":true,"registration_id":"reg-1"}"#,
+        }]);
+
+        let results = client(base_url)
+            .register_device_all(&config(), &prefs())
+            .await;
+
+        assert_eq!(results.len(), 1);
+        assert!(results[0].is_ok());
+        assert_eq!(requests.lock().unwrap().len(), 1);
     }
 }

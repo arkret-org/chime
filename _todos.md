@@ -1,121 +1,111 @@
 # chime — Contrix Push SDK TODO
 
-> 审计日期：2026-05-05
-> 协议参考：`contrix-spec/zh/discovery/push-notifications.md` + `crypto-media/encryption-and-audit.md`（push privacy boundary）。
+> 审计日期：2026-05-06
+> 协议参考：`contrix-spec/zh/discovery/push-notifications.md` + `crypto-media/device-lifecycle.md` §5a Privacy-Preserving Push。
 > 项目栈：Rust SDK，`feature = ["http", "notify"]`；提供给 yougen 等客户端消费。
 
 ## 标记说明
 
 - 🅿 parallel-safe：单文件 / 单 type / 单 helper
 - 🔒 sequential：动 lib.rs 顶层 re-export / DTO shape / state machine
-- ⚠ high-risk：privacy boundary（DID 泄漏到 token / payload）
+- ⚠ high-risk：privacy boundary（DID 泄漏到 token / payload）/ wire-shape 破坏性变更
 - 状态：`[ ]` 未做 · `[~]` 部分完成 · `[x]` 已完成
 
 ## 当前状态摘要
 
-- **Crates / Features**：`chime`（默认） + `http`（`ContrixPushClient`，调用 soland `register-device` / `unregister-device`） + `notify`（gateway 侧 `cx.push.notify` wire 类型 + blind-wakeup 校验）。
-- **核心模块**（拆分后）：`lib.rs`（389） + `notify.rs`（1190） + `push/{mod,wire,bridge_describe,errors,signing,urls,registration,client}.rs`（共 3.3K，最大 client.rs 1010 行含 mock server tests） + `state/{mod,model,rotation,repair,test_fixtures}.rs`（共 950 行）。
-- **现有能力**：`PushGatewayType` / `PushPreferences`、register/unregister 请求构建器、`http` feature 下的 `ContrixPushClient`（含自动生成 idempotency-key 回退）、`notify` feature 下的 wire DTO、blind-wakeup legacy reject（`room_id` / `card_id` / `subject_id` + active-field + sender legacy typed-id），`bridge/describe` 消费 + `IntegrationView` 聚合 + `PushErrorKind::from_failure_code` 失败码映射（含 410 Gone）。
-- **测试**：73 unit + 4 doctest 全绿；4 档 feature 矩阵（no-default / http / notify / all）全部 build 通过。
-- **README 警示**：项目处于早期，API 可能变更（response 类型已加 `#[non_exhaustive]`，扩字段不破 SemVer）。
+- **Crates / Features**：`chime`（默认） + `http`（`ContrixPushClient` / `register-device` / `unregister-device` / `bridge-describe` / `integration-describe` / `rotate_token`） + `notify`（gateway 侧 `cx.push.notify` wire 类型 + blind-wakeup 校验 + spec-strict `push_target_id`/`wakeup_kind` 校验）。
+- **测试**：125 unit + 3 drift_gate + 5 property + 6 pseudonym_unlinkability + 6 README doctest 全绿；4 档 feature 矩阵（no-default / http / notify / all）全绿。
+- **CI**：check / test / clippy / fmt / doc(-Dwarnings) / msrv(1.89) / typos / package(cargo publish --dry-run) / audit(rustsec) 已就位。
+- **发布**：`Cargo.toml` 已含 keywords / categories / readme / homepage / documentation / exclude；docs.rs all-features；`.github/workflows/release.yml` 在 tag `v*.*.*` 时校验 + 发布 + 草稿 GitHub Release；`CHANGELOG.md` / `CONTRIBUTING.md` / `SECURITY.md` / `dependabot.yml` 全部就位。
+- **协议补齐**：`PushTargetId` newtype（≥ 22-char base64url，拒 DID / 设备标识）+ `WakeupKind` enum（`message` / `incoming_call` / `mention` / `member` / `presence` / `Custom`）+ `validate_blind_wakeup_strict`；`PushRoute` typed wrapper（`route` / `push_target_id` / `push_gateway_did` / `encryption_key` / `capabilities` / `revoked`）+ active/revoked 状态机 + 不可关联性 integration test。
 
 ---
 
-# 执行阶段（按依赖排序）
-
-## Phase 0 · 架构性重构（阻塞所有 P1+）
-
-> push.rs 3072 行 / state.rs 888 行单文件膨胀；F1/F2 拆完后 P1 的 wire / errors / state subtask 才有具体落点。
+# 阶段 G · GitHub / Publish / Release（本轮新增，优先级最高）
 
 | # | 任务 | 状态 | 涉及文件 |
 |---|---|---|---|
-| F1 🔒 | **push.rs 拆分**：`src/push.rs`（3072 行）按职能拆 `push/{wire,bridge_describe,errors,signing,urls,registration,client}.rs`，每个文件 < 700 行；`push/mod.rs` 仅做 path/header 常量与 re-export。`lib.rs` 公开签名保持不变。 | `[x]` | `src/push.rs` → `src/push/*.rs` |
-| F2 🔒 | **state.rs 拆分**：`src/state.rs`（888 行）拆 `state/{model,rotation,repair}.rs`；`state/mod.rs` 做 re-export；`state/test_fixtures.rs` 共享 `cfg(test)` fixture。 | `[x]` | `src/state.rs` → `src/state/*.rs` |
+| G1 🅿 | **README typo 修复**：删除 `chime::try_from_json` 引用，仅留 `from_json`。 | `[x]` | `README.md`、`README_zh.md` |
+| G2 🅿 | **Cargo.toml 发布元信息**：补 `keywords` / `categories` / `readme` / `homepage` / `documentation` / `exclude` + `[package.metadata.docs.rs]` all-features。 | `[x]` | `Cargo.toml` |
+| G3 🅿 | **typos.toml 清理**：移除复制粘贴噪声（`AttributeIDSupressMenu`、`Hashi`），改为 Contrix 项目专用词汇 + `target/`+`Cargo.lock` exclude。 | `[x]` | `typos.toml` |
+| G4 🅿 | **Release 工作流**：`.github/workflows/release.yml` push tag `v*` 触发，`verify` 校验 tag 与 Cargo.toml 版本一致 + `cargo publish --dry-run`，`publish` 在 `crates-io` environment 下走真发布，`github_release` 拉 CHANGELOG 段做 draft release。 | `[x]` | `.github/workflows/release.yml` |
+| G5 🅿 | **`cargo package` CI job**：`ci.yml` 增 `package` job，跑 `cargo package --no-verify --allow-dirty` + `cargo publish --dry-run --allow-dirty --all-features`。 | `[x]` | `.github/workflows/ci.yml` |
+| G6 🅿 | **`cargo audit` CI job**：增 `audit` job，使用 `rustsec/audit-check@v2.0.0`。 | `[x]` | `.github/workflows/ci.yml` |
+| G7 🅿 | **`SECURITY.md`**：私下漏洞披露通道（GitHub Security Advisory + 邮件）、supported versions、隐私边界报告范围。 | `[x]` | `SECURITY.md` |
+| G8 🅿 | **`CONTRIBUTING.md`**：本地命令、feature 矩阵跑法、commit prefix `chime: ...` 约定、PR 检查项、隐私边界规则、release 流程。 | `[x]` | `CONTRIBUTING.md` |
+| G9 🅿 | **`CHANGELOG.md`**：Keep-a-Changelog；`Unreleased` 段记录本轮 G 项；`0.1.0` 段汇总当前落地能力。 | `[x]` | `CHANGELOG.md` |
+| G10 🅿 | **README 部署 / 配置 / 启动小节**：`Configuration & Operations` 覆盖 HTTPS / loopback / WebPush allowlist / session-grant fail-closed / idempotency / 重试策略 / 令牌存储 / 隐私门控 / tracing target / 故障排查表。中英双语都补。 | `[x]` | `README.md`、`README_zh.md` |
+| G11 🅿 | **Dependabot**：`.github/dependabot.yml` 启用 cargo + github-actions 周更新。 | `[x]` | `.github/dependabot.yml` |
+| G12 🅿 | **修复 `cargo doc -Dwarnings`**：`push/client.rs` 的 `MissingField("session_grant")` 链接形态不合法、`notify.rs` 引用了不存在的 `validate_hint` 锚点。改为合法的 intra-doc link，CI `doc` job 现在跑 `-Dwarnings` 不会爆。 | `[x]` | `src/push/client.rs`、`src/notify.rs` |
 
-## Phase 1 · 契约/边界稳定化（依赖 Phase 0）
+# 阶段 P · Protocol Spec 对齐（破坏性，优先级 P0 但 SemVer 风险）
 
-> 拆完后再冻结 wire shape、补齐 error / privacy gate；这一组直接关系到下游 yougen 消费的 stable 边界。
+| # | 任务 | 状态 | 涉及文件 |
+|---|---|---|---|
+| P1 ⚠ | **`push_target_id` + `wakeup_kind` 补齐（additive）**：`PushTargetId` newtype（`cx:pseudonym:push:` 或 raw base64url，22..128 chars，拒 DID / 设备标识 / 其他 typed-id 前缀）+ `WakeupKind` enum；`PushNotification` 加 Optional 字段；`validate_blind_wakeup_strict` 要求两者；`validate_wire_model` 接受 `type` 或 `wakeup_kind` 任一；drift_gate fixture 不变（仍用 `type` 路径）。**未做**：drift_gate fixture 升级到 spec 形态、`type` 字段标 deprecated（留给 0.2 minor）。 | `[x]` | `src/notify.rs` |
+| P2 ⚠ | **`cx.device.push_route` typed wrapper**：`PushRoute { route, push_target_id, push_gateway_did, encryption_key, capabilities, revoked, metadata }` + active/revoked 状态机 + `PushRouteId` 强类型 + `PushRouteCapability` enum。default-feature 与 notify-feature 都能编译（payload 字段在 notify 下走 `PushTargetId`，否则降级为 `String`）。 | `[x]` | `src/push_route.rs` |
+| P3 🅿 | **`push_target_id` 不可关联性 integration test**：`tests/pseudonym_unlinkability.rs` 6 个 case 锁 SDK 拒绝 DID / device_id / push_key / 邮箱 / 电话进伪名；同 device 两条 route 持不同 pseudonym；serde round-trip 字节级保留。 | `[x]` | `tests/pseudonym_unlinkability.rs` |
 
-### Phase 1a · Wire / Error 收敛
+# 阶段 1 · Phase 1 残留
+
+| # | 任务 | 状态 | 涉及文件 |
+|---|---|---|---|
+| Q2 🅿 | **per-type `#[doc]` 稳定级别注解**：`PushGatewayType` / `PushPreferences` / `PushPlatform` / `PushDeviceConfig` / `PushErrorKind`（顺手 `#[non_exhaustive]`）/ `PushRegistrationState` 都补了 `Stability: 0.x-stable` 注。 | `[x]` | `src/lib.rs`、`src/push/wire.rs`、`src/push/errors.rs`、`src/state/model.rs` |
+| Q3 🅿 | **property test**：5 个 proptest（register roundtrip 不 panic / unregister 不回写 push_key / hash_push_key 确定性 + 不暴露 token / blind-wakeup 拒 sensitive keys / push_target_id serde 字节级 round-trip）。`proptest` 入 dev-dep。 | `[x]` | `tests/property.rs` |
+
+# 阶段 2 · Phase 2 残留
+
+| # | 任务 | 状态 | 涉及文件 |
+|---|---|---|---|
+| E1 🅿 | **HTTP retry policy 微调**：`PushRetryPolicy::with_disabled_kinds(&[PushErrorKind::TemporarilyUnavailable])` 与 `retries_disabled_for(kind)` 落地；用 `disabled_kinds_mask: u32` bitmask + `PushErrorKind::ordinal()` 手工编号让 `#[non_exhaustive]` 添加变体不破 mask 语义。 | `[x]` | `src/push/client.rs`、`src/push/errors.rs` |
+| A2 🅿 | **顶层 `rotate_token(old, new)` 客户端方法**：`ContrixPushClient::rotate_token(existing, config, prefs, strategy)` —— 调用 `plan_token_rotation_with_strategy` 决定是否要换，再按 `UnregisterOldFirst` / `RegisterNewFirst` 顺序 wrap register/unregister。Token 未变返回 `Ok(None)`。 | `[x]` | `src/push/client.rs` |
+| E3 🅿 | **`PushPreferencesStore` trait**：`load_push_preferences` / `save_push_preferences` / `clear_push_preferences`（默认 impl 写回 default 值）；in-memory tests 锁 trait 形态。 | `[x]` | `src/state/model.rs` |
+
+# 阶段 3 · Phase 3 残留
+
+| # | 任务 | 状态 | 涉及文件 |
+|---|---|---|---|
+| B2 🅿 | **`provider_capabilities` 字段扩展**：当前 `PushBridgeDescribeNotifyDescriptor` 已暴露 `supports_dedup` / `dedup_window` / `rate_limit_window` / `rate_limits_by` / `max_request_size`；server-side `provider_capabilities`（细粒度 per-provider FCM/APNs/Bugle 能力）尚未在 floria 出现。**阻塞外部**：等 floria 仓库的 bridge/describe wire shape 落地相应字段后再扩展。 | `[~]` | `src/push/bridge_describe.rs` |
+| A3 🅿 | **multi-gateway 注册（additive）**：新增 `GatewayBinding { gateway_type, push_gateway, push_key, app_id }` + `PushPreferences::gateways: Vec<GatewayBinding>` 字段（默认空，向后兼容）+ `effective_gateways()` helper（空表 fallback 到单 gateway 旧路径）+ `ContrixPushClient::register_device_all` 并行尝试每个 binding，返回 `Vec<Result<...>>` 让 partial-failure 可见。每条 binding 独立 token / app_id 覆盖。**未做**：state/registration.rs 的多路状态合并需要更细的 plan_registration_repair 适配，留给 0.2。 | `[x]` | `src/gateway_binding.rs`、`src/lib.rs`、`src/push/client.rs` |
+
+# 阶段 4 · 新模块面（独立 feature；本 crate 范围外）
+
+> chime 的 crate description 是 *Contrix push notification gateway types and device registration helpers*。
+> D1/D2/D3 都是 **非 push** 协议面（`cx.schema.device_message.v1` / `cx.key.verification.*` / `cx.schema.key_backup.v1`），把它们塞进 chime 会拉低 crate 内聚度并且 docs.rs 列表会让"我只想用 push helper"的下游消费方困惑。
+> **结论**：这三项不在 chime 的范围内，应作为独立 crate（如 `chime-keys`）或并入 `contrix-rust-sdk`。本 todo 列表保留只是为了日后跨仓追踪。
 
 | # | 任务 | 状态 | 文件 |
 |---|---|---|---|
-| A1 🔒 | **register/unregister model 冻结**：response 类型加 `#[non_exhaustive]`（前向兼容字段添加）；request 类型保持 struct-literal 可构造但加 0.x-stable doc 注；wire.rs 顶部 module-doc 写明 stability 契约。 | `[x]` | `push/wire.rs` |
-| A4 🅿 | **register failure classification**：`PushErrorKind` 覆盖 401/403/404/409/410/422/429/503；新增 `PushErrorKind::Gone` 变体处理 token 撤销语义。 | `[x]` | `push/errors.rs` |
-| B3 🅿 | **failure_codes 映射**：`PushErrorKind::from_failure_code(&str) -> Option<PushErrorKind>`；`classify_http_error` 改用此函数；映射涵盖 unauthenticated / capability_denied / rate_limited / temporarily_unavailable / duplicate_conflict / not_found / gone / registration_gone / push_token_gone / schema_violation 系列。 | `[x]` | `push/errors.rs` |
-| F3 🅿 | **API 稳定性 banner 转正**：README + README_zh 替换为 `0.x` SemVer 承诺，明示 response 类型 `#[non_exhaustive]` + 加法演进；wire.rs module-doc 也写明 stability 契约。每个 public type 的稳定级别 `#[doc]` 注解延后到 Q2 文档轮一起做。 | `[x]` | `README.md`、`README_zh.md`、`push/wire.rs` |
+| D1 🅿 | **`device_messages` SDK surface**：`cx.schema.device_message.v1` 的 typed wrapper + `send/receive` helper（对应 soland `/api/v1/device_messages/*`）。 | `[ ]` (out-of-scope) | 单独 crate / contrix-rust-sdk |
+| D2 🅿 | **`cx.key.verification.*` SDK helper**：SAS / QR ceremony 一次性消费 + replay 阻挡。 | `[ ]` (out-of-scope) | 单独 crate / contrix-rust-sdk |
+| D3 🅿 | **`key_backup` SDK surface**：`cx.schema.key_backup.v1` typed wrapper + restore-ticket SDK 客户端。 | `[ ]` (out-of-scope) | 单独 crate / contrix-rust-sdk |
 
-### Phase 1b · Privacy / Blind-Wakeup（C1/C3 是 release gate）
-
-| # | 任务 | 状态 | 文件 |
-|---|---|---|---|
-| C1 ⚠ | **DID 不进 payload / token + Policy gate**：`validate_active_reference_extension` 拒绝 extension 树里任何 DID-shaped 字符串；`PushHint` 构造拒 DID；新增 `PushNotifyPolicyContext { plaintext_visible_services }` + `mode_for(destination)` + `PushNotifyRequest::assert_payload_safe(&policy)` —— blind-wakeup 是默认，只有 destination_service_did 显式落在 allowlist 才走 plaintext mode；missing destination 始终回退 blind wakeup（caller 端无法 override）。 | `[x]` | `notify.rs` |
-| C2 🅿 | **active-field legacy typed-id reject**：原已覆盖 `flow_id = cx:card:*` / `event_id` / `space_id` 前缀强制；本轮扩展 `sender` 字段：若值为 `cx:room:*` / `cx:card:*` / `cx:subject:*` → `LegacyField`。 | `[x]` | `notify.rs` |
-| C3 🅿 | **`push_hint` body-free 强制**：`PushHint` 强类型 newtype 落地：`PushHint::new` 与 deserialize 都强制 1..=64 chars + `[A-Za-z0-9_\-:.]` charset + 拒 DID/title/body/SDP/ICE/TURN。`PushNotification.push_hint: Option<PushHint>` 替换原 `Option<String>`；既有共享 privacy vector 的 `"New message"` 改为 opaque token `"wakeup-msg-1"`。 | `[x]` | `notify.rs` |
-
-## Phase 2 · 可靠性 / 客户端体验（依赖 Phase 0；与 Phase 1 并行安全）
+# 阶段 5 · 集成 / 跨仓
 
 | # | 任务 | 状态 | 文件 |
 |---|---|---|---|
-| E1 🅿 | **HTTP retry policy**：`PushRetryPolicy` 已有骨架；429 走 `Retry-After`、5xx 指数退避、上限保护、jitter — 本仓已实现；进一步可补 429 jitter 上限策略 / 关闭重试细粒度控制。 | `[~]` | `push/client.rs` |
-| E2 🅿 | **idempotency-key 注入**：caller 不提供且无 default 时，`post_json` 自动生成 `cx-sdk-<sha256-hex>` 形式 key；同一逻辑请求所有 retry 共用同一 key（`generate_idempotency_key()` 在 retry 循环外调用一次）；retry safety check 简化为 "总是安全"，因为现在永远有 idempotency key。 | `[x]` | `push/client.rs` |
-| A2 🅿 | **token rotation**：`RegisterDeviceRequest` 新增 `previous_token_hash: Option<String>`（serde skip-if-none，向前兼容）；`plan_token_rotation_with_strategy` 在存在旧 state 时把 `state.push_key_hash` 写入新 register 请求。两条 regression test 锁定行为。`rotate_token(old, new)` 顶层 client 方法可后续按需补。 | `[~]` | `push/wire.rs`、`state/rotation.rs` |
-| A5 🅿 | **session-grant binding**：`ContrixPushClient::with_required_session_grant(true)` 把 register/unregister 改为 fail-closed —— 调用前若 headers 中没有 `X-Contrix-Session-Grant` 直接返回 `MissingField("session_grant")`，不发请求。默认 `false` 兼容现有调用方。Audience 走签名上下文的 `PushRequestSigningOptions::audience` 仍可独立保持 / 强制。 | `[~]` | `push/client.rs` |
-| E3 🅿 | **本地状态持久化抽象**：`PushRegistrationStore` trait 已存在（`state/model.rs`），提供 load / save / clear / list 默认实现，调用方可基于 keychain / sqlite 实现；in-memory fallback 通过 trait default impls 已就位。`PushPreferences` 的对应 trait 后续按需补。 | `[~]` | `state/model.rs` |
-
-## Phase 3 · Bridge Discovery / 多 gateway（依赖 Phase 0、可并 Phase 1/2）
-
-| # | 任务 | 状态 | 文件 |
-|---|---|---|---|
-| B1 🅿 | **`integration_describe()` SDK helper**：新增 `IntegrationView { manifest, bridge }` 类型 + `IntegrationView::requires(service, purpose)` / `contract_digest()` 便利方法；`ContrixPushClient::integration_view()` async 方法顺序拉取并合并；任一失败短路。 | `[x]` | `push/bridge_describe.rs`、`push/client.rs` |
-| B2 🅿 | **多 gateway 自动 capability negotiation**：`PushBridgeDescribeGatewayDescriptor` 暴露 `supports_profile/provider/auth_mode`（case-insensitive）；`PushBridgeDescribeNotifyDescriptor` 暴露 `supports_dedup` / `dedup_window` / `rate_limit_window` / `rate_limits_by` / `max_request_size`，让客户端按 describe 结果开启 batch / TTL / collapse_key / topic-fanout 等。Server-side 的 `provider_capabilities` 字段尚未在 floria 出现，待出现后再扩展。 | `[~]` | `push/bridge_describe.rs` |
-| B4 🅿 | **contract digest cache**：`state/bridge_cache.rs` 提供 `BridgeContractCache::from_response` + `evaluate -> BridgeContractDriftVerdict { Unchanged \| Drifted { cached/fresh digest+contract+version } }`；hex SHA-256 of canonical JSON 当作指纹，cache 类型 JSON 可往返；advisory only — SDK 不阻断请求，由调用方决定告警 / 失效本地状态。 | `[x]` | `state/bridge_cache.rs` |
-| A3 🅿 | **multi-gateway 注册**：客户端可同时注册到多个 gateway（standard + bugle + custom）；`PushPreferences` 的 `gateways: Vec<GatewayBinding>`。 | `[ ]` | `lib.rs`、`state/registration.rs` |
-| C4 🅿 | **encrypted envelope handoff**：`EncryptedEnvelope { recipient, algorithm, ciphertext, nonce, key_id, aad }` 落地；构造 + deserialize 都强制 `recipient` 是 `did:*`、`algorithm` 非空、`ciphertext` 非空且 base64；fluent builders（`with_nonce` / `with_key_id` / `with_aad`），`#[non_exhaustive] + deny_unknown_fields`；`EncryptedEnvelopeError` 区分 Recipient / MissingField / InvalidBase64。chime 不加密 / 解密 — 只锁定 wire 形状，让 gateway 与 contrix-rust-sdk 对齐。 | `[x]` | `notify.rs` |
-
-## Phase 4 · 新模块面（D 系列；独立 feature 拆分）
-
-> 与现有 push 路径无耦合，可单独 feature gate 推进。
-
-| # | 任务 | 状态 | 文件 |
-|---|---|---|---|
-| D1 🅿 | **`device_messages` SDK surface**：补 `cx.schema.device_message.v1` 的 typed wrapper + `send/receive` helper；对应 soland `/api/v1/device_messages/*`。 | `[ ]` | 新 `src/device_messages.rs` |
-| D2 🅿 | **`cx.key.verification.*` SDK helper**：SAS / QR ceremony 一次性消费 + replay 阻挡。 | `[ ]` | 新 `src/key_verification.rs` |
-| D3 🅿 | **`key_backup` SDK surface**：`cx.schema.key_backup.v1` typed wrapper + restore-ticket SDK 客户端。 | `[ ]` | 新 `src/key_backup.rs` |
-
-## Phase 5 · 集成 / CI / 测试覆盖
-
-| # | 任务 | 状态 | 文件 |
-|---|---|---|---|
-| F4 🅿 | **drift gate**：`tests/drift_gate.rs` 携带一份 floria `bridge/describe` 的冻结 JSON 快照（2026-05-06），跑 3 个测试 — DTO round-trip + `examples.blind_wakeup_request` 走完 `validate_blind_wakeup` privacy gate + `BridgeContractCache` digest serialize-roundtrip 稳定。floria 改 wire 形状必须更新 fixture，否则 CI 红。 | `[x]` | `tests/drift_gate.rs` |
-| Q1 🅿 | feature 矩阵 CI：`check` + `test` + `clippy` 三个 job 各跑 `""` / `"http"` / `"notify"` / `"http,notify"` 四档；MSRV bump 到 1.89（`Cargo.toml` 一致）。 | `[x]` | `.github/workflows/ci.yml` |
-| Q2 🅿 | 文档：每个 public type 加 `#[doc]` 稳定级别注解；deeper API doc。F3 已完成 README banner，本项剩 per-type `#[doc]` 标注。 | `[~]` | `lib.rs`、`push/wire.rs`、`state/model.rs` |
-| Q3 🅿 | property test：register/unregister roundtrip + bridge describe parse roundtrip + notify privacy gate。 | `[ ]` | `tests/*` |
-| Q4 🅿 | `typos.toml` 已存在 + CI 加上 `crate-ci/typos@master` job。 | `[x]` | `.github/workflows/ci.yml` |
-| S1 🔒 | 与 yougen 集成：把 yougen 当前手写的 push register 路径替换成 `chime::ContrixPushClient`。 | `[ ]` | 跨仓 |
-| S2 🅿 | 与 cotest 联调：cotest 的 push 黑盒向量复用 chime 的 typed reject helper。 | `[ ]` | 跨仓 |
-| S3 🅿 | 文档 round-trip：README 中所有 example code block 都跑 `cargo doc-test`。 | `[ ]` | `README*.md`、CI |
+| S1 🔒 | 与 yougen 集成：把 yougen 当前手写的 push register 路径替换成 `chime::ContrixPushClient`。 | `[ ]` (cross-repo) | yougen 仓 |
+| S2 🅿 | 与 cotest 联调：cotest 的 push 黑盒向量复用 chime 的 typed reject helper（`shared_push_notify_privacy_vectors()`）。 | `[ ]` (cross-repo) | cotest 仓 |
+| S3 🅿 | 文档 round-trip：`#[doc = include_str!("../README.md")]` 挂在 `cfg(doctest)` 上；README 的 4 个 `,ignore` 块按需跳过，2 个无标记块（Core types / Build registration body）每次 `cargo test --doc` 编译并执行。 | `[x]` | `src/lib.rs` |
 
 ---
 
 ## 依赖关系图
 
 ```
-Phase 0 (F1, F2)
-   ├─→ Phase 1a (A1, A4, B3, F3)
-   ├─→ Phase 1b (C1, C2, C3)         ← release gate
-   ├─→ Phase 2  (E1, E2, A2, A5, E3)
-   ├─→ Phase 3  (B1, B2, B4, A3, C4)
-   └─→ Phase 4  (D1, D2, D3)         ← 独立模块面
-                  ↓
-              Phase 5 (F4, Q1..Q4, S1..S3)
-```
+G1..G12 ✅                ← GitHub 基础设施 / Publish ready
 
-**关键阻塞点**：
-- F1/F2 拆分先于 P1 sub-task（不然 push/wire.rs / push/errors.rs 没有真实落点）
-- A1（register model 冻结）→ A2..A5 全依赖
-- C1（DID payload privacy gate）→ release gate
-- D1..D3 必须等 contrix-rust-sdk 高层 DTO scaffold 稳定（已基本完成）
+P1 ⚠ → P2 → P3            ← 协议层 follow-up（破坏性变更）
+
+Q2/Q3                     ← 测试与文档收敛（小风险）
+
+E1 / A2 / E3              ← 易用性 polish
+
+B2                        ← 等 floria 侧 spec 落地后再动（外部阻塞）
+
+D1..D3                    ← 不在 chime 范围内（独立 crate / contrix-rust-sdk）
+S1, S2                    ← 跨仓，依赖 yougen / cotest 仓库窗口
+```
 
 ## 不在本轮范围
 

@@ -9,7 +9,13 @@ use super::urls::{redact_url, redact_webpush_endpoint};
 use super::wire::ContrixErrorEnvelope;
 
 /// Stable high-level category for push registration failures.
+///
+/// Stability: `0.x`-stable. New variants are additive; matching against
+/// the enum should always include a wildcard arm to forward-compat
+/// against future error categories. Renaming or removing a variant
+/// requires a SemVer bump.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum PushErrorKind {
     MissingField,
     InvalidPlatform,
@@ -35,6 +41,33 @@ pub enum PushErrorKind {
 }
 
 impl PushErrorKind {
+    /// Stable bit position used by retry-policy bitmasks. Hand-assigned
+    /// so `#[non_exhaustive]` additions never silently reorder existing
+    /// callers' masks.
+    pub const fn ordinal(self) -> u8 {
+        match self {
+            Self::MissingField => 0,
+            Self::InvalidPlatform => 1,
+            Self::InvalidPushGatewayUrl => 2,
+            Self::InvalidWebPushEndpoint => 3,
+            Self::WebPushEndpointNotAllowed => 4,
+            Self::ForbiddenPushGatewayQueryParam => 5,
+            Self::InvalidHeader => 6,
+            Self::Unauthenticated => 7,
+            Self::CapabilityDenied => 8,
+            Self::RateLimited => 9,
+            Self::TemporarilyUnavailable => 10,
+            Self::DuplicateConflict => 11,
+            Self::NotFound => 12,
+            Self::Gone => 13,
+            Self::SchemaViolation => 14,
+            Self::NetworkTimeout => 15,
+            Self::Network => 16,
+            Self::InvalidResponse => 17,
+            Self::HttpStatus => 18,
+        }
+    }
+
     /// Map a Contrix `bridge/describe.failure_codes` string to a stable kind.
     ///
     /// Returns `None` when the code is not part of the contract, so callers can

@@ -19,10 +19,10 @@ pub const PUSH_REGISTRATION_STATE_SCHEMA_VERSION: u16 = 1;
 
 pub use bridge_cache::{BridgeContractCache, BridgeContractDriftVerdict};
 pub use model::{
-    PushRegistrationLastError, PushRegistrationState, PushRegistrationStore,
-    build_registration_state, find_registration_by_token, find_registration_for_device,
-    hash_push_key, merge_registration_state, token_moved_to_different_device,
-    token_rotation_required,
+    PushPreferencesStore, PushRegistrationLastError, PushRegistrationState,
+    PushRegistrationStore, build_registration_state, find_registration_by_token,
+    find_registration_for_device, hash_push_key, merge_registration_state,
+    token_moved_to_different_device, token_rotation_required,
 };
 pub use repair::{PushRegistrationRepairPlan, plan_registration_repair};
 pub use rotation::{

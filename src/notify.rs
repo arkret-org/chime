@@ -59,6 +59,14 @@ impl PushNotifyRequest {
         self.notification.validate_blind_wakeup()
     }
 
+    /// Spec-strict variant of [`Self::validate_blind_wakeup`]: requires both
+    /// `notification.push_target_id` and `notification.wakeup_kind` per
+    /// `contrix-spec/zh/discovery/push-notifications.md` §5.1.
+    pub fn validate_blind_wakeup_strict(&self) -> Result<(), PushNotifyPrivacyError> {
+        self.validate_wire_model()?;
+        self.notification.validate_blind_wakeup_strict()
+    }
+
     /// Validate this notification for an explicit privacy mode.
     pub fn validate_privacy(
         &self,
@@ -166,7 +174,7 @@ pub struct PushNotifyPrivacyVector {
 /// construction and on deserialization. The intent is "wakeup signal +
 /// opaque token" — the hint must be non-empty, ≤64 chars, contain only
 /// `[A-Za-z0-9_\-:.]`, never look like a DID, and never carry the
-/// body / call-setup / preview markers documented in [`validate_hint`].
+/// body / call-setup / preview markers rejected by `validate_push_hint_value`.
 ///
 /// Replacing the prior free-text `Option<String>` makes it impossible to
 /// thread a sentence like `"New message"` through the wire model — every
@@ -199,14 +207,114 @@ impl<'de> Deserialize<'de> for PushHint {
     }
 }
 
+// -- Spec-aligned identifiers ---------------------------------------------------
+
+/// Per-(principal, device, push_route) pairwise pseudonym.
+///
+/// Spec: `contrix-spec/zh/crypto-media/device-lifecycle.md` §5a.1. The
+/// canonical wire form is the typed id `cx:pseudonym:push:<base64url>`
+/// with at least 128 bit entropy (≥ 22 base64url chars). Raw
+/// base64url-only forms (without the prefix) are also accepted on the
+/// wire — chime treats both shapes as opaque tokens and never tries to
+/// derive them from a `device_id` or `push_key`.
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize)]
+#[serde(transparent)]
+pub struct PushTargetId(String);
+
+impl PushTargetId {
+    /// Construct a target id, validating against the spec rules.
+    pub fn new(value: impl Into<String>) -> Result<Self, PushNotifyPrivacyError> {
+        let value = value.into();
+        validate_push_target_id(&value)?;
+        Ok(Self(value))
+    }
+
+    /// Borrow the underlying string.
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl<'de> Deserialize<'de> for PushTargetId {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let raw = String::deserialize(deserializer)?;
+        Self::new(raw).map_err(serde::de::Error::custom)
+    }
+}
+
+/// Coarse-grained wakeup category.
+///
+/// Spec: `contrix-spec/zh/discovery/push-notifications.md` §5.1
+/// `notification.wakeup_kind`. Carries no sender, Space, or event
+/// identity — only enough information for the receiving device to
+/// pick the right local handler (chat, call, mention, …).
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum WakeupKind {
+    /// Generic message wakeup (chat, DM, channel post).
+    Message,
+    /// Call invitation wakeup. The actual SDP / ICE / TURN material
+    /// MUST stay out of the payload — the device fetches the call
+    /// signal channel after wakeup.
+    IncomingCall,
+    /// Mention / highlight wakeup.
+    Mention,
+    /// Member event wakeup (join, leave, role change).
+    Member,
+    /// Read-receipt / typing / presence wakeup.
+    Presence,
+    /// Custom wakeup category. The string MUST be opaque (≤32 chars,
+    /// `[a-z0-9_]`) and MUST NOT carry sender / Space identity.
+    #[serde(untagged)]
+    Custom(String),
+}
+
+impl WakeupKind {
+    /// The canonical wire string for this kind.
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::Message => "message",
+            Self::IncomingCall => "incoming_call",
+            Self::Mention => "mention",
+            Self::Member => "member",
+            Self::Presence => "presence",
+            Self::Custom(value) => value.as_str(),
+        }
+    }
+}
+
 /// Contrix push notification object.
+///
+/// Stability: `0.x`-stable. New fields are added optionally; existing
+/// fields keep their wire shape.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct PushNotification {
+    /// Per-(principal, device, push_route) pairwise pseudonym. See
+    /// [`PushTargetId`] and `crypto-media/device-lifecycle.md` §5a for
+    /// derivation rules. Optional on the wire today for compatibility
+    /// with pre-spec deployments; `validate_blind_wakeup_strict` and
+    /// `assert_payload_safe_strict` require it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub push_target_id: Option<PushTargetId>,
+    /// Coarse-grained wakeup category (`message`, `incoming_call`,
+    /// `mention`, …). Carries no sender / Space / event identity.
+    /// Optional on the wire today for backward compatibility; required
+    /// once a deployment opts in to the strict spec validators.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub wakeup_kind: Option<WakeupKind>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub event_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub space_id: Option<String>,
-    #[serde(rename = "type")]
+    /// Legacy notification type (Matrix-era `cx.message.create` /
+    /// `cx.call.invite` etc.). Spec has migrated to [`Self::wakeup_kind`] for
+    /// the required minimal hint; this field is kept non-optional in
+    /// the type for backward compatibility but `validate_wire_model`
+    /// accepts an empty string when `wakeup_kind` is set.
+    #[serde(rename = "type", default)]
     pub notification_type: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub sender: Option<String>,
@@ -233,8 +341,17 @@ pub struct PushNotification {
 
 impl PushNotification {
     /// Validate the active `cx.push.notify` notification contract.
+    ///
+    /// Accepts either the legacy `type` field or the new
+    /// [`wakeup_kind`](Self::wakeup_kind) field, but at least one must
+    /// be set. New deployments should set `wakeup_kind`; legacy
+    /// deployments may continue to set `type`.
     pub fn validate_wire_model(&self) -> Result<(), PushNotifyPrivacyError> {
-        validate_required("type", &self.notification_type)?;
+        if self.notification_type.is_empty() && self.wakeup_kind.is_none() {
+            return Err(PushNotifyPrivacyError::MissingField {
+                field: "wakeup_kind".to_owned(),
+            });
+        }
         validate_typed_id("event_id", self.event_id.as_deref(), "cx:event:")?;
         validate_typed_id("space_id", self.space_id.as_deref(), "cx:space:")?;
 
@@ -252,7 +369,9 @@ impl PushNotification {
             });
         }
 
-        if is_legacy_notification_type(&self.notification_type) {
+        if !self.notification_type.is_empty()
+            && is_legacy_notification_type(&self.notification_type)
+        {
             return Err(PushNotifyPrivacyError::LegacyField {
                 field: "type".to_owned(),
             });
@@ -267,6 +386,27 @@ impl PushNotification {
         }
 
         Ok(())
+    }
+
+    /// Strict spec-conformant validator: requires both `push_target_id`
+    /// and `wakeup_kind` to be set, on top of the regular blind-wakeup
+    /// rules. Use this in deployments that have fully migrated past the
+    /// legacy `type`-only model.
+    ///
+    /// Spec reference: `contrix-spec/zh/discovery/push-notifications.md`
+    /// §5.1 and `crypto-media/device-lifecycle.md` §5a.
+    pub fn validate_blind_wakeup_strict(&self) -> Result<(), PushNotifyPrivacyError> {
+        if self.push_target_id.is_none() {
+            return Err(PushNotifyPrivacyError::MissingField {
+                field: "push_target_id".to_owned(),
+            });
+        }
+        if self.wakeup_kind.is_none() {
+            return Err(PushNotifyPrivacyError::MissingField {
+                field: "wakeup_kind".to_owned(),
+            });
+        }
+        self.validate_blind_wakeup()
     }
 
     /// Validate this notification as a minimized E2EE blind wakeup.
@@ -690,6 +830,67 @@ fn carries_legacy_typed_id(value: &str) -> bool {
         || normalized.starts_with("cx:subject:")
 }
 
+/// Strict validator backing [`PushTargetId::new`] and deserialization.
+///
+/// Accepted shapes:
+///
+/// * `cx:pseudonym:push:<token>` — Contrix typed id form. The token
+///   portion must be base64url (`A-Z a-z 0-9 - _`) and ≥ 22 chars
+///   (≈ 128 bit).
+/// * Raw `<token>` — base64url, ≥ 22 chars, used in actor-private
+///   state event payloads.
+///
+/// Rejected shapes: anything containing `did:`, `cx:` prefixes other
+/// than `cx:pseudonym:push:`, or characters outside the base64url
+/// alphabet.
+fn validate_push_target_id(value: &str) -> Result<(), PushNotifyPrivacyError> {
+    const TYPED_PREFIX: &str = "cx:pseudonym:push:";
+    const MIN_TOKEN_LEN: usize = 22;
+    const MAX_TOKEN_LEN: usize = 128;
+
+    if value.is_empty() {
+        return Err(PushNotifyPrivacyError::MissingField {
+            field: "push_target_id".to_owned(),
+        });
+    }
+
+    if value_carries_did(value) {
+        return Err(PushNotifyPrivacyError::SensitiveField {
+            field: "push_target_id".to_owned(),
+        });
+    }
+
+    let token = if let Some(rest) = value.strip_prefix(TYPED_PREFIX) {
+        rest
+    } else if value.contains(':') {
+        // Any other typed-id prefix (cx:room:, cx:space:, cx:event:, …)
+        // is illegal — the only typed shape accepted here is the
+        // explicit pseudonym one above.
+        return Err(PushNotifyPrivacyError::InvalidFieldValue {
+            field: "push_target_id".to_owned(),
+        });
+    } else {
+        value
+    };
+
+    if !(MIN_TOKEN_LEN..=MAX_TOKEN_LEN).contains(&token.len()) {
+        return Err(PushNotifyPrivacyError::InvalidFieldValue {
+            field: "push_target_id".to_owned(),
+        });
+    }
+
+    let base64url_ok = token
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_');
+    if !base64url_ok {
+        return Err(PushNotifyPrivacyError::InvalidFieldValue {
+            field: "push_target_id".to_owned(),
+        });
+    }
+
+    Ok(())
+}
+
 /// Strict validator backing [`PushHint::new`] and the deserialization path.
 ///
 /// Combined intent: the hint must be opaque enough that gateways and OS push
@@ -1038,6 +1239,8 @@ mod tests {
 
     fn notification() -> PushNotification {
         PushNotification {
+            push_target_id: None,
+            wakeup_kind: None,
             event_id: Some("cx:event:01JS0EV000000000000000000".to_owned()),
             space_id: Some("cx:space:01JS0SP000000000000000000".to_owned()),
             notification_type: "cx.message.create".to_owned(),
@@ -1648,6 +1851,113 @@ mod tests {
         assert!(matches!(
             err,
             EncryptedEnvelopeError::InvalidRecipient { .. }
+        ));
+    }
+
+    #[test]
+    fn push_target_id_accepts_typed_and_raw_base64url_forms() {
+        // Typed cx:pseudonym:push: form with 22+ char base64url token
+        PushTargetId::new("cx:pseudonym:push:01HYZ8Z000000000000000").unwrap();
+        // Raw 22-char base64url
+        PushTargetId::new("AbCdEfGhIjKlMnOpQrStUv").unwrap();
+        // Underscores and dashes are base64url-legal
+        PushTargetId::new("cx:pseudonym:push:abc-DEF_ghi-JKL_mno-PQR").unwrap();
+    }
+
+    #[test]
+    fn push_target_id_rejects_short_low_entropy_tokens() {
+        let err = PushTargetId::new("short").unwrap_err();
+        assert!(matches!(err, PushNotifyPrivacyError::InvalidFieldValue { .. }));
+    }
+
+    #[test]
+    fn push_target_id_rejects_did_payload() {
+        let err = PushTargetId::new("cx:pseudonym:push:did:web:alice.example").unwrap_err();
+        assert!(matches!(err, PushNotifyPrivacyError::SensitiveField { .. }));
+        let err = PushTargetId::new("did:web:alice.example#device").unwrap_err();
+        assert!(matches!(err, PushNotifyPrivacyError::SensitiveField { .. }));
+    }
+
+    #[test]
+    fn push_target_id_rejects_other_typed_id_prefixes() {
+        // cx:device: / cx:room: etc. are not legal pseudonym wire forms.
+        let err = PushTargetId::new("cx:device:01HYZ8Z000000000000000").unwrap_err();
+        assert!(matches!(err, PushNotifyPrivacyError::InvalidFieldValue { .. }));
+    }
+
+    #[test]
+    fn push_target_id_rejects_non_base64url_characters() {
+        let err = PushTargetId::new("cx:pseudonym:push:has spaces++++++++++").unwrap_err();
+        assert!(matches!(err, PushNotifyPrivacyError::InvalidFieldValue { .. }));
+        let err = PushTargetId::new("cx:pseudonym:push:has/slash++++++++++").unwrap_err();
+        assert!(matches!(err, PushNotifyPrivacyError::InvalidFieldValue { .. }));
+    }
+
+    #[test]
+    fn push_target_id_deserialize_validates() {
+        let bad = serde_json::from_str::<PushTargetId>("\"short\"");
+        assert!(bad.is_err());
+        let good: PushTargetId =
+            serde_json::from_str("\"cx:pseudonym:push:01HYZ8Z000000000000000\"").unwrap();
+        assert_eq!(good.as_str(), "cx:pseudonym:push:01HYZ8Z000000000000000");
+    }
+
+    #[test]
+    fn wakeup_kind_round_trips_known_and_custom_variants() {
+        let json = serde_json::to_string(&WakeupKind::Message).unwrap();
+        assert_eq!(json, "\"message\"");
+        let parsed: WakeupKind = serde_json::from_str("\"incoming_call\"").unwrap();
+        assert_eq!(parsed, WakeupKind::IncomingCall);
+        let custom: WakeupKind = serde_json::from_str("\"alarm\"").unwrap();
+        assert_eq!(custom, WakeupKind::Custom("alarm".to_owned()));
+        assert_eq!(custom.as_str(), "alarm");
+    }
+
+    #[test]
+    fn validate_blind_wakeup_strict_requires_target_id_and_kind() {
+        let mut n = notification();
+        // Without target_id / wakeup_kind, strict validator rejects.
+        let err = n.validate_blind_wakeup_strict().unwrap_err();
+        assert!(matches!(
+            err,
+            PushNotifyPrivacyError::MissingField { ref field } if field == "push_target_id"
+        ));
+
+        n.push_target_id =
+            Some(PushTargetId::new("cx:pseudonym:push:01HYZ8Z000000000000000").unwrap());
+        let err = n.validate_blind_wakeup_strict().unwrap_err();
+        assert!(matches!(
+            err,
+            PushNotifyPrivacyError::MissingField { ref field } if field == "wakeup_kind"
+        ));
+
+        n.wakeup_kind = Some(WakeupKind::Message);
+        // sender carries a DID — that's fine in blind_wakeup since DIDs
+        // only belong to the top-level sender field. Drop it for the
+        // strict check to ensure we test the spec path cleanly.
+        n.sender = None;
+        n.validate_blind_wakeup_strict().unwrap();
+    }
+
+    #[test]
+    fn validate_wire_model_accepts_wakeup_kind_without_legacy_type() {
+        let mut n = notification();
+        n.notification_type = String::new();
+        n.wakeup_kind = Some(WakeupKind::Message);
+        n.push_target_id =
+            Some(PushTargetId::new("cx:pseudonym:push:01HYZ8Z000000000000000").unwrap());
+        n.validate_wire_model().unwrap();
+    }
+
+    #[test]
+    fn validate_wire_model_requires_either_type_or_wakeup_kind() {
+        let mut n = notification();
+        n.notification_type = String::new();
+        n.wakeup_kind = None;
+        let err = n.validate_wire_model().unwrap_err();
+        assert!(matches!(
+            err,
+            PushNotifyPrivacyError::MissingField { ref field } if field == "wakeup_kind"
         ));
     }
 
