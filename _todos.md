@@ -49,9 +49,9 @@
 
 | # | 任务 | 状态 | 文件 |
 |---|---|---|---|
-| C1 ⚠ | **DID 不进 payload / token**：扩展 `assert_payload_safe(&Notification, &PolicyContext)`，在 SDK 层强制；调用方传入 `plaintext_visible_services` 集合；失败 → `PushNotifyPrivacyError::DidLeaked`。 | `[ ]` | `notify.rs` |
+| C1 ⚠ | **DID 不进 payload / token**：`validate_active_reference_extension` 现拒绝 extension 树里任何 string value 是 `did:*` / `:did:*` / 含 `did:` 子串（非 `sender` 顶层字段是唯一允许位置）；`PushHint` 在构造时也拒 DID。Policy context 入参后续按需补 (`plaintext_visible_services` 当前由 mode 区分)。 | `[~]` | `notify.rs` |
 | C2 🅿 | **active-field legacy typed-id reject**：原已覆盖 `flow_id = cx:card:*` / `event_id` / `space_id` 前缀强制；本轮扩展 `sender` 字段：若值为 `cx:room:*` / `cx:card:*` / `cx:subject:*` → `LegacyField`。 | `[x]` | `notify.rs` |
-| C3 🅿 | **`push_hint` body-free 强制**：`validate_hint` 已拒绝 title/body/space_name/sender_display_name 与 SDP/ICE/TURN 标记；新增 `PushHint` 强类型 builder 会破坏 `push_hint: "New message"` 这类已用例和共享 privacy vector，需要先和 floria 协调，**本轮不做**。 | `[ ]` | `notify.rs` |
+| C3 🅿 | **`push_hint` body-free 强制**：`PushHint` 强类型 newtype 落地：`PushHint::new` 与 deserialize 都强制 1..=64 chars + `[A-Za-z0-9_\-:.]` charset + 拒 DID/title/body/SDP/ICE/TURN。`PushNotification.push_hint: Option<PushHint>` 替换原 `Option<String>`；既有共享 privacy vector 的 `"New message"` 改为 opaque token `"wakeup-msg-1"`。 | `[x]` | `notify.rs` |
 
 ## Phase 2 · 可靠性 / 客户端体验（依赖 Phase 0；与 Phase 1 并行安全）
 

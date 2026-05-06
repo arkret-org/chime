@@ -97,6 +97,45 @@ pub struct PushNotifyPrivacyVector {
     pub expected_error_field: Option<String>,
 }
 
+/// Strict opaque wakeup hint.
+///
+/// `PushHint` is a newtype wrapper over `String` that validates on
+/// construction and on deserialization. The intent is "wakeup signal +
+/// opaque token" — the hint must be non-empty, ≤64 chars, contain only
+/// `[A-Za-z0-9_\-:.]`, never look like a DID, and never carry the
+/// body / call-setup / preview markers documented in [`validate_hint`].
+///
+/// Replacing the prior free-text `Option<String>` makes it impossible to
+/// thread a sentence like `"New message"` through the wire model — every
+/// hint is forced to be opaque before the gateway sees it.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[serde(transparent)]
+pub struct PushHint(String);
+
+impl PushHint {
+    /// Construct a hint, validating against the strict opaque-token rules.
+    pub fn new(value: impl Into<String>) -> Result<Self, PushNotifyPrivacyError> {
+        let value = value.into();
+        validate_push_hint_value(&value)?;
+        Ok(Self(value))
+    }
+
+    /// Borrow the underlying string.
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl<'de> Deserialize<'de> for PushHint {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let raw = String::deserialize(deserializer)?;
+        Self::new(raw).map_err(serde::de::Error::custom)
+    }
+}
+
 /// Contrix push notification object.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct PushNotification {
@@ -112,14 +151,19 @@ pub struct PushNotification {
     pub sender_display_name: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub space_name: Option<String>,
+    /// Opaque wakeup hint. Validated as a [`PushHint`] on construction /
+    /// deserialization — body-like, DID-like, or oversized values are
+    /// rejected before the notification is ever serialized.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub push_hint: Option<String>,
+    pub push_hint: Option<PushHint>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub counts: Option<Value>,
     pub devices: Vec<PushNotificationDevice>,
     /// Forward-compatible extension fields.
     ///
-    /// `validate_blind_wakeup` rejects known sensitive keys in this map.
+    /// `validate_blind_wakeup` rejects known sensitive keys in this map and
+    /// `validate_wire_model` rejects DID-shaped string values anywhere in
+    /// the extension tree (DIDs only belong in `sender`).
     #[serde(flatten)]
     pub extra: Map<String, Value>,
 }
@@ -183,9 +227,8 @@ impl PushNotification {
             });
         }
 
-        if let Some(push_hint) = &self.push_hint {
-            validate_hint(push_hint)?;
-        }
+        // `PushHint` enforces opaque-token shape on construction; nothing
+        // extra to do for blind wakeups here.
 
         if let Some(counts) = &self.counts {
             validate_counts("counts", counts)?;
@@ -211,10 +254,6 @@ impl PushNotification {
     /// and call setup material.
     pub fn validate_plaintext_visible_service(&self) -> Result<(), PushNotifyPrivacyError> {
         self.validate_wire_model()?;
-
-        if let Some(push_hint) = &self.push_hint {
-            validate_hint(push_hint)?;
-        }
 
         for (key, value) in &self.extra {
             if is_never_allowed_payload_key(key) {
@@ -395,6 +434,13 @@ fn validate_active_reference_extension(
                 field: path.to_owned(),
             })
         }
+        // C1 release gate: DIDs only belong in the top-level `sender` field.
+        // Anywhere in the extension tree is a privacy leak — fail closed.
+        (_, Value::String(value)) if value_carries_did(value) => {
+            Err(PushNotifyPrivacyError::SensitiveField {
+                field: path.to_owned(),
+            })
+        }
         (_, Value::Object(map)) => {
             for (key, value) in map {
                 let path = format!("{path}.{key}");
@@ -410,6 +456,12 @@ fn validate_active_reference_extension(
         }
         _ => Ok(()),
     }
+}
+
+/// Whether a string value carries a DID (`did:method:identifier`) anywhere.
+fn value_carries_did(value: &str) -> bool {
+    let normalized = value.trim().to_ascii_lowercase();
+    normalized.starts_with("did:") || normalized.contains(" did:") || normalized.contains(":did:")
 }
 
 fn is_legacy_notification_type(value: &str) -> bool {
@@ -449,8 +501,40 @@ fn carries_legacy_typed_id(value: &str) -> bool {
         || normalized.starts_with("cx:subject:")
 }
 
-fn validate_hint(push_hint: &str) -> Result<(), PushNotifyPrivacyError> {
-    let normalized = push_hint.to_ascii_lowercase();
+/// Strict validator backing [`PushHint::new`] and the deserialization path.
+///
+/// Combined intent: the hint must be opaque enough that gateways and OS push
+/// services see only a fixed-shape token, never a sentence or structured
+/// document. The rules:
+///
+/// * 1..=64 chars (empty hints round-trip as `Option::None`, so empty is
+///   never legal)
+/// * `[A-Za-z0-9_\-:.]` only (rejects spaces, quotes, braces, newlines, ...)
+/// * No `did:` substring (no DID leaks)
+/// * No call-setup / body / preview marker sequences
+fn validate_push_hint_value(value: &str) -> Result<(), PushNotifyPrivacyError> {
+    if value.is_empty() || value.chars().count() > 64 {
+        return Err(PushNotifyPrivacyError::InvalidFieldValue {
+            field: "push_hint".to_owned(),
+        });
+    }
+
+    let opaque_only = value
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | ':' | '.'));
+    if !opaque_only {
+        return Err(PushNotifyPrivacyError::InvalidFieldValue {
+            field: "push_hint".to_owned(),
+        });
+    }
+
+    if value_carries_did(value) {
+        return Err(PushNotifyPrivacyError::SensitiveField {
+            field: "push_hint".to_owned(),
+        });
+    }
+
+    let normalized = value.to_ascii_lowercase();
     let sensitive_markers = [
         "candidate:",
         "ice-ufrag",
@@ -459,26 +543,22 @@ fn validate_hint(push_hint: &str) -> Result<(), PushNotifyPrivacyError> {
         "turn:",
         "turns:",
         "sdp",
-        "v=0\r",
-        "v=0\n",
+        "v=0",
         "title:",
         "body:",
+        "message:",
+        "preview:",
         "space_name:",
-        "space name:",
         "sender_display_name:",
-        "\"title\"",
-        "\"body\"",
-        "\"space_name\"",
     ];
-
     if sensitive_markers
         .iter()
         .any(|marker| normalized.contains(marker))
     {
-        Err(PushNotifyPrivacyError::SensitiveHint)
-    } else {
-        Ok(())
+        return Err(PushNotifyPrivacyError::SensitiveHint);
     }
+
+    Ok(())
 }
 
 fn validate_counts(path: &str, value: &Value) -> Result<(), PushNotifyPrivacyError> {
@@ -657,7 +737,7 @@ pub fn shared_push_notify_privacy_vectors() -> Vec<PushNotifyPrivacyVector> {
                     "event_id": "cx:event:01JS0EV000000000000000000",
                     "space_id": "cx:space:01JS0SP000000000000000000",
                     "type": "cx.message.create",
-                    "push_hint": "New message",
+                    "push_hint": "wakeup-msg-1",
                     "counts": { "unread": 1 },
                     "devices": [{
                         "push_key": "fcm:very-secret-token",
@@ -775,7 +855,7 @@ mod tests {
             sender: Some("did:web:bob.example".to_owned()),
             sender_display_name: None,
             space_name: None,
-            push_hint: Some("New message".to_owned()),
+            push_hint: Some(PushHint::new("wakeup-msg-01").expect("opaque hint")),
             counts: Some(serde_json::json!({ "unread": 5 })),
             devices: vec![PushNotificationDevice {
                 push_key: "fcm:very-secret-token".to_owned(),
@@ -1158,25 +1238,73 @@ mod tests {
     }
 
     #[test]
-    fn rejects_sdp_like_hint() {
-        let mut notification = notification();
-        notification.push_hint = Some("v=0\r\na=ice-ufrag:secret".to_owned());
+    fn push_hint_rejects_sensitive_markers_within_allowed_charset() {
+        // Now caught at construction (and on JSON deserialize), not at
+        // validate_blind_wakeup. The marker substrings below are all valid
+        // under the opaque-token charset but still get rejected.
+        for marker_value in [
+            "title:secret",
+            "body:hidden",
+            "preview:abc",
+            "candidate:host",
+            "turn:relay",
+        ] {
+            assert_eq!(
+                PushHint::new(marker_value).unwrap_err(),
+                PushNotifyPrivacyError::SensitiveHint,
+                "expected SensitiveHint for `{marker_value}`"
+            );
+        }
 
-        assert_eq!(
-            notification.validate_blind_wakeup().unwrap_err(),
-            PushNotifyPrivacyError::SensitiveHint
-        );
+        // SDP/control-byte values still fail — they hit the charset check
+        // first, which is also fail-closed.
+        assert!(matches!(
+            PushHint::new("v=0\r\n"),
+            Err(PushNotifyPrivacyError::InvalidFieldValue { .. })
+        ));
     }
 
     #[test]
-    fn rejects_structured_preview_hint() {
-        let mut notification = notification();
-        notification.push_hint = Some(r#"{"title":"Secret Project"}"#.to_owned());
+    fn push_hint_rejects_structured_or_freeform_value() {
+        // Both braces and spaces violate the opaque-token character class.
+        assert!(matches!(
+            PushHint::new(r#"{"title":"Secret"}"#),
+            Err(PushNotifyPrivacyError::InvalidFieldValue { .. })
+        ));
+        assert!(matches!(
+            PushHint::new("New message"),
+            Err(PushNotifyPrivacyError::InvalidFieldValue { .. })
+        ));
+    }
 
-        assert_eq!(
-            notification.validate_blind_wakeup().unwrap_err(),
-            PushNotifyPrivacyError::SensitiveHint
-        );
+    #[test]
+    fn push_hint_rejects_did_substrings() {
+        let err = PushHint::new("did:web:alice.example").unwrap_err();
+        assert!(matches!(err, PushNotifyPrivacyError::SensitiveField { .. }));
+    }
+
+    #[test]
+    fn push_hint_rejects_oversized_token() {
+        let too_long = "a".repeat(65);
+        assert!(matches!(
+            PushHint::new(too_long),
+            Err(PushNotifyPrivacyError::InvalidFieldValue { .. })
+        ));
+    }
+
+    #[test]
+    fn push_hint_accepts_opaque_tokens() {
+        PushHint::new("wakeup-2026-05-06").unwrap();
+        PushHint::new("v1.session-abc.idem-42").unwrap();
+        PushHint::new("token:opaque").unwrap();
+    }
+
+    #[test]
+    fn push_hint_deserialize_validates() {
+        let bad = serde_json::from_str::<PushHint>("\"New message\"");
+        assert!(bad.is_err(), "bad hints must error on deserialize");
+        let good = serde_json::from_str::<PushHint>("\"wakeup-1\"").unwrap();
+        assert_eq!(good.as_str(), "wakeup-1");
     }
 
     #[test]
