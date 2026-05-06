@@ -1,7 +1,15 @@
 //! Bridge describe + integration describe response DTOs.
 
+use std::time::Duration;
+
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+
+fn list_contains_ignore_ascii_case(haystack: &[String], needle: &str) -> bool {
+    haystack
+        .iter()
+        .any(|entry| entry.eq_ignore_ascii_case(needle))
+}
 
 /// Response body for `GET /api/v1/push/bridge/describe`.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -30,6 +38,28 @@ pub struct PushBridgeDescribeGatewayDescriptor {
     pub auth_modes: Vec<String>,
 }
 
+impl PushBridgeDescribeGatewayDescriptor {
+    /// Whether this gateway advertises support for `name` as a push profile
+    /// (case-insensitive). Profiles are wire-shape names like `"fcm"`,
+    /// `"apns"`, `"webpush"`, `"jpush"`.
+    pub fn supports_profile(&self, name: &str) -> bool {
+        list_contains_ignore_ascii_case(&self.supported_profiles, name)
+    }
+
+    /// Whether this gateway advertises support for `name` as a downstream
+    /// provider (case-insensitive). Providers are concrete vendors like
+    /// `"huawei"`, `"xiaomi"`.
+    pub fn supports_provider(&self, name: &str) -> bool {
+        list_contains_ignore_ascii_case(&self.supported_providers, name)
+    }
+
+    /// Whether the gateway will accept the requested auth mode such as
+    /// `"http-message-signature"` or `"bearer"`.
+    pub fn supports_auth_mode(&self, name: &str) -> bool {
+        list_contains_ignore_ascii_case(&self.auth_modes, name)
+    }
+}
+
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PushBridgeDescribeNotifyDescriptor {
     pub notify_path: String,
@@ -49,6 +79,36 @@ pub struct PushBridgeDescribeNotifyDescriptor {
     pub rate_limit_window_seconds: Option<u64>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub rate_limit_scopes: Vec<String>,
+}
+
+impl PushBridgeDescribeNotifyDescriptor {
+    /// Whether the gateway has any deduplication backend configured.
+    pub fn supports_dedup(&self) -> bool {
+        self.dedup_backend
+            .as_deref()
+            .is_some_and(|backend| !backend.trim().is_empty())
+    }
+
+    /// Deduplication retention window, when advertised.
+    pub fn dedup_window(&self) -> Option<Duration> {
+        self.dedup_ttl_seconds.map(Duration::from_secs)
+    }
+
+    /// Rate-limit window length, when advertised.
+    pub fn rate_limit_window(&self) -> Option<Duration> {
+        self.rate_limit_window_seconds.map(Duration::from_secs)
+    }
+
+    /// Whether the gateway advertises the named rate-limit scope (e.g.
+    /// `"per-app"`, `"per-actor"`).
+    pub fn rate_limits_by(&self, scope: &str) -> bool {
+        list_contains_ignore_ascii_case(&self.rate_limit_scopes, scope)
+    }
+
+    /// Maximum request size in bytes, exposed as `usize` for convenience.
+    pub fn max_request_size(&self) -> usize {
+        self.max_request_size_bytes
+    }
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -155,6 +215,56 @@ impl IntegrationView {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn gateway_descriptor_helpers_match_supported_lists() {
+        let descriptor = PushBridgeDescribeGatewayDescriptor {
+            service_did: Some("did:web:gateway.example".to_owned()),
+            supported_profiles: vec!["fcm".to_owned(), "APNs".to_owned()],
+            supported_providers: vec!["huawei".to_owned()],
+            auth_modes: vec!["http-message-signature".to_owned()],
+        };
+
+        assert!(descriptor.supports_profile("FCM")); // case-insensitive
+        assert!(descriptor.supports_profile("apns"));
+        assert!(!descriptor.supports_profile("webpush"));
+        assert!(descriptor.supports_provider("Huawei"));
+        assert!(!descriptor.supports_provider("xiaomi"));
+        assert!(descriptor.supports_auth_mode("HTTP-Message-Signature"));
+    }
+
+    #[test]
+    fn notify_descriptor_exposes_dedup_and_rate_limit_windows() {
+        let descriptor = PushBridgeDescribeNotifyDescriptor {
+            notify_path: "/api/v1/push/notify".to_owned(),
+            operation_id: "cx.push.notify".to_owned(),
+            request_id_header: "X-Contrix-Request-Id".to_owned(),
+            idempotency_key_header: "X-Contrix-Idempotency-Key".to_owned(),
+            origin_service_did_header: "X-Contrix-Origin-Service-Did".to_owned(),
+            destination_service_did_header: "X-Contrix-Destination-Service-Did".to_owned(),
+            max_request_size_bytes: 16 * 1024,
+            dedup_backend: Some("redis".to_owned()),
+            dedup_ttl_seconds: Some(300),
+            rate_limit_window_seconds: Some(60),
+            rate_limit_scopes: vec!["per-app".to_owned()],
+            ..Default::default()
+        };
+
+        assert!(descriptor.supports_dedup());
+        assert_eq!(descriptor.dedup_window(), Some(Duration::from_secs(300)));
+        assert_eq!(
+            descriptor.rate_limit_window(),
+            Some(Duration::from_secs(60))
+        );
+        assert!(descriptor.rate_limits_by("per-app"));
+        assert!(!descriptor.rate_limits_by("per-actor"));
+        assert_eq!(descriptor.max_request_size(), 16 * 1024);
+
+        let empty = PushBridgeDescribeNotifyDescriptor::default();
+        assert!(!empty.supports_dedup());
+        assert!(empty.dedup_window().is_none());
+        assert!(empty.rate_limit_window().is_none());
+    }
 
     #[test]
     fn integration_view_exposes_manifest_dependency_lookup() {

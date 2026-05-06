@@ -68,7 +68,7 @@
 | # | 任务 | 状态 | 文件 |
 |---|---|---|---|
 | B1 🅿 | **`integration_describe()` SDK helper**：新增 `IntegrationView { manifest, bridge }` 类型 + `IntegrationView::requires(service, purpose)` / `contract_digest()` 便利方法；`ContrixPushClient::integration_view()` async 方法顺序拉取并合并；任一失败短路。 | `[x]` | `push/bridge_describe.rs`、`push/client.rs` |
-| B2 🅿 | **多 gateway 自动 capability negotiation**：根据 `bridge/describe` 的 `provider_capabilities` 决定是否启用 batch / TTL / collapse_key / topic-fanout。 | `[ ]` | `push/client.rs` |
+| B2 🅿 | **多 gateway 自动 capability negotiation**：`PushBridgeDescribeGatewayDescriptor` 暴露 `supports_profile/provider/auth_mode`（case-insensitive）；`PushBridgeDescribeNotifyDescriptor` 暴露 `supports_dedup` / `dedup_window` / `rate_limit_window` / `rate_limits_by` / `max_request_size`，让客户端按 describe 结果开启 batch / TTL / collapse_key / topic-fanout 等。Server-side 的 `provider_capabilities` 字段尚未在 floria 出现，待出现后再扩展。 | `[~]` | `push/bridge_describe.rs` |
 | B4 🅿 | **contract digest cache**：`state/bridge_cache.rs` 提供 `BridgeContractCache::from_response` + `evaluate -> BridgeContractDriftVerdict { Unchanged \| Drifted { cached/fresh digest+contract+version } }`；hex SHA-256 of canonical JSON 当作指纹，cache 类型 JSON 可往返；advisory only — SDK 不阻断请求，由调用方决定告警 / 失效本地状态。 | `[x]` | `state/bridge_cache.rs` |
 | A3 🅿 | **multi-gateway 注册**：客户端可同时注册到多个 gateway（standard + bugle + custom）；`PushPreferences` 的 `gateways: Vec<GatewayBinding>`。 | `[ ]` | `lib.rs`、`state/registration.rs` |
 | C4 🅿 | **encrypted envelope handoff**：`EncryptedEnvelope { recipient, algorithm, ciphertext, nonce, key_id, aad }` 落地；构造 + deserialize 都强制 `recipient` 是 `did:*`、`algorithm` 非空、`ciphertext` 非空且 base64；fluent builders（`with_nonce` / `with_key_id` / `with_aad`），`#[non_exhaustive] + deny_unknown_fields`；`EncryptedEnvelopeError` 区分 Recipient / MissingField / InvalidBase64。chime 不加密 / 解密 — 只锁定 wire 形状，让 gateway 与 contrix-rust-sdk 对齐。 | `[x]` | `notify.rs` |
@@ -87,7 +87,7 @@
 
 | # | 任务 | 状态 | 文件 |
 |---|---|---|---|
-| F4 🅿 | **drift gate**：`bridge/describe` DTO 与 `floria` 真实 schema 在 CI 做对齐测试；任何字段漂移 fail closed。 | `[ ]` | `tests/*`、`.github/workflows/*` |
+| F4 🅿 | **drift gate**：`tests/drift_gate.rs` 携带一份 floria `bridge/describe` 的冻结 JSON 快照（2026-05-06），跑 3 个测试 — DTO round-trip + `examples.blind_wakeup_request` 走完 `validate_blind_wakeup` privacy gate + `BridgeContractCache` digest serialize-roundtrip 稳定。floria 改 wire 形状必须更新 fixture，否则 CI 红。 | `[x]` | `tests/drift_gate.rs` |
 | Q1 🅿 | feature 矩阵 CI：`check` + `test` + `clippy` 三个 job 各跑 `""` / `"http"` / `"notify"` / `"http,notify"` 四档；MSRV bump 到 1.89（`Cargo.toml` 一致）。 | `[x]` | `.github/workflows/ci.yml` |
 | Q2 🅿 | 文档：每个 public type 加 `#[doc]` 稳定级别注解；deeper API doc。F3 已完成 README banner，本项剩 per-type `#[doc]` 标注。 | `[~]` | `lib.rs`、`push/wire.rs`、`state/model.rs` |
 | Q3 🅿 | property test：register/unregister roundtrip + bridge describe parse roundtrip + notify privacy gate。 | `[ ]` | `tests/*` |

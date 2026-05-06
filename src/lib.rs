@@ -301,8 +301,10 @@ mod tests {
 
     #[test]
     fn apply_gateway_type_defaults_bugle() {
-        let mut prefs = PushPreferences::default();
-        prefs.gateway_type = PushGatewayType::Bugle;
+        let mut prefs = PushPreferences {
+            gateway_type: PushGatewayType::Bugle,
+            ..Default::default()
+        };
         prefs.apply_gateway_type_defaults();
         assert_eq!(prefs.push_gateway, DEFAULT_BUGLE_PUSH_GATEWAY_URL);
     }
