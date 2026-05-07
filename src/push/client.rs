@@ -18,7 +18,8 @@ use super::errors::{PushErrorKind, PushRegistrationError, classify_http_error};
 use super::registration::{build_register_device_request, build_unregister_device_request};
 use super::urls::{redact_url, try_contrix_api_url};
 use super::wire::{
-    ContrixErrorEnvelope, PushDeviceConfig, RegisterDeviceResponse, UnregisterDeviceResponse,
+    ContrixErrorEnvelope, PushDeviceConfig, RegisterDeviceRequest, RegisterDeviceResponse,
+    UnregisterDeviceRequest, UnregisterDeviceResponse,
 };
 use super::{
     CONTRIX_REQUEST_ID_HEADER, CONTRIX_SESSION_GRANT_HEADER, PUSH_BRIDGE_DESCRIBE_PATH,
@@ -122,6 +123,12 @@ pub struct ContrixPushClient {
     default_idempotency_key: Option<String>,
     default_request_id: Option<String>,
     require_session_grant: bool,
+    // Bridge-discovered path overrides. When the gateway advertises a
+    // non-default register/unregister path through `bridge/describe`,
+    // hosts (e.g. yougen) need to route through it instead of the
+    // baked-in `REGISTER_DEVICE_PATH` constant.
+    register_device_path: Option<String>,
+    unregister_device_path: Option<String>,
 }
 
 impl fmt::Debug for ContrixPushClient {
@@ -160,6 +167,8 @@ impl ContrixPushClient {
             // attaches a session grant. Tests / dev sandboxes that want to
             // opt out can call `.with_required_session_grant(false)`.
             require_session_grant: true,
+            register_device_path: None,
+            unregister_device_path: None,
         }
     }
 
@@ -208,6 +217,34 @@ impl ContrixPushClient {
         session_grant: impl AsRef<str>,
     ) -> Result<Self, PushRegistrationError> {
         self.with_header(CONTRIX_SESSION_GRANT_HEADER, session_grant)
+    }
+
+    /// Override the `register-device` path. Use this when the active
+    /// push gateway advertises a non-default endpoint via
+    /// `bridge/describe.push.register_device_path`. When unset, the
+    /// SDK posts to the baked-in [`REGISTER_DEVICE_PATH`] constant.
+    pub fn with_register_device_path(mut self, path: impl Into<String>) -> Self {
+        self.register_device_path = Some(path.into());
+        self
+    }
+
+    /// Override the `unregister-device` path. Symmetric counterpart of
+    /// [`with_register_device_path`](Self::with_register_device_path).
+    pub fn with_unregister_device_path(mut self, path: impl Into<String>) -> Self {
+        self.unregister_device_path = Some(path.into());
+        self
+    }
+
+    fn effective_register_device_path(&self) -> &str {
+        self.register_device_path
+            .as_deref()
+            .unwrap_or(REGISTER_DEVICE_PATH)
+    }
+
+    fn effective_unregister_device_path(&self) -> &str {
+        self.unregister_device_path
+            .as_deref()
+            .unwrap_or(UNREGISTER_DEVICE_PATH)
     }
 
     /// Toggle the session-grant requirement for register/unregister calls.
@@ -337,7 +374,7 @@ impl ContrixPushClient {
         let body = build_register_device_request(config, prefs)?;
         let response = self
             .post_json(
-                REGISTER_DEVICE_PATH,
+                self.effective_register_device_path(),
                 &body,
                 config.idempotency_key,
                 config.request_id,
@@ -351,6 +388,76 @@ impl ContrixPushClient {
             request_id = response.request_id.as_deref(),
             "Contrix push device registered"
         );
+
+        Ok(response)
+    }
+
+    /// Post a pre-built [`RegisterDeviceRequest`] through the
+    /// configured client (session-grant header, retry policy,
+    /// caller-supplied headers, register-device path override all
+    /// honored). Use this when callers already constructed the wire
+    /// body — typically because they cached it for retry or built it
+    /// in one place and post in another (yougen's bridge-discovered
+    /// register flow does this) — and would otherwise have to rebuild
+    /// it via `build_register_device_request`.
+    pub async fn register_device_with_request(
+        &self,
+        body: &RegisterDeviceRequest,
+        idempotency_key: Option<&str>,
+        request_id: Option<&str>,
+    ) -> Result<ContrixResponse<RegisterDeviceResponse>, PushRegistrationError> {
+        self.assert_session_grant_if_required()?;
+        let response = self
+            .post_json(
+                self.effective_register_device_path(),
+                body,
+                idempotency_key.or(body.idempotency_key.as_deref()),
+                request_id,
+            )
+            .await?;
+
+        tracing::info!(
+            platform = body.platform.as_deref().unwrap_or("unspecified"),
+            operation_id = crate::OPERATION_PUSH_REGISTER_DEVICE,
+            request_id = response.request_id.as_deref(),
+            "Contrix push device registered (prebuilt body)"
+        );
+
+        Ok(response)
+    }
+
+    /// Symmetric counterpart of
+    /// [`register_device_with_request`](Self::register_device_with_request)
+    /// for unregister flows.
+    pub async fn unregister_device_with_request(
+        &self,
+        body: &UnregisterDeviceRequest,
+        idempotency_key: Option<&str>,
+        request_id: Option<&str>,
+    ) -> Result<ContrixResponse<UnregisterDeviceResponse>, PushRegistrationError> {
+        self.assert_session_grant_if_required()?;
+        let response = match self
+            .post_json(
+                self.effective_unregister_device_path(),
+                body,
+                idempotency_key.or(body.idempotency_key.as_deref()),
+                request_id,
+            )
+            .await
+        {
+            Ok(response) => response,
+            Err(error) if error.kind() == PushErrorKind::NotFound => ContrixResponse {
+                body: UnregisterDeviceResponse {
+                    ok: true,
+                    already_removed: true,
+                    removed_registration_id: None,
+                    request_id: error.request_id().map(str::to_owned),
+                },
+                request_id: error.request_id().map(str::to_owned),
+                retry_after: error.retry_after().map(str::to_owned),
+            },
+            Err(error) => return Err(error),
+        };
 
         Ok(response)
     }
@@ -377,7 +484,7 @@ impl ContrixPushClient {
         let body = build_unregister_device_request(config, prefs)?;
         let response = match self
             .post_json(
-                UNREGISTER_DEVICE_PATH,
+                self.effective_unregister_device_path(),
                 &body,
                 config.idempotency_key,
                 config.request_id,

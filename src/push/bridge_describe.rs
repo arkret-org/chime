@@ -22,8 +22,36 @@ pub struct PushBridgeDescribeResponse {
     pub privacy: PushBridgeDescribePrivacyDescriptor,
     #[serde(default)]
     pub examples: PushBridgeDescribeExamples,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub provider_capabilities_version: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub provider_capabilities: Vec<ProviderCapabilityDescriptor>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub todos: Vec<String>,
+}
+
+impl PushBridgeDescribeResponse {
+    /// Look up a per-app provider capability descriptor by configured app
+    /// name (case-insensitive). Returns `None` when the bridge response
+    /// did not carry the per-provider matrix or no entry matches.
+    pub fn provider_capability(&self, name: &str) -> Option<&ProviderCapabilityDescriptor> {
+        self.provider_capabilities
+            .iter()
+            .find(|cap| cap.name.eq_ignore_ascii_case(name))
+    }
+
+    /// Look up the first capability descriptor whose stable provider
+    /// `kind` matches (case-insensitive). Useful when callers care
+    /// about the upstream vendor (e.g. `"fcm"`) rather than the
+    /// app-name registration.
+    pub fn provider_capability_by_kind(
+        &self,
+        kind: &str,
+    ) -> Option<&ProviderCapabilityDescriptor> {
+        self.provider_capabilities
+            .iter()
+            .find(|cap| cap.kind.eq_ignore_ascii_case(kind))
+    }
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -119,6 +147,65 @@ pub struct PushBridgeDescribePrivacyDescriptor {
     pub active_reference_fields: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub rejected_legacy_fields: Vec<String>,
+}
+
+/// Per-app frozen capability matrix entry, surfaced by the gateway via
+/// `bridge/describe.provider_capabilities[]`.
+///
+/// Mirrors floria's `ProviderCapabilityDescriptor` wire shape (the
+/// upstream serializes `ProviderCapabilities` flattened under a `name`
+/// field). Contract version travels separately on
+/// [`PushBridgeDescribeResponse::provider_capabilities_version`] and
+/// matches `floria::pushkin::PROVIDER_CAPABILITIES_VERSION`.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ProviderCapabilityDescriptor {
+    /// Configured app name as known to the gateway registry.
+    pub name: String,
+    /// Stable provider kind, e.g. `"apns"`, `"fcm"`, `"webpush"`.
+    pub kind: String,
+    /// Multi-recipient send shape: `"none"`, `"multicast"`, or `"topic"`.
+    pub batch: String,
+    /// Maximum TTL in seconds the upstream provider accepts, or `null`
+    /// when the provider does not document a hard cap.
+    #[serde(default)]
+    pub ttl_seconds_max: Option<u64>,
+    /// Whether the provider supports a collapse / replace key.
+    #[serde(default)]
+    pub supports_collapse: bool,
+    /// Whether the provider has first-class badge / unread count support.
+    #[serde(default)]
+    pub supports_badge: bool,
+    /// Default outbound payload shape — informs blind-wakeup vs.
+    /// service-visible plaintext defaults.
+    pub default_payload_shape: String,
+    /// Credential material this provider expects.
+    #[serde(default)]
+    pub credential_kinds: Vec<String>,
+    /// Documented credential rotation cadence for this provider kind.
+    pub credential_rotation: String,
+    /// Whether the provider can carry an encrypted body that the
+    /// gateway must NOT inspect (controls plaintext-policy gating).
+    #[serde(default)]
+    pub blind_wakeup_required: bool,
+}
+
+impl ProviderCapabilityDescriptor {
+    /// TTL cap exposed as `Duration`, when advertised.
+    pub fn ttl_max(&self) -> Option<Duration> {
+        self.ttl_seconds_max.map(Duration::from_secs)
+    }
+
+    /// Whether this provider accepts a multi-recipient batch shape
+    /// (anything other than `"none"`).
+    pub fn supports_batch(&self) -> bool {
+        !self.batch.eq_ignore_ascii_case("none") && !self.batch.is_empty()
+    }
+
+    /// Whether the provider lists `kind` among its accepted credential
+    /// material (case-insensitive).
+    pub fn accepts_credential(&self, kind: &str) -> bool {
+        list_contains_ignore_ascii_case(&self.credential_kinds, kind)
+    }
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -264,6 +351,151 @@ mod tests {
         assert!(!empty.supports_dedup());
         assert!(empty.dedup_window().is_none());
         assert!(empty.rate_limit_window().is_none());
+    }
+
+    #[test]
+    fn provider_capability_descriptor_roundtrips_floria_fcm_fixture() {
+        // Mirrors floria's `fcm` entry from src/pushkin/mod.rs:189-199
+        // wrapped in the per-app `ProviderCapabilityDescriptor` shape.
+        let json = serde_json::json!({
+            "name": "default-fcm-app",
+            "kind": "fcm",
+            "batch": "multicast",
+            "ttl_seconds_max": 28u64 * 24 * 60 * 60,
+            "supports_collapse": true,
+            "supports_badge": true,
+            "default_payload_shape": "data_only_blind_wakeup",
+            "credential_kinds": ["service_account_v1"],
+            "credential_rotation": "rotate_service_account_yearly_or_on_compromise",
+            "blind_wakeup_required": true,
+        });
+
+        let cap: ProviderCapabilityDescriptor =
+            serde_json::from_value(json.clone()).expect("deserialize fixture");
+        assert_eq!(cap.name, "default-fcm-app");
+        assert_eq!(cap.kind, "fcm");
+        assert_eq!(cap.batch, "multicast");
+        assert_eq!(cap.ttl_seconds_max, Some(28 * 24 * 60 * 60));
+        assert_eq!(cap.ttl_max(), Some(Duration::from_secs(28 * 24 * 60 * 60)));
+        assert!(cap.supports_collapse);
+        assert!(cap.supports_badge);
+        assert!(cap.supports_batch());
+        assert!(cap.accepts_credential("service_account_v1"));
+        assert!(!cap.accepts_credential("vapid_keypair"));
+        assert!(cap.blind_wakeup_required);
+
+        let reserialized = serde_json::to_value(&cap).expect("serialize fixture");
+        assert_eq!(reserialized, json);
+    }
+
+    #[test]
+    fn bridge_describe_response_carries_provider_capabilities_matrix() {
+        let json = serde_json::json!({
+            "contract": "cx.push.bridge.v1",
+            "version": "1.0.0",
+            "api_base_path": "/api/v1",
+            "gateway": {},
+            "notify": {
+                "notify_path": "/api/v1/push/notify",
+                "operation_id": "cx.push.notify",
+                "request_id_header": "X-Contrix-Request-Id",
+                "idempotency_key_header": "X-Contrix-Idempotency-Key",
+                "origin_service_did_header": "X-Contrix-Origin-Service-Did",
+                "destination_service_did_header": "X-Contrix-Destination-Service-Did",
+                "max_request_size_bytes": 16384,
+            },
+            "privacy": {
+                "default_mode": "blind_wakeup",
+                "plaintext_visibility_class": "service-visible",
+            },
+            "provider_capabilities_version": "2026-05-07",
+            "provider_capabilities": [
+                {
+                    "name": "default-fcm-app",
+                    "kind": "fcm",
+                    "batch": "multicast",
+                    "ttl_seconds_max": 28u64 * 24 * 60 * 60,
+                    "supports_collapse": true,
+                    "supports_badge": true,
+                    "default_payload_shape": "data_only_blind_wakeup",
+                    "credential_kinds": ["service_account_v1"],
+                    "credential_rotation": "rotate_service_account_yearly_or_on_compromise",
+                    "blind_wakeup_required": true,
+                },
+                {
+                    "name": "ios-app",
+                    "kind": "apns",
+                    "batch": "none",
+                    "ttl_seconds_max": 28u64 * 24 * 60 * 60,
+                    "supports_collapse": true,
+                    "supports_badge": true,
+                    "default_payload_shape": "encrypted_or_blind_wakeup",
+                    "credential_kinds": ["jwt_p8", "cert_p12"],
+                    "credential_rotation": "rotate_jwt_p8_yearly_cert_p12_per_apple_lifecycle",
+                    "blind_wakeup_required": true,
+                },
+            ],
+        });
+
+        let response: PushBridgeDescribeResponse =
+            serde_json::from_value(json).expect("deserialize bridge describe response");
+        assert_eq!(
+            response.provider_capabilities_version.as_deref(),
+            Some("2026-05-07"),
+        );
+        assert_eq!(response.provider_capabilities.len(), 2);
+
+        let fcm = response
+            .provider_capability("default-fcm-app")
+            .expect("fcm app present");
+        assert_eq!(fcm.kind, "fcm");
+        assert!(fcm.supports_batch());
+
+        let apns = response
+            .provider_capability_by_kind("apns")
+            .expect("apns kind present");
+        assert_eq!(apns.name, "ios-app");
+        assert!(!apns.supports_batch());
+        assert!(apns.accepts_credential("JWT_P8"));
+    }
+
+    #[test]
+    fn bridge_describe_response_is_backward_compatible_without_capabilities() {
+        // Older floria responses (and existing fixtures) omit both
+        // capability fields entirely. Decode must succeed and yield
+        // an empty matrix.
+        let json = serde_json::json!({
+            "contract": "cx.push.bridge.v1",
+            "version": "1.0.0",
+            "api_base_path": "/api/v1",
+            "gateway": {},
+            "notify": {
+                "notify_path": "/api/v1/push/notify",
+                "operation_id": "cx.push.notify",
+                "request_id_header": "X-Contrix-Request-Id",
+                "idempotency_key_header": "X-Contrix-Idempotency-Key",
+                "origin_service_did_header": "X-Contrix-Origin-Service-Did",
+                "destination_service_did_header": "X-Contrix-Destination-Service-Did",
+                "max_request_size_bytes": 16384,
+            },
+            "privacy": {
+                "default_mode": "blind_wakeup",
+                "plaintext_visibility_class": "service-visible",
+            },
+        });
+
+        let response: PushBridgeDescribeResponse =
+            serde_json::from_value(json).expect("decode legacy response");
+        assert!(response.provider_capabilities_version.is_none());
+        assert!(response.provider_capabilities.is_empty());
+        assert!(response.provider_capability("anything").is_none());
+
+        // Re-serialize: legacy-shape responses should not introduce
+        // the new keys when empty/None (skip_serializing_if).
+        let reserialized = serde_json::to_value(&response).expect("re-serialize");
+        let obj = reserialized.as_object().expect("object");
+        assert!(!obj.contains_key("provider_capabilities_version"));
+        assert!(!obj.contains_key("provider_capabilities"));
     }
 
     #[test]
