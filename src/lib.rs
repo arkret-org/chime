@@ -73,12 +73,13 @@ pub use gateway_binding::GatewayBinding;
 pub use push_route::{PushRoute, PushRouteCapability, PushRouteError, PushRouteId};
 pub use state::{
     BridgeContractCache, BridgeContractDriftVerdict, PUSH_REGISTRATION_STATE_SCHEMA_VERSION,
-    PushPreferencesStore, PushRegistrationLastError, PushRegistrationRepairPlan,
-    PushRegistrationState, PushRegistrationStore, PushTokenRotationPlan,
-    PushTokenRotationStrategy, build_registration_state, find_registration_by_token,
-    find_registration_for_device, hash_push_key, merge_registration_state,
-    plan_registration_repair, plan_token_rotation, plan_token_rotation_with_strategy,
-    token_moved_to_different_device, token_rotation_required,
+    PushMultiGatewayRepairPlan, PushPreferencesStore, PushRegistrationLastError,
+    PushRegistrationRepairPlan, PushRegistrationState, PushRegistrationStore,
+    PushTokenRotationPlan, PushTokenRotationStrategy, build_registration_state,
+    find_registration_by_token, find_registration_for_device, hash_push_key,
+    merge_registration_state, plan_multi_gateway_repair, plan_registration_repair,
+    plan_token_rotation, plan_token_rotation_with_strategy, token_moved_to_different_device,
+    token_rotation_required,
 };
 
 #[cfg(feature = "http")]

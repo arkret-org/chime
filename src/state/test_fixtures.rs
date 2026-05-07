@@ -3,7 +3,8 @@
 //! Compiled only under `cfg(test)`.
 
 use crate::{
-    PushDeviceConfig, PushPreferences, RegisterDeviceResponse, build_register_device_request,
+    PushDeviceConfig, PushGatewayType, PushPreferences, RegisterDeviceResponse,
+    build_register_device_request,
 };
 
 use super::model::{PushRegistrationState, build_registration_state};
@@ -37,11 +38,45 @@ pub(crate) fn state_for(
     token: &'static str,
     registration_id: &'static str,
 ) -> PushRegistrationState {
+    state_for_gateway(device_id, token, registration_id, prefs().push_gateway)
+}
+
+pub(crate) fn state_for_gateway(
+    device_id: &'static str,
+    token: &'static str,
+    registration_id: &'static str,
+    push_gateway: String,
+) -> PushRegistrationState {
+    state_for_binding(
+        device_id,
+        token,
+        registration_id,
+        push_gateway,
+        PushGatewayType::Standard,
+        None,
+    )
+}
+
+pub(crate) fn state_for_binding(
+    device_id: &'static str,
+    token: &'static str,
+    registration_id: &'static str,
+    push_gateway: String,
+    gateway_type: PushGatewayType,
+    app_id: Option<&'static str>,
+) -> PushRegistrationState {
     let mut device_config = config(token);
     device_config.device_id = device_id;
     device_config.registration_id = Some(registration_id);
+    if let Some(app_id) = app_id {
+        device_config.app_id = Some(app_id);
+    }
 
-    let request = build_register_device_request(&device_config, &prefs()).unwrap();
+    let mut binding_prefs = prefs();
+    binding_prefs.gateway_type = gateway_type;
+    binding_prefs.push_gateway = push_gateway;
+
+    let request = build_register_device_request(&device_config, &binding_prefs).unwrap();
     let response = RegisterDeviceResponse {
         ok: true,
         registration_id: Some(registration_id.to_owned()),
@@ -56,7 +91,7 @@ pub(crate) fn state_for(
 
     build_registration_state(
         &device_config,
-        &prefs(),
+        &binding_prefs,
         &request,
         &response,
         Some("2026-05-03T00:00:00Z"),

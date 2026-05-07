@@ -1,6 +1,6 @@
 //! Actor-private `cx.device.push_route` state event wire model.
 //!
-//! Spec: `contrix-spec/zh/crypto-media/device-lifecycle.md` §5a.2.
+//! Spec: `contrix-spec/spec/v1/zh/crypto-media/device-lifecycle.md` §5a.2.
 //! A device records its push routes — keyed by `(principal_id,
 //! device_id, push_route)` — into the principal control stream so the
 //! Sync Service can look up which pairwise pseudonym to use without

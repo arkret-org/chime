@@ -8,6 +8,14 @@ project follows [SemVer](https://semver.org/) once it reaches `1.0`.
 
 ### Added
 
+- `plan_multi_gateway_repair` + `PushMultiGatewayRepairPlan` extend the
+  registration state-machine to multi-gateway preferences. Each binding
+  in `PushPreferences::effective_gateways()` gets its own
+  `PushRegistrationRepairPlan` planned against the subset of states
+  whose `push_gateway` matches that binding; states left over from a
+  removed gateway are surfaced as `orphan_states` with pre-built
+  unregister requests. Same-token registrations across distinct
+  gateways no longer cross-pollinate as token-moves.
 - Multi-gateway registration. `GatewayBinding { gateway_type,
   push_gateway, push_key, app_id }` plus
   `PushPreferences::gateways: Vec<GatewayBinding>` (default empty,

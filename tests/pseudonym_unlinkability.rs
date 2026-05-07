@@ -1,6 +1,6 @@
 //! `push_target_id` unlinkability gate tests.
 //!
-//! Spec: `contrix-spec/zh/crypto-media/device-lifecycle.md` §5a.3.
+//! Spec: `contrix-spec/spec/v1/zh/crypto-media/device-lifecycle.md` §5a.3.
 //! These tests lock the SDK side of the privacy contract: chime never
 //! lets `device_id`, `push_key`, `principal_id`, `email`, or phone
 //! number leak into a `PushTargetId`. The actual entropy / randomness

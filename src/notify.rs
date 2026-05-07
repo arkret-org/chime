@@ -61,7 +61,7 @@ impl PushNotifyRequest {
 
     /// Spec-strict variant of [`Self::validate_blind_wakeup`]: requires both
     /// `notification.push_target_id` and `notification.wakeup_kind` per
-    /// `contrix-spec/zh/discovery/push-notifications.md` §5.1.
+    /// `contrix-spec/spec/v1/zh/discovery/push-notifications.md` §5.1.
     pub fn validate_blind_wakeup_strict(&self) -> Result<(), PushNotifyPrivacyError> {
         self.validate_wire_model()?;
         self.notification.validate_blind_wakeup_strict()
@@ -211,7 +211,7 @@ impl<'de> Deserialize<'de> for PushHint {
 
 /// Per-(principal, device, push_route) pairwise pseudonym.
 ///
-/// Spec: `contrix-spec/zh/crypto-media/device-lifecycle.md` §5a.1. The
+/// Spec: `contrix-spec/spec/v1/zh/crypto-media/device-lifecycle.md` §5a.1. The
 /// canonical wire form is the typed id `cx:pseudonym:push:<base64url>`
 /// with at least 128 bit entropy (≥ 22 base64url chars). Raw
 /// base64url-only forms (without the prefix) are also accepted on the
@@ -247,7 +247,7 @@ impl<'de> Deserialize<'de> for PushTargetId {
 
 /// Coarse-grained wakeup category.
 ///
-/// Spec: `contrix-spec/zh/discovery/push-notifications.md` §5.1
+/// Spec: `contrix-spec/spec/v1/zh/discovery/push-notifications.md` §5.1
 /// `notification.wakeup_kind`. Carries no sender, Space, or event
 /// identity — only enough information for the receiving device to
 /// pick the right local handler (chat, call, mention, …).
@@ -393,7 +393,7 @@ impl PushNotification {
     /// rules. Use this in deployments that have fully migrated past the
     /// legacy `type`-only model.
     ///
-    /// Spec reference: `contrix-spec/zh/discovery/push-notifications.md`
+    /// Spec reference: `contrix-spec/spec/v1/zh/discovery/push-notifications.md`
     /// §5.1 and `crypto-media/device-lifecycle.md` §5a.
     pub fn validate_blind_wakeup_strict(&self) -> Result<(), PushNotifyPrivacyError> {
         if self.push_target_id.is_none() {

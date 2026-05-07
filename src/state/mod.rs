@@ -24,7 +24,10 @@ pub use model::{
     find_registration_for_device, hash_push_key, merge_registration_state,
     token_moved_to_different_device, token_rotation_required,
 };
-pub use repair::{PushRegistrationRepairPlan, plan_registration_repair};
+pub use repair::{
+    PushMultiGatewayRepairPlan, PushRegistrationRepairPlan, plan_multi_gateway_repair,
+    plan_registration_repair,
+};
 pub use rotation::{
     PushTokenRotationPlan, PushTokenRotationStrategy, plan_token_rotation,
     plan_token_rotation_with_strategy,
