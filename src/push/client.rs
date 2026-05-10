@@ -330,7 +330,22 @@ impl ContrixPushClient {
     /// When `prefs.enabled` is false, this method performs an idempotent
     /// unregister call and returns an `ok` register-shaped response.
     ///
-    /// ```rust,ignore
+    /// ```rust,no_run
+    /// # async fn doc_run() -> Result<(), chime::PushRegistrationError> {
+    /// # use chime::{PushDeviceConfig, PushPreferences};
+    /// # let config = PushDeviceConfig {
+    /// #     principal_did: None,
+    /// #     device_id: "did:web:alice.example#device-phone",
+    /// #     push_key: Some("fcm-or-apns-device-token"),
+    /// #     platform: None, app_id: None, domestic_app_id: None,
+    /// #     registration_id: None, display_name: None,
+    /// #     idempotency_key: None, request_id: None, proof: None,
+    /// # };
+    /// # let prefs = PushPreferences {
+    /// #     enabled: true,
+    /// #     push_gateway: "https://push.example.com/api/v1/push/notify".to_owned(),
+    /// #     ..Default::default()
+    /// # };
     /// use std::time::Duration;
     /// use chime::{ContrixPushClient, PushRetryPolicy};
     ///
@@ -340,7 +355,12 @@ impl ContrixPushClient {
     ///     .with_retry_policy(PushRetryPolicy::conservative());
     /// let response = client.register_device(&config, &prefs).await?;
     /// assert!(response.ok);
+    /// # Ok(())
+    /// # }
     /// ```
+    ///
+    /// Live coverage of this flow lives in `tests/live_floria_integration.rs`,
+    /// which spawns a real `floria` push gateway on a loopback port.
     pub async fn register_device(
         &self,
         config: &PushDeviceConfig<'_>,
@@ -644,7 +664,7 @@ impl ContrixPushClient {
                         .retry_after_duration()
                         .unwrap_or_else(|| self.backoff_delay(retry_count));
                     if !delay.is_zero() {
-                        tokio::time::sleep(delay).await;
+                        sleep_for(delay).await;
                     }
                     retry_count += 1;
                 }
@@ -673,7 +693,7 @@ impl ContrixPushClient {
                         .retry_after_duration()
                         .unwrap_or_else(|| self.backoff_delay(retry_count));
                     if !delay.is_zero() {
-                        tokio::time::sleep(delay).await;
+                        sleep_for(delay).await;
                     }
                     retry_count += 1;
                 }
@@ -867,6 +887,24 @@ fn retry_jitter_seed() -> u64 {
         .duration_since(SystemTime::UNIX_EPOCH)
         .map(|duration| duration.as_nanos().min(u64::MAX as u128) as u64)
         .unwrap_or(0xC0DE_CAFE)
+}
+
+/// Per-target async sleep used by the retry/backoff loop.
+///
+/// Native targets dispatch to `tokio::time::sleep` (the `http` feature
+/// pulls in tokio with the `time` driver). The wasm32 build has no
+/// tokio runtime on the browser main thread so it dispatches through
+/// `gloo_timers::future::sleep`, which is a thin wrapper over
+/// `setTimeout` and works inside the wasm-bindgen-futures executor that
+/// `wasm_bindgen_futures::spawn_local` provides.
+#[cfg(not(target_arch = "wasm32"))]
+async fn sleep_for(delay: Duration) {
+    tokio::time::sleep(delay).await;
+}
+
+#[cfg(target_arch = "wasm32")]
+async fn sleep_for(delay: Duration) {
+    gloo_timers::future::sleep(delay).await;
 }
 
 /// Generate a per-request idempotency key from process-monotonic state.

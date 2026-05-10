@@ -28,8 +28,10 @@ use serde::{Deserialize, Serialize};
 /// Compile the README's rust code blocks as doc-tests so the public
 /// quick-start examples cannot drift away from the actual API.
 ///
-/// Each `rust,ignore` block stays unexecuted (it requires a live
-/// service); plain `rust` blocks are compiled and run.
+/// `rust,no_run` blocks are compile-checked but not executed (they would
+/// require a live service); their live counterparts are exercised in
+/// `tests/live_floria_integration.rs`. Plain `rust` blocks are compiled
+/// and run.
 #[cfg(doctest)]
 #[doc = include_str!("../README.md")]
 mod readme_doctest {}

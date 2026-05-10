@@ -29,14 +29,28 @@ serde_json = "1"
 sha2 = "0.10"
 thiserror = "2"
 tracing = "0.1"
+url = "2"
+
+# C34.1: split the `http` transport deps per target. Native targets keep
+# reqwest+rustls+tokio; the wasm32 build routes through reqwest's
+# fetch-backed wasm32 backend and uses `gloo-timers` for retry sleeps
+# because there is no tokio runtime on the browser main thread.
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"], optional = true }
 tokio = { version = "1", features = ["time"], optional = true }
-url = "2"
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+reqwest = { version = "0.12", default-features = false, features = ["json"], optional = true }
+gloo-timers = { version = "0.3", features = ["futures"], optional = true }
 
 [features]
 default = []
 ## Enable Contrix HTTP push device registration via reqwest.
-http = ["dep:reqwest", "dep:tokio"]
+##
+## On native targets this enables reqwest with rustls-tls + a tokio
+## time driver. On wasm32 it enables reqwest's fetch backend and
+## gloo-timers (browser `setTimeout`) for the retry backoff.
+http = ["dep:reqwest", "dep:tokio", "dep:gloo-timers"]
 ## Enable server/gateway-side cx.push.notify wire types.
 notify = []
 

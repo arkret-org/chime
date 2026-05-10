@@ -100,8 +100,29 @@ assert_eq!(request.device_id, "did:web:alice.example#device-phone");
 
 ### Register through HTTP
 
-```rust,ignore
-use chime::{ContrixPushClient, PushDeviceConfig, PushPreferences};
+```rust,no_run
+# #[cfg(feature = "http")]
+# async fn doc_run() -> Result<(), chime::PushRegistrationError> {
+# use chime::{PushDeviceConfig, PushPreferences};
+# let config = PushDeviceConfig {
+#     principal_did: None,
+#     device_id: "did:web:alice.example#device-phone",
+#     push_key: Some("fcm-or-apns-device-token"),
+#     platform: None,
+#     app_id: None,
+#     domestic_app_id: None,
+#     registration_id: None,
+#     display_name: None,
+#     idempotency_key: None,
+#     request_id: None,
+#     proof: None,
+# };
+# let prefs = PushPreferences {
+#     enabled: true,
+#     push_gateway: "https://push.example.com/api/v1/push/notify".to_owned(),
+#     ..Default::default()
+# };
+use chime::ContrixPushClient;
 
 let client = ContrixPushClient::new("https://principal.example")
     .with_bearer_token("session-token")
@@ -111,7 +132,13 @@ let client = ContrixPushClient::new("https://principal.example")
 
 let response = client.register_device_with_context(&config, &prefs).await?;
 assert!(response.body.ok);
+# Ok(())
+# }
 ```
+
+> Live coverage of this flow lives in `tests/live_floria_integration.rs`,
+> which spawns a real `floria` push gateway on a loopback port and exercises
+> the discovery + notify side of the same `ContrixPushClient`.
 
 Production notes:
 
@@ -126,7 +153,28 @@ Production notes:
 
 `chime` does not own authentication secrets or private keys. Callers can build a canonical proof body or HTTP Message Signature headers from the request they are about to send:
 
-```rust,ignore
+```rust,no_run
+# fn doc_run() -> Result<(), chime::PushRegistrationError> {
+# use chime::{PushDeviceConfig, PushPreferences};
+# let config = PushDeviceConfig {
+#     principal_did: None,
+#     device_id: "did:web:alice.example#device-phone",
+#     push_key: Some("fcm-or-apns-device-token"),
+#     platform: None, app_id: None, domestic_app_id: None,
+#     registration_id: None, display_name: None,
+#     idempotency_key: None, request_id: None, proof: None,
+# };
+# let prefs = PushPreferences {
+#     enabled: true,
+#     push_gateway: "https://push.example.com/api/v1/push/notify".to_owned(),
+#     ..Default::default()
+# };
+# struct DummySigner;
+# impl DummySigner {
+#     fn sign_http_message(&self, _ctx: &chime::PushRequestSigningContext)
+#         -> Result<String, chime::PushRegistrationError> { Ok(String::new()) }
+# }
+# let signer = DummySigner;
 use chime::{
     PushRequestSigningOptions, build_register_device_request,
     build_register_signing_context_with_options,
@@ -150,6 +198,9 @@ let context = build_register_signing_context_with_options(
 let proof_body = context.canonical_proof_body()?;
 let signature = signer.sign_http_message(&context)?;
 let headers = context.http_message_signature_headers("sig1", &signature)?;
+# let _ = (proof_body, headers);
+# Ok(())
+# }
 ```
 
 `proof_body` is caller-signed and passed back through `PushDeviceConfig::proof`. The returned HTTP signature headers include `Content-Digest`, Contrix device/audience/actor/expiry/origin/destination metadata, nonce/idempotency context, `Signature-Input`, and `Signature`; attach them with your HTTP stack or `ContrixPushClient::with_header`. `chime` can carry an externally supplied coauth/soland grant, but it never owns private keys or mints grants.
@@ -164,10 +215,26 @@ After a successful register, `merge_registration_state()` drops stale logical du
 
 ### Token rotation
 
-```rust,ignore
+```rust,no_run
+# fn doc_run() -> Result<(), chime::PushRegistrationError> {
+# use chime::{PushDeviceConfig, PushPreferences};
+# let config = PushDeviceConfig {
+#     principal_did: None,
+#     device_id: "did:web:alice.example#device-phone",
+#     push_key: Some("fcm-or-apns-device-token"),
+#     platform: None, app_id: None, domestic_app_id: None,
+#     registration_id: None, display_name: None,
+#     idempotency_key: None, request_id: None, proof: None,
+# };
+# let prefs = PushPreferences {
+#     enabled: true,
+#     push_gateway: "https://push.example.com/api/v1/push/notify".to_owned(),
+#     ..Default::default()
+# };
 use chime::{plan_token_rotation_with_strategy, PushRegistrationState, PushTokenRotationStrategy};
 
-let existing: Option<PushRegistrationState> = store.load_push_registration()?;
+// Replace this with your `PushRegistrationStore::load_push_registration()` call.
+let existing: Option<PushRegistrationState> = None;
 let plan = plan_token_rotation_with_strategy(
     existing.as_ref(),
     &config,
@@ -177,10 +244,14 @@ let plan = plan_token_rotation_with_strategy(
 
 if let Some(register_new) = plan.register_new {
     // Send with ContrixPushClient or your own HTTP stack, then persist success.
+    let _ = register_new;
 }
 if let Some(unregister_old) = plan.unregister_old {
     // For RegisterNewFirst, send this after the replacement succeeds.
+    let _ = unregister_old;
 }
+# Ok(())
+# }
 ```
 
 ## Configuration & Operations
