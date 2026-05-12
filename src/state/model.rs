@@ -475,16 +475,11 @@ mod tests {
     impl PushPreferencesStore for InMemoryPrefsStore {
         type Error = std::convert::Infallible;
 
-        fn load_push_preferences(
-            &self,
-        ) -> Result<Option<crate::PushPreferences>, Self::Error> {
+        fn load_push_preferences(&self) -> Result<Option<crate::PushPreferences>, Self::Error> {
             Ok(self.inner.lock().unwrap().clone())
         }
 
-        fn save_push_preferences(
-            &self,
-            prefs: &crate::PushPreferences,
-        ) -> Result<(), Self::Error> {
+        fn save_push_preferences(&self, prefs: &crate::PushPreferences) -> Result<(), Self::Error> {
             *self.inner.lock().unwrap() = Some(prefs.clone());
             Ok(())
         }

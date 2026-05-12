@@ -26,7 +26,7 @@ fn target_id_rejects_principal_or_device_identifiers() {
         "did:web:alice.example#device-phone",
         // contrix typed ids
         "cx:device:01HYZ8Z000000000000000",
-        "cx:room:01HYZ8Z000000000000000",
+        "cx:space:01HYZ8Z000000000000000",
         "cx:space:01HYZ8Z000000000000000",
     ];
     for value in identifiers {

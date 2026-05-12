@@ -39,7 +39,10 @@ impl PushMultiGatewayRepairPlan {
     /// Whether any binding or orphan list contains a stale entry.
     pub fn stale_state_detected(&self) -> bool {
         !self.orphan_states.is_empty()
-            || self.per_binding.iter().any(|plan| plan.stale_state_detected)
+            || self
+                .per_binding
+                .iter()
+                .any(|plan| plan.stale_state_detected)
     }
 
     /// Whether any binding observed a token-moved-from-another-device.
@@ -187,7 +190,7 @@ fn registration_state_rank(state: &PushRegistrationState) -> (u8, &str, &str, &s
 /// (when the `http` feature is enabled).
 ///
 /// When `prefs.gateways` is empty, the plan is equivalent to a single
-/// call to [`plan_registration_repair`] on the legacy single-gateway
+/// call to [`plan_registration_repair`] on the singular gateway
 /// pair.
 pub fn plan_multi_gateway_repair(
     states: &[PushRegistrationState],
@@ -479,8 +482,7 @@ mod tests {
             "fcm:old-token",
             "reg-old",
         );
-        let plan =
-            plan_multi_gateway_repair(&[stale], &config("fcm:new-token"), &prefs()).unwrap();
+        let plan = plan_multi_gateway_repair(&[stale], &config("fcm:new-token"), &prefs()).unwrap();
 
         assert_eq!(plan.per_binding.len(), 1);
         assert_eq!(plan.per_binding[0].stale_states.len(), 1);

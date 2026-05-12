@@ -3,7 +3,7 @@
 //! by listing them as [`GatewayBinding`] entries in
 //! [`PushPreferences::gateways`](crate::PushPreferences::gateways).
 //!
-//! When `gateways` is empty the SDK keeps the legacy single-gateway
+//! When `gateways` is empty the SDK uses the singular gateway
 //! behaviour and uses [`PushPreferences::push_gateway`](crate::PushPreferences::push_gateway)
 //! /[`gateway_type`](crate::PushPreferences::gateway_type). When it is
 //! non-empty the singular fields are ignored and every binding is

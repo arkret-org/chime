@@ -19,9 +19,9 @@ project follows [SemVer](https://semver.org/) once it reaches `1.0`.
 - Multi-gateway registration. `GatewayBinding { gateway_type,
   push_gateway, push_key, app_id }` plus
   `PushPreferences::gateways: Vec<GatewayBinding>` (default empty,
-  fully backward-compatible). `PushPreferences::effective_gateways()`
+  opt-in). `PushPreferences::effective_gateways()`
   returns either the explicit list or a synthesized single binding
-  from the legacy `push_gateway` / `gateway_type` fields.
+  from the singular `push_gateway` / `gateway_type` fields.
   `ContrixPushClient::register_device_all` exercises every binding
   independently and returns one `Result` per binding so partial
   failures stay visible.
@@ -77,10 +77,8 @@ project follows [SemVer](https://semver.org/) once it reaches `1.0`.
 
 ### Changed
 
-- `PushNotification.validate_wire_model` now accepts either a non-empty
-  legacy `type` field or a set `wakeup_kind`; previously `type` was
-  unconditionally required. This is backward-compatible for callers
-  that still set `type`.
+- `PushNotification.validate_wire_model` now requires `wakeup_kind` on
+  the current notify wire model.
 - `typos.toml` cleaned up — removed copy-pasted entries unrelated to
   this crate; added Contrix project vocabulary.
 - README quick-start no longer references the non-existent

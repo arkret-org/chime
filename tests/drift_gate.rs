@@ -32,7 +32,6 @@ const BRIDGE_DESCRIBE_FIXTURE: &str = r#"{
     },
     "notify": {
         "notify_path": "/api/v1/push/notify",
-        "legacy_notify_aliases": [],
         "operation_id": "cx.push.notify",
         "request_id_header": "X-Contrix-Request-Id",
         "idempotency_key_header": "X-Contrix-Idempotency-Key",
@@ -47,8 +46,7 @@ const BRIDGE_DESCRIBE_FIXTURE: &str = r#"{
     "privacy": {
         "default_mode": "e2ee_blind_wakeup",
         "plaintext_visibility_class": "explicit-opt-in",
-        "active_reference_fields": ["flow_id", "message_id", "notification_projection_id"],
-        "rejected_legacy_fields": ["room_id", "card_id", "subject_id"]
+        "active_reference_fields": ["notification.push_target_id", "notification.wakeup_kind"]
     },
     "examples": {
         "notify_headers": {
@@ -58,9 +56,8 @@ const BRIDGE_DESCRIBE_FIXTURE: &str = r#"{
         "blind_wakeup_request": {
             "operation_id": "cx.push.notify",
             "notification": {
-                "event_id": "cx:event:01JS0EV000000000000000000",
-                "space_id": "cx:space:01JS0SP000000000000000000",
-                "type": "cx.message.create",
+                "push_target_id": "cx:pseudonym:push:01HYZ8Z000000000000000",
+                "wakeup_kind": "message",
                 "push_hint": "wakeup-msg-1",
                 "counts": { "unread": 1 },
                 "devices": [
@@ -90,10 +87,10 @@ fn bridge_describe_fixture_round_trips_into_chime_dto() {
     assert!(
         response
             .privacy
-            .rejected_legacy_fields
+            .active_reference_fields
             .iter()
-            .any(|field| field == "room_id"),
-        "spec must keep rejecting legacy room_id"
+            .any(|field| field == "notification.wakeup_kind"),
+        "bridge describe must advertise the current wakeup field"
     );
 }
 

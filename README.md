@@ -207,7 +207,7 @@ let headers = context.http_message_signature_headers("sig1", &signature)?;
 
 ### Local registration state
 
-`PushRegistrationState` stores non-secret local state: principal DID, device id, platform/app id, gateway, token hash/preview, registration id, expiry/refresh hint, and last success/error summary. The `PushRegistrationStore` trait keeps the legacy single-registration methods and adds multi-registration defaults (`load_push_registrations`, `save_push_registrations`, and `delete_push_registration`) for apps that store several accounts, apps, or devices.
+`PushRegistrationState` stores non-secret local state: principal DID, device id, platform/app id, gateway, token hash/preview, registration id, expiry/refresh hint, and last success/error summary. The `PushRegistrationStore` trait exposes single-registration methods plus multi-registration helpers (`load_push_registrations`, `save_push_registrations`, and `delete_push_registration`) for apps that store several accounts, apps, or devices.
 
 Store implementations should use OS keychain, encrypted app storage, or another locally protected store. The state includes `schema_version` so applications can migrate persisted records without exposing raw platform tokens.
 
@@ -326,19 +326,6 @@ exporters work without further glue.
 | `Gone` (HTTP 410) | The push token was retired. Drop the local registration and let the device generate a new token before re-registering. |
 | `Unauthenticated` after token refresh | The bearer token rotated mid-request. Refresh `with_bearer_token(...)` and retry. |
 
-## Migration from legacy Matrix pusher terms
-
-| Legacy term | Contrix term |
-| --- | --- |
-| `matrix` feature | `http` feature |
-| `PusherConfig` | `PushDeviceConfig` |
-| `register_pusher` | `ContrixPushClient::register_device` or `build_register_device_request` |
-| `unregister_pusher` | `ContrixPushClient::unregister_device` or `build_unregister_device_request` |
-| `gateway_url` | `push_gateway` |
-| `show_message_preview` | `allow_push_hint` |
-
-Use these direct renames when migrating persisted config or API payloads. Strict parsers and validators no longer accept legacy alias fields.
-
 ## Protocol Mapping
 
 The crate maps to the Contrix v1 push HTTP binding:
@@ -351,11 +338,11 @@ The crate maps to the Contrix v1 push HTTP binding:
 
 Register/unregister bodies carry the canonical operation id, optional `principal_did`, `device_id`, app id, gateway URL, idempotency key, request id, and caller-supplied proof. Responses expose the accepted gateway, token hash/preview, expiry or refresh hints, warnings, and request id when the service returns them.
 
-Push notifications are derived wakeups, not canonical truth. For E2EE Spaces, push gateways should receive only minimized metadata such as `space_id`, event type, counts, target device references, priority/TTL/collapse hints, and optional body-free `push_hint`.
+Push notifications are derived wakeups, not canonical truth. For E2EE Spaces, push gateways should receive only minimized metadata such as `push_target_id`, `wakeup_kind`, counts, priority/TTL/collapse hints, and optional body-free `push_hint`.
 
-With the `notify` feature, `PushNotifyRequest::validate_wire_model()` and `PushNotifyRequest::validate_blind_wakeup()` enforce that boundary. Entity facets and view-renderer output are routing or context hints only when the application has explicitly authorized that use; do not serialize facet-derived title, body, display name, or space name into provider payloads. The validator rejects removed legacy `room` / `card` / `subject` references, `schema_id` / `kind` aliases, `sender_service_did`, provider payload wrappers, title/body/preview fields, and facet/view-renderer extension keys before gateway delivery.
+With the `notify` feature, `PushNotifyRequest::validate_wire_model()` and `PushNotifyRequest::validate_blind_wakeup()` enforce that boundary. Entity facets and view-renderer output are routing or context hints only when the application has explicitly authorized that use; do not serialize facet-derived title, body, display name, or space name into provider payloads. The validator rejects removed aliases such as `schema_id` and `kind`, provider payload wrappers, title/body/preview fields, and facet/view-renderer extension keys before gateway delivery.
 
-`shared_push_notify_privacy_vectors()` exposes the E2EE invalid cases, including legacy-reference rejections, and the explicit plaintext-visible service allow case so gateway implementations such as `floria` can run the same vectors.
+`shared_push_notify_privacy_vectors()` exposes the E2EE invalid cases and the explicit plaintext-visible service allow case so gateway implementations such as `floria` can run the same vectors.
 
 ## Architecture
 

@@ -541,7 +541,7 @@ impl ContrixPushClient {
     /// Each binding is exercised independently — a failure on one
     /// binding does not abort the others. Returns one
     /// `Result<RegisterDeviceResponse, _>` per binding, in the order
-    /// they were resolved (legacy single-gateway flow yields a
+    /// they were resolved (single-gateway flow yields a
     /// `vec![result]` of length one).
     ///
     /// Per-binding `push_key` and `app_id` overrides take priority

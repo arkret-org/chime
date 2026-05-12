@@ -51,6 +51,7 @@ pub use notify::{
     PushTargetId, RejectedPushToken, WakeupKind, shared_push_notify_privacy_vectors,
 };
 
+pub use gateway_binding::GatewayBinding;
 pub use push::{
     CONTENT_DIGEST_HEADER, CONTRIX_ACTOR_DID_HEADER, CONTRIX_AUDIENCE_HEADER,
     CONTRIX_CREATED_AT_HEADER, CONTRIX_DESTINATION_SERVICE_DID_HEADER, CONTRIX_DEVICE_ID_HEADER,
@@ -71,7 +72,6 @@ pub use push::{
     push_gateway_service_base_url, push_integration_describe_url, redact_push_key,
     validate_push_gateway_url, validate_webpush_endpoint_allowlist,
 };
-pub use gateway_binding::GatewayBinding;
 pub use push_route::{PushRoute, PushRouteCapability, PushRouteError, PushRouteId};
 pub use state::{
     BridgeContractCache, BridgeContractDriftVerdict, PUSH_REGISTRATION_STATE_SCHEMA_VERSION,
@@ -220,8 +220,8 @@ pub struct PushPreferences {
     ///
     /// When empty, registration uses the singular
     /// [`push_gateway`](Self::push_gateway) +
-    /// [`gateway_type`](Self::gateway_type) fields (legacy
-    /// single-gateway flow). When non-empty, every binding is
+    /// [`gateway_type`](Self::gateway_type) fields (single-gateway
+    /// flow). When non-empty, every binding is
     /// exercised independently and the singular fields are ignored —
     /// see `ContrixPushClient::register_device_all` (under the `http`
     /// feature) for the multi-gateway register helper.
@@ -266,7 +266,7 @@ impl PushPreferences {
     ///
     /// When [`gateways`](Self::gateways) is non-empty, returns a clone
     /// of that list. When it is empty, returns a single synthesized
-    /// binding from the legacy
+    /// binding from the singular
     /// [`gateway_type`](Self::gateway_type)/[`push_gateway`](Self::push_gateway)
     /// pair so single-gateway callers keep working with no changes.
     pub fn effective_gateways(&self) -> Vec<GatewayBinding> {
@@ -290,8 +290,8 @@ pub fn to_json(prefs: &PushPreferences) -> Result<String, serde_json::Error> {
 
 /// Deserialize preferences from a JSON string.
 ///
-/// Strict: unknown fields (including legacy gateway-type aliases such as
-/// `Sygnal`, legacy field names such as `gateway_url` /
+/// Strict: unknown fields (including removed gateway-type aliases such as
+/// `Sygnal`, removed field names such as `gateway_url` /
 /// `show_message_preview`) cause an error rather than a silent fallback.
 /// Callers that want graceful recovery should match on the error and decide
 /// what to do — there is no longer a permissive variant.
@@ -456,7 +456,10 @@ mod tests {
         assert_eq!(resolved.len(), 2);
         assert_eq!(resolved[0].gateway_type, PushGatewayType::Standard);
         assert_eq!(resolved[1].gateway_type, PushGatewayType::Bugle);
-        assert_eq!(resolved[1].app_id.as_deref(), Some("app.example.android.cn"));
+        assert_eq!(
+            resolved[1].app_id.as_deref(),
+            Some("app.example.android.cn")
+        );
     }
 
     #[test]
@@ -483,18 +486,18 @@ mod tests {
     }
 
     #[test]
-    fn from_json_rejects_legacy_aliases_strictly() {
+    fn from_json_rejects_removed_aliases_strictly() {
         let loaded = from_json(
             r#"{
                 "enabled": true,
                 "gateway_type": "Sygnal",
-                "gateway_url": "https://legacy.example/push/notify",
+                "gateway_url": "https://old.example/push/notify",
                 "show_message_preview": false
             }"#,
         );
         assert!(
             loaded.is_err(),
-            "legacy aliases must error, not silently default"
+            "removed aliases must error, not silently default"
         );
     }
 }

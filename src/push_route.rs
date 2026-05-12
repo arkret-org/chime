@@ -293,9 +293,7 @@ mod tests {
             pseudo,
             "did:web:gateway.example",
         );
-        route
-            .capabilities
-            .push(PushRouteCapability::Voip);
+        route.capabilities.push(PushRouteCapability::Voip);
         route
             .capabilities
             .push(PushRouteCapability::Custom("alarm".to_owned()));
@@ -309,9 +307,8 @@ mod tests {
 
     #[test]
     fn route_rejects_unknown_fields() {
-        let bad = serde_json::from_str::<PushRoute>(
-            r#"{"route": "apns_main", "extra_unknown": true}"#,
-        );
+        let bad =
+            serde_json::from_str::<PushRoute>(r#"{"route": "apns_main", "extra_unknown": true}"#);
         assert!(bad.is_err());
     }
 }

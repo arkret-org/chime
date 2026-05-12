@@ -231,4 +231,3 @@ mod notify_props {
         }
     }
 }
-

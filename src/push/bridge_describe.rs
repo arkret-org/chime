@@ -44,10 +44,7 @@ impl PushBridgeDescribeResponse {
     /// `kind` matches (case-insensitive). Useful when callers care
     /// about the upstream vendor (e.g. `"fcm"`) rather than the
     /// app-name registration.
-    pub fn provider_capability_by_kind(
-        &self,
-        kind: &str,
-    ) -> Option<&ProviderCapabilityDescriptor> {
+    pub fn provider_capability_by_kind(&self, kind: &str) -> Option<&ProviderCapabilityDescriptor> {
         self.provider_capabilities
             .iter()
             .find(|cap| cap.kind.eq_ignore_ascii_case(kind))
@@ -91,8 +88,6 @@ impl PushBridgeDescribeGatewayDescriptor {
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PushBridgeDescribeNotifyDescriptor {
     pub notify_path: String,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub legacy_notify_aliases: Vec<String>,
     pub operation_id: String,
     pub request_id_header: String,
     pub idempotency_key_header: String,
@@ -145,8 +140,6 @@ pub struct PushBridgeDescribePrivacyDescriptor {
     pub plaintext_visibility_class: String,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub active_reference_fields: Vec<String>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub rejected_legacy_fields: Vec<String>,
 }
 
 /// Per-app frozen capability matrix entry, surfaced by the gateway via
@@ -460,10 +453,8 @@ mod tests {
     }
 
     #[test]
-    fn bridge_describe_response_is_backward_compatible_without_capabilities() {
-        // Older floria responses (and existing fixtures) omit both
-        // capability fields entirely. Decode must succeed and yield
-        // an empty matrix.
+    fn bridge_describe_response_decodes_without_provider_capabilities() {
+        // Provider capability fields are optional in the bridge contract.
         let json = serde_json::json!({
             "contract": "cx.push.bridge.v1",
             "version": "1.0.0",
@@ -485,13 +476,12 @@ mod tests {
         });
 
         let response: PushBridgeDescribeResponse =
-            serde_json::from_value(json).expect("decode legacy response");
+            serde_json::from_value(json).expect("decode response");
         assert!(response.provider_capabilities_version.is_none());
         assert!(response.provider_capabilities.is_empty());
         assert!(response.provider_capability("anything").is_none());
 
-        // Re-serialize: legacy-shape responses should not introduce
-        // the new keys when empty/None (skip_serializing_if).
+        // Re-serialize: empty optional capability fields stay omitted.
         let reserialized = serde_json::to_value(&response).expect("re-serialize");
         let obj = reserialized.as_object().expect("object");
         assert!(!obj.contains_key("provider_capabilities_version"));

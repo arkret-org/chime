@@ -249,19 +249,6 @@ INFO  chime::push::client  Contrix push device registered  platform=android gate
 | `Gone`（HTTP 410） | Push token 已被服务端撤销。本地 drop 注册，让设备生成新 token 后再注册。 |
 | 刷新 token 后仍 `Unauthenticated` | bearer token 在请求中途轮换。重新 `with_bearer_token(...)` 后重试。 |
 
-## 从旧 Matrix pusher 术语迁移
-
-| 旧术语 | Contrix 术语 |
-| --- | --- |
-| `matrix` feature | `http` feature |
-| `PusherConfig` | `PushDeviceConfig` |
-| `register_pusher` | `ContrixPushClient::register_device` 或 `build_register_device_request` |
-| `unregister_pusher` | `ContrixPushClient::unregister_device` 或 `build_unregister_device_request` |
-| `gateway_url` | `push_gateway` |
-| `show_message_preview` | `allow_push_hint` |
-
-迁移时请直接改成新字段名。严格解析和校验路径已经不再接受 legacy alias 字段。
-
 ## 协议映射
 
 本 crate 映射到 Contrix v1 推送 HTTP binding：
@@ -274,11 +261,11 @@ INFO  chime::push::client  Contrix push device registered  platform=android gate
 
 Register/unregister 请求体会携带 canonical operation id、可选 `principal_did`、`device_id`、app id、gateway URL、idempotency key、request id 和调用方提供的 proof。响应会在服务端返回时暴露 accepted gateway、token hash/preview、过期或 refresh hint、warnings 与 request id。
 
-推送通知是派生唤醒，不是 canonical truth。E2EE Space 下，推送网关只应收到最小化元数据，例如 `space_id`、事件类型、计数、目标设备引用、priority/TTL/collapse hint，以及可选的不含正文的 `push_hint`。
+推送通知是派生唤醒，不是 canonical truth。E2EE Space 下，推送网关只应收到最小化元数据，例如 `push_target_id`、`wakeup_kind`、计数、priority/TTL/collapse hint，以及可选的不含正文的 `push_hint`。
 
-启用 `notify` feature 后，`PushNotifyRequest::validate_wire_model()` 和 `PushNotifyRequest::validate_blind_wakeup()` 会强制执行这条边界。Entity facets 和 view renderer 输出只有在应用明确授权时才可作为路由或上下文提示；不要把 facet 派生出的 title、body、display name 或 space name 序列化进 provider payload。校验器会在网关投递前拒绝已移除的 `room` / `card` / `subject` 引用、`schema_id` / `kind` 别名、`sender_service_did`、provider payload 包装、title/body/preview 字段，以及 facet/view-renderer 扩展键。
+启用 `notify` feature 后，`PushNotifyRequest::validate_wire_model()` 和 `PushNotifyRequest::validate_blind_wakeup()` 会强制执行这条边界。Entity facets 和 view renderer 输出只有在应用明确授权时才可作为路由或上下文提示；不要把 facet 派生出的 title、body、display name 或 space name 序列化进 provider payload。校验器会在网关投递前拒绝已移除的 `schema_id` / `kind` 别名、provider payload 包装、title/body/preview 字段，以及 facet/view-renderer 扩展键。
 
-`shared_push_notify_privacy_vectors()` 会导出 E2EE invalid cases（包含 legacy 引用拒绝样例）和显式 plaintext-visible service allow case，方便 `floria` 等网关实现复用同一组向量。
+`shared_push_notify_privacy_vectors()` 会导出 E2EE invalid cases 和显式 plaintext-visible service allow case，方便 `floria` 等网关实现复用同一组向量。
 
 ## 架构
 
