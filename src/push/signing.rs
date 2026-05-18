@@ -23,7 +23,10 @@
 
 use std::fmt;
 
-use contrix::http_signature::{ContentDigest, ContentDigestAlgorithm};
+use contrix::http_signature::{
+    Component, ContentDigest, ContentDigestAlgorithm, format_signature_header,
+    format_signature_input_component_list,
+};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -150,50 +153,48 @@ impl PushRequestSigningContext {
         &self,
         label: &str,
     ) -> Result<String, PushRegistrationError> {
-        validate_signature_label(label)?;
-
         let mut components = vec![
-            "@method",
-            "@target-uri",
-            "content-digest",
-            "x-contrix-operation-id",
-            "x-contrix-device-id",
-            "x-contrix-created-at",
-            "x-contrix-audience",
+            Component::Method,
+            Component::TargetUri,
+            Component::Header("content-digest".to_owned()),
+            Component::Header("x-contrix-operation-id".to_owned()),
+            Component::Header("x-contrix-device-id".to_owned()),
+            Component::Header("x-contrix-created-at".to_owned()),
+            Component::Header("x-contrix-audience".to_owned()),
         ];
 
         if self.actor_did.is_some() {
-            components.push("x-contrix-actor-did");
+            components.push(Component::Header("x-contrix-actor-did".to_owned()));
         }
         if self.expires_at.is_some() {
-            components.push("x-contrix-expires-at");
+            components.push(Component::Header("x-contrix-expires-at".to_owned()));
         }
         if self.origin.is_some() {
-            components.push("x-contrix-origin");
+            components.push(Component::Header("x-contrix-origin".to_owned()));
         }
         if self.origin_service_did.is_some() {
-            components.push("x-contrix-origin-service-did");
+            components.push(Component::Header("x-contrix-origin-service-did".to_owned()));
         }
         if self.destination_service_did.is_some() {
-            components.push("x-contrix-destination-service-did");
+            components.push(Component::Header(
+                "x-contrix-destination-service-did".to_owned(),
+            ));
         }
         if self.nonce.is_some() {
-            components.push("x-contrix-nonce");
+            components.push(Component::Header("x-contrix-nonce".to_owned()));
         }
         if self.idempotency_key.is_some() {
-            components.push("x-contrix-idempotency-key");
+            components.push(Component::Header("x-contrix-idempotency-key".to_owned()));
         }
         if self.session_grant.is_some() {
-            components.push("x-contrix-session-grant");
+            components.push(Component::Header("x-contrix-session-grant".to_owned()));
         }
 
-        let covered = components
-            .into_iter()
-            .map(|component| format!("\"{component}\""))
-            .collect::<Vec<_>>()
-            .join(" ");
-
-        Ok(format!("{label}=({covered})"))
+        format_signature_input_component_list(label, &components).map_err(|_| {
+            PushRegistrationError::InvalidHeader {
+                name: SIGNATURE_INPUT_HEADER.to_owned(),
+            }
+        })
     }
 
     /// Build the `Signature` header value from a precomputed base64 signature.
@@ -201,9 +202,11 @@ impl PushRequestSigningContext {
         label: &str,
         signature: &str,
     ) -> Result<String, PushRegistrationError> {
-        validate_signature_label(label)?;
-        validate_signature_value(signature)?;
-        Ok(format!("{label}=:{signature}:"))
+        format_signature_header(label, signature).map_err(|_| {
+            PushRegistrationError::InvalidHeader {
+                name: SIGNATURE_HEADER.to_owned(),
+            }
+        })
     }
 
     /// Return the metadata, `Signature-Input`, and `Signature` headers needed
@@ -381,36 +384,6 @@ where
     })
 }
 
-fn validate_signature_label(label: &str) -> Result<(), PushRegistrationError> {
-    let valid = !label.is_empty()
-        && label
-            .chars()
-            .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '_' | '-' | '.'));
-
-    if valid {
-        Ok(())
-    } else {
-        Err(PushRegistrationError::InvalidHeader {
-            name: SIGNATURE_INPUT_HEADER.to_owned(),
-        })
-    }
-}
-
-fn validate_signature_value(signature: &str) -> Result<(), PushRegistrationError> {
-    let valid = !signature.trim().is_empty()
-        && signature
-            .bytes()
-            .all(|byte| byte.is_ascii_graphic() && byte != b':');
-
-    if valid {
-        Ok(())
-    } else {
-        Err(PushRegistrationError::InvalidHeader {
-            name: SIGNATURE_HEADER.to_owned(),
-        })
-    }
-}
-
 #[cfg(test)]
 mod tests {
     //! CH-1 wire-equivalence tests for the SDK-routed `content_digest_sha256`.
@@ -423,9 +396,7 @@ mod tests {
 
     use super::*;
     use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64_STANDARD};
-    use contrix::http_signature::{
-        ContentDigest, ContentDigestAlgorithm, verify_content_digest,
-    };
+    use contrix::http_signature::{ContentDigest, ContentDigestAlgorithm, verify_content_digest};
     use sha2::{Digest, Sha256};
 
     /// chime's `content_digest_sha256` for a fixed body must be
