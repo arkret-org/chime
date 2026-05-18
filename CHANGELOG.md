@@ -6,6 +6,19 @@ project follows [SemVer](https://semver.org/) once it reaches `1.0`.
 
 ## [Unreleased]
 
+### Notes
+
+- CH-3 (2026-05-18): evaluated extracting `state::repair` and
+  `state::rotation` to `contrix-sdk` for reuse by starid/teabay.
+  Skipped: every plan function is parameterised over push-specific
+  types (`PushRegistrationState`, `PushDeviceConfig`,
+  `PushPreferences`, `RegisterDeviceRequest`,
+  `UnregisterDeviceRequest`, `GatewayBinding`) and the pure policy
+  logic is a few dozen lines that would only become a trait skeleton
+  with full generification. starid/teabay currently have no
+  client-side device registration lifecycle. Skip notes left inline
+  in `src/state/repair.rs` and `src/state/rotation.rs`.
+
 ### Added
 
 - `plan_multi_gateway_repair` + `PushMultiGatewayRepairPlan` extend the

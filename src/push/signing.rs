@@ -1,11 +1,31 @@
 //! HTTP Message Signature / DID-proof signing context construction.
+//!
+//! ## CH-1 (SDK-3 migration)
+//!
+//! Wire-level primitives (RFC 9530 `Content-Digest` computation, the
+//! base64 alphabet used for the `Signature` value, the covered-component
+//! lookup keys) are now sourced from
+//! [`contrix::http_signature`](contrix::http_signature) so chime, floria
+//! and soland share a single canonicalization implementation. The
+//! `PushRequestSigningContext` type itself stays in chime because:
+//!
+//! 1. chime's covered-component set differs from floria's notify set —
+//!    it covers `x-contrix-operation-id`, `x-contrix-device-id`,
+//!    `x-contrix-created-at`, `x-contrix-audience` (the device-
+//!    registration flow), not the two service-DID headers floria's
+//!    `/notify` verifier requires.
+//! 2. chime never owned a private key; it only canonicalizes context
+//!    so an external signer (the host application's DID proof or HSM)
+//!    can attach a pre-computed `Signature` header. The SDK's
+//!    `sign_message` helper is therefore not called here — callers
+//!    that have a `SigningKey` should call it directly with the
+//!    canonical message built from chime's `PushRequestSigningContext`.
 
 use std::fmt;
 
-use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64_STANDARD};
+use contrix::http_signature::{ContentDigest, ContentDigestAlgorithm};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use sha2::{Digest, Sha256};
 
 use super::errors::PushRegistrationError;
 use super::urls::{
@@ -298,13 +318,20 @@ impl PushRequestSigningOptions {
 /// The body is serialized with `serde_json`. The current helper is intended for
 /// SDK request signing and HTTP Message Signature transcript construction; it
 /// does not claim to replace the protocol's canonical JSON encoder.
+///
+/// ## CH-1 wire shape
+///
+/// The output is produced by [`contrix::http_signature::ContentDigest::compute`]
+/// with [`ContentDigestAlgorithm::Sha256`]. That guarantees byte-equivalent
+/// wire output (same `sha-256=:BASE64STANDARD_32B:` form, same base64
+/// alphabet) with floria's verifier and soland's fanout signer, which
+/// also delegate to the SDK.
 pub fn content_digest_sha256<T>(body: &T) -> Result<String, PushRegistrationError>
 where
     T: Serialize + ?Sized,
 {
     let json = serde_json::to_vec(body)?;
-    let digest = Sha256::digest(&json);
-    Ok(format!("sha-256=:{}:", BASE64_STANDARD.encode(digest)))
+    Ok(ContentDigest::compute(&json, ContentDigestAlgorithm::Sha256).wire_value)
 }
 
 pub(super) fn build_signing_context<T>(
@@ -381,5 +408,101 @@ fn validate_signature_value(signature: &str) -> Result<(), PushRegistrationError
         Err(PushRegistrationError::InvalidHeader {
             name: SIGNATURE_HEADER.to_owned(),
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    //! CH-1 wire-equivalence tests for the SDK-routed `content_digest_sha256`.
+    //!
+    //! The whole point of routing through `contrix::http_signature::ContentDigest`
+    //! is that chime, floria's verifier, and soland's fanout signer all
+    //! agree on the wire bytes. These tests pin that agreement so a
+    //! future SDK bump can't silently change the wire shape without
+    //! also tripping chime's CI.
+
+    use super::*;
+    use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64_STANDARD};
+    use contrix::http_signature::{
+        ContentDigest, ContentDigestAlgorithm, verify_content_digest,
+    };
+    use sha2::{Digest, Sha256};
+
+    /// chime's `content_digest_sha256` for a fixed body must be
+    /// byte-identical to the SDK's `ContentDigest::compute` output
+    /// (same algorithm tag, same base64 alphabet, same surrounding
+    /// `:...:` wrap). This is the contract floria's verifier relies on.
+    #[test]
+    fn ch1_content_digest_matches_sdk_byte_for_byte() {
+        let body = serde_json::json!({
+            "operation_id": "cx.push.register_device",
+            "device_id": "cx:device:01HYZ8Z000000000000000",
+        });
+        let chime_value = content_digest_sha256(&body).expect("chime digest computes");
+
+        let json = serde_json::to_vec(&body).expect("body serializes");
+        let sdk_value = ContentDigest::compute(&json, ContentDigestAlgorithm::Sha256).wire_value;
+
+        assert_eq!(chime_value, sdk_value, "chime/SDK wire bytes must match");
+        assert!(chime_value.starts_with("sha-256=:"));
+        assert!(chime_value.ends_with(':'));
+    }
+
+    /// A `Content-Digest` value chime emits must parse cleanly with
+    /// the SDK and re-verify against the same body bytes. This is the
+    /// chime → floria interop check at the digest layer.
+    ///
+    /// Note: chime's `content_digest_sha256<T>` always serializes `T`
+    /// through `serde_json::to_vec`, so the bytes that get hashed are
+    /// the serde-emitted JSON, NOT the input as-is. For a Rust byte
+    /// slice that means hashing the JSON ARRAY representation of the
+    /// bytes — which is fine wire-wise (callers always pass the same
+    /// serializable struct on both sides), but the test fixture has
+    /// to mirror that.
+    #[test]
+    fn ch1_chime_emitted_digest_round_trips_through_sdk_parser() {
+        let body = serde_json::json!({"hello": "world"});
+        let wire = content_digest_sha256(&body).expect("chime digest computes");
+
+        let parsed = ContentDigest::parse(&wire).expect("SDK parses chime's digest");
+        assert_eq!(parsed.algorithm, ContentDigestAlgorithm::Sha256);
+        assert_eq!(parsed.digest.len(), 32);
+
+        // floria's verifier hashes the raw HTTP body bytes — for chime
+        // the raw body is exactly `serde_json::to_vec(&body)`, so feed
+        // the same byte sequence to the SDK verifier.
+        let body_bytes = serde_json::to_vec(&body).expect("body serializes");
+        verify_content_digest(&parsed, &body_bytes).expect("SDK verifies chime's digest");
+
+        // Tampering the body must trip the SDK verifier — the same
+        // protection floria's `verified_content_digest` relies on.
+        let err = verify_content_digest(&parsed, b"different body").unwrap_err();
+        assert!(matches!(
+            err,
+            contrix::http_signature::SignatureError::ContentDigestMismatch
+        ));
+    }
+
+    /// Frozen fixture: for a known body, the chime wire bytes are
+    /// exactly the legacy `sha-256=:base64:` shape. This guards
+    /// against the SDK quietly switching to URL-safe base64 or a
+    /// different surrounding syntax. The expected value is computed
+    /// from the same `serde_json::to_vec` + `Sha256` + standard base64
+    /// path the pre-CH-1 `content_digest_sha256` used, so this test
+    /// also pins byte-for-byte parity with the legacy chime output.
+    #[test]
+    fn ch1_content_digest_legacy_fixture_pins_wire_shape() {
+        let body = serde_json::json!({"chime": "fixture"});
+        let wire = content_digest_sha256(&body).expect("chime digest computes");
+
+        // Recompute the expected value with the local primitives the
+        // legacy chime implementation used directly (sha2 + base64
+        // standard alphabet, wrapped in `sha-256=:...:` exactly once).
+        let json = serde_json::to_vec(&body).expect("body serializes");
+        let expected = format!(
+            "sha-256=:{}:",
+            BASE64_STANDARD.encode(Sha256::digest(&json))
+        );
+        assert_eq!(wire, expected);
     }
 }

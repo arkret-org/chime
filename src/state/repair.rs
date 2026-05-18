@@ -1,4 +1,23 @@
 //! Local registration state repair planning.
+//
+// CH-3 evaluated 2026-05-18: coupling too tight to push-token state for
+// clean SDK extraction; revisit if starid/teabay need similar logic.
+//
+// Every plan function here takes `PushRegistrationState` (which carries
+// `push_gateway`, `push_key_hash`, `push_key_preview`, `platform`,
+// `app_id`), `PushDeviceConfig`, and `PushPreferences` (with
+// `GatewayBinding`s), and emits `RegisterDeviceRequest` /
+// `UnregisterDeviceRequest` wire bodies — all push-specific types. The
+// pure "policy" logic (`registration_state_rank` and same-token /
+// same-logical matching) is ~30 LoC and structurally specific to push:
+// it ranks states by `registration_id`/`last_success_at` and equates
+// records by the push tuple. Generifying every type parameter would
+// produce an empty trait skeleton; inventing abstract registration
+// types would force chime to translate on every call. A grep of
+// starid/teabay confirms no existing registration-state-machine
+// consumers (starid's "prerotation" is DID key prerotation, unrelated;
+// teabay has no client-side device registration). Revisit if either
+// service grows a per-device retry/repair lifecycle.
 
 use serde::{Deserialize, Serialize};
 

@@ -1,4 +1,11 @@
 //! Token rotation planning.
+//
+// CH-3 evaluated 2026-05-18: kept local. See `repair.rs` for the full
+// rationale; rotation here is a 5-line policy
+// (`token_rotation_required` => one bool compare on `push_key_hash`)
+// wrapped around `RegisterDeviceRequest` / `UnregisterDeviceRequest`
+// builders, so a generic SDK shape would not reduce code in any
+// current consumer.
 
 use serde::{Deserialize, Serialize};
 
