@@ -58,7 +58,7 @@ const BRIDGE_DESCRIBE_FIXTURE: &str = r#"{
             "notification": {
                 "push_target_id": "cx:pseudonym:push:01HYZ8Z000000000000000",
                 "wakeup_kind": "message",
-                "push_hint": "wakeup-msg-1",
+                "push_hint": "new_message",
                 "counts": { "unread": 1 },
                 "devices": [
                     {
