@@ -8,7 +8,7 @@
 use std::time::Duration;
 
 use chime::{
-    ContrixPushClient, PushNotifyResponse, PushRetryPolicy, push_bridge_describe_url,
+    ContrixPushClient, PushNotifyResBody, PushRetryPolicy, push_bridge_describe_url,
     push_integration_describe_url,
 };
 use serde_json::{Value, json};
@@ -144,8 +144,8 @@ async fn push_notify_delivery_receipt_round_trips_into_chime_wire_types() {
         .text()
         .await
         .expect("notify response body is readable");
-    let parsed: PushNotifyResponse = serde_json::from_str(&raw)
-        .unwrap_or_else(|err| panic!("chime PushNotifyResponse failed to decode {raw}: {err}"));
+    let parsed: PushNotifyResBody = serde_json::from_str(&raw)
+        .unwrap_or_else(|err| panic!("chime PushNotifyResBody failed to decode {raw}: {err}"));
     assert!(
         parsed
             .request_id
@@ -180,8 +180,8 @@ async fn repeated_notify_advances_floria_request_id() {
         .text()
         .await
         .expect("first notify body readable");
-    let first: PushNotifyResponse =
-        serde_json::from_str(&first_raw).expect("first PushNotifyResponse decodes");
+    let first: PushNotifyResBody =
+        serde_json::from_str(&first_raw).expect("first PushNotifyResBody decodes");
 
     let second_raw = http
         .post(floria.url("/api/v1/push/notify"))
@@ -192,8 +192,8 @@ async fn repeated_notify_advances_floria_request_id() {
         .text()
         .await
         .expect("second notify body readable");
-    let second: PushNotifyResponse =
-        serde_json::from_str(&second_raw).expect("second PushNotifyResponse decodes");
+    let second: PushNotifyResBody =
+        serde_json::from_str(&second_raw).expect("second PushNotifyResBody decodes");
 
     assert!(
         first.request_id.is_some() && second.request_id.is_some(),

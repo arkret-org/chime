@@ -16,7 +16,7 @@ use crate::redact_push_key;
 /// Request body for `POST /api/v1/push/notify`.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct PushNotifyRequest {
+pub struct PushNotifyReqBody {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub operation_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -36,7 +36,7 @@ pub struct PushNotifyRequest {
     pub notification: PushNotification,
 }
 
-impl PushNotifyRequest {
+impl PushNotifyReqBody {
     pub fn validate_wire_model(&self) -> Result<(), PushNotifyPrivacyError> {
         if let Some(operation_id) = self.operation_id.as_deref() {
             if operation_id != crate::OPERATION_PUSH_NOTIFY {
@@ -374,7 +374,7 @@ impl PushNotificationDevice {
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
-pub struct PushNotifyResponse {
+pub struct PushNotifyResBody {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub request_id: Option<String>,
     #[serde(default)]
@@ -905,7 +905,7 @@ mod tests {
 
     #[test]
     fn notify_request_validates_fixture_shape() {
-        let request = PushNotifyRequest {
+        let request = PushNotifyReqBody {
             operation_id: Some(crate::OPERATION_PUSH_NOTIFY.to_owned()),
             notification: notification(),
             ..Default::default()

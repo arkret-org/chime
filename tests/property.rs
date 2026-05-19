@@ -160,7 +160,7 @@ proptest! {
 mod notify_props {
     use super::*;
     use chime::{
-        PushNotification, PushNotificationDevice, PushNotifyPolicyContext, PushNotifyRequest,
+        PushNotification, PushNotificationDevice, PushNotifyPolicyContext, PushNotifyReqBody,
         PushTargetId, WakeupKind,
     };
 
@@ -205,7 +205,7 @@ mod notify_props {
             };
             notification.extra.insert(sensitive_key.to_owned(), value);
 
-            let request = PushNotifyRequest {
+            let request = PushNotifyReqBody {
                 notification,
                 ..Default::default()
             };

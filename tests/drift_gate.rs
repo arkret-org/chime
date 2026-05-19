@@ -6,14 +6,14 @@
 //! re-align before merging.
 //!
 //! The fixture also contains an embedded `blind_wakeup_request` example
-//! that is parsed back through `PushNotifyRequest` + `validate_blind_wakeup`,
+//! that is parsed back through `PushNotifyReqBody` + `validate_blind_wakeup`,
 //! catching drift in the privacy contract end-to-end.
 
 #![cfg(feature = "notify")]
 
 use chime::{
     BridgeContractCache, BridgeContractDriftVerdict, PushBridgeDescribeResponse,
-    PushNotifyPrivacyMode, PushNotifyRequest,
+    PushNotifyPrivacyMode, PushNotifyReqBody,
 };
 
 /// Canonical floria `bridge/describe` payload (snapshot 2026-05-06).
@@ -105,7 +105,7 @@ fn bridge_describe_fixture_blind_wakeup_example_validates() {
         "fixture must carry a blind-wakeup example"
     );
 
-    let request: PushNotifyRequest =
+    let request: PushNotifyReqBody =
         serde_json::from_value(example).expect("blind-wakeup example must parse as a request");
 
     request

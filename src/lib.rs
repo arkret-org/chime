@@ -47,7 +47,7 @@ mod state;
 pub use notify::{
     EncryptedEnvelope, EncryptedEnvelopeError, ProviderRetryHint, PushDeliveryReceipt, PushHint,
     PushNotification, PushNotificationDevice, PushNotifyPolicyContext, PushNotifyPrivacyError,
-    PushNotifyPrivacyMode, PushNotifyPrivacyVector, PushNotifyRequest, PushNotifyResponse,
+    PushNotifyPrivacyMode, PushNotifyPrivacyVector, PushNotifyReqBody, PushNotifyResBody,
     PushTargetId, RejectedPushToken, WakeupKind, shared_push_notify_privacy_vectors,
 };
 
