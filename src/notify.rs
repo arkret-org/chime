@@ -7,6 +7,9 @@
 use std::fmt;
 
 use base64::{Engine as _, engine::general_purpose};
+use contrix::blind_payload_sanitizer::{
+    self as sdk_sanitizer, BlindPayloadError, BlindPayloadReasonCode,
+};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use thiserror::Error;
@@ -56,7 +59,20 @@ impl PushNotifyReqBody {
 
     pub fn validate_blind_wakeup_strict(&self) -> Result<(), PushNotifyPrivacyError> {
         self.validate_wire_model()?;
-        self.notification.validate_blind_wakeup_strict()
+        self.notification.validate_blind_wakeup_strict()?;
+
+        // T1.1 — additionally route the serialised notification through
+        // the SDK's strict sanitizer to reject *any* forbidden field
+        // (including ones that would have passed the structured
+        // `PushNotification` deserialiser because they're tucked
+        // inside `extra`).
+        let serialised = serde_json::to_value(&self.notification).map_err(|err| {
+            PushNotifyPrivacyError::InvalidFieldValue {
+                field: format!("notification (serialise failed: {err})"),
+            }
+        })?;
+        sdk_sanitizer::sanitize_blind_payload_strict(&serialised)
+            .map_err(PushNotifyPrivacyError::from)
     }
 
     pub fn validate_privacy(
@@ -322,6 +338,15 @@ impl PushNotification {
             validate_extra_value(key, value)?;
         }
 
+        // T1.1 — route every blind-wakeup payload through the shared
+        // SDK sanitizer (single source of truth across chime + floria).
+        // We feed it just the `extra` map so we don't double-flag the
+        // wire-model fields we already validate above; the wire-model
+        // owns its own allow-list and the SDK sanitizer owns the rule
+        // that says "no forbidden field anywhere in the tree, no
+        // sensitive did:/cx: literal anywhere".
+        run_sdk_sanitizer_over_extra(&self.extra)?;
+
         Ok(())
     }
 
@@ -531,6 +556,54 @@ pub enum PushNotifyPrivacyError {
     RemovedField { field: String },
     #[error("push notify hint is sensitive")]
     SensitiveHint,
+}
+
+impl From<BlindPayloadError> for PushNotifyPrivacyError {
+    fn from(err: BlindPayloadError) -> Self {
+        match err.reason_code {
+            BlindPayloadReasonCode::MissingRequiredField => {
+                Self::MissingField { field: err.field_path }
+            }
+            BlindPayloadReasonCode::InvalidFieldValue => {
+                Self::InvalidFieldValue { field: err.field_path }
+            }
+            BlindPayloadReasonCode::ForbiddenField
+            | BlindPayloadReasonCode::SensitiveLiteral => {
+                Self::SensitiveField { field: err.field_path }
+            }
+        }
+    }
+}
+
+/// T1.1 — feed the `extra` map of a [`PushNotification`] through the SDK
+/// sanitizer so the rule "no forbidden field anywhere, no `did:` / `cx:`
+/// literal anywhere" stays unified across chime/floria.
+///
+/// We wrap the extras under a `notification` envelope so the SDK
+/// sanitizer's wrapper-scan path runs (only forbidden-key + sensitive
+/// literal checks, no allow-list — that lives in `validate_wire_model`).
+fn run_sdk_sanitizer_over_extra(
+    extra: &Map<String, Value>,
+) -> Result<(), PushNotifyPrivacyError> {
+    if extra.is_empty() {
+        return Ok(());
+    }
+    // Empty `notification` so we hit the "scan wrapper for forbidden
+    // keys + literals, ignore wrapper's own allow-list" branch.
+    let envelope = serde_json::json!({
+        "notification": {
+            "push_target_id": "cx:pseudonym:push:0000000000000000000000",
+            "wakeup_kind": "message",
+        },
+    });
+    let mut envelope = envelope;
+    if let Some(obj) = envelope.as_object_mut() {
+        for (key, value) in extra {
+            obj.insert(key.clone(), value.clone());
+        }
+    }
+    sdk_sanitizer::sanitize_blind_payload(&envelope)
+        .map_err(PushNotifyPrivacyError::from)
 }
 
 pub fn shared_push_notify_privacy_vectors() -> Vec<PushNotifyPrivacyVector> {

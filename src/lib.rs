@@ -41,7 +41,13 @@ mod gateway_binding;
 mod notify;
 mod push;
 mod push_route;
+mod push_rule_core;
 mod state;
+
+pub use push_rule_core::{
+    EventContext as PushRuleEventContext, ShouldNotify, WatchLevel,
+    evaluate_watch_level, reason_code as push_rule_reason_code,
+};
 
 #[cfg(feature = "notify")]
 pub use notify::{
@@ -72,7 +78,10 @@ pub use push::{
     push_gateway_service_base_url, push_integration_describe_url, redact_push_key,
     validate_push_gateway_url, validate_webpush_endpoint_allowlist,
 };
-pub use push_route::{PushRoute, PushRouteCapability, PushRouteError, PushRouteId};
+pub use push_route::{
+    PushRoute, PushRouteCapability, PushRouteError, PushRouteId, PushRouteValidationError,
+    ServiceDid,
+};
 pub use state::{
     BridgeContractCache, BridgeContractDriftVerdict, PUSH_REGISTRATION_STATE_SCHEMA_VERSION,
     PushMultiGatewayRepairPlan, PushPreferencesStore, PushRegistrationLastError,
