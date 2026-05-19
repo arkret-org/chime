@@ -6,6 +6,13 @@ project follows [SemVer](https://semver.org/) once it reaches `1.0`.
 
 ## [Unreleased]
 
+### Changed
+
+- Realm/Space terminology inversion (wire-breaking): old `Space` (security
+  boundary) → **Realm**, old `Place` (container) → **Space**. Push routes
+  and notify payloads now carry the new `realm_id` field; legacy
+  `space_id` is kept as a serde alias for back-compat.
+
 ### Notes
 
 - CH-3 (2026-05-18): evaluated extracting `state::repair` and

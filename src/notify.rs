@@ -254,14 +254,21 @@ pub struct PushNotification {
     pub wakeup_kind: Option<WakeupKind>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub event_id: Option<String>,
+    /// Security-boundary identifier ("Realm" in the post-reversal
+    /// protocol, formerly called Space). Still emitted on the
+    /// blind-wakeup wire model only when allowed by the privacy
+    /// descriptor; the SDK sanitizer treats `realm_id` (and the
+    /// retained, now-container `space_id`) as forbidden top-level
+    /// payload keys, so this field is also enumerated in
+    /// [`PushNotification::validate_blind_wakeup`] below.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub space_id: Option<String>,
+    pub realm_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub sender: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub sender_display_name: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub space_name: Option<String>,
+    pub realm_name: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub push_hint: Option<PushHint>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -281,7 +288,11 @@ impl PushNotification {
         }
 
         validate_typed_id("event_id", self.event_id.as_deref(), "cx:event:")?;
-        validate_typed_id("space_id", self.space_id.as_deref(), "cx:space:")?;
+        // Realm/Space reversal: the security-boundary id is now `realm_id`
+        // (typed `cx:realm:`). The old container-level `place_id` becomes
+        // the new `space_id`, which is NOT carried on the wire model — both
+        // are blocked at the sanitizer forbidden-key list.
+        validate_typed_id("realm_id", self.realm_id.as_deref(), "cx:realm:")?;
         validate_optional_non_empty("sender", self.sender.as_deref())?;
 
         if self.devices.is_empty() {
@@ -321,9 +332,9 @@ impl PushNotification {
                 field: "sender_display_name".to_owned(),
             });
         }
-        if self.space_name.is_some() {
+        if self.realm_name.is_some() {
             return Err(PushNotifyPrivacyError::SensitiveField {
-                field: "space_name".to_owned(),
+                field: "realm_name".to_owned(),
             });
         }
         if let Some(counts) = &self.counts {
@@ -881,6 +892,12 @@ fn is_sensitive_payload_key(key: &str) -> bool {
             | "turn"
             | "call_setup"
             | "sender_display_name"
+            | "realm_name"
+            // TODO(realm-rework): the SDK's `is_forbidden_payload_key`
+            // still references the legacy `space_id` token. Once the SDK
+            // catches up, drop the explicit `realm_name` entry here and
+            // route through the SDK list (it covers `*_name` semantics
+            // via the sender / flow / room family already).
             | "space_name"
             | "flow_name"
             | "content"
@@ -939,10 +956,10 @@ mod tests {
             ),
             wakeup_kind: Some(WakeupKind::Message),
             event_id: Some("cx:event:01JS0EV000000000000000000".to_owned()),
-            space_id: Some("cx:space:01JS0SP000000000000000000".to_owned()),
+            realm_id: Some("cx:realm:01JS0SP000000000000000000".to_owned()),
             sender: None,
             sender_display_name: None,
-            space_name: None,
+            realm_name: None,
             push_hint: Some(PushHint::new("new_message").unwrap()),
             counts: Some(serde_json::json!({ "unread": 1 })),
             devices: vec![device()],

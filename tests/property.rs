@@ -181,7 +181,7 @@ mod notify_props {
                 Just("title"),
                 Just("subtitle"),
                 Just("preview"),
-                Just("space_name"),
+                Just("realm_name"),
                 Just("sender_display_name"),
                 Just("provider_payload"),
                 Just("aps"),

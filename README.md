@@ -11,6 +11,13 @@ Contrix push notification gateway types, preferences, and device registration he
 
 **chime** provides shared data types and request-building logic for Contrix clients that need to register push-capable devices with a Principal Server, Sync Service, or delegated Push Gateway.
 
+## Realm vs Space
+
+Following the Phase 1–4 terminology inversion, `chime` aligns push routes with the new vocabulary:
+
+- **Realm:** security boundary — membership, capability, E2EE, and federation are governed at this level. Push permission and per-realm mute apply here.
+- **Space:** navigation container — board, list, section, or calendar bucket. Lives inside a Realm and inherits its security context.
+
 ## Gateway Support
 
 | Gateway | Description |
