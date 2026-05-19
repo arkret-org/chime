@@ -1,10 +1,15 @@
 //! Actor-private `cx.device.push_route` state event wire model.
 //!
-//! Spec: `contrix-spec/spec/v1/zh/crypto-media/device-lifecycle.md` §5a.2.
-//! A device records its push routes — keyed by `(principal_id,
-//! device_id, push_route)` — into the principal control stream so the
-//! Sync Service can look up which pairwise pseudonym to use without
-//! ever holding a `principal/device → push_target_id` reverse map.
+//! Spec: `contrix-spec/spec/v1/zh/crypto-media/device-lifecycle.md` §5a.2
+//! and the registry entry for `cx.device.push_route` introduced in
+//! commit 0a5ab85 (2026-05-19), which made the cell_subject a composite
+//! `(recipient_service_did, principal_id, device_id, push_route)`. The
+//! prior wire shape only carried `(principal, device, route)`; the
+//! `recipient_service_did` discriminator scopes the registration to the
+//! current Principal Server's service DID and is part of the cell key,
+//! so a device's push route on Principal Server A is invisible to
+//! Principal Server B even when the same DID, device, and route
+//! identifiers are reused.
 //!
 //! `chime` does not own private keys, control streams, or persistence.
 //! This module only models the wire shape and the activation /
@@ -81,6 +86,12 @@ pub enum PushRouteCapability {
 #[serde(deny_unknown_fields)]
 #[non_exhaustive]
 pub struct PushRoute {
+    /// Service DID of the recipient Principal Server this binding is
+    /// scoped to. Part of the composite cell_subject; MUST NOT leak to
+    /// other Principal Servers even when the same actor uses them.
+    /// Spec 0a5ab85.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub recipient_service_did: Option<String>,
     /// Logical channel name on the device.
     pub route: PushRouteId,
     /// Per-route pairwise pseudonym. Required when the route is
@@ -146,6 +157,30 @@ impl PushRoute {
         push_gateway_did: impl Into<String>,
     ) -> Self {
         Self {
+            recipient_service_did: None,
+            route,
+            push_target_id: Some(push_target_id),
+            push_gateway_did: Some(push_gateway_did.into()),
+            encryption_key: None,
+            capabilities: Vec::new(),
+            revoked: false,
+            metadata: None,
+        }
+    }
+
+    /// Construct an active route scoped to a specific recipient
+    /// Principal Server. Spec 0a5ab85 — the composite cell_subject
+    /// requires this binding so push registrations cannot leak across
+    /// services.
+    #[cfg(feature = "notify")]
+    pub fn active_with_recipient(
+        recipient_service_did: impl Into<String>,
+        route: PushRouteId,
+        push_target_id: PushTargetId,
+        push_gateway_did: impl Into<String>,
+    ) -> Self {
+        Self {
+            recipient_service_did: Some(recipient_service_did.into()),
             route,
             push_target_id: Some(push_target_id),
             push_gateway_did: Some(push_gateway_did.into()),
@@ -161,6 +196,7 @@ impl PushRoute {
     /// recorded).
     pub fn revoked(route: PushRouteId) -> Self {
         Self {
+            recipient_service_did: None,
             route,
             push_target_id: None,
             push_gateway_did: None,
