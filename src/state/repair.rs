@@ -5,8 +5,8 @@
 //
 // Every plan function here takes `PushRegistrationState` (which carries
 // `push_gateway`, `push_key_hash`, `push_key_preview`, `platform`,
-// `app_id`), `PushDeviceConfig`, and `PushPreferences` (with
-// `GatewayBinding`s), and emits `RegisterDeviceRequest` /
+// `app_id`), `PushDeviceConfig`, a `GatewayBinding`, and
+// `PushPreferences`, and emits `RegisterDeviceRequest` /
 // `UnregisterDeviceRequest` wire bodies — all push-specific types. The
 // pure "policy" logic (`registration_state_rank` and same-token /
 // same-logical matching) is ~30 LoC and structurally specific to push:
@@ -22,14 +22,14 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    PushDeviceConfig, PushPlatform, PushPreferences, PushRegistrationError, RegisterDeviceRequest,
-    UnregisterDeviceRequest, build_register_device_request,
+    GatewayBinding, PushDeviceConfig, PushPlatform, PushPreferences, PushRegistrationError,
+    RegisterDeviceRequest, UnregisterDeviceRequest, build_register_device_request,
 };
 
 use super::model::{PushRegistrationState, build_unregister_request_for_state, hash_push_key};
 
 /// Aggregated repair plan across every binding in
-/// [`PushPreferences::effective_gateways`](crate::PushPreferences::effective_gateways).
+/// [`PushPreferences::gateways`](crate::PushPreferences::gateways).
 ///
 /// Each binding gets its own [`PushRegistrationRepairPlan`]; states whose
 /// `push_gateway` does not match any binding are surfaced as orphans so
@@ -41,7 +41,7 @@ use super::model::{PushRegistrationState, build_unregister_request_for_state, ha
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct PushMultiGatewayRepairPlan {
     /// Per-binding repair plans, in the same order as
-    /// [`PushPreferences::effective_gateways`](crate::PushPreferences::effective_gateways).
+    /// [`PushPreferences::gateways`](crate::PushPreferences::gateways).
     #[serde(default)]
     pub per_binding: Vec<PushRegistrationRepairPlan>,
     /// Persisted states whose `push_gateway` does not match any current
@@ -88,7 +88,8 @@ pub struct PushRegistrationRepairPlan {
     pub token_moved: bool,
 }
 
-/// Build a repair plan for stale local registration state.
+/// Build a repair plan for stale local registration state, scoped to
+/// a single gateway binding.
 ///
 /// This helper covers common real-world recovery paths:
 /// - `register-new-first` succeeded but `unregister-old` still needs cleanup.
@@ -97,12 +98,17 @@ pub struct PushRegistrationRepairPlan {
 pub fn plan_registration_repair(
     states: &[PushRegistrationState],
     config: &PushDeviceConfig<'_>,
+    binding: &GatewayBinding,
     prefs: &PushPreferences,
 ) -> Result<PushRegistrationRepairPlan, PushRegistrationError> {
-    let current_push_key = config.push_key.and_then(|value| {
-        let trimmed = value.trim();
-        (!trimmed.is_empty()).then_some(trimmed)
-    });
+    let current_push_key = binding
+        .push_key
+        .as_deref()
+        .or(config.push_key)
+        .and_then(|value| {
+            let trimmed = value.trim();
+            (!trimmed.is_empty()).then_some(trimmed)
+        });
     if prefs.enabled && current_push_key.is_none() {
         return Err(PushRegistrationError::MissingField("push_key"));
     }
@@ -113,8 +119,8 @@ pub fn plan_registration_repair(
         .map(PushPlatform::try_from)
         .transpose()?
         .map(|platform| platform.as_str().to_owned());
-    let current_app_id = prefs
-        .app_id(
+    let current_app_id = binding
+        .resolve_app_id(
             current_platform
                 .as_deref()
                 .map(PushPlatform::try_from)
@@ -133,7 +139,7 @@ pub fn plan_registration_repair(
             && state.device_id == config.device_id
             && state.platform.as_deref() == current_platform.as_deref()
             && state.app_id.as_deref() == current_app_id.as_deref()
-            && state.push_gateway == prefs.push_gateway;
+            && state.push_gateway == binding.push_gateway;
         let same_token = current_push_key_hash
             .as_deref()
             .is_some_and(|hash| state.push_key_hash == hash);
@@ -161,7 +167,7 @@ pub fn plan_registration_repair(
         .map(|state| build_unregister_request_for_state(state, config, prefs))
         .collect::<Result<Vec<_>, _>>()?;
     let register_current = if prefs.enabled && active_state.is_none() {
-        Some(build_register_device_request(config, prefs)?)
+        Some(build_register_device_request(config, binding, prefs)?)
     } else {
         None
     };
@@ -193,7 +199,7 @@ fn registration_state_rank(state: &PushRegistrationState) -> (u8, &str, &str, &s
 }
 
 /// Build a repair plan for every binding in
-/// [`PushPreferences::effective_gateways`](crate::PushPreferences::effective_gateways).
+/// [`PushPreferences::gateways`](crate::PushPreferences::gateways).
 ///
 /// Each binding is planned independently against the subset of
 /// `states` whose `push_gateway` URL matches that binding. States whose
@@ -208,34 +214,17 @@ fn registration_state_rank(state: &PushRegistrationState) -> (u8, &str, &str, &s
 /// [`ContrixPushClient::register_device_all`](crate::ContrixPushClient::register_device_all)
 /// (when the `http` feature is enabled).
 ///
-/// When `prefs.gateways` is empty, the plan is equivalent to a single
-/// call to [`plan_registration_repair`] on the singular gateway
-/// pair.
+/// When `prefs.gateways` is empty, the per-binding list is empty and
+/// every persisted state is surfaced as an orphan.
 pub fn plan_multi_gateway_repair(
     states: &[PushRegistrationState],
     config: &PushDeviceConfig<'_>,
     prefs: &PushPreferences,
 ) -> Result<PushMultiGatewayRepairPlan, PushRegistrationError> {
-    let bindings = prefs.effective_gateways();
-    let mut per_binding = Vec::with_capacity(bindings.len());
+    let mut per_binding = Vec::with_capacity(prefs.gateways.len());
     let mut claimed = vec![false; states.len()];
 
-    for binding in &bindings {
-        let mut per_prefs = prefs.clone();
-        per_prefs.gateway_type = binding.gateway_type.clone();
-        per_prefs.push_gateway = binding.push_gateway.clone();
-        // Force singular fields to win during the per-binding plan so
-        // build_register_device_request does not see the multi-gateway list.
-        per_prefs.gateways = Vec::new();
-
-        let push_key = binding.push_key.as_deref().or(config.push_key);
-        let app_id = binding.app_id.as_deref().or(config.app_id);
-        let per_config = PushDeviceConfig {
-            push_key,
-            app_id,
-            ..*config
-        };
-
+    for binding in &prefs.gateways {
         let owned: Vec<PushRegistrationState> = states
             .iter()
             .enumerate()
@@ -249,7 +238,7 @@ pub fn plan_multi_gateway_repair(
             })
             .collect();
 
-        per_binding.push(plan_registration_repair(&owned, &per_config, &per_prefs)?);
+        per_binding.push(plan_registration_repair(&owned, config, binding, prefs)?);
     }
 
     let orphan_states: Vec<PushRegistrationState> = states
@@ -275,7 +264,7 @@ pub fn plan_multi_gateway_repair(
 mod tests {
     use super::*;
     use crate::state::test_fixtures::{
-        config, prefs, state_for, state_for_binding, state_for_gateway,
+        binding, config, prefs, state_for, state_for_binding, state_for_gateway,
     };
     use crate::{GatewayBinding, PushGatewayType};
 
@@ -291,9 +280,13 @@ mod tests {
             "fcm:new-token",
             "reg-new",
         );
-        let plan =
-            plan_registration_repair(&[old_state, new_state], &config("fcm:new-token"), &prefs())
-                .unwrap();
+        let plan = plan_registration_repair(
+            &[old_state, new_state],
+            &config("fcm:new-token"),
+            &binding(),
+            &prefs(),
+        )
+        .unwrap();
 
         assert_eq!(
             plan.active_state
@@ -317,8 +310,13 @@ mod tests {
             "fcm:old-token",
             "reg-old",
         );
-        let plan =
-            plan_registration_repair(&[stale_state], &config("fcm:new-token"), &prefs()).unwrap();
+        let plan = plan_registration_repair(
+            &[stale_state],
+            &config("fcm:new-token"),
+            &binding(),
+            &prefs(),
+        )
+        .unwrap();
 
         assert!(plan.active_state.is_none());
         assert_eq!(plan.stale_states.len(), 1);
@@ -341,8 +339,13 @@ mod tests {
             "fcm:moved-token",
             "reg-tablet",
         );
-        let plan = plan_registration_repair(&[tablet_state], &config("fcm:moved-token"), &prefs())
-            .unwrap();
+        let plan = plan_registration_repair(
+            &[tablet_state],
+            &config("fcm:moved-token"),
+            &binding(),
+            &prefs(),
+        )
+        .unwrap();
 
         assert!(plan.token_moved);
         assert_eq!(plan.stale_states.len(), 1);
@@ -361,7 +364,6 @@ mod tests {
     fn multi_gateway_prefs() -> PushPreferences {
         PushPreferences {
             enabled: true,
-            push_gateway: "https://ignored.example/api/v1/push/notify".to_owned(),
             gateways: vec![
                 GatewayBinding::new(
                     PushGatewayType::Standard,
@@ -457,7 +459,6 @@ mod tests {
         // when planning gw-a; the multi-gateway plan must isolate per binding.
         let prefs = PushPreferences {
             enabled: true,
-            push_gateway: "ignored".to_owned(),
             gateways: vec![
                 GatewayBinding::new(
                     PushGatewayType::Standard,
@@ -495,7 +496,7 @@ mod tests {
     }
 
     #[test]
-    fn multi_gateway_repair_falls_back_to_single_binding_when_gateways_empty() {
+    fn multi_gateway_repair_surfaces_every_state_as_orphan_when_gateways_empty() {
         let stale = state_for(
             "did:web:alice.example#device-phone",
             "fcm:old-token",
@@ -503,15 +504,8 @@ mod tests {
         );
         let plan = plan_multi_gateway_repair(&[stale], &config("fcm:new-token"), &prefs()).unwrap();
 
-        assert_eq!(plan.per_binding.len(), 1);
-        assert_eq!(plan.per_binding[0].stale_states.len(), 1);
-        assert_eq!(
-            plan.per_binding[0]
-                .register_current
-                .as_ref()
-                .map(|request| request.push_key.as_str()),
-            Some("fcm:new-token")
-        );
-        assert!(plan.orphan_states.is_empty());
+        assert!(plan.per_binding.is_empty());
+        assert_eq!(plan.orphan_states.len(), 1);
+        assert_eq!(plan.unregister_orphans.len(), 1);
     }
 }

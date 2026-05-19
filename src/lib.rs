@@ -195,10 +195,6 @@ impl PushGatewayType {
 pub struct PushPreferences {
     /// Whether push notifications are enabled.
     pub enabled: bool,
-    /// The selected downstream push gateway type.
-    pub gateway_type: PushGatewayType,
-    /// The push gateway URL sent as `push_gateway` during Contrix registration.
-    pub push_gateway: String,
     /// Allow non-HTTPS push gateways for loopback development URLs only.
     ///
     /// Production gateway URLs must use HTTPS.
@@ -216,14 +212,12 @@ pub struct PushPreferences {
     /// `.push.apple.com` / `*.push.services.mozilla.com`.
     #[serde(default)]
     pub webpush_endpoint_allowlist: Vec<String>,
-    /// Multi-gateway bindings.
+    /// Gateway bindings to register against.
     ///
-    /// When empty, registration uses the singular
-    /// [`push_gateway`](Self::push_gateway) +
-    /// [`gateway_type`](Self::gateway_type) fields (single-gateway
-    /// flow). When non-empty, every binding is
-    /// exercised independently and the singular fields are ignored —
-    /// see `ContrixPushClient::register_device_all` (under the `http`
+    /// Each binding carries its own gateway type, URL, and optional
+    /// per-binding `push_key` / `app_id` overrides. Every binding is
+    /// exercised independently — see
+    /// `ContrixPushClient::register_device_all` (under the `http`
     /// feature) for the multi-gateway register helper.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub gateways: Vec<GatewayBinding>,
@@ -233,50 +227,10 @@ impl Default for PushPreferences {
     fn default() -> Self {
         Self {
             enabled: false,
-            gateway_type: PushGatewayType::default(),
-            push_gateway: DEFAULT_CONTRIX_PUSH_GATEWAY_URL.to_owned(),
             allow_insecure_loopback_push_gateway: false,
             allow_push_hint: true,
             webpush_endpoint_allowlist: Vec::new(),
             gateways: Vec::new(),
-        }
-    }
-}
-
-impl PushPreferences {
-    /// Resolve the app ID based on the current gateway type and platform.
-    pub fn app_id<'a>(
-        &self,
-        platform: Option<PushPlatform>,
-        base: Option<&'a str>,
-        domestic: Option<&'a str>,
-    ) -> Option<&'a str> {
-        self.gateway_type.resolve_app_id(platform, base, domestic)
-    }
-
-    /// Update the push gateway URL to the default for the current gateway type,
-    /// unless the gateway type is `Custom`.
-    pub fn apply_gateway_type_defaults(&mut self) {
-        if self.gateway_type != PushGatewayType::Custom {
-            self.push_gateway = self.gateway_type.default_url().to_owned();
-        }
-    }
-
-    /// Resolve the list of gateway bindings to actually exercise.
-    ///
-    /// When [`gateways`](Self::gateways) is non-empty, returns a clone
-    /// of that list. When it is empty, returns a single synthesized
-    /// binding from the singular
-    /// [`gateway_type`](Self::gateway_type)/[`push_gateway`](Self::push_gateway)
-    /// pair so single-gateway callers keep working with no changes.
-    pub fn effective_gateways(&self) -> Vec<GatewayBinding> {
-        if self.gateways.is_empty() {
-            vec![GatewayBinding::new(
-                self.gateway_type.clone(),
-                self.push_gateway.clone(),
-            )]
-        } else {
-            self.gateways.clone()
         }
     }
 }
@@ -290,11 +244,12 @@ pub fn to_json(prefs: &PushPreferences) -> Result<String, serde_json::Error> {
 
 /// Deserialize preferences from a JSON string.
 ///
-/// Strict: unknown fields (including removed gateway-type aliases such as
-/// `Sygnal`, removed field names such as `gateway_url` /
-/// `show_message_preview`) cause an error rather than a silent fallback.
-/// Callers that want graceful recovery should match on the error and decide
-/// what to do — there is no longer a permissive variant.
+/// Strict: unknown fields (including the removed singular `gateway_type` /
+/// `push_gateway` pair, removed gateway-type aliases such as `Sygnal`, and
+/// removed field names such as `gateway_url` / `show_message_preview`)
+/// cause an error rather than a silent fallback. Callers that want
+/// graceful recovery should match on the error and decide what to do —
+/// there is no longer a permissive variant.
 pub fn from_json(json: &str) -> Result<PushPreferences, serde_json::Error> {
     serde_json::from_str(json)
 }
@@ -309,8 +264,7 @@ mod tests {
     fn default_preferences() {
         let prefs = PushPreferences::default();
         assert!(!prefs.enabled);
-        assert_eq!(prefs.gateway_type, PushGatewayType::Standard);
-        assert!(prefs.push_gateway.is_empty());
+        assert!(prefs.gateways.is_empty());
         assert!(!prefs.allow_insecure_loopback_push_gateway);
         assert!(prefs.allow_push_hint);
     }
@@ -355,46 +309,21 @@ mod tests {
     }
 
     #[test]
-    fn apply_gateway_type_defaults_bugle() {
-        let mut prefs = PushPreferences {
-            gateway_type: PushGatewayType::Bugle,
-            ..Default::default()
-        };
-        prefs.apply_gateway_type_defaults();
-        assert_eq!(prefs.push_gateway, DEFAULT_BUGLE_PUSH_GATEWAY_URL);
-    }
-
-    #[test]
-    fn apply_gateway_type_defaults_custom_keeps_url() {
-        let mut prefs = PushPreferences {
-            gateway_type: PushGatewayType::Custom,
-            push_gateway: "https://custom.example.com/api/v1/push/notify".to_owned(),
-            webpush_endpoint_allowlist: Vec::new(),
-            ..Default::default()
-        };
-        prefs.apply_gateway_type_defaults();
-        assert_eq!(
-            prefs.push_gateway,
-            "https://custom.example.com/api/v1/push/notify"
-        );
-    }
-
-    #[test]
     fn json_roundtrip() {
         let prefs = PushPreferences {
             enabled: true,
-            gateway_type: PushGatewayType::Bugle,
-            push_gateway: "https://example.com/api/v1/push/notify".to_owned(),
             allow_insecure_loopback_push_gateway: false,
             allow_push_hint: false,
             webpush_endpoint_allowlist: vec!["https://fcm.googleapis.com".to_owned()],
-            gateways: Vec::new(),
+            gateways: vec![GatewayBinding::new(
+                PushGatewayType::Bugle,
+                "https://example.com/api/v1/push/notify",
+            )],
         };
         let json = to_json(&prefs).unwrap();
         let loaded = from_json(&json).unwrap();
         assert_eq!(loaded.enabled, prefs.enabled);
-        assert_eq!(loaded.gateway_type, prefs.gateway_type);
-        assert_eq!(loaded.push_gateway, prefs.push_gateway);
+        assert_eq!(loaded.gateways, prefs.gateways);
         assert_eq!(loaded.allow_push_hint, prefs.allow_push_hint);
         assert_eq!(
             loaded.webpush_endpoint_allowlist,
@@ -406,60 +335,13 @@ mod tests {
     fn from_json_partial_uses_field_defaults() {
         let loaded = from_json(r#"{"enabled":true}"#).unwrap();
         assert!(loaded.enabled);
-        assert_eq!(loaded.gateway_type, PushGatewayType::Standard);
-        assert!(loaded.push_gateway.is_empty());
+        assert!(loaded.gateways.is_empty());
         assert!(loaded.allow_push_hint);
     }
 
     #[test]
     fn from_json_rejects_invalid_payload() {
         assert!(from_json("not valid json").is_err());
-    }
-
-    #[test]
-    fn effective_gateways_synthesizes_single_binding_when_empty() {
-        let prefs = PushPreferences {
-            enabled: true,
-            gateway_type: PushGatewayType::Bugle,
-            push_gateway: "https://push.palpo.im/api/v1/push/notify".to_owned(),
-            ..Default::default()
-        };
-        let resolved = prefs.effective_gateways();
-        assert_eq!(resolved.len(), 1);
-        assert_eq!(resolved[0].gateway_type, PushGatewayType::Bugle);
-        assert_eq!(resolved[0].push_gateway, prefs.push_gateway);
-        assert!(resolved[0].push_key.is_none());
-        assert!(resolved[0].app_id.is_none());
-    }
-
-    #[test]
-    fn effective_gateways_returns_explicit_list_when_present() {
-        let prefs = PushPreferences {
-            enabled: true,
-            gateway_type: PushGatewayType::Standard,
-            push_gateway: "https://push.example.com/api/v1/push/notify".to_owned(),
-            gateways: vec![
-                GatewayBinding::new(
-                    PushGatewayType::Standard,
-                    "https://push-a.example.com/api/v1/push/notify",
-                ),
-                GatewayBinding::new(
-                    PushGatewayType::Bugle,
-                    "https://push.palpo.im/api/v1/push/notify",
-                )
-                .with_app_id("app.example.android.cn"),
-            ],
-            ..Default::default()
-        };
-        let resolved = prefs.effective_gateways();
-        // Singular `push_gateway` is ignored when `gateways` is non-empty.
-        assert_eq!(resolved.len(), 2);
-        assert_eq!(resolved[0].gateway_type, PushGatewayType::Standard);
-        assert_eq!(resolved[1].gateway_type, PushGatewayType::Bugle);
-        assert_eq!(
-            resolved[1].app_id.as_deref(),
-            Some("app.example.android.cn")
-        );
     }
 
     #[test]
@@ -486,18 +368,18 @@ mod tests {
     }
 
     #[test]
-    fn from_json_rejects_removed_aliases_strictly() {
+    fn from_json_rejects_removed_singular_and_aliases_strictly() {
         let loaded = from_json(
             r#"{
                 "enabled": true,
-                "gateway_type": "Sygnal",
-                "gateway_url": "https://old.example/push/notify",
+                "gateway_type": "standard",
+                "push_gateway": "https://old.example/push/notify",
                 "show_message_preview": false
             }"#,
         );
         assert!(
             loaded.is_err(),
-            "removed aliases must error, not silently default"
+            "removed singular fields and aliases must error, not silently default"
         );
     }
 }

@@ -90,6 +90,23 @@ project follows [SemVer](https://semver.org/) once it reaches `1.0`.
 
 ### Changed
 
+- **Breaking:** `PushPreferences` no longer carries the singular
+  `gateway_type` / `push_gateway` pair. The multi-gateway
+  `gateways: Vec<GatewayBinding>` is now the only source of gateway
+  data, `effective_gateways()` and `apply_gateway_type_defaults()` are
+  gone, and `from_json` rejects the removed singular keys.
+  `build_register_device_request`,
+  `build_unregister_device_request`,
+  `plan_registration_repair`, `plan_token_rotation` /
+  `plan_token_rotation_with_strategy`, and
+  `ContrixPushClient::register_device` /
+  `unregister_device` / `rotate_token` now take an explicit
+  `&GatewayBinding`. `plan_multi_gateway_repair` iterates
+  `prefs.gateways` directly and surfaces every persisted state as an
+  orphan when `gateways` is empty.
+  `build_registration_state` drops its `config` argument along with
+  `with_registration_id_fallback`: state's `registration_id` now comes
+  straight from the server response (or is `None`).
 - `PushNotification.validate_wire_model` now requires `wakeup_kind` on
   the current notify wire model.
 - `typos.toml` cleaned up — removed copy-pasted entries unrelated to

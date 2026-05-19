@@ -9,7 +9,7 @@ use std::time::{Duration, SystemTime};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-use crate::PushPreferences;
+use crate::{GatewayBinding, PushPreferences};
 
 use super::bridge_describe::{
     IntegrationView, PushBridgeDescribeResponse, PushGatewayIntegrationDescribeResponse,
@@ -325,14 +325,15 @@ impl ContrixPushClient {
         Ok(IntegrationView::new(manifest, bridge))
     }
 
-    /// Register a push-capable device with a Contrix service.
+    /// Register a push-capable device with a Contrix service against
+    /// a specific gateway binding.
     ///
     /// When `prefs.enabled` is false, this method performs an idempotent
     /// unregister call and returns an `ok` register-shaped response.
     ///
     /// ```rust,no_run
     /// # async fn doc_run() -> Result<(), chime::PushRegistrationError> {
-    /// # use chime::{PushDeviceConfig, PushPreferences};
+    /// # use chime::{GatewayBinding, PushDeviceConfig, PushGatewayType, PushPreferences};
     /// # let config = PushDeviceConfig {
     /// #     principal_did: None,
     /// #     device_id: "did:web:alice.example#device-phone",
@@ -341,9 +342,12 @@ impl ContrixPushClient {
     /// #     registration_id: None, display_name: None,
     /// #     idempotency_key: None, request_id: None, proof: None,
     /// # };
+    /// # let binding = GatewayBinding::new(
+    /// #     PushGatewayType::Standard,
+    /// #     "https://push.example.com/api/v1/push/notify",
+    /// # );
     /// # let prefs = PushPreferences {
     /// #     enabled: true,
-    /// #     push_gateway: "https://push.example.com/api/v1/push/notify".to_owned(),
     /// #     ..Default::default()
     /// # };
     /// use std::time::Duration;
@@ -353,7 +357,7 @@ impl ContrixPushClient {
     ///     .with_bearer_token("session-token")
     ///     .with_timeout(Duration::from_secs(10))
     ///     .with_retry_policy(PushRetryPolicy::conservative());
-    /// let response = client.register_device(&config, &prefs).await?;
+    /// let response = client.register_device(&config, &binding, &prefs).await?;
     /// assert!(response.ok);
     /// # Ok(())
     /// # }
@@ -364,20 +368,27 @@ impl ContrixPushClient {
     pub async fn register_device(
         &self,
         config: &PushDeviceConfig<'_>,
+        binding: &GatewayBinding,
         prefs: &PushPreferences,
     ) -> Result<RegisterDeviceResponse, PushRegistrationError> {
-        Ok(self.register_device_with_context(config, prefs).await?.body)
+        Ok(self
+            .register_device_with_context(config, binding, prefs)
+            .await?
+            .body)
     }
 
     /// Register a push-capable device and return response metadata.
     pub async fn register_device_with_context(
         &self,
         config: &PushDeviceConfig<'_>,
+        binding: &GatewayBinding,
         prefs: &PushPreferences,
     ) -> Result<ContrixResponse<RegisterDeviceResponse>, PushRegistrationError> {
         self.assert_session_grant_if_required()?;
         if !prefs.enabled {
-            let response = self.unregister_device_with_context(config, prefs).await?;
+            let response = self
+                .unregister_device_with_context(config, binding, prefs)
+                .await?;
             return Ok(response.map_body(|body| RegisterDeviceResponse {
                 ok: body.ok,
                 registration_id: None,
@@ -391,7 +402,7 @@ impl ContrixPushClient {
             }));
         }
 
-        let body = build_register_device_request(config, prefs)?;
+        let body = build_register_device_request(config, binding, prefs)?;
         let response = self
             .post_json(
                 self.effective_register_device_path(),
@@ -403,7 +414,7 @@ impl ContrixPushClient {
 
         tracing::info!(
             platform = body.platform.as_deref().unwrap_or("unspecified"),
-            gateway = prefs.gateway_type.display_name(),
+            gateway = binding.gateway_type.display_name(),
             operation_id = crate::OPERATION_PUSH_REGISTER_DEVICE,
             request_id = response.request_id.as_deref(),
             "Contrix push device registered"
@@ -482,14 +493,16 @@ impl ContrixPushClient {
         Ok(response)
     }
 
-    /// Unregister a push-capable device from a Contrix service.
+    /// Unregister a push-capable device from a Contrix service against
+    /// a specific gateway binding.
     pub async fn unregister_device(
         &self,
         config: &PushDeviceConfig<'_>,
+        binding: &GatewayBinding,
         prefs: &PushPreferences,
     ) -> Result<UnregisterDeviceResponse, PushRegistrationError> {
         Ok(self
-            .unregister_device_with_context(config, prefs)
+            .unregister_device_with_context(config, binding, prefs)
             .await?
             .body)
     }
@@ -498,10 +511,11 @@ impl ContrixPushClient {
     pub async fn unregister_device_with_context(
         &self,
         config: &PushDeviceConfig<'_>,
+        binding: &GatewayBinding,
         prefs: &PushPreferences,
     ) -> Result<ContrixResponse<UnregisterDeviceResponse>, PushRegistrationError> {
         self.assert_session_grant_if_required()?;
-        let body = build_unregister_device_request(config, prefs)?;
+        let body = build_unregister_device_request(config, binding, prefs)?;
         let response = match self
             .post_json(
                 self.effective_unregister_device_path(),
@@ -536,53 +550,33 @@ impl ContrixPushClient {
     }
 
     /// Register the device against every binding in
-    /// [`PushPreferences::effective_gateways`](crate::PushPreferences::effective_gateways).
+    /// [`PushPreferences::gateways`](crate::PushPreferences::gateways).
     ///
     /// Each binding is exercised independently — a failure on one
     /// binding does not abort the others. Returns one
-    /// `Result<RegisterDeviceResponse, _>` per binding, in the order
-    /// they were resolved (single-gateway flow yields a
-    /// `vec![result]` of length one).
+    /// `Result<RegisterDeviceResponse, _>` per binding, in the same
+    /// order as `prefs.gateways`. When `prefs.gateways` is empty the
+    /// returned `Vec` is empty.
     ///
-    /// Per-binding `push_key` and `app_id` overrides take priority
-    /// over the values in `config`. The base `device_id`,
-    /// `principal_did`, `platform`, `idempotency_key`, `request_id`,
-    /// and `proof` are shared across bindings.
+    /// Per-binding `push_key` and `app_id` overrides on the binding
+    /// take priority over the values in `config`. The base
+    /// `device_id`, `principal_did`, `platform`, `idempotency_key`,
+    /// `request_id`, and `proof` are shared across bindings.
     pub async fn register_device_all(
         &self,
         config: &PushDeviceConfig<'_>,
         prefs: &PushPreferences,
     ) -> Vec<Result<RegisterDeviceResponse, PushRegistrationError>> {
-        let bindings = prefs.effective_gateways();
-        let mut out = Vec::with_capacity(bindings.len());
-        for binding in &bindings {
-            let mut per_binding_prefs = prefs.clone();
-            per_binding_prefs.gateway_type = binding.gateway_type.clone();
-            per_binding_prefs.push_gateway = binding.push_gateway.clone();
-            // Force the singular fields to win during the per-binding
-            // build so build_register_device_request does not see the
-            // multi-gateway list.
-            per_binding_prefs.gateways = Vec::new();
-
-            let push_key = binding.push_key.as_deref().or(config.push_key);
-            let app_id = binding.app_id.as_deref().or(config.app_id);
-            let per_binding_config = PushDeviceConfig {
-                push_key,
-                app_id,
-                ..*config
-            };
-
-            out.push(
-                self.register_device(&per_binding_config, &per_binding_prefs)
-                    .await,
-            );
+        let mut out = Vec::with_capacity(prefs.gateways.len());
+        for binding in &prefs.gateways {
+            out.push(self.register_device(config, binding, prefs).await);
         }
         out
     }
 
-    /// Rotate a push token: unregister the prior registration (if any)
-    /// and register the new token in one call. Wraps
-    /// [`plan_token_rotation_with_strategy`] +
+    /// Rotate a push token for a specific gateway binding: unregister
+    /// the prior registration (if any) and register the new token in
+    /// one call. Wraps [`plan_token_rotation_with_strategy`] +
     /// [`register_device`](Self::register_device) /
     /// [`unregister_device`](Self::unregister_device) so callers do not
     /// have to thread the request bodies themselves.
@@ -594,7 +588,8 @@ impl ContrixPushClient {
     /// `existing` should be the locally stored
     /// [`PushRegistrationState`](crate::PushRegistrationState) for this
     /// device — typically loaded from `PushRegistrationStore::load_push_registration`.
-    /// `config.push_key` MUST be set to the new platform token.
+    /// `config.push_key` (or `binding.push_key`) MUST be set to the new
+    /// platform token.
     ///
     /// [`plan_token_rotation_with_strategy`]:
     /// crate::plan_token_rotation_with_strategy
@@ -602,10 +597,12 @@ impl ContrixPushClient {
         &self,
         existing: Option<&crate::PushRegistrationState>,
         config: &PushDeviceConfig<'_>,
+        binding: &GatewayBinding,
         prefs: &PushPreferences,
         strategy: crate::PushTokenRotationStrategy,
     ) -> Result<Option<RegisterDeviceResponse>, PushRegistrationError> {
-        let plan = crate::plan_token_rotation_with_strategy(existing, config, prefs, strategy)?;
+        let plan =
+            crate::plan_token_rotation_with_strategy(existing, config, binding, prefs, strategy)?;
 
         if !plan.token_changed {
             return Ok(None);
@@ -614,14 +611,14 @@ impl ContrixPushClient {
         let response = match strategy {
             crate::PushTokenRotationStrategy::UnregisterOldFirst => {
                 if plan.unregister_old.is_some() {
-                    self.unregister_device(config, prefs).await.ok();
+                    self.unregister_device(config, binding, prefs).await.ok();
                 }
-                self.register_device(config, prefs).await?
+                self.register_device(config, binding, prefs).await?
             }
             crate::PushTokenRotationStrategy::RegisterNewFirst => {
-                let response = self.register_device(config, prefs).await?;
+                let response = self.register_device(config, binding, prefs).await?;
                 if plan.unregister_old.is_some() {
-                    self.unregister_device(config, prefs).await.ok();
+                    self.unregister_device(config, binding, prefs).await.ok();
                 }
                 response
             }
@@ -1011,9 +1008,15 @@ mod tests {
     fn prefs() -> PushPreferences {
         PushPreferences {
             enabled: true,
-            push_gateway: "https://push.example.com/api/v1/push/notify".to_owned(),
             ..Default::default()
         }
+    }
+
+    fn binding() -> crate::GatewayBinding {
+        crate::GatewayBinding::new(
+            crate::PushGatewayType::Standard,
+            "https://push.example.com/api/v1/push/notify",
+        )
     }
 
     /// Build a happy-path client with a dummy session grant pre-attached.
@@ -1043,7 +1046,7 @@ mod tests {
                 r#"sig1=("@method" "@target-uri" "content-digest")"#,
             )
             .unwrap()
-            .register_device_with_context(&config(), &prefs())
+            .register_device_with_context(&config(), &binding(), &prefs())
             .await
             .unwrap();
 
@@ -1076,7 +1079,7 @@ mod tests {
             .with_default_request_id("cx:req:client")
             .with_session_grant("coauth-grant-secret")
             .unwrap()
-            .register_device(&config, &prefs())
+            .register_device(&config, &binding(), &prefs())
             .await
             .unwrap();
 
@@ -1095,7 +1098,7 @@ mod tests {
         }]);
 
         let response = client(base_url)
-            .unregister_device(&config(), &prefs())
+            .unregister_device(&config(), &binding(), &prefs())
             .await
             .unwrap();
 
@@ -1114,7 +1117,7 @@ mod tests {
         }]);
 
         let response = client(base_url)
-            .unregister_device_with_context(&config(), &prefs())
+            .unregister_device_with_context(&config(), &binding(), &prefs())
             .await
             .unwrap();
 
@@ -1158,7 +1161,7 @@ mod tests {
             }]);
 
             let err = client(base_url)
-                .register_device(&config(), &prefs())
+                .register_device(&config(), &binding(), &prefs())
                 .await
                 .unwrap_err();
 
@@ -1176,7 +1179,7 @@ mod tests {
         }]);
 
         let err = client(base_url)
-            .register_device(&config(), &prefs())
+            .register_device(&config(), &binding(), &prefs())
             .await
             .unwrap_err();
 
@@ -1194,7 +1197,7 @@ mod tests {
         }]);
 
         let err = client(base_url)
-            .register_device(&config(), &prefs())
+            .register_device(&config(), &binding(), &prefs())
             .await
             .unwrap_err();
 
@@ -1210,7 +1213,7 @@ mod tests {
         }]);
 
         let err = client(base_url)
-            .register_device(&config(), &prefs())
+            .register_device(&config(), &binding(), &prefs())
             .await
             .unwrap_err();
 
@@ -1244,7 +1247,7 @@ mod tests {
                 jitter: Duration::ZERO,
                 disabled_kinds_mask: 0,
             })
-            .register_device(&config(), &prefs())
+            .register_device(&config(), &binding(), &prefs())
             .await
             .unwrap();
 
@@ -1257,7 +1260,7 @@ mod tests {
         // Default `require_session_grant = true` ⇒ no mock server needed:
         // the call fails fast before any request is sent.
         let err = ContrixPushClient::new("https://principal.example")
-            .register_device(&config(), &prefs())
+            .register_device(&config(), &binding(), &prefs())
             .await
             .unwrap_err();
 
@@ -1275,7 +1278,7 @@ mod tests {
         let response = ContrixPushClient::new(base_url)
             .with_session_grant("coauth-grant-secret")
             .unwrap()
-            .register_device(&config(), &prefs())
+            .register_device(&config(), &binding(), &prefs())
             .await
             .unwrap();
 
@@ -1287,7 +1290,7 @@ mod tests {
     #[tokio::test]
     async fn default_unregister_rejects_without_session_grant() {
         let err = ContrixPushClient::new("https://principal.example")
-            .unregister_device(&config(), &prefs())
+            .unregister_device(&config(), &binding(), &prefs())
             .await
             .unwrap_err();
 
@@ -1304,7 +1307,7 @@ mod tests {
 
         let response = ContrixPushClient::new(base_url)
             .with_required_session_grant(false)
-            .register_device(&config(), &prefs())
+            .register_device(&config(), &binding(), &prefs())
             .await
             .unwrap();
 
@@ -1336,7 +1339,7 @@ mod tests {
                 jitter: Duration::ZERO,
                 disabled_kinds_mask: 0,
             })
-            .register_device(&config, &prefs())
+            .register_device(&config, &binding(), &prefs())
             .await
             .unwrap();
 
@@ -1378,7 +1381,7 @@ mod tests {
                 jitter: Duration::ZERO,
                 disabled_kinds_mask: 0,
             })
-            .register_device(&config(), &prefs())
+            .register_device(&config(), &binding(), &prefs())
             .await
             .unwrap_err();
 
@@ -1409,7 +1412,7 @@ mod tests {
                 jitter: Duration::ZERO,
                 disabled_kinds_mask: 0,
             })
-            .register_device(&config(), &prefs())
+            .register_device(&config(), &binding(), &prefs())
             .await
             .unwrap();
 
@@ -1441,7 +1444,7 @@ mod tests {
 
         let err = client(base_url)
             .with_retry_policy(policy)
-            .register_device(&config(), &prefs())
+            .register_device(&config(), &binding(), &prefs())
             .await
             .unwrap_err();
 
@@ -1468,7 +1471,6 @@ mod tests {
 
         let prefs = PushPreferences {
             enabled: true,
-            push_gateway: "https://ignored.example/api/v1/push/notify".to_owned(),
             gateways: vec![
                 crate::GatewayBinding::new(
                     crate::PushGatewayType::Standard,
@@ -1505,19 +1507,12 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn register_device_all_falls_back_to_single_binding_when_gateways_empty() {
-        let (base_url, requests) = spawn_mock_server(vec![MockResponse {
-            status: "200 OK",
-            headers: vec![],
-            body: r#"{"ok":true,"registration_id":"reg-1"}"#,
-        }]);
-
-        let results = client(base_url)
+    async fn register_device_all_returns_empty_when_no_bindings_configured() {
+        // No mock server needed — empty `gateways` means no HTTP work.
+        let results = client("http://127.0.0.1:1")
             .register_device_all(&config(), &prefs())
             .await;
 
-        assert_eq!(results.len(), 1);
-        assert!(results[0].is_ok());
-        assert_eq!(requests.lock().unwrap().len(), 1);
+        assert!(results.is_empty());
     }
 }

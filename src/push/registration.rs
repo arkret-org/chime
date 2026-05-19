@@ -2,7 +2,7 @@
 
 use sha2::{Digest, Sha256};
 
-use crate::PushPreferences;
+use crate::{GatewayBinding, PushPreferences};
 
 use super::errors::PushRegistrationError;
 use super::signing::{PushRequestSigningContext, PushRequestSigningOptions, build_signing_context};
@@ -13,11 +13,18 @@ use super::urls::{
 use super::wire::{PushDeviceConfig, PushPlatform, RegisterDeviceRequest, UnregisterDeviceRequest};
 use super::{REGISTER_DEVICE_PATH, UNREGISTER_DEVICE_PATH};
 
-/// Build the Contrix register-device request body from app configuration and
-/// stored push preferences.
+/// Build the Contrix register-device request body from app configuration,
+/// the target gateway binding, and stored push preferences.
+///
+/// The `binding`'s `push_key` and `app_id` overrides take priority over
+/// the matching fields in `config`. `prefs` carries policy fields only
+/// (loopback opt-in, webpush allowlist, …).
 ///
 /// ```rust
-/// use chime::{PushDeviceConfig, PushPreferences, build_register_device_request};
+/// use chime::{
+///     GatewayBinding, PushDeviceConfig, PushGatewayType, PushPreferences,
+///     build_register_device_request,
+/// };
 ///
 /// let config = PushDeviceConfig {
 ///     principal_did: Some("did:web:alice.example"),
@@ -32,28 +39,33 @@ use super::{REGISTER_DEVICE_PATH, UNREGISTER_DEVICE_PATH};
 ///     request_id: None,
 ///     proof: None,
 /// };
+/// let binding = GatewayBinding::new(
+///     PushGatewayType::Standard,
+///     "https://push.example.com/api/v1/push/notify",
+/// );
 /// let prefs = PushPreferences {
 ///     enabled: true,
-///     push_gateway: "https://push.example.com/api/v1/push/notify".to_owned(),
 ///     ..Default::default()
 /// };
 ///
-/// let request = build_register_device_request(&config, &prefs).unwrap();
+/// let request = build_register_device_request(&config, &binding, &prefs).unwrap();
 /// assert_eq!(request.device_id, "did:web:alice.example#device-phone");
 /// ```
 pub fn build_register_device_request(
     config: &PushDeviceConfig<'_>,
+    binding: &GatewayBinding,
     prefs: &PushPreferences,
 ) -> Result<RegisterDeviceRequest, PushRegistrationError> {
     require_non_empty("device_id", config.device_id)?;
-    let push_key = require_optional_non_empty("push_key", config.push_key)?;
+    let push_key_value = binding.push_key.as_deref().or(config.push_key);
+    let push_key = require_optional_non_empty("push_key", push_key_value)?;
     validate_push_gateway_url(
-        &prefs.push_gateway,
+        &binding.push_gateway,
         prefs.allow_insecure_loopback_push_gateway,
     )?;
 
     let platform = parse_platform(config.platform)?;
-    let app_id = prefs.app_id(platform, config.app_id, config.domestic_app_id);
+    let app_id = binding.resolve_app_id(platform, config.app_id, config.domestic_app_id);
     if platform == Some(PushPlatform::Web) {
         validate_webpush_endpoint_allowlist(push_key, &prefs.webpush_endpoint_allowlist)?;
     }
@@ -65,7 +77,7 @@ pub fn build_register_device_request(
             .and_then(non_empty_str)
             .map(str::to_owned),
         device_id: config.device_id.to_owned(),
-        push_gateway: prefs.push_gateway.clone(),
+        push_gateway: binding.push_gateway.clone(),
         push_key: push_key.to_owned(),
         platform: platform.map(|value| value.as_str().to_owned()),
         app_id: app_id.map(str::to_owned),
@@ -77,11 +89,14 @@ pub fn build_register_device_request(
     })
 }
 
-/// Build the Contrix unregister-device request body from app configuration and
-/// stored push preferences.
+/// Build the Contrix unregister-device request body from app configuration,
+/// the target gateway binding, and stored push preferences.
 ///
 /// ```rust
-/// use chime::{PushDeviceConfig, PushPreferences, build_unregister_device_request};
+/// use chime::{
+///     GatewayBinding, PushDeviceConfig, PushGatewayType, PushPreferences,
+///     build_unregister_device_request,
+/// };
 ///
 /// let config = PushDeviceConfig {
 ///     principal_did: Some("did:web:alice.example"),
@@ -96,24 +111,38 @@ pub fn build_register_device_request(
 ///     request_id: None,
 ///     proof: None,
 /// };
-/// let request = build_unregister_device_request(&config, &PushPreferences::default()).unwrap();
+/// let binding = GatewayBinding::new(
+///     PushGatewayType::Standard,
+///     "https://push.example.com/api/v1/push/notify",
+/// );
+/// let request = build_unregister_device_request(
+///     &config,
+///     &binding,
+///     &PushPreferences::default(),
+/// )
+/// .unwrap();
 /// assert_eq!(request.registration_id.as_deref(), Some("cx:pushreg:01JS0KE000000000000000000"));
 /// ```
 pub fn build_unregister_device_request(
     config: &PushDeviceConfig<'_>,
+    binding: &GatewayBinding,
     prefs: &PushPreferences,
 ) -> Result<UnregisterDeviceRequest, PushRegistrationError> {
     require_non_empty("device_id", config.device_id)?;
-    if non_empty_str(&prefs.push_gateway).is_some() {
+    if non_empty_str(&binding.push_gateway).is_some() {
         validate_push_gateway_url(
-            &prefs.push_gateway,
+            &binding.push_gateway,
             prefs.allow_insecure_loopback_push_gateway,
         )?;
     }
 
     let platform = parse_platform(config.platform)?;
-    let app_id = prefs.app_id(platform, config.app_id, config.domestic_app_id);
-    let push_key = config.push_key.and_then(non_empty_str);
+    let app_id = binding.resolve_app_id(platform, config.app_id, config.domestic_app_id);
+    let push_key = binding
+        .push_key
+        .as_deref()
+        .or(config.push_key)
+        .and_then(non_empty_str);
 
     Ok(UnregisterDeviceRequest {
         operation_id: crate::OPERATION_PUSH_UNREGISTER_DEVICE.to_owned(),
@@ -124,7 +153,7 @@ pub fn build_unregister_device_request(
         device_id: config.device_id.to_owned(),
         registration_id: non_empty_str(config.registration_id.unwrap_or_default())
             .map(str::to_owned),
-        push_gateway: non_empty_str(&prefs.push_gateway).map(str::to_owned),
+        push_gateway: non_empty_str(&binding.push_gateway).map(str::to_owned),
         push_key: push_key.map(str::to_owned),
         push_key_hash: push_key.map(hash_push_key_for_wire),
         push_key_preview: push_key.map(redact_push_key),
@@ -140,8 +169,8 @@ pub fn build_unregister_device_request(
 ///
 /// ```rust
 /// use chime::{
-///     PushDeviceConfig, PushPreferences, build_register_device_request,
-///     build_register_signing_context,
+///     GatewayBinding, PushDeviceConfig, PushGatewayType, PushPreferences,
+///     build_register_device_request, build_register_signing_context,
 /// };
 ///
 /// let config = PushDeviceConfig {
@@ -157,12 +186,15 @@ pub fn build_unregister_device_request(
 ///     request_id: None,
 ///     proof: None,
 /// };
+/// let binding = GatewayBinding::new(
+///     PushGatewayType::Standard,
+///     "https://push.example.com/api/v1/push/notify",
+/// );
 /// let prefs = PushPreferences {
 ///     enabled: true,
-///     push_gateway: "https://push.example.com/api/v1/push/notify".to_owned(),
 ///     ..Default::default()
 /// };
-/// let request = build_register_device_request(&config, &prefs).unwrap();
+/// let request = build_register_device_request(&config, &binding, &prefs).unwrap();
 /// let context = build_register_signing_context(
 ///     "https://principal.example",
 ///     &request,
@@ -283,24 +315,23 @@ mod tests {
         }
     }
 
-    fn prefs(push_gateway: &str) -> PushPreferences {
+    fn binding(gateway_type: PushGatewayType, push_gateway: &str) -> GatewayBinding {
+        GatewayBinding::new(gateway_type, push_gateway)
+    }
+
+    fn enabled_prefs() -> PushPreferences {
         PushPreferences {
             enabled: true,
-            push_gateway: push_gateway.to_owned(),
             ..Default::default()
         }
     }
 
     #[test]
     fn register_request_matches_contrix_schema() {
-        let mut prefs = PushPreferences {
-            enabled: true,
-            gateway_type: PushGatewayType::Bugle,
-            ..Default::default()
-        };
-        prefs.apply_gateway_type_defaults();
-
-        let request = build_register_device_request(&config(Some("android")), &prefs).unwrap();
+        let binding = binding(PushGatewayType::Bugle, DEFAULT_BUGLE_PUSH_GATEWAY_URL);
+        let request =
+            build_register_device_request(&config(Some("android")), &binding, &enabled_prefs())
+                .unwrap();
 
         assert_eq!(request.operation_id, crate::OPERATION_PUSH_REGISTER_DEVICE);
         assert_eq!(
@@ -322,9 +353,16 @@ mod tests {
 
     #[test]
     fn unregister_request_supports_registration_id() {
-        let request =
-            build_unregister_device_request(&config(Some("ios")), &PushPreferences::default())
-                .unwrap();
+        let binding = binding(
+            PushGatewayType::Standard,
+            "https://push.example.com/api/v1/push/notify",
+        );
+        let request = build_unregister_device_request(
+            &config(Some("ios")),
+            &binding,
+            &PushPreferences::default(),
+        )
+        .unwrap();
 
         assert_eq!(
             request.operation_id,
@@ -360,11 +398,10 @@ mod tests {
 
     #[test]
     fn requires_register_push_gateway() {
-        let prefs = PushPreferences {
-            push_gateway: " ".to_owned(),
-            ..Default::default()
-        };
-        let err = build_register_device_request(&config(Some("android")), &prefs).unwrap_err();
+        let binding = binding(PushGatewayType::Standard, " ");
+        let err =
+            build_register_device_request(&config(Some("android")), &binding, &enabled_prefs())
+                .unwrap_err();
         assert_eq!(err.kind(), PushErrorKind::MissingField);
     }
 
@@ -372,11 +409,11 @@ mod tests {
     fn requires_register_push_key() {
         let mut config = config(Some("android"));
         config.push_key = None;
-        let err = build_register_device_request(
-            &config,
-            &prefs("https://push.example.com/api/v1/push/notify"),
-        )
-        .unwrap_err();
+        let binding = binding(
+            PushGatewayType::Standard,
+            "https://push.example.com/api/v1/push/notify",
+        );
+        let err = build_register_device_request(&config, &binding, &enabled_prefs()).unwrap_err();
         assert_eq!(err.kind(), PushErrorKind::MissingField);
     }
 
@@ -384,11 +421,11 @@ mod tests {
     fn requires_device_id() {
         let mut config = config(Some("android"));
         config.device_id = " ";
-        let err = build_register_device_request(
-            &config,
-            &prefs("https://push.example.com/api/v1/push/notify"),
-        )
-        .unwrap_err();
+        let binding = binding(
+            PushGatewayType::Standard,
+            "https://push.example.com/api/v1/push/notify",
+        );
+        let err = build_register_device_request(&config, &binding, &enabled_prefs()).unwrap_err();
         assert_eq!(err.kind(), PushErrorKind::MissingField);
     }
 
@@ -397,20 +434,23 @@ mod tests {
         let mut web_config = config(Some("web"));
         web_config.push_key =
             Some("webpush:https://updates.push.services.mozilla.com/wpush/v2/token-secret");
+        let binding = binding(
+            PushGatewayType::Standard,
+            "https://push.example.com/api/v1/push/notify",
+        );
         let prefs = PushPreferences {
             enabled: true,
-            push_gateway: "https://push.example.com/api/v1/push/notify".to_owned(),
             webpush_endpoint_allowlist: vec![
                 "https://updates.push.services.mozilla.com".to_owned(),
             ],
             ..Default::default()
         };
 
-        build_register_device_request(&web_config, &prefs).unwrap();
+        build_register_device_request(&web_config, &binding, &prefs).unwrap();
 
         let mut blocked = prefs;
         blocked.webpush_endpoint_allowlist = vec!["https://fcm.googleapis.com".to_owned()];
-        let err = build_register_device_request(&web_config, &blocked).unwrap_err();
+        let err = build_register_device_request(&web_config, &binding, &blocked).unwrap_err();
         assert_eq!(err.kind(), PushErrorKind::WebPushEndpointNotAllowed);
 
         let debug = format!("{err:?}");
@@ -420,9 +460,14 @@ mod tests {
 
     #[test]
     fn redacts_push_tokens_from_debug_output() {
+        let plain_binding = binding(
+            PushGatewayType::Standard,
+            "https://push.example.com/api/v1/push/notify",
+        );
         let request = build_register_device_request(
             &config(Some("android")),
-            &prefs("https://push.example.com/api/v1/push/notify"),
+            &plain_binding,
+            &enabled_prefs(),
         )
         .unwrap();
         let debug = format!("{request:?}");
@@ -433,9 +478,14 @@ mod tests {
         assert!(config_debug.contains("fcm:<redacted"));
         assert!(!config_debug.contains("very-secret-token"));
 
+        let debug_binding = binding(
+            PushGatewayType::Standard,
+            "https://push.example.com/api/v1/push/notify?debug=true",
+        );
         let unregister = build_unregister_device_request(
             &config(Some("android")),
-            &prefs("https://push.example.com/api/v1/push/notify?debug=true"),
+            &debug_binding,
+            &enabled_prefs(),
         )
         .unwrap();
         let unregister_debug = format!("{unregister:?}");
@@ -445,11 +495,13 @@ mod tests {
 
     #[test]
     fn builds_register_signing_context() {
-        let request = build_register_device_request(
-            &config(Some("android")),
-            &prefs("https://push.example.com/api/v1/push/notify"),
-        )
-        .unwrap();
+        let binding = binding(
+            PushGatewayType::Standard,
+            "https://push.example.com/api/v1/push/notify",
+        );
+        let request =
+            build_register_device_request(&config(Some("android")), &binding, &enabled_prefs())
+                .unwrap();
 
         let context = build_register_signing_context(
             "https://principal.example",
@@ -473,11 +525,13 @@ mod tests {
 
     #[test]
     fn builds_signing_context_with_actor_expiry_and_signature_headers() {
-        let request = build_register_device_request(
-            &config(Some("android")),
-            &prefs("https://push.example.com/api/v1/push/notify"),
-        )
-        .unwrap();
+        let binding = binding(
+            PushGatewayType::Standard,
+            "https://push.example.com/api/v1/push/notify",
+        );
+        let request =
+            build_register_device_request(&config(Some("android")), &binding, &enabled_prefs())
+                .unwrap();
 
         let context = build_register_signing_context_with_options(
             "https://principal.example",
@@ -549,11 +603,13 @@ mod tests {
 
     #[test]
     fn rejects_invalid_signature_header_inputs() {
-        let request = build_register_device_request(
-            &config(Some("android")),
-            &prefs("https://push.example.com/api/v1/push/notify"),
-        )
-        .unwrap();
+        let binding = binding(
+            PushGatewayType::Standard,
+            "https://push.example.com/api/v1/push/notify",
+        );
+        let request =
+            build_register_device_request(&config(Some("android")), &binding, &enabled_prefs())
+                .unwrap();
         let context = build_register_signing_context(
             "https://principal.example",
             &request,
@@ -579,11 +635,13 @@ mod tests {
 
     #[test]
     fn signing_context_rejects_url_tokens() {
-        let request = build_register_device_request(
-            &config(Some("android")),
-            &prefs("https://push.example.com/api/v1/push/notify"),
-        )
-        .unwrap();
+        let binding = binding(
+            PushGatewayType::Standard,
+            "https://push.example.com/api/v1/push/notify",
+        );
+        let request =
+            build_register_device_request(&config(Some("android")), &binding, &enabled_prefs())
+                .unwrap();
 
         let err = build_register_signing_context(
             "https://principal.example?access_token=secret",

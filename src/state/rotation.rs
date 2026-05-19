@@ -10,8 +10,9 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    PushDeviceConfig, PushPreferences, PushRegistrationError, RegisterDeviceRequest,
-    UnregisterDeviceRequest, build_register_device_request, build_unregister_device_request,
+    GatewayBinding, PushDeviceConfig, PushGatewayType, PushPreferences, PushRegistrationError,
+    RegisterDeviceRequest, UnregisterDeviceRequest, build_register_device_request,
+    build_unregister_device_request,
 };
 
 use super::model::{PushRegistrationState, token_rotation_required};
@@ -40,11 +41,13 @@ pub enum PushTokenRotationStrategy {
 pub fn plan_token_rotation(
     existing: Option<&PushRegistrationState>,
     config: &PushDeviceConfig<'_>,
+    binding: &GatewayBinding,
     prefs: &PushPreferences,
 ) -> Result<PushTokenRotationPlan, PushRegistrationError> {
     plan_token_rotation_with_strategy(
         existing,
         config,
+        binding,
         prefs,
         PushTokenRotationStrategy::UnregisterOldFirst,
     )
@@ -53,11 +56,14 @@ pub fn plan_token_rotation(
 pub fn plan_token_rotation_with_strategy(
     existing: Option<&PushRegistrationState>,
     config: &PushDeviceConfig<'_>,
+    binding: &GatewayBinding,
     prefs: &PushPreferences,
     strategy: PushTokenRotationStrategy,
 ) -> Result<PushTokenRotationPlan, PushRegistrationError> {
-    let new_push_key = config
+    let new_push_key = binding
         .push_key
+        .as_deref()
+        .or(config.push_key)
         .ok_or(PushRegistrationError::MissingField("push_key"))?;
 
     if !token_rotation_required(existing, new_push_key) {
@@ -83,10 +89,12 @@ pub fn plan_token_rotation_with_strategy(
             request_id: config.request_id,
             proof: config.proof,
         };
-        build_unregister_device_request(&old_config, prefs)
+        let old_binding =
+            GatewayBinding::new(PushGatewayType::Standard, state.push_gateway.clone());
+        build_unregister_device_request(&old_config, &old_binding, prefs)
     });
 
-    let mut register_new = build_register_device_request(config, prefs)?;
+    let mut register_new = build_register_device_request(config, binding, prefs)?;
     if let Some(state) = existing {
         register_new.previous_token_hash = Some(state.push_key_hash.clone());
     }
@@ -104,11 +112,12 @@ mod tests {
     use super::*;
     use crate::RegisterDeviceResponse;
     use crate::state::model::build_registration_state;
-    use crate::state::test_fixtures::{config, prefs};
+    use crate::state::test_fixtures::{binding, config, prefs};
 
     #[test]
     fn rotation_plan_is_empty_when_token_unchanged() {
-        let request = build_register_device_request(&config("fcm:same-token"), &prefs()).unwrap();
+        let request =
+            build_register_device_request(&config("fcm:same-token"), &binding(), &prefs()).unwrap();
         let response = RegisterDeviceResponse {
             ok: true,
             registration_id: Some("reg-1".to_owned()),
@@ -120,15 +129,15 @@ mod tests {
             warnings: Vec::new(),
             request_id: None,
         };
-        let state = build_registration_state(
-            &config("fcm:same-token"),
-            &prefs(),
-            &request,
-            &response,
-            None,
-        );
+        let state = build_registration_state(&binding(), &request, &response, None);
 
-        let plan = plan_token_rotation(Some(&state), &config("fcm:same-token"), &prefs()).unwrap();
+        let plan = plan_token_rotation(
+            Some(&state),
+            &config("fcm:same-token"),
+            &binding(),
+            &prefs(),
+        )
+        .unwrap();
 
         assert!(!plan.token_changed);
         assert!(plan.unregister_old.is_none());
@@ -138,7 +147,8 @@ mod tests {
 
     #[test]
     fn rotation_plan_unregisters_old_and_registers_new_token() {
-        let request = build_register_device_request(&config("fcm:old-token"), &prefs()).unwrap();
+        let request =
+            build_register_device_request(&config("fcm:old-token"), &binding(), &prefs()).unwrap();
         let response = RegisterDeviceResponse {
             ok: true,
             registration_id: Some("reg-old".to_owned()),
@@ -150,15 +160,11 @@ mod tests {
             warnings: Vec::new(),
             request_id: None,
         };
-        let state = build_registration_state(
-            &config("fcm:old-token"),
-            &prefs(),
-            &request,
-            &response,
-            None,
-        );
+        let state = build_registration_state(&binding(), &request, &response, None);
 
-        let plan = plan_token_rotation(Some(&state), &config("fcm:new-token"), &prefs()).unwrap();
+        let plan =
+            plan_token_rotation(Some(&state), &config("fcm:new-token"), &binding(), &prefs())
+                .unwrap();
 
         assert!(plan.token_changed);
         assert_eq!(
@@ -177,22 +183,19 @@ mod tests {
 
     #[test]
     fn rotation_plan_attaches_previous_token_hash_to_register_request() {
-        let request = build_register_device_request(&config("fcm:old-token"), &prefs()).unwrap();
+        let request =
+            build_register_device_request(&config("fcm:old-token"), &binding(), &prefs()).unwrap();
         let response = RegisterDeviceResponse {
             ok: true,
             registration_id: Some("reg-old".to_owned()),
             ..Default::default()
         };
-        let state = build_registration_state(
-            &config("fcm:old-token"),
-            &prefs(),
-            &request,
-            &response,
-            None,
-        );
+        let state = build_registration_state(&binding(), &request, &response, None);
         let old_hash = state.push_key_hash.clone();
 
-        let plan = plan_token_rotation(Some(&state), &config("fcm:new-token"), &prefs()).unwrap();
+        let plan =
+            plan_token_rotation(Some(&state), &config("fcm:new-token"), &binding(), &prefs())
+                .unwrap();
 
         let attached = plan
             .register_new
@@ -203,7 +206,8 @@ mod tests {
 
     #[test]
     fn rotation_plan_omits_previous_token_hash_when_no_existing_state() {
-        let plan = plan_token_rotation(None, &config("fcm:new-token"), &prefs()).unwrap();
+        let plan =
+            plan_token_rotation(None, &config("fcm:new-token"), &binding(), &prefs()).unwrap();
         assert!(plan.token_changed);
         assert!(
             plan.register_new
@@ -215,7 +219,8 @@ mod tests {
 
     #[test]
     fn rotation_plan_supports_register_new_first_strategy() {
-        let request = build_register_device_request(&config("fcm:old-token"), &prefs()).unwrap();
+        let request =
+            build_register_device_request(&config("fcm:old-token"), &binding(), &prefs()).unwrap();
         let response = RegisterDeviceResponse {
             ok: true,
             registration_id: Some("reg-old".to_owned()),
@@ -227,17 +232,12 @@ mod tests {
             warnings: Vec::new(),
             request_id: None,
         };
-        let state = build_registration_state(
-            &config("fcm:old-token"),
-            &prefs(),
-            &request,
-            &response,
-            None,
-        );
+        let state = build_registration_state(&binding(), &request, &response, None);
 
         let plan = plan_token_rotation_with_strategy(
             Some(&state),
             &config("fcm:new-token"),
+            &binding(),
             &prefs(),
             PushTokenRotationStrategy::RegisterNewFirst,
         )

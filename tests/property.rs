@@ -5,8 +5,9 @@
 //! `cargo test` like any other integration test, no extra runner.
 
 use chime::{
-    PushDeviceConfig, PushGatewayType, PushPlatform, PushPreferences, PushRegistrationError,
-    build_register_device_request, build_unregister_device_request, hash_push_key,
+    GatewayBinding, PushDeviceConfig, PushGatewayType, PushPlatform, PushPreferences,
+    PushRegistrationError, build_register_device_request, build_unregister_device_request,
+    hash_push_key,
 };
 use proptest::prelude::*;
 #[cfg(feature = "notify")]
@@ -55,10 +56,12 @@ proptest! {
         let device_id_with_fragment = format!("did:web:alice.example#device-{device_id}");
         let prefs = PushPreferences {
             enabled: true,
-            gateway_type: gateway.clone(),
-            push_gateway: "https://push.example.com/api/v1/push/notify".to_owned(),
             ..Default::default()
         };
+        let binding = GatewayBinding::new(
+            gateway.clone(),
+            "https://push.example.com/api/v1/push/notify",
+        );
         let config = PushDeviceConfig {
             principal_did: Some("did:web:alice.example"),
             device_id: &device_id_with_fragment,
@@ -73,7 +76,7 @@ proptest! {
             proof: None,
         };
 
-        match build_register_device_request(&config, &prefs) {
+        match build_register_device_request(&config, &binding, &prefs) {
             Ok(request) => {
                 prop_assert_eq!(request.device_id, device_id_with_fragment);
                 prop_assert_eq!(request.push_key, push_key);
@@ -81,7 +84,7 @@ proptest! {
                     prop_assert_eq!(request.platform.as_deref(), Some(p.as_str()));
                 }
                 // Gateway URL must round-trip exactly when prefs are HTTPS.
-                prop_assert_eq!(request.push_gateway, prefs.push_gateway);
+                prop_assert_eq!(request.push_gateway, binding.push_gateway);
             }
             Err(PushRegistrationError::InvalidPushGatewayUrl { .. })
             | Err(PushRegistrationError::MissingField(_))
@@ -110,9 +113,12 @@ proptest! {
         let device_id_with_fragment = format!("did:web:bob.example#dev-{device_id}");
         let prefs = PushPreferences {
             enabled: true,
-            push_gateway: "https://push.example.com/api/v1/push/notify".to_owned(),
             ..Default::default()
         };
+        let binding = GatewayBinding::new(
+            PushGatewayType::Standard,
+            "https://push.example.com/api/v1/push/notify",
+        );
         let config = PushDeviceConfig {
             principal_did: Some("did:web:bob.example"),
             device_id: &device_id_with_fragment,
@@ -127,7 +133,7 @@ proptest! {
             proof: None,
         };
 
-        if let Ok(request) = build_unregister_device_request(&config, &prefs) {
+        if let Ok(request) = build_unregister_device_request(&config, &binding, &prefs) {
             prop_assert!(request.push_key.is_none());
             prop_assert_eq!(request.registration_id.as_deref(), Some(registration_id.as_str()));
         }

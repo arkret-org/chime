@@ -3,16 +3,12 @@
 //! by listing them as [`GatewayBinding`] entries in
 //! [`PushPreferences::gateways`](crate::PushPreferences::gateways).
 //!
-//! When `gateways` is empty the SDK uses the singular gateway
-//! behaviour and uses [`PushPreferences::push_gateway`](crate::PushPreferences::push_gateway)
-//! /[`gateway_type`](crate::PushPreferences::gateway_type). When it is
-//! non-empty the singular fields are ignored and every binding is
-//! exercised independently (independent token, independent app_id,
-//! independent register/unregister fault tolerance).
+//! Every binding is exercised independently (independent token,
+//! independent app_id, independent register/unregister fault tolerance).
 
 use serde::{Deserialize, Serialize};
 
-use crate::PushGatewayType;
+use crate::{PushGatewayType, PushPlatform};
 
 /// Binding of a single push gateway target.
 ///
@@ -65,6 +61,25 @@ impl GatewayBinding {
         self.app_id = Some(app_id.into());
         self
     }
+
+    /// Resolve the app id for this binding, honouring per-binding override
+    /// over the caller-supplied base / domestic pair.
+    ///
+    /// When `app_id` is set on the binding it wins; otherwise the
+    /// gateway-type's resolution kicks in
+    /// (Bugle + Android prefers `domestic_app_id`).
+    pub fn resolve_app_id<'a>(
+        &'a self,
+        platform: Option<PushPlatform>,
+        base_app_id: Option<&'a str>,
+        domestic_app_id: Option<&'a str>,
+    ) -> Option<&'a str> {
+        if let Some(override_value) = self.app_id.as_deref() {
+            return Some(override_value);
+        }
+        self.gateway_type
+            .resolve_app_id(platform, base_app_id, domestic_app_id)
+    }
 }
 
 #[cfg(test)]
@@ -111,5 +126,38 @@ mod tests {
             }"#,
         );
         assert!(bad.is_err());
+    }
+
+    #[test]
+    fn resolve_app_id_prefers_binding_override() {
+        let binding = GatewayBinding::new(
+            PushGatewayType::Bugle,
+            "https://push.palpo.im/api/v1/push/notify",
+        )
+        .with_app_id("app.binding.override");
+        assert_eq!(
+            binding.resolve_app_id(
+                Some(PushPlatform::Android),
+                Some("app.example.android"),
+                Some("app.example.android.cn"),
+            ),
+            Some("app.binding.override")
+        );
+    }
+
+    #[test]
+    fn resolve_app_id_falls_back_to_gateway_resolution() {
+        let binding = GatewayBinding::new(
+            PushGatewayType::Bugle,
+            "https://push.palpo.im/api/v1/push/notify",
+        );
+        assert_eq!(
+            binding.resolve_app_id(
+                Some(PushPlatform::Android),
+                Some("app.example.android"),
+                Some("app.example.android.cn"),
+            ),
+            Some("app.example.android.cn")
+        );
     }
 }

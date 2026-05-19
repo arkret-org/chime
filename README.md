@@ -48,16 +48,22 @@ chime = { path = "../chime", features = ["http"] }
 ### Core types
 
 ```rust
-use chime::{PushGatewayType, PushPreferences};
+use chime::{GatewayBinding, PushGatewayType, PushPreferences};
 
-let mut prefs = PushPreferences {
+let prefs = PushPreferences {
     enabled: true,
-    gateway_type: PushGatewayType::Bugle,
+    gateways: vec![
+        GatewayBinding::new(
+            PushGatewayType::Bugle,
+            "https://push.palpo.im/api/v1/push/notify",
+        )
+        .with_app_id("app.example.android.cn"),
+    ],
     ..Default::default()
 };
-prefs.apply_gateway_type_defaults();
 
-let app_id = prefs.app_id(
+let binding = &prefs.gateways[0];
+let app_id = binding.resolve_app_id(
     Some(chime::PushPlatform::Android),
     Some("app.example.android"),
     Some("app.example.android.cn"),
@@ -66,13 +72,16 @@ assert_eq!(app_id, Some("app.example.android.cn"));
 
 let json = chime::to_json(&prefs).unwrap();
 let loaded = chime::from_json(&json).unwrap();
-assert_eq!(loaded.gateway_type, PushGatewayType::Bugle);
+assert_eq!(loaded.gateways[0].gateway_type, PushGatewayType::Bugle);
 ```
 
 ### Build a Contrix registration body
 
 ```rust
-use chime::{PushDeviceConfig, PushPreferences, build_register_device_request};
+use chime::{
+    GatewayBinding, PushDeviceConfig, PushGatewayType, PushPreferences,
+    build_register_device_request,
+};
 
 let config = PushDeviceConfig {
     principal_did: Some("did:web:alice.example"),
@@ -88,13 +97,16 @@ let config = PushDeviceConfig {
     proof: None,
 };
 
+let binding = GatewayBinding::new(
+    PushGatewayType::Standard,
+    "https://push.example.com/api/v1/push/notify",
+);
 let prefs = PushPreferences {
     enabled: true,
-    push_gateway: "https://push.example.com/api/v1/push/notify".to_owned(),
     ..Default::default()
 };
 
-let request = build_register_device_request(&config, &prefs).unwrap();
+let request = build_register_device_request(&config, &binding, &prefs).unwrap();
 assert_eq!(request.device_id, "did:web:alice.example#device-phone");
 ```
 
@@ -103,7 +115,7 @@ assert_eq!(request.device_id, "did:web:alice.example#device-phone");
 ```rust,no_run
 # #[cfg(feature = "http")]
 # async fn doc_run() -> Result<(), chime::PushRegistrationError> {
-# use chime::{PushDeviceConfig, PushPreferences};
+# use chime::{GatewayBinding, PushDeviceConfig, PushGatewayType, PushPreferences};
 # let config = PushDeviceConfig {
 #     principal_did: None,
 #     device_id: "did:web:alice.example#device-phone",
@@ -117,9 +129,12 @@ assert_eq!(request.device_id, "did:web:alice.example#device-phone");
 #     request_id: None,
 #     proof: None,
 # };
+# let binding = GatewayBinding::new(
+#     PushGatewayType::Standard,
+#     "https://push.example.com/api/v1/push/notify",
+# );
 # let prefs = PushPreferences {
 #     enabled: true,
-#     push_gateway: "https://push.example.com/api/v1/push/notify".to_owned(),
 #     ..Default::default()
 # };
 use chime::ContrixPushClient;
@@ -130,7 +145,9 @@ let client = ContrixPushClient::new("https://principal.example")
     .with_retry_policy(chime::PushRetryPolicy::conservative())
     .with_default_request_id("cx:req:01JS0KE000000000000000000");
 
-let response = client.register_device_with_context(&config, &prefs).await?;
+let response = client
+    .register_device_with_context(&config, &binding, &prefs)
+    .await?;
 assert!(response.body.ok);
 # Ok(())
 # }
@@ -142,8 +159,8 @@ assert!(response.body.ok);
 
 Production notes:
 
-- Authentication material is only sent through headers. Do not put session tokens, API keys, signatures, or bearer tokens in `push_gateway` query strings.
-- `push_gateway` must be HTTPS unless `allow_insecure_loopback_push_gateway` is enabled for localhost development.
+- Authentication material is only sent through headers. Do not put session tokens, API keys, signatures, or bearer tokens in a binding's `push_gateway` URL query string.
+- Each binding's `push_gateway` must be HTTPS unless `allow_insecure_loopback_push_gateway` is enabled for localhost development.
 - WebPush registrations can set `webpush_endpoint_allowlist` to restrict accepted endpoint origins or host patterns before a browser endpoint is sent to the service.
 - `push_key` is redacted in debug output and logs; callers should still store it as a secret.
 - `ContrixPushClient` retries only safe idempotent requests: register calls need an idempotency key, while unregister is treated as idempotent. `Retry-After` is honored before exponential backoff plus bounded jitter.
@@ -155,7 +172,7 @@ Production notes:
 
 ```rust,no_run
 # fn doc_run() -> Result<(), chime::PushRegistrationError> {
-# use chime::{PushDeviceConfig, PushPreferences};
+# use chime::{GatewayBinding, PushDeviceConfig, PushGatewayType, PushPreferences};
 # let config = PushDeviceConfig {
 #     principal_did: None,
 #     device_id: "did:web:alice.example#device-phone",
@@ -164,9 +181,12 @@ Production notes:
 #     registration_id: None, display_name: None,
 #     idempotency_key: None, request_id: None, proof: None,
 # };
+# let binding = GatewayBinding::new(
+#     PushGatewayType::Standard,
+#     "https://push.example.com/api/v1/push/notify",
+# );
 # let prefs = PushPreferences {
 #     enabled: true,
-#     push_gateway: "https://push.example.com/api/v1/push/notify".to_owned(),
 #     ..Default::default()
 # };
 # struct DummySigner;
@@ -180,7 +200,7 @@ use chime::{
     build_register_signing_context_with_options,
 };
 
-let request = build_register_device_request(&config, &prefs)?;
+let request = build_register_device_request(&config, &binding, &prefs)?;
 let context = build_register_signing_context_with_options(
     "https://principal.example",
     &request,
@@ -217,7 +237,7 @@ After a successful register, `merge_registration_state()` drops stale logical du
 
 ```rust,no_run
 # fn doc_run() -> Result<(), chime::PushRegistrationError> {
-# use chime::{PushDeviceConfig, PushPreferences};
+# use chime::{GatewayBinding, PushDeviceConfig, PushGatewayType, PushPreferences};
 # let config = PushDeviceConfig {
 #     principal_did: None,
 #     device_id: "did:web:alice.example#device-phone",
@@ -226,9 +246,12 @@ After a successful register, `merge_registration_state()` drops stale logical du
 #     registration_id: None, display_name: None,
 #     idempotency_key: None, request_id: None, proof: None,
 # };
+# let binding = GatewayBinding::new(
+#     PushGatewayType::Standard,
+#     "https://push.example.com/api/v1/push/notify",
+# );
 # let prefs = PushPreferences {
 #     enabled: true,
-#     push_gateway: "https://push.example.com/api/v1/push/notify".to_owned(),
 #     ..Default::default()
 # };
 use chime::{plan_token_rotation_with_strategy, PushRegistrationState, PushTokenRotationStrategy};
@@ -238,6 +261,7 @@ let existing: Option<PushRegistrationState> = None;
 let plan = plan_token_rotation_with_strategy(
     existing.as_ref(),
     &config,
+    &binding,
     &prefs,
     PushTokenRotationStrategy::RegisterNewFirst,
 )?;
@@ -282,7 +306,7 @@ into a Contrix Principal Server / Sync Service deployment.
   and `https://fcm.googleapis.com` are typical entries.
 - **Auth in headers, not URLs.** Session tokens, bearer tokens, API
   keys, and HTTP message signatures must travel in headers. Putting
-  them in `push_gateway` query strings is rejected.
+  them in a binding's `push_gateway` query string is rejected.
 - **Session grant fail-closed.** `ContrixPushClient::new(...)` defaults
   to `with_required_session_grant(true)`. Always attach
   `X-Contrix-Session-Grant` via `with_session_grant("...")` (or
@@ -350,9 +374,9 @@ With the `notify` feature, `PushNotifyRequest::validate_wire_model()` and `PushN
 Contrix Client
         |
         v
-   +---------+     PushPreferences
-   |  chime  | --> PushGatewayType { Standard, Bugle, Custom }
-   +----+----+     build_register_device_request()
+   +---------+     PushPreferences { gateways: Vec<GatewayBinding> }
+   |  chime  | --> GatewayBinding { gateway_type, push_gateway, push_key, app_id }
+   +----+----+     build_register_device_request(config, binding, prefs)
         |          ContrixPushClient (optional)
         v
 Principal Server / Sync Service

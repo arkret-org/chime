@@ -3,18 +3,23 @@
 //! Compiled only under `cfg(test)`.
 
 use crate::{
-    PushDeviceConfig, PushGatewayType, PushPreferences, RegisterDeviceResponse,
+    GatewayBinding, PushDeviceConfig, PushGatewayType, PushPreferences, RegisterDeviceResponse,
     build_register_device_request,
 };
 
 use super::model::{PushRegistrationState, build_registration_state};
 
+pub(crate) const TEST_PUSH_GATEWAY: &str = "https://push.example.com/api/v1/push/notify";
+
 pub(crate) fn prefs() -> PushPreferences {
     PushPreferences {
         enabled: true,
-        push_gateway: "https://push.example.com/api/v1/push/notify".to_owned(),
         ..Default::default()
     }
+}
+
+pub(crate) fn binding() -> GatewayBinding {
+    GatewayBinding::new(PushGatewayType::Standard, TEST_PUSH_GATEWAY)
 }
 
 pub(crate) fn config(push_key: &str) -> PushDeviceConfig<'_> {
@@ -38,7 +43,12 @@ pub(crate) fn state_for(
     token: &'static str,
     registration_id: &'static str,
 ) -> PushRegistrationState {
-    state_for_gateway(device_id, token, registration_id, prefs().push_gateway)
+    state_for_gateway(
+        device_id,
+        token,
+        registration_id,
+        TEST_PUSH_GATEWAY.to_owned(),
+    )
 }
 
 pub(crate) fn state_for_gateway(
@@ -72,11 +82,9 @@ pub(crate) fn state_for_binding(
         device_config.app_id = Some(app_id);
     }
 
-    let mut binding_prefs = prefs();
-    binding_prefs.gateway_type = gateway_type;
-    binding_prefs.push_gateway = push_gateway;
+    let binding = GatewayBinding::new(gateway_type, push_gateway);
 
-    let request = build_register_device_request(&device_config, &binding_prefs).unwrap();
+    let request = build_register_device_request(&device_config, &binding, &prefs()).unwrap();
     let response = RegisterDeviceResponse {
         ok: true,
         registration_id: Some(registration_id.to_owned()),
@@ -89,11 +97,5 @@ pub(crate) fn state_for_binding(
         request_id: None,
     };
 
-    build_registration_state(
-        &device_config,
-        &binding_prefs,
-        &request,
-        &response,
-        Some("2026-05-03T00:00:00Z"),
-    )
+    build_registration_state(&binding, &request, &response, Some("2026-05-03T00:00:00Z"))
 }

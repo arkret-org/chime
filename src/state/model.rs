@@ -6,8 +6,8 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 use crate::{
-    PushDeviceConfig, PushPreferences, RegisterDeviceRequest, RegisterDeviceResponse,
-    UnregisterDeviceRequest, redact_push_key,
+    GatewayBinding, PushDeviceConfig, PushPreferences, RegisterDeviceRequest,
+    RegisterDeviceResponse, UnregisterDeviceRequest, redact_push_key,
 };
 
 use super::PUSH_REGISTRATION_STATE_SCHEMA_VERSION;
@@ -183,8 +183,9 @@ pub fn token_moved_to_different_device(
 ///
 /// ```rust
 /// use chime::{
-///     PushDeviceConfig, PushPreferences, RegisterDeviceResponse,
-///     build_register_device_request, build_registration_state,
+///     GatewayBinding, PushDeviceConfig, PushGatewayType, PushPreferences,
+///     RegisterDeviceResponse, build_register_device_request,
+///     build_registration_state,
 /// };
 ///
 /// let config = PushDeviceConfig {
@@ -200,21 +201,23 @@ pub fn token_moved_to_different_device(
 ///     request_id: None,
 ///     proof: None,
 /// };
+/// let binding = GatewayBinding::new(
+///     PushGatewayType::Standard,
+///     "https://push.example.com/api/v1/push/notify",
+/// );
 /// let prefs = PushPreferences {
 ///     enabled: true,
-///     push_gateway: "https://push.example.com/api/v1/push/notify".to_owned(),
 ///     ..Default::default()
 /// };
-/// let request = build_register_device_request(&config, &prefs).unwrap();
+/// let request = build_register_device_request(&config, &binding, &prefs).unwrap();
 /// let mut response = RegisterDeviceResponse::default();
 /// response.ok = true;
 /// response.registration_id = Some("reg-1".to_owned());
-/// let state = build_registration_state(&config, &prefs, &request, &response, None);
+/// let state = build_registration_state(&binding, &request, &response, None);
 /// assert_eq!(state.registration_id.as_deref(), Some("reg-1"));
 /// ```
 pub fn build_registration_state(
-    config: &PushDeviceConfig<'_>,
-    prefs: &PushPreferences,
+    binding: &GatewayBinding,
     request: &RegisterDeviceRequest,
     response: &RegisterDeviceResponse,
     registered_at: Option<&str>,
@@ -229,7 +232,7 @@ pub fn build_registration_state(
         push_gateway: response
             .accepted_gateway
             .clone()
-            .unwrap_or_else(|| prefs.push_gateway.clone()),
+            .unwrap_or_else(|| binding.push_gateway.clone()),
         push_key_hash: response
             .push_key_hash
             .clone()
@@ -244,7 +247,6 @@ pub fn build_registration_state(
         last_success_at: registered_at.map(str::to_owned),
         last_error: None,
     }
-    .with_registration_id_fallback(config.registration_id)
 }
 
 /// Merge a successful registration state into the locally persisted set.
@@ -308,26 +310,22 @@ impl PushRegistrationState {
         });
         self
     }
-
-    fn with_registration_id_fallback(mut self, fallback: Option<&str>) -> Self {
-        if self.registration_id.is_none() {
-            self.registration_id = fallback.map(str::to_owned);
-        }
-        self
-    }
 }
 
 /// Builds an unregister request body that matches a stored registration state.
 ///
 /// Used by repair flows to clean up state-side records that no longer match
-/// the current device/token.
+/// the current device/token. The synthetic binding uses
+/// [`PushGatewayType::Standard`](crate::PushGatewayType::Standard) as a
+/// placeholder — `gateway_type` is not echoed on the wire and unregister
+/// resolves `app_id` straight from the persisted state, so the choice has
+/// no observable effect.
 pub(super) fn build_unregister_request_for_state(
     state: &PushRegistrationState,
     config: &PushDeviceConfig<'_>,
     prefs: &PushPreferences,
 ) -> Result<UnregisterDeviceRequest, crate::PushRegistrationError> {
-    let mut unregister_prefs = prefs.clone();
-    unregister_prefs.push_gateway = state.push_gateway.clone();
+    let binding = GatewayBinding::new(crate::PushGatewayType::Standard, state.push_gateway.clone());
 
     let unregister_config = PushDeviceConfig {
         principal_did: state.principal_did.as_deref().or(config.principal_did),
@@ -343,14 +341,14 @@ pub(super) fn build_unregister_request_for_state(
         proof: config.proof,
     };
 
-    crate::build_unregister_device_request(&unregister_config, &unregister_prefs)
+    crate::build_unregister_device_request(&unregister_config, &binding, prefs)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::build_register_device_request;
-    use crate::state::test_fixtures::{config, prefs, state_for};
+    use crate::state::test_fixtures::{binding, config, prefs, state_for};
 
     #[test]
     fn hashes_push_key_without_exposing_value() {
@@ -362,7 +360,8 @@ mod tests {
 
     #[test]
     fn builds_registration_state_from_success() {
-        let request = build_register_device_request(&config("fcm:new-token"), &prefs()).unwrap();
+        let request =
+            build_register_device_request(&config("fcm:new-token"), &binding(), &prefs()).unwrap();
         let response = RegisterDeviceResponse {
             ok: true,
             registration_id: Some("reg-new".to_owned()),
@@ -376,8 +375,7 @@ mod tests {
         };
 
         let state = build_registration_state(
-            &config("fcm:new-token"),
-            &prefs(),
+            &binding(),
             &request,
             &response,
             Some("2026-04-29T00:00:00Z"),
@@ -494,19 +492,27 @@ mod tests {
 
         let prefs = crate::PushPreferences {
             enabled: true,
-            gateway_type: crate::PushGatewayType::Bugle,
+            gateways: vec![crate::GatewayBinding::new(
+                crate::PushGatewayType::Bugle,
+                "https://push.palpo.im/api/v1/push/notify",
+            )],
             ..crate::PushPreferences::default()
         };
         store.save_push_preferences(&prefs).unwrap();
         assert_eq!(
-            store.load_push_preferences().unwrap().unwrap().gateway_type,
-            crate::PushGatewayType::Bugle
+            store
+                .load_push_preferences()
+                .unwrap()
+                .unwrap()
+                .gateways
+                .len(),
+            1
         );
 
         // Default `clear` writes back the default preferences.
         store.clear_push_preferences().unwrap();
         let cleared = store.load_push_preferences().unwrap().unwrap();
         assert!(!cleared.enabled);
-        assert_eq!(cleared.gateway_type, crate::PushGatewayType::Standard);
+        assert!(cleared.gateways.is_empty());
     }
 }

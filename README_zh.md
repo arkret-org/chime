@@ -45,17 +45,23 @@ chime = { path = "../chime", features = ["http"] }
 
 ### 核心类型
 
-```rust
-use chime::{PushGatewayType, PushPreferences};
+```rust,ignore
+use chime::{GatewayBinding, PushGatewayType, PushPreferences};
 
-let mut prefs = PushPreferences {
+let prefs = PushPreferences {
     enabled: true,
-    gateway_type: PushGatewayType::Bugle,
+    gateways: vec![
+        GatewayBinding::new(
+            PushGatewayType::Bugle,
+            "https://push.palpo.im/api/v1/push/notify",
+        )
+        .with_app_id("app.example.android.cn"),
+    ],
     ..Default::default()
 };
-prefs.apply_gateway_type_defaults();
 
-let app_id = prefs.app_id(
+let binding = &prefs.gateways[0];
+let app_id = binding.resolve_app_id(
     Some(chime::PushPlatform::Android),
     Some("app.example.android"),
     Some("app.example.android.cn"),
@@ -64,13 +70,16 @@ assert_eq!(app_id, Some("app.example.android.cn"));
 
 let json = chime::to_json(&prefs).unwrap();
 let loaded = chime::from_json(&json).unwrap();
-assert_eq!(loaded.gateway_type, PushGatewayType::Bugle);
+assert_eq!(loaded.gateways[0].gateway_type, PushGatewayType::Bugle);
 ```
 
 ### 构建 Contrix 注册请求体
 
-```rust
-use chime::{PushDeviceConfig, PushPreferences, build_register_device_request};
+```rust,ignore
+use chime::{
+    GatewayBinding, PushDeviceConfig, PushGatewayType, PushPreferences,
+    build_register_device_request,
+};
 
 let config = PushDeviceConfig {
     principal_did: Some("did:web:alice.example"),
@@ -86,20 +95,25 @@ let config = PushDeviceConfig {
     proof: None,
 };
 
+let binding = GatewayBinding::new(
+    PushGatewayType::Standard,
+    "https://push.example.com/api/v1/push/notify",
+);
 let prefs = PushPreferences {
     enabled: true,
-    push_gateway: "https://push.example.com/api/v1/push/notify".to_owned(),
     ..Default::default()
 };
 
-let request = build_register_device_request(&config, &prefs).unwrap();
+let request = build_register_device_request(&config, &binding, &prefs).unwrap();
 assert_eq!(request.device_id, "did:web:alice.example#device-phone");
 ```
 
 ### 通过 HTTP 注册
 
 ```rust,ignore
-use chime::{ContrixPushClient, PushDeviceConfig, PushPreferences};
+use chime::{
+    ContrixPushClient, GatewayBinding, PushDeviceConfig, PushGatewayType, PushPreferences,
+};
 
 let client = ContrixPushClient::new("https://principal.example")
     .with_bearer_token("session-token")
@@ -107,14 +121,16 @@ let client = ContrixPushClient::new("https://principal.example")
     .with_retry_policy(chime::PushRetryPolicy::conservative())
     .with_default_request_id("cx:req:01JS0KE000000000000000000");
 
-let response = client.register_device_with_context(&config, &prefs).await?;
+let response = client
+    .register_device_with_context(&config, &binding, &prefs)
+    .await?;
 assert!(response.body.ok);
 ```
 
 生产接入注意事项：
 
-- 认证材料只通过 header 发送。不要把 session token、API key、签名或 bearer token 放进 `push_gateway` query string。
-- `push_gateway` 必须使用 HTTPS；只有 localhost 开发场景可以显式打开 `allow_insecure_loopback_push_gateway`。
+- 认证材料只通过 header 发送。不要把 session token、API key、签名或 bearer token 放进 binding 的 `push_gateway` URL query string。
+- 每个 binding 的 `push_gateway` 必须使用 HTTPS；只有 localhost 开发场景可以显式打开 `allow_insecure_loopback_push_gateway`。
 - WebPush 注册可以设置 `webpush_endpoint_allowlist`，在浏览器 endpoint 发送给服务端前限制允许的 origin 或 host pattern。
 - `push_key` 在 debug output 和日志中会脱敏；调用方仍应按 secret 存储。
 - `ContrixPushClient` 只重试安全的幂等请求：register 需要 idempotency key，unregister 按幂等处理。客户端会优先遵守 `Retry-After`，再使用 exponential backoff 和有界 jitter。
@@ -130,7 +146,7 @@ use chime::{
     build_register_signing_context_with_options,
 };
 
-let request = build_register_device_request(&config, &prefs)?;
+let request = build_register_device_request(&config, &binding, &prefs)?;
 let context = build_register_signing_context_with_options(
     "https://principal.example",
     &request,
@@ -169,6 +185,7 @@ let existing: Option<PushRegistrationState> = store.load_push_registration()?;
 let plan = plan_token_rotation_with_strategy(
     existing.as_ref(),
     &config,
+    &binding,
     &prefs,
     PushTokenRotationStrategy::RegisterNewFirst,
 )?;
@@ -209,7 +226,7 @@ if let Some(unregister_old) = plan.unregister_old {
   `https://fcm.googleapis.com` 是常见条目。
 - **认证只走 header，不走 URL。** Session token、bearer token、API
   key、HTTP message signature 都必须通过 header 传递。把它们放在
-  `push_gateway` 的 query string 里会被直接拒。
+  binding 的 `push_gateway` query string 里会被直接拒。
 - **Session grant 默认 fail-closed。** `ContrixPushClient::new(...)`
   默认 `with_required_session_grant(true)`。register/unregister 调用前
   务必先 `with_session_grant("...")`（或 `with_header(...)`）挂上
@@ -273,9 +290,9 @@ Register/unregister 请求体会携带 canonical operation id、可选 `principa
 Contrix Client
         |
         v
-   +---------+     PushPreferences
-   |  chime  | --> PushGatewayType { Standard, Bugle, Custom }
-   +----+----+     build_register_device_request()
+   +---------+     PushPreferences { gateways: Vec<GatewayBinding> }
+   |  chime  | --> GatewayBinding { gateway_type, push_gateway, push_key, app_id }
+   +----+----+     build_register_device_request(config, binding, prefs)
         |          ContrixPushClient (可选)
         v
 Principal Server / Sync Service
