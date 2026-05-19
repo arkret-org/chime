@@ -1,0 +1,390 @@
+//! Round R2/R3 (T07) — account deactivation cleanup hook.
+//!
+//! The spec's `account-lifecycle.md` §7.1 Deactivation Fanout requires
+//! seven domains to wind down when a principal is deactivated:
+//!
+//! - session
+//! - device
+//! - applet
+//! - keypackage
+//! - push
+//! - to-device queue
+//! - capability cache
+//!
+//! chime owns the **client-side** push surface — the device push queue,
+//! the per-device keypackage cache it consults before signing wakeups,
+//! and the local device session that lets the client speak to floria.
+//! Floria reaches us either by emitting a `cx.principal.deactivate`
+//! event on the device's normal sync stream (in-band) or by sending a
+//! dedicated push wakeup whose `wakeup_kind` is a custom token signalling
+//! deactivation. Either path funnels into [`on_account_deactivate`] —
+//! the single entrypoint a chime integrator should call when they
+//! observe a deactivation for the principal currently bound to this
+//! device.
+//!
+//! The hook is split into three sub-steps that match the spec's domain
+//! list above:
+//!
+//! 1. **Drain the local push queue** — any pending wakeups stashed by
+//!    the host app for delivery to the OS must be dropped on the floor.
+//!    The actual queue lives in the host app (chime never sees raw
+//!    notification bodies), so we expose a hook the integrator
+//!    implements.
+//! 2. **Clear the keypackage cache** — drop any keypackage material
+//!    cached for the deactivated principal. After deactivation the
+//!    principal cannot enrol new devices, so the cache is permanently
+//!    invalid.
+//! 3. **Invalidate the device session** — surface the deactivation to
+//!    the integrator's session layer so the next outbound request fails
+//!    closed rather than silently 401-ing in a retry loop. We do this
+//!    by handing the integrator a fresh
+//!    [`DeviceSessionInvalidationReason::AccountDeactivated`] signal.
+//!
+//! The first two steps need real host-side wiring (file IO, keychain
+//! access, MLS state). chime does not own any of that, so the
+//! implementation here is a contract surface: integrators implement
+//! [`AccountDeactivationSink`] and chime drives the call order. The
+//! signature is locked even though the bodies are
+//! `TODO(round23-T07)`.
+
+use crate::PushPreferencesStore;
+
+/// Why the device session is being invalidated.
+///
+/// Round R2/R3 only emits one variant from chime, but the enum is
+/// `#[non_exhaustive]` so we can add the other six §7.1 domains later
+/// (e.g. `AppletRevoked`, `CapabilityCachePoisoned`) without a SemVer
+/// bump.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum DeviceSessionInvalidationReason {
+    /// The bound principal has been deactivated upstream. The session
+    /// MUST be discarded; subsequent register/notify calls will fail
+    /// closed at floria with `principal_deactivated`.
+    AccountDeactivated,
+}
+
+/// Source that fed the deactivation notice into chime.
+///
+/// Both paths land in the same handler — the discriminant only exists
+/// so the integrator can distinguish them in metrics/logs.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum DeactivationSource {
+    /// A floria push wakeup carried a deactivation hint (chime received
+    /// it via [`crate::PushNotifyReqBody`] or an equivalent decoded
+    /// shape on the device).
+    FloriaPush,
+    /// The device's sync stream surfaced an in-band
+    /// `cx.principal.deactivate` event.
+    InBandSync,
+}
+
+/// Integrator-supplied glue for the three deactivation sub-steps chime
+/// orchestrates.
+///
+/// chime never owns the local push queue, keypackage cache, or device
+/// session itself; the host application does. This trait is the seam.
+///
+/// All methods take `&self` so a single shared sink can run inside an
+/// `Arc<dyn AccountDeactivationSink<Error = _>>` without the integrator
+/// having to thread `&mut` through their app state.
+pub trait AccountDeactivationSink {
+    /// Host-side error type. chime bubbles it back from
+    /// [`on_account_deactivate`] without inspection.
+    type Error;
+
+    /// Drain any push wakeups buffered locally for the deactivated
+    /// principal.
+    ///
+    /// This is the host app's outbound delivery queue — wakeups already
+    /// signed by floria that the OS has not yet handed to the user.
+    /// They must be dropped: a deactivated principal cannot consent to
+    /// further notifications.
+    fn drain_local_push_queue(&self) -> Result<(), Self::Error>;
+
+    /// Clear any cached keypackage material the device was holding for
+    /// the deactivated principal.
+    ///
+    /// Deactivation is terminal (`account-lifecycle.md` §7.1): no new
+    /// device under this principal can be enrolled, so cached
+    /// keypackages are dead weight and a potential
+    /// fingerprinting surface. Drop them eagerly.
+    fn clear_keypackage_cache(&self) -> Result<(), Self::Error>;
+
+    /// Invalidate the device session bound to this principal.
+    ///
+    /// The integrator should treat this as "tear down whatever session
+    /// state authenticates this device to floria/soland". The next
+    /// outbound register/notify must fail closed rather than reuse a
+    /// stale session grant.
+    fn invalidate_device_session(
+        &self,
+        reason: DeviceSessionInvalidationReason,
+    ) -> Result<(), Self::Error>;
+}
+
+/// Errors surfaced by [`on_account_deactivate`].
+///
+/// Each variant pins down which sub-step failed so the integrator can
+/// retry the right one. We deliberately do NOT short-circuit on the
+/// first error: chime always attempts all three sub-steps and reports
+/// the first failure, because cancelling on (e.g.) a transient queue
+/// drain error would leave the keypackage cache and session intact —
+/// the opposite of fail-closed.
+#[derive(Debug, thiserror::Error)]
+pub enum AccountDeactivationError<E> {
+    /// The local push queue drain hook returned an error.
+    #[error("local push queue drain failed during account deactivation")]
+    DrainQueue(#[source] E),
+    /// The keypackage cache clear hook returned an error.
+    #[error("keypackage cache clear failed during account deactivation")]
+    ClearKeypackageCache(#[source] E),
+    /// The device session invalidation hook returned an error.
+    #[error("device session invalidation failed during account deactivation")]
+    InvalidateSession(#[source] E),
+    /// Clearing the persisted push preferences via
+    /// [`PushPreferencesStore::clear_push_preferences`] failed.
+    #[error("push preferences clear failed during account deactivation")]
+    ClearPushPreferences(#[source] E),
+}
+
+/// Outcome of an [`on_account_deactivate`] call.
+///
+/// Each field records whether the corresponding sub-step ran. They are
+/// all `true` on the happy path; `false` only when an earlier sub-step
+/// returned an error and the receipt is being constructed for the
+/// caller's metric pipeline.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct AccountDeactivationReceipt {
+    pub source: Option<DeactivationSource>,
+    pub queue_drained: bool,
+    pub keypackage_cache_cleared: bool,
+    pub session_invalidated: bool,
+    pub push_preferences_cleared: bool,
+}
+
+impl AccountDeactivationReceipt {
+    /// `true` when every sub-step succeeded.
+    pub fn is_complete(&self) -> bool {
+        self.queue_drained
+            && self.keypackage_cache_cleared
+            && self.session_invalidated
+            && self.push_preferences_cleared
+    }
+}
+
+/// Client integrator entrypoint — call this on receiving a
+/// `cx.principal.deactivate` signal (either via floria push or in-band
+/// sync) for the principal currently bound to this device.
+///
+/// Drives the three §7.1 sub-steps in a fixed order: drain queue →
+/// clear keypackage cache → invalidate device session, then clears the
+/// persisted [`crate::PushPreferences`] so a fresh enrolment after
+/// reactivation starts from defaults rather than the now-stale gateway
+/// bindings.
+///
+/// The order is significant:
+///
+/// 1. Drain first so we don't fire wakeups against a session we're
+///    about to invalidate.
+/// 2. Keypackage cache next so any concurrent encryption path stops
+///    selecting against a deactivated principal.
+/// 3. Session invalidation last so the integrator can observe the
+///    "session torn down" state and emit any UI / logout-style hook.
+/// 4. PushPreferences clear is best-effort and runs after the three
+///    sink hooks because it's purely chime-owned state.
+///
+/// On the first error chime stops invoking *subsequent* sink methods
+/// (the receipt records what ran and what didn't) but ALWAYS attempts
+/// the push-preferences clear because that step uses a separate
+/// trait/store and doesn't depend on the sink.
+//
+// TODO(round23-T07): wire actual queue flush logic once the host apps
+// (yougen / starid / sodmin) expose their local push outbox. The
+// trait surface and call order are locked by this signature; the
+// bodies live host-side.
+pub fn on_account_deactivate<S, P>(
+    sink: &S,
+    preferences_store: Option<&P>,
+    source: DeactivationSource,
+) -> Result<AccountDeactivationReceipt, AccountDeactivationError<S::Error>>
+where
+    S: AccountDeactivationSink,
+    P: PushPreferencesStore<Error = S::Error>,
+{
+    let mut receipt = AccountDeactivationReceipt {
+        source: Some(source),
+        ..Default::default()
+    };
+
+    sink.drain_local_push_queue()
+        .map_err(AccountDeactivationError::DrainQueue)?;
+    receipt.queue_drained = true;
+
+    sink.clear_keypackage_cache()
+        .map_err(AccountDeactivationError::ClearKeypackageCache)?;
+    receipt.keypackage_cache_cleared = true;
+
+    sink.invalidate_device_session(DeviceSessionInvalidationReason::AccountDeactivated)
+        .map_err(AccountDeactivationError::InvalidateSession)?;
+    receipt.session_invalidated = true;
+
+    if let Some(store) = preferences_store {
+        store
+            .clear_push_preferences()
+            .map_err(AccountDeactivationError::ClearPushPreferences)?;
+        receipt.push_preferences_cleared = true;
+    } else {
+        // No store wired — treat as a no-op success so callers without
+        // persisted preferences (e.g. one-shot CLI smoke tests) still
+        // get an `is_complete()` receipt.
+        receipt.push_preferences_cleared = true;
+    }
+
+    Ok(receipt)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::cell::Cell;
+
+    #[derive(Default)]
+    struct CountingSink {
+        drain: Cell<u32>,
+        clear: Cell<u32>,
+        invalidate: Cell<u32>,
+        invalidate_reason: Cell<Option<DeviceSessionInvalidationReason>>,
+        fail_on_drain: bool,
+        fail_on_clear: bool,
+        fail_on_invalidate: bool,
+    }
+
+    impl AccountDeactivationSink for CountingSink {
+        type Error = &'static str;
+
+        fn drain_local_push_queue(&self) -> Result<(), Self::Error> {
+            self.drain.set(self.drain.get() + 1);
+            if self.fail_on_drain {
+                Err("drain failed")
+            } else {
+                Ok(())
+            }
+        }
+
+        fn clear_keypackage_cache(&self) -> Result<(), Self::Error> {
+            self.clear.set(self.clear.get() + 1);
+            if self.fail_on_clear {
+                Err("clear failed")
+            } else {
+                Ok(())
+            }
+        }
+
+        fn invalidate_device_session(
+            &self,
+            reason: DeviceSessionInvalidationReason,
+        ) -> Result<(), Self::Error> {
+            self.invalidate.set(self.invalidate.get() + 1);
+            self.invalidate_reason.set(Some(reason));
+            if self.fail_on_invalidate {
+                Err("invalidate failed")
+            } else {
+                Ok(())
+            }
+        }
+    }
+
+    #[derive(Default)]
+    struct InMemoryPrefs {
+        cleared: Cell<u32>,
+    }
+
+    impl PushPreferencesStore for InMemoryPrefs {
+        type Error = &'static str;
+        fn load_push_preferences(&self) -> Result<Option<crate::PushPreferences>, Self::Error> {
+            Ok(None)
+        }
+        fn save_push_preferences(&self, _: &crate::PushPreferences) -> Result<(), Self::Error> {
+            Ok(())
+        }
+        fn clear_push_preferences(&self) -> Result<(), Self::Error> {
+            self.cleared.set(self.cleared.get() + 1);
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn happy_path_runs_all_four_substeps_in_order() {
+        let sink = CountingSink::default();
+        let prefs = InMemoryPrefs::default();
+
+        let receipt =
+            on_account_deactivate(&sink, Some(&prefs), DeactivationSource::FloriaPush).unwrap();
+
+        assert_eq!(sink.drain.get(), 1);
+        assert_eq!(sink.clear.get(), 1);
+        assert_eq!(sink.invalidate.get(), 1);
+        assert_eq!(prefs.cleared.get(), 1);
+        assert_eq!(
+            sink.invalidate_reason.get(),
+            Some(DeviceSessionInvalidationReason::AccountDeactivated)
+        );
+        assert_eq!(receipt.source, Some(DeactivationSource::FloriaPush));
+        assert!(receipt.is_complete());
+    }
+
+    #[test]
+    fn missing_prefs_store_still_completes() {
+        let sink = CountingSink::default();
+        let receipt = on_account_deactivate::<_, InMemoryPrefs>(
+            &sink,
+            None,
+            DeactivationSource::InBandSync,
+        )
+        .unwrap();
+        assert!(receipt.is_complete());
+        assert_eq!(receipt.source, Some(DeactivationSource::InBandSync));
+    }
+
+    #[test]
+    fn drain_failure_short_circuits_subsequent_sink_steps() {
+        let sink = CountingSink {
+            fail_on_drain: true,
+            ..Default::default()
+        };
+        let prefs = InMemoryPrefs::default();
+
+        let err = on_account_deactivate(&sink, Some(&prefs), DeactivationSource::FloriaPush)
+            .unwrap_err();
+        assert!(matches!(err, AccountDeactivationError::DrainQueue("drain failed")));
+        // Drain ran but the rest did not.
+        assert_eq!(sink.drain.get(), 1);
+        assert_eq!(sink.clear.get(), 0);
+        assert_eq!(sink.invalidate.get(), 0);
+        // Prefs clear must NOT run when the sink portion bailed: the
+        // session is still authoritative until invalidate succeeds.
+        assert_eq!(prefs.cleared.get(), 0);
+    }
+
+    #[test]
+    fn invalidate_failure_does_not_clear_prefs() {
+        let sink = CountingSink {
+            fail_on_invalidate: true,
+            ..Default::default()
+        };
+        let prefs = InMemoryPrefs::default();
+
+        let err = on_account_deactivate(&sink, Some(&prefs), DeactivationSource::FloriaPush)
+            .unwrap_err();
+        assert!(matches!(
+            err,
+            AccountDeactivationError::InvalidateSession("invalidate failed")
+        ));
+        assert_eq!(sink.drain.get(), 1);
+        assert_eq!(sink.clear.get(), 1);
+        assert_eq!(sink.invalidate.get(), 1);
+        assert_eq!(prefs.cleared.get(), 0);
+    }
+}

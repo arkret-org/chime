@@ -919,6 +919,129 @@ fn is_never_allowed_payload_key(key: &str) -> bool {
     )
 }
 
+/// Round R2/R3 sensitive fields that must NEVER appear in any blind push
+/// payload — mirrors floria T07/T10/T06.
+///
+/// These fields belong to spec round 2+3 governance surfaces (moderation
+/// appeals, attestation evidence, cross-signing reset, identity link
+/// routing, realm/space terminal lifecycle). They are deliberately *not*
+/// part of the SDK's [`contrix::blind_payload_sanitizer::is_forbidden_payload_key`]
+/// list yet — the SDK list is generic across services, and chime owns
+/// the policy that says "if a R2/R3 governance identifier ever leaks
+/// into a push wakeup, that's a programmer error worth panicking on in
+/// debug builds." Production builds get the same field surfaced via
+/// [`assert_no_sensitive_fields`] returning an `Err` instead.
+///
+/// Kept as a flat slice (rather than a `match`) so the array is itself
+/// public API — tests in chime / floria / yougen can iterate it to
+/// build negative-vector fixtures.
+pub const ROUND_R2_R3_SENSITIVE_FIELDS: &[&str] = &[
+    // T07 — moderation appeals
+    "appeal_id",
+    "appellant",
+    "reviewer",
+    "decision_ref",
+    "modify_decision_ref",
+    // T10 — attestation evidence
+    "attestation_evidence",
+    "audit_agent_did",
+    "audit_purpose",
+    "audit_policy_version_hash",
+    "audit_policy_version_id",
+    "attestation_chain",
+    "attestation_key",
+    "report_data",
+    // T06 — cross-signing reset wire-break
+    "trust_domain",
+    "trust_domain_id",
+    "reset_event_id",
+    "previous_generation",
+    "new_generation",
+    // T11 — identity link cache + policy frontier
+    "policy_frontier_hash",
+    "pairwise_did",
+    "identity_disclosure_profile",
+    "minimal_metadata_mode",
+    // T16 / T17 — realm/space terminal lifecycle
+    "tombstone_event_id",
+    "successor_realm_id",
+    "erasure_receipt_id",
+];
+
+/// Defense-in-depth: panic in debug if any of the round 2+3 sensitive
+/// fields leak into a blind push payload.
+///
+/// chime is the **client-side** push receiver — it almost never needs
+/// to parse the body of a blind wakeup, because the body should only
+/// carry routing metadata (`push_target_id`, `wakeup_kind`, `counts`,
+/// `push_hint`). But if a chime integrator ever passes the decoded
+/// payload through their own pipeline (e.g. to drive an in-app inbox
+/// projection), this helper acts as a cheap final tripwire to catch
+/// the case where floria's sanitizer was bypassed, a wire schema
+/// changed without chime catching up, or a test fixture accidentally
+/// carries spec-round-2/3 governance state.
+///
+/// The check is recursive — nested objects and arrays inside `payload`
+/// are walked, and any sensitive field name at any depth is flagged.
+///
+/// ## Behaviour
+///
+/// * In `debug_assertions` builds (typical for `cargo test` and dev
+///   builds) the function **panics** with the offending field path. We
+///   want loud failures during development — a leaked governance id is
+///   a privacy bug, not a recoverable user-input error.
+/// * In release builds it returns `Err(field_path)` so production
+///   integrations can log and fail closed without taking the process
+///   down. Returning the path (not just a bool) gives operators
+///   something to grep for in incident response.
+///
+/// Returns `Ok(())` when the payload is clean.
+//
+// TODO(round23-T07): once the SDK's `is_forbidden_payload_key` adopts
+// the R2/R3 governance fields, fold this list into the SDK call and
+// keep this helper as a thin wrapper that converts the SDK
+// `BlindPayloadError` into chime's panic-in-debug ergonomic.
+pub fn assert_no_sensitive_fields(payload: &Value) -> Result<(), String> {
+    fn walk(path: &str, value: &Value) -> Result<(), String> {
+        match value {
+            Value::Object(map) => {
+                for (key, nested) in map {
+                    let nested_path = if path.is_empty() {
+                        key.clone()
+                    } else {
+                        format!("{path}.{key}")
+                    };
+                    if ROUND_R2_R3_SENSITIVE_FIELDS
+                        .iter()
+                        .any(|forbidden| *forbidden == key.as_str())
+                    {
+                        return Err(nested_path);
+                    }
+                    walk(&nested_path, nested)?;
+                }
+                Ok(())
+            }
+            Value::Array(values) => {
+                for (index, nested) in values.iter().enumerate() {
+                    let nested_path = format!("{path}[{index}]");
+                    walk(&nested_path, nested)?;
+                }
+                Ok(())
+            }
+            _ => Ok(()),
+        }
+    }
+
+    if let Err(field_path) = walk("", payload) {
+        debug_assert!(
+            false,
+            "round 2+3 sensitive field `{field_path}` must never appear in a blind push payload"
+        );
+        return Err(field_path);
+    }
+    Ok(())
+}
+
 fn validate_base64_field(field: &'static str, value: &str) -> Result<(), EncryptedEnvelopeError> {
     let value = value.trim();
     if value.is_empty() {
@@ -1043,5 +1166,75 @@ mod tests {
         let debug = format!("{rejected:?}");
         assert!(debug.contains("fcm:<redacted"));
         assert!(!debug.contains("very-secret-token"));
+    }
+
+    #[test]
+    fn assert_no_sensitive_fields_accepts_clean_payload() {
+        let payload = serde_json::json!({
+            "push_target_id": "cx:pseudonym:push:01HYZ8Z000000000000000",
+            "wakeup_kind": "message",
+            "counts": {"unread": 1},
+        });
+        assert_no_sensitive_fields(&payload).unwrap();
+    }
+
+    #[test]
+    fn assert_no_sensitive_fields_rejects_round23_governance_fields() {
+        for field in ROUND_R2_R3_SENSITIVE_FIELDS {
+            let payload = serde_json::json!({
+                "push_target_id": "cx:pseudonym:push:01HYZ8Z000000000000000",
+                "wakeup_kind": "message",
+                *field: "leaked-value",
+            });
+            // The release-build return value is what we lock in;
+            // debug builds will panic in `walk` first, which is also
+            // what we want, so we run the function with a catch_unwind
+            // so the test verifies both paths.
+            let outcome = std::panic::catch_unwind(|| assert_no_sensitive_fields(&payload));
+            match outcome {
+                Ok(Ok(())) => panic!("field `{field}` slipped through"),
+                Ok(Err(path)) => assert!(
+                    path.contains(field),
+                    "returned path `{path}` should mention `{field}`"
+                ),
+                Err(_) => {
+                    // debug_assert! triggered — also a pass.
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn assert_no_sensitive_fields_walks_nested_objects() {
+        let payload = serde_json::json!({
+            "push_target_id": "cx:pseudonym:push:01HYZ8Z000000000000000",
+            "metadata": {
+                "deep": {
+                    "appeal_id": "cx:appeal:01ABC"
+                }
+            }
+        });
+        let outcome = std::panic::catch_unwind(|| assert_no_sensitive_fields(&payload));
+        match outcome {
+            Ok(Ok(())) => panic!("nested appeal_id slipped through"),
+            Ok(Err(path)) => assert!(path.contains("appeal_id")),
+            Err(_) => {} // debug panic path
+        }
+    }
+
+    #[test]
+    fn assert_no_sensitive_fields_walks_arrays() {
+        let payload = serde_json::json!({
+            "items": [
+                {"ok": 1},
+                {"trust_domain": "cx:trust_domain:example.net"}
+            ]
+        });
+        let outcome = std::panic::catch_unwind(|| assert_no_sensitive_fields(&payload));
+        match outcome {
+            Ok(Ok(())) => panic!("array trust_domain slipped through"),
+            Ok(Err(path)) => assert!(path.contains("trust_domain")),
+            Err(_) => {} // debug panic path
+        }
     }
 }
