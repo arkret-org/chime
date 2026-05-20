@@ -18,6 +18,23 @@ Following the Phase 1–4 terminology inversion, `chime` aligns push routes with
 - **Realm:** security boundary — membership, capability, E2EE, and federation are governed at this level. Push permission and per-realm mute apply here.
 - **Space:** navigation container — board, list, section, or calendar bucket. Lives inside a Realm and inherits its security context.
 
+## Round R4 (protocol review closures)
+
+Spec round 4 (`contrix-spec` range `2a4d39b..a77b995`, 8 commits) adds
+two client-SDK shape changes. See [`CHANGELOG.md`](CHANGELOG.md)
+`[Unreleased]` and [`../_todos.md`](../_todos.md) for the canonical
+wire-breaking list.
+
+- **`mention_redirect_target_actor_ids` recognition** — typed
+  push-payload structs expose the field; consumers (yougen et al.)
+  decide whether the active device's actor is an authorised
+  redirect target.
+- **New floria-passthrough error reason codes** —
+  `delivery_binding_stale` / `delivery_binding_handed_over` /
+  `historical_only` join the typed reason-code surface;
+  `historical_only` is annotated as diagnostic and suppresses
+  user-visible notification.
+
 ## Round R2/R3 notes
 
 Spec rounds 2+3 (2026-05-20) added the `lifecycle::on_account_deactivate`

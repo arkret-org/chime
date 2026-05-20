@@ -6,6 +6,22 @@ project follows [SemVer](https://semver.org/) once it reaches `1.0`.
 
 ## [Unreleased]
 
+### Round R4 — protocol review closures (2026-05-20, contrix-spec `2a4d39b..a77b995`)
+
+Client-side push SDK alignment with the round-4 wire shapes. See
+[`../_todos.md`](../_todos.md) for the workstream context.
+
+- **Added** recognition of the `mention_redirect_target_actor_ids` payload
+  field on message / system-message push routing — chime now exposes the
+  field through its typed push-payload types so consumers (yougen et al.)
+  can decide whether the active device is an authorised redirect target.
+- **Added** typed surface for the three new floria-passthrough error
+  reason codes (`delivery_binding_stale` / `delivery_binding_handed_over` /
+  `historical_only`); `historical_only` is annotated as diagnostic and
+  suppresses local user-visible notification.
+- **Added** DID method-name regex sweep tightened to
+  `^did:[a-z0-9]+:[^\s]+$` across chime's DID validators and test fixtures.
+
 ### Round R2/R3 (2026-05-20, spec rounds 2+3 close-out, 17 P0/P1 tasks)
 
 #### Added

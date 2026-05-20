@@ -10,6 +10,13 @@ use base64::{Engine as _, engine::general_purpose};
 use contrix::blind_payload_sanitizer::{
     self as sdk_sanitizer, BlindPayloadError, BlindPayloadReasonCode,
 };
+// Round 4 (B5, spec a77b995) — pull the typed shapes for
+// `mention_redirect_target_actor_ids` plaintext routing and the
+// `cx.audit.policy_access` late-key-recovery banner straight from the
+// SDK so chime stays byte-aligned with what soland/floria emit. The
+// SDK module is `contrix::model::round4::*`, re-exported via
+// `contrix::model::*` and the crate root.
+use contrix::{AccessKind, AuditPolicyAccessPayload, Did, EventId, MentionRedirectRouting};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use thiserror::Error;
@@ -273,6 +280,36 @@ pub struct PushNotification {
     pub push_hint: Option<PushHint>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub counts: Option<Value>,
+    /// Round 4 (B5, spec a77b995) — plaintext routing fragment for
+    /// mention-redirect scenarios. Only actor DIDs in
+    /// `mention_redirect_target_actor_ids` are permitted to decrypt the
+    /// (otherwise encrypted) message body at the push layer. If the
+    /// receiver's actor_id is NOT in the list, the body MUST stay
+    /// encrypted and the wakeup is delivered as opaque routing
+    /// metadata only — see [`PushNotification::decrypt_allowed_for_actor`].
+    ///
+    /// The field is intentionally typed (`MentionRedirectRouting`,
+    /// re-exported from `contrix::model::round4`) rather than carried in
+    /// `extra`, so consumers cannot accidentally bypass the fail-closed
+    /// check by reading raw JSON.
+    ///
+    /// Wire shape (canonical, both modes):
+    /// ```json
+    /// "mention_redirect": {
+    ///     "mention_redirect_target_actor_ids": ["did:web:alice.example", "did:webvh:bob.example"]
+    /// }
+    /// ```
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mention_redirect: Option<MentionRedirectRouting>,
+    /// Round 4 (B5) — typed `cx.audit.policy_access` payload surfaced to
+    /// consumers (e.g. yougen) so the late-key-recovery banner can read
+    /// `late_recovery_original_event_id` directly off the wakeup. This
+    /// is diagnostic context — push layer never decrypts on the
+    /// strength of this field alone. The SDK validates the
+    /// `(access_kind, late_recovery_original_event_id)` pairing via
+    /// [`contrix::AuditPolicyAccessPayload::validate_minimal`].
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub policy_access: Option<AuditPolicyAccessPayload>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub devices: Vec<PushNotificationDevice>,
     #[serde(flatten)]
@@ -374,6 +411,62 @@ impl PushNotification {
         }
 
         Ok(())
+    }
+
+    /// Round 4 (B5) — `mention_redirect_target_actor_ids` fail-closed
+    /// gate. Returns `true` iff the (encrypted) body MAY be decrypted
+    /// at the push layer for `receiver_actor_id`.
+    ///
+    /// Semantics:
+    /// - When [`Self::mention_redirect`] is `None`, this is NOT a
+    ///   mention-redirect scenario and the call returns `true` (the
+    ///   normal recipient-set gate elsewhere applies).
+    /// - When `mention_redirect` is `Some`, the receiver's actor DID
+    ///   MUST appear in `mention_redirect_target_actor_ids` to be
+    ///   permitted. **Empty array means nobody is permitted** —
+    ///   fail-closed by construction.
+    ///
+    /// This is the canonical accessor consumers (yougen, floria, host
+    /// apps) should call before unwrapping the body. Direct reads of
+    /// `self.mention_redirect.mention_redirect_target_actor_ids` are
+    /// permitted for display but MUST NOT gate decryption — the
+    /// fail-closed semantics live here, not at the call site.
+    pub fn decrypt_allowed_for_actor(&self, receiver_actor_id: &Did) -> bool {
+        let Some(routing) = &self.mention_redirect else {
+            // Not a mention-redirect wakeup; gate is decided elsewhere.
+            return true;
+        };
+        routing
+            .mention_redirect_target_actor_ids
+            .iter()
+            .any(|allowed| allowed == receiver_actor_id)
+    }
+
+    /// Round 4 (B5) — return `true` when this wakeup carries
+    /// mention-redirect plaintext routing (regardless of whether any
+    /// actor is permitted). Consumers can branch on this to render
+    /// "@-mention redirected to N actors" UI.
+    pub fn has_mention_redirect_routing(&self) -> bool {
+        self.mention_redirect.is_some()
+    }
+
+    /// Round 4 (B5) — when the wakeup is a late-key-recovery audit
+    /// surface (`cx.audit.policy_access.access_kind = e2ee_late_recovery`),
+    /// return the `late_recovery_original_event_id` so the consumer can
+    /// render a "the system recovered an old key for event X" banner.
+    ///
+    /// Returns `None` when:
+    /// - `policy_access` is absent
+    /// - `access_kind` is NOT `E2EELateRecovery` (any other kind has no
+    ///   banner contract)
+    /// - `late_recovery_original_event_id` is absent (defensive — the
+    ///   SDK validator already rejects this combination)
+    pub fn late_recovery_event_id(&self) -> Option<&EventId> {
+        let payload = self.policy_access.as_ref()?;
+        match payload.access_kind {
+            AccessKind::E2EELateRecovery => payload.late_recovery_original_event_id.as_ref(),
+            _ => None,
+        }
     }
 }
 
@@ -524,7 +617,14 @@ impl EncryptedEnvelope {
         if self.recipient.trim().is_empty() {
             return Err(EncryptedEnvelopeError::MissingField { field: "recipient" });
         }
-        if !self.recipient.starts_with("did:") {
+        // Round 4 (B5, spec a77b995) — DID regex sweep: route the
+        // recipient through the SDK's tightened `Did::new` validator
+        // (`^did:[a-z0-9]+:[^\s]+$`) instead of the previous
+        // permissive `starts_with("did:")` shape. The pre-round-4 form
+        // accepted method names with `.`/`-`/`_`/`:` which is now
+        // wire-broken; reject them at the EncryptedEnvelope boundary
+        // so chime can't be used to smuggle them past floria.
+        if Did::new(self.recipient.clone()).is_err() {
             return Err(EncryptedEnvelopeError::InvalidRecipient {
                 got: self.recipient.clone(),
             });
@@ -1082,6 +1182,8 @@ mod tests {
             realm_name: None,
             push_hint: Some(PushHint::new("new_message").unwrap()),
             counts: Some(serde_json::json!({ "unread": 1 })),
+            mention_redirect: None,
+            policy_access: None,
             devices: vec![device()],
             extra: Map::new(),
         }
@@ -1146,6 +1248,38 @@ mod tests {
         envelope.validate().unwrap();
         assert!(EncryptedEnvelope::new("alice", "x25519", "Y2lwaGVydGV4dA==").is_err());
         assert!(EncryptedEnvelope::new("did:web:alice", "x25519", "not base64!").is_err());
+    }
+
+    #[test]
+    fn encrypted_envelope_rejects_pre_round4_permissive_did_methods() {
+        // Round 4 (B5) DID regex sweep: method names with `.`, `-`,
+        // `_`, or `:` are wire-broken; the tightened regex
+        // `^did:[a-z0-9]+:[^\s]+$` forbids them. Each of these
+        // pre-round-4 forms used to pass the permissive
+        // `starts_with("did:")` check; they MUST now fail validation.
+        // Negative test asserts round-4 regex rejects legacy method punctuation.
+        for bad_did in [
+            "did:web.acme:alice",   // dot in method — ROUND4-ALLOW: negative test
+            "did:web-acme:alice",   // dash in method — ROUND4-ALLOW: negative test
+            "did:web_acme:alice",   // underscore in method — ROUND4-ALLOW: negative test
+            "did:web:al ice",       // whitespace in method-specific-id
+        ] {
+            let envelope = EncryptedEnvelope {
+                recipient: bad_did.to_owned(),
+                algorithm: "x25519".to_owned(),
+                ciphertext: "Y2lwaGVydGV4dA==".to_owned(),
+                nonce: None,
+                key_id: None,
+                aad: None,
+            };
+            assert!(
+                matches!(
+                    envelope.validate(),
+                    Err(EncryptedEnvelopeError::InvalidRecipient { .. })
+                ),
+                "pre-round-4 DID `{bad_did}` must be rejected post-round4",
+            );
+        }
     }
 
     #[test]
@@ -1233,5 +1367,119 @@ mod tests {
             Ok(Err(path)) => assert!(path.contains("trust_domain")),
             Err(_) => {} // debug panic path
         }
+    }
+
+    // ── Round 4 (B5) — mention_redirect plaintext routing tests ───────
+
+    #[test]
+    fn decrypt_allowed_for_actor_no_routing_is_open() {
+        // No `mention_redirect` field → not a mention-redirect wakeup,
+        // gate decision lives elsewhere, return true.
+        let notification = notification();
+        let actor = Did::new("did:web:alice.example").unwrap();
+        assert!(notification.decrypt_allowed_for_actor(&actor));
+        assert!(!notification.has_mention_redirect_routing());
+    }
+
+    #[test]
+    fn decrypt_allowed_for_actor_in_list_passes() {
+        let mut notification = notification();
+        let alice = Did::new("did:web:alice.example").unwrap();
+        let bob = Did::new("did:webvh:bob.example").unwrap();
+        notification.mention_redirect = Some(MentionRedirectRouting {
+            mention_redirect_target_actor_ids: vec![alice.clone(), bob.clone()],
+        });
+        assert!(notification.has_mention_redirect_routing());
+        assert!(notification.decrypt_allowed_for_actor(&alice));
+        assert!(notification.decrypt_allowed_for_actor(&bob));
+    }
+
+    #[test]
+    fn decrypt_allowed_for_actor_not_in_list_is_fail_closed() {
+        let mut notification = notification();
+        let alice = Did::new("did:web:alice.example").unwrap();
+        let mallory = Did::new("did:web:mallory.example").unwrap();
+        notification.mention_redirect = Some(MentionRedirectRouting {
+            mention_redirect_target_actor_ids: vec![alice],
+        });
+        // Mallory is not in the list → fail-closed.
+        assert!(!notification.decrypt_allowed_for_actor(&mallory));
+    }
+
+    #[test]
+    fn decrypt_allowed_for_actor_empty_list_is_fail_closed() {
+        // B5: an empty mention_redirect_target_actor_ids array means
+        // *nobody* is allowed — explicit empty wakeups should not fall
+        // back to "open". Fail closed by construction.
+        let mut notification = notification();
+        notification.mention_redirect = Some(MentionRedirectRouting::default());
+        let anyone = Did::new("did:web:anyone.example").unwrap();
+        assert!(notification.has_mention_redirect_routing());
+        assert!(!notification.decrypt_allowed_for_actor(&anyone));
+    }
+
+    #[test]
+    fn mention_redirect_round_trips_through_json() {
+        let mut notification = notification();
+        let alice = Did::new("did:web:alice.example").unwrap();
+        notification.mention_redirect = Some(MentionRedirectRouting {
+            mention_redirect_target_actor_ids: vec![alice.clone()],
+        });
+        let json = serde_json::to_string(&notification).unwrap();
+        // Ensure the field is serialised under the canonical wire name.
+        assert!(
+            json.contains("mention_redirect_target_actor_ids"),
+            "wire name must survive serde: {json}",
+        );
+        let loaded: PushNotification = serde_json::from_str(&json).unwrap();
+        assert!(loaded.decrypt_allowed_for_actor(&alice));
+    }
+
+    // ── Round 4 (B5) — e2ee_late_recovery banner surface tests ────────
+
+    #[test]
+    fn late_recovery_event_id_is_some_for_e2ee_late_recovery() {
+        // Parse the SDK shape via JSON so chime doesn't need to depend
+        // on `chrono` directly to construct timestamps in tests.
+        let payload: AuditPolicyAccessPayload = serde_json::from_value(serde_json::json!({
+            "realm_id": "cx:realm:01904100-0000-7000-8000-000000000001",
+            "actor": "did:web:alice.example",
+            "access_kind": "e2_e_e_late_recovery",
+            "late_recovery_original_event_id":
+                "cx:event:01904100-0000-7000-8000-000000000002",
+            "observed_at": "2026-05-20T00:00:00Z",
+        }))
+        .unwrap();
+        // Sanity-check the SDK validator agrees.
+        payload.validate_minimal().unwrap();
+
+        let expected_event_id =
+            EventId::new("cx:event:01904100-0000-7000-8000-000000000002").unwrap();
+        let mut notification = notification();
+        notification.policy_access = Some(payload);
+        assert_eq!(
+            notification.late_recovery_event_id(),
+            Some(&expected_event_id)
+        );
+    }
+
+    #[test]
+    fn late_recovery_event_id_is_none_for_other_access_kinds() {
+        let payload: AuditPolicyAccessPayload = serde_json::from_value(serde_json::json!({
+            "realm_id": "cx:realm:01904100-0000-7000-8000-000000000001",
+            "actor": "did:web:alice.example",
+            "access_kind": "audit",
+            "observed_at": "2026-05-20T00:00:00Z",
+        }))
+        .unwrap();
+        let mut notification = notification();
+        notification.policy_access = Some(payload);
+        assert!(notification.late_recovery_event_id().is_none());
+    }
+
+    #[test]
+    fn late_recovery_event_id_is_none_when_payload_absent() {
+        let notification = notification();
+        assert!(notification.late_recovery_event_id().is_none());
     }
 }

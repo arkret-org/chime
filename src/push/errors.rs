@@ -38,6 +38,23 @@ pub enum PushErrorKind {
     Network,
     InvalidResponse,
     HttpStatus,
+    /// Round 4 (spec a77b995) — federation sender used an obsolete member
+    /// delivery binding frontier. The response carries
+    /// `new_recipient_service_did` + `handover_frontier`; chime
+    /// consumers MUST resolve the current binding and retry against the
+    /// new recipient rather than re-issuing the same wakeup.
+    DeliveryBindingStale,
+    /// Round 4 — sender continued using a previous `recipient_service_did`
+    /// after the handover grace window expired. Sender MUST resolve the
+    /// current binding and retry there. Treat as terminal for the old
+    /// recipient.
+    DeliveryBindingHandedOver,
+    /// Round 4 — idempotency cache replay served only as a historical
+    /// diagnostic after key or binding state changed. Receivers MUST NOT
+    /// perform new reducer side effects; in particular chime consumers
+    /// MUST NOT trigger another push fanout from a `historical_only`
+    /// response.
+    HistoricalOnly,
 }
 
 impl PushErrorKind {
@@ -65,7 +82,34 @@ impl PushErrorKind {
             Self::Network => 16,
             Self::InvalidResponse => 17,
             Self::HttpStatus => 18,
+            // Round 4 (spec a77b995) — additions are bit-position
+            // appended; never reorder existing ones.
+            Self::DeliveryBindingStale => 19,
+            Self::DeliveryBindingHandedOver => 20,
+            Self::HistoricalOnly => 21,
         }
+    }
+
+    /// Round 4 — `historical_only` is a diagnostic surface: the server
+    /// served a cached response after key/binding state changed and the
+    /// receiver MUST NOT take any new action on it (no push refanout,
+    /// no retry, no state mutation). Callers can branch on this when
+    /// they need to suppress side effects rather than treat it as an
+    /// error.
+    pub const fn is_diagnostic_only(self) -> bool {
+        matches!(self, Self::HistoricalOnly)
+    }
+
+    /// Round 4 — `delivery_binding_stale` and `delivery_binding_handed_over`
+    /// both signal "stop talking to this recipient and resolve the
+    /// current binding". Consumers SHOULD use this helper rather than
+    /// matching the two variants by hand so future additions stay
+    /// covered.
+    pub const fn is_delivery_binding_signal(self) -> bool {
+        matches!(
+            self,
+            Self::DeliveryBindingStale | Self::DeliveryBindingHandedOver
+        )
     }
 
     /// Map a Contrix `bridge/describe.failure_codes` string to a stable kind.
@@ -73,6 +117,18 @@ impl PushErrorKind {
     /// Returns `None` when the code is not part of the contract, so callers can
     /// decide between treating it as `HttpStatus` or surfacing the raw code.
     pub fn from_failure_code(code: &str) -> Option<Self> {
+        // Round 4 — pull the three new wire codes from the SDK's
+        // canonical constants so chime's classification stays
+        // byte-aligned with what soland/floria emit.
+        if code == contrix::ERROR_CODE_DELIVERY_BINDING_STALE {
+            return Some(Self::DeliveryBindingStale);
+        }
+        if code == contrix::ERROR_CODE_DELIVERY_BINDING_HANDED_OVER {
+            return Some(Self::DeliveryBindingHandedOver);
+        }
+        if code == contrix::ERROR_CODE_HISTORICAL_ONLY {
+            return Some(Self::HistoricalOnly);
+        }
         Some(match code {
             "unauthenticated" | "auth_expired" | "soft_logged_out" => Self::Unauthenticated,
             "capability_denied" => Self::CapabilityDenied,
@@ -318,5 +374,75 @@ mod tests {
             Some(PushErrorKind::Gone)
         );
         assert_eq!(PushErrorKind::from_failure_code("unknown_code"), None);
+    }
+
+    #[test]
+    fn round4_failure_codes_classify() {
+        // B5: chime must recognise the three round-4 wire codes that
+        // floria/soland forward so consumers can branch on them.
+        assert_eq!(
+            PushErrorKind::from_failure_code(contrix::ERROR_CODE_DELIVERY_BINDING_STALE),
+            Some(PushErrorKind::DeliveryBindingStale)
+        );
+        assert_eq!(
+            PushErrorKind::from_failure_code(contrix::ERROR_CODE_DELIVERY_BINDING_HANDED_OVER),
+            Some(PushErrorKind::DeliveryBindingHandedOver)
+        );
+        assert_eq!(
+            PushErrorKind::from_failure_code(contrix::ERROR_CODE_HISTORICAL_ONLY),
+            Some(PushErrorKind::HistoricalOnly)
+        );
+    }
+
+    #[test]
+    fn historical_only_is_diagnostic_only() {
+        // B5: `historical_only` MUST be treated as diagnostic — no
+        // re-action, no fanout. Callers branch on this helper rather
+        // than matching the variant by hand.
+        assert!(PushErrorKind::HistoricalOnly.is_diagnostic_only());
+        assert!(!PushErrorKind::DeliveryBindingStale.is_diagnostic_only());
+        assert!(!PushErrorKind::DeliveryBindingHandedOver.is_diagnostic_only());
+    }
+
+    #[test]
+    fn delivery_binding_signals_grouped() {
+        assert!(PushErrorKind::DeliveryBindingStale.is_delivery_binding_signal());
+        assert!(PushErrorKind::DeliveryBindingHandedOver.is_delivery_binding_signal());
+        assert!(!PushErrorKind::HistoricalOnly.is_delivery_binding_signal());
+        assert!(!PushErrorKind::RateLimited.is_delivery_binding_signal());
+    }
+
+    #[test]
+    fn round4_codes_classify_against_409_and_200_statuses() {
+        // Spec status mapping: stale/handed_over → 409, historical_only → 200.
+        let envelope = ContrixErrorEnvelope {
+            ok: false,
+            error: ContrixError {
+                code: contrix::ERROR_CODE_DELIVERY_BINDING_STALE.to_owned(),
+                message: "stale".to_owned(),
+                retry_after_ms: None,
+                details: None,
+            },
+            request_id: None,
+        };
+        assert_eq!(
+            classify_http_error(409, Some(&envelope)),
+            PushErrorKind::DeliveryBindingStale
+        );
+
+        let envelope = ContrixErrorEnvelope {
+            ok: false,
+            error: ContrixError {
+                code: contrix::ERROR_CODE_HISTORICAL_ONLY.to_owned(),
+                message: "diagnostic".to_owned(),
+                retry_after_ms: None,
+                details: None,
+            },
+            request_id: None,
+        };
+        assert_eq!(
+            classify_http_error(200, Some(&envelope)),
+            PushErrorKind::HistoricalOnly
+        );
     }
 }

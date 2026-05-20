@@ -59,6 +59,13 @@ pub use notify::{
     assert_no_sensitive_fields, shared_push_notify_privacy_vectors,
 };
 
+// Round 4 (B5, spec a77b995) — re-export the SDK round-4 surfaces chime
+// consumers (yougen, host apps) need to consume mention-redirect
+// plaintext routing and the late-key-recovery audit banner without
+// having to depend on `contrix` directly.
+#[cfg(feature = "notify")]
+pub use contrix::{AccessKind, AuditPolicyAccessPayload, MentionRedirectRouting};
+
 pub use lifecycle::{
     AccountDeactivationError, AccountDeactivationReceipt, AccountDeactivationSink,
     DeactivationSource, DeviceSessionInvalidationReason, on_account_deactivate,
