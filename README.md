@@ -18,6 +18,22 @@ Following the Phase 1–4 terminology inversion, `chime` aligns push routes with
 - **Realm:** security boundary — membership, capability, E2EE, and federation are governed at this level. Push permission and per-realm mute apply here.
 - **Space:** navigation container — board, list, section, or calendar bucket. Lives inside a Realm and inherits its security context.
 
+## Round R2/R3 notes
+
+Spec rounds 2+3 (2026-05-20) added the `lifecycle::on_account_deactivate`
+host integration hook (T07 — 4-step local push cleanup) and the
+`ROUND_R2_R3_SENSITIVE_FIELDS` defense-in-depth list that mirrors floria's
+blind-wakeup forbidden-field surface. Ephemeral kinds (`cx.presence`,
+`cx.typing`, `cx.receipt.read`, `cx.call.signal`) are confirmed not
+consumed by chime. See [`CHANGELOG.md`](CHANGELOG.md) `[Unreleased]` and
+[`../contrix-spec/CHANGELOG.md`](../contrix-spec/CHANGELOG.md) for the
+normative source.
+
+## Cross-project task tracking
+
+Per-project task lists are consolidated upstream — see
+[`../_todos.md`](../_todos.md) for the active cross-project task plan.
+
 ## Gateway Support
 
 | Gateway | Description |

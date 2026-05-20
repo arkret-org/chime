@@ -6,6 +6,42 @@ project follows [SemVer](https://semver.org/) once it reaches `1.0`.
 
 ## [Unreleased]
 
+### Round R2/R3 (2026-05-20, spec rounds 2+3 close-out, 17 P0/P1 tasks)
+
+#### Added
+
+- **T07 account deactivation cleanup hook.** New `lifecycle` module
+  exposing `on_account_deactivate(sink, prefs_store, source)` as the
+  single integrator entrypoint. Drives the four-step fanout from
+  `account-lifecycle.md` §7.1: drain local push queue → clear
+  keypackage cache → invalidate device session → clear persisted
+  `PushPreferences`. Sub-step bodies live host-side via a new
+  `AccountDeactivationSink` trait so chime stays out of the queue / MLS
+  / keychain layer; the call order and `DeviceSessionInvalidationReason`
+  / `DeactivationSource` discriminants are pinned by chime so every
+  consumer (yougen / starid / sodmin) winds down the same way. Receipt
+  type (`AccountDeactivationReceipt`) reports which sub-steps ran when
+  one fails mid-flight. Sink bodies are `TODO(round23-T07)`.
+- **`assert_no_sensitive_fields(payload)` defense-in-depth helper**
+  (notify feature). Panics in `debug_assertions` and returns
+  `Err(field_path)` in release when any Round R2/R3 governance field
+  (`appeal_id`, `attestation_evidence`, `trust_domain`,
+  `policy_frontier_hash`, `reset_event_id`, …) appears anywhere in a
+  blind push payload tree. Backed by the new public
+  `ROUND_R2_R3_SENSITIVE_FIELDS: &[&str]` so chime / floria / yougen can
+  iterate the same negative-vector list. Mirrors the floria T07/T10/T06
+  forbidden-field surface.
+
+#### Notes
+
+- **Ephemeral kinds — confirmed not consumed.** A repo-wide search
+  for `cx.presence` / `cx.typing` / `cx.receipt.read` /
+  `cx.call.signal` and `ephemeral` returned zero hits in `src/` and
+  `tests/`. chime never parsed these as push payload kinds (they ride
+  ephemeral channels, not the floria push path) so no removal was
+  needed; recording the audit here so the round 2+3 close-out doesn't
+  reopen the question.
+
 ### Changed
 
 - Realm/Space terminology inversion (wire-breaking): old `Space` (security

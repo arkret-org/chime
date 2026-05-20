@@ -1011,10 +1011,7 @@ pub fn assert_no_sensitive_fields(payload: &Value) -> Result<(), String> {
                     } else {
                         format!("{path}.{key}")
                     };
-                    if ROUND_R2_R3_SENSITIVE_FIELDS
-                        .iter()
-                        .any(|forbidden| *forbidden == key.as_str())
-                    {
+                    if ROUND_R2_R3_SENSITIVE_FIELDS.contains(&key.as_str()) {
                         return Err(nested_path);
                     }
                     walk(&nested_path, nested)?;
