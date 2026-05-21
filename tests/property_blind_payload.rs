@@ -84,7 +84,9 @@ fn make_request() -> PushNotifyReqBody {
     .unwrap();
     let notification = PushNotification {
         wakeup_kind: Some(WakeupKind::Message),
-        push_target_id: Some(PushTargetId::new("cx:pseudonym:push:01HYZ8Z000000000000000").unwrap()),
+        push_target_id: Some(
+            PushTargetId::new("cx:pseudonym:push:01HYZ8Z000000000000000").unwrap(),
+        ),
         devices: vec![device],
         ..Default::default()
     };

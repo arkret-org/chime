@@ -161,7 +161,10 @@ pub fn evaluate_watch_level(level: WatchLevel, ctx: &EventContext) -> (ShouldNot
     //    blind wakeup so the client can decrypt + re-run this
     //    evaluation with the real `mentions_actor` flag.
     if ctx.is_e2ee && !ctx.local_decrypted {
-        return (ShouldNotify::BlindWakeup, reason_code::BLIND_WAKEUP_REQUIRED);
+        return (
+            ShouldNotify::BlindWakeup,
+            reason_code::BLIND_WAKEUP_REQUIRED,
+        );
     }
 
     // 3) Plaintext / locally-decrypted: apply watch-level filter.

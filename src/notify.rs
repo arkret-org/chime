@@ -672,15 +672,16 @@ pub enum PushNotifyPrivacyError {
 impl From<BlindPayloadError> for PushNotifyPrivacyError {
     fn from(err: BlindPayloadError) -> Self {
         match err.reason_code {
-            BlindPayloadReasonCode::MissingRequiredField => {
-                Self::MissingField { field: err.field_path }
-            }
-            BlindPayloadReasonCode::InvalidFieldValue => {
-                Self::InvalidFieldValue { field: err.field_path }
-            }
-            BlindPayloadReasonCode::ForbiddenField
-            | BlindPayloadReasonCode::SensitiveLiteral => {
-                Self::SensitiveField { field: err.field_path }
+            BlindPayloadReasonCode::MissingRequiredField => Self::MissingField {
+                field: err.field_path,
+            },
+            BlindPayloadReasonCode::InvalidFieldValue => Self::InvalidFieldValue {
+                field: err.field_path,
+            },
+            BlindPayloadReasonCode::ForbiddenField | BlindPayloadReasonCode::SensitiveLiteral => {
+                Self::SensitiveField {
+                    field: err.field_path,
+                }
             }
         }
     }
@@ -693,9 +694,7 @@ impl From<BlindPayloadError> for PushNotifyPrivacyError {
 /// We wrap the extras under a `notification` envelope so the SDK
 /// sanitizer's wrapper-scan path runs (only forbidden-key + sensitive
 /// literal checks, no allow-list — that lives in `validate_wire_model`).
-fn run_sdk_sanitizer_over_extra(
-    extra: &Map<String, Value>,
-) -> Result<(), PushNotifyPrivacyError> {
+fn run_sdk_sanitizer_over_extra(extra: &Map<String, Value>) -> Result<(), PushNotifyPrivacyError> {
     if extra.is_empty() {
         return Ok(());
     }
@@ -713,8 +712,7 @@ fn run_sdk_sanitizer_over_extra(
             obj.insert(key.clone(), value.clone());
         }
     }
-    sdk_sanitizer::sanitize_blind_payload(&envelope)
-        .map_err(PushNotifyPrivacyError::from)
+    sdk_sanitizer::sanitize_blind_payload(&envelope).map_err(PushNotifyPrivacyError::from)
 }
 
 pub fn shared_push_notify_privacy_vectors() -> Vec<PushNotifyPrivacyVector> {
@@ -1259,10 +1257,10 @@ mod tests {
         // `starts_with("did:")` check; they MUST now fail validation.
         // Negative test asserts round-4 regex rejects legacy method punctuation.
         for bad_did in [
-            "did:web.acme:alice",   // dot in method — ROUND4-ALLOW: negative test
-            "did:web-acme:alice",   // dash in method — ROUND4-ALLOW: negative test
-            "did:web_acme:alice",   // underscore in method — ROUND4-ALLOW: negative test
-            "did:web:al ice",       // whitespace in method-specific-id
+            "did:web.acme:alice", // dot in method — ROUND4-ALLOW: negative test
+            "did:web-acme:alice", // dash in method — ROUND4-ALLOW: negative test
+            "did:web_acme:alice", // underscore in method — ROUND4-ALLOW: negative test
+            "did:web:al ice",     // whitespace in method-specific-id
         ] {
             let envelope = EncryptedEnvelope {
                 recipient: bad_did.to_owned(),

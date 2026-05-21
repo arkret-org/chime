@@ -46,8 +46,8 @@ mod push_rule_core;
 mod state;
 
 pub use push_rule_core::{
-    EventContext as PushRuleEventContext, ShouldNotify, WatchLevel,
-    evaluate_watch_level, reason_code as push_rule_reason_code,
+    EventContext as PushRuleEventContext, ShouldNotify, WatchLevel, evaluate_watch_level,
+    reason_code as push_rule_reason_code,
 };
 
 #[cfg(feature = "notify")]

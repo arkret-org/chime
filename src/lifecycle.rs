@@ -338,12 +338,9 @@ mod tests {
     #[test]
     fn missing_prefs_store_still_completes() {
         let sink = CountingSink::default();
-        let receipt = on_account_deactivate::<_, InMemoryPrefs>(
-            &sink,
-            None,
-            DeactivationSource::InBandSync,
-        )
-        .unwrap();
+        let receipt =
+            on_account_deactivate::<_, InMemoryPrefs>(&sink, None, DeactivationSource::InBandSync)
+                .unwrap();
         assert!(receipt.is_complete());
         assert_eq!(receipt.source, Some(DeactivationSource::InBandSync));
     }
@@ -356,9 +353,12 @@ mod tests {
         };
         let prefs = InMemoryPrefs::default();
 
-        let err = on_account_deactivate(&sink, Some(&prefs), DeactivationSource::FloriaPush)
-            .unwrap_err();
-        assert!(matches!(err, AccountDeactivationError::DrainQueue("drain failed")));
+        let err =
+            on_account_deactivate(&sink, Some(&prefs), DeactivationSource::FloriaPush).unwrap_err();
+        assert!(matches!(
+            err,
+            AccountDeactivationError::DrainQueue("drain failed")
+        ));
         // Drain ran but the rest did not.
         assert_eq!(sink.drain.get(), 1);
         assert_eq!(sink.clear.get(), 0);
@@ -376,8 +376,8 @@ mod tests {
         };
         let prefs = InMemoryPrefs::default();
 
-        let err = on_account_deactivate(&sink, Some(&prefs), DeactivationSource::FloriaPush)
-            .unwrap_err();
+        let err =
+            on_account_deactivate(&sink, Some(&prefs), DeactivationSource::FloriaPush).unwrap_err();
         assert!(matches!(
             err,
             AccountDeactivationError::InvalidateSession("invalidate failed")
