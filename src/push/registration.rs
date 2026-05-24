@@ -310,7 +310,7 @@ mod tests {
             registration_id: Some("cx:pushreg:01JS0KE000000000000000000"),
             display_name: Some("Alice Phone"),
             idempotency_key: Some("idem-1"),
-            request_id: Some("cx:req:01JS0KE000000000000000000"),
+            request_id: Some("cx:request:01JS0KE000000000000000000"),
             proof: None,
         }
     }
@@ -347,7 +347,7 @@ mod tests {
         assert_eq!(request.idempotency_key.as_deref(), Some("idem-1"));
         assert_eq!(
             request.request_id.as_deref(),
-            Some("cx:req:01JS0KE000000000000000000")
+            Some("cx:request:01JS0KE000000000000000000")
         );
     }
 
@@ -392,7 +392,7 @@ mod tests {
         assert_eq!(request.idempotency_key.as_deref(), Some("idem-1"));
         assert_eq!(
             request.request_id.as_deref(),
-            Some("cx:req:01JS0KE000000000000000000")
+            Some("cx:request:01JS0KE000000000000000000")
         );
     }
 

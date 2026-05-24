@@ -425,7 +425,7 @@ mod tests {
 
         let with_error = state.mark_last_error(
             "temporarily_unavailable",
-            Some("cx:req:1"),
+            Some("cx:request:1"),
             Some("1"),
             Some("2026-05-02T00:00:00Z"),
         );

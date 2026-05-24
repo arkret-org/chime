@@ -1000,7 +1000,7 @@ mod tests {
             registration_id: Some("cx:pushreg:01JS0KE000000000000000000"),
             display_name: Some("Alice Phone"),
             idempotency_key: Some("idem-1"),
-            request_id: Some("cx:req:test"),
+            request_id: Some("cx:request:test"),
             proof: None,
         }
     }
@@ -1034,7 +1034,7 @@ mod tests {
     async fn register_success_exposes_response_context_and_headers() {
         let (base_url, requests) = spawn_mock_server(vec![MockResponse {
             status: "200 OK",
-            headers: vec![(CONTRIX_REQUEST_ID_HEADER, "cx:req:server")],
+            headers: vec![(CONTRIX_REQUEST_ID_HEADER, "cx:request:server")],
             body: r#"{"ok":true,"registration_id":"reg-1","expires_at":"2026-04-29T00:00:00Z"}"#,
         }]);
 
@@ -1052,13 +1052,13 @@ mod tests {
 
         assert!(response.body.ok);
         assert_eq!(response.body.registration_id.as_deref(), Some("reg-1"));
-        assert_eq!(response.request_id.as_deref(), Some("cx:req:server"));
+        assert_eq!(response.request_id.as_deref(), Some("cx:request:server"));
 
         let request = requests.lock().unwrap().join("\n");
         assert!(request.contains("POST /api/v1/push/register-device HTTP/1.1"));
         assert!(request.contains("authorization: Bearer session-secret"));
         assert!(request.contains("idempotency-key: idem-1"));
-        assert!(request.contains("x-contrix-request-id: cx:req:test"));
+        assert!(request.contains("x-contrix-request-id: cx:request:test"));
         assert!(request.contains("user-agent: test-agent"));
         assert!(request.contains("\"idempotency_key\":\"idem-1\""));
     }
@@ -1076,7 +1076,7 @@ mod tests {
 
         ContrixPushClient::new(base_url)
             .with_default_idempotency_key("client-idem")
-            .with_default_request_id("cx:req:client")
+            .with_default_request_id("cx:request:client")
             .with_session_grant("coauth-grant-secret")
             .unwrap()
             .register_device(&config, &binding(), &prefs())
@@ -1085,7 +1085,7 @@ mod tests {
 
         let request = requests.lock().unwrap().join("\n");
         assert!(request.contains("idempotency-key: client-idem"));
-        assert!(request.contains("x-contrix-request-id: cx:req:client"));
+        assert!(request.contains("x-contrix-request-id: cx:request:client"));
         assert!(request.contains("x-contrix-session-grant: coauth-grant-secret"));
     }
 
@@ -1112,7 +1112,7 @@ mod tests {
     async fn unregister_not_found_is_idempotent_success() {
         let (base_url, _) = spawn_mock_server(vec![MockResponse {
             status: "404 Not Found",
-            headers: vec![(CONTRIX_REQUEST_ID_HEADER, "cx:req:not-found")],
+            headers: vec![(CONTRIX_REQUEST_ID_HEADER, "cx:request:not-found")],
             body: r#"{"ok":false,"error":{"code":"not_found","message":"missing"}}"#,
         }]);
 
@@ -1122,7 +1122,7 @@ mod tests {
             .unwrap();
 
         assert!(response.body.ok);
-        assert_eq!(response.request_id.as_deref(), Some("cx:req:not-found"));
+        assert_eq!(response.request_id.as_deref(), Some("cx:request:not-found"));
     }
 
     #[tokio::test]
@@ -1152,7 +1152,7 @@ mod tests {
 
         for (status, code, expected) in cases {
             let body = format!(
-                r#"{{"ok":false,"error":{{"code":"{code}","message":"x"}},"request_id":"cx:req:error"}}"#
+                r#"{{"ok":false,"error":{{"code":"{code}","message":"x"}},"request_id":"cx:request:error"}}"#
             );
             let (base_url, _) = spawn_mock_server(vec![MockResponse {
                 status,
@@ -1166,7 +1166,7 @@ mod tests {
                 .unwrap_err();
 
             assert_eq!(err.kind(), expected);
-            assert_eq!(err.request_id(), Some("cx:req:error"));
+            assert_eq!(err.request_id(), Some("cx:request:error"));
         }
     }
 

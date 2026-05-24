@@ -333,7 +333,7 @@ mod tests {
             "expires_at": "2026-05-02T00:00:00Z",
             "refresh_hint": "rotate_before_expiry",
             "warnings": ["duplicate-safe"],
-            "request_id": "cx:req:123"
+            "request_id": "cx:request:123"
         }))
         .unwrap();
 
@@ -352,19 +352,19 @@ mod tests {
             Some("rotate_before_expiry")
         );
         assert_eq!(register.warnings, vec!["duplicate-safe"]);
-        assert_eq!(register.request_id.as_deref(), Some("cx:req:123"));
+        assert_eq!(register.request_id.as_deref(), Some("cx:request:123"));
 
         let unregister: UnregisterDeviceResponse = serde_json::from_value(serde_json::json!({
             "ok": true,
             "already_removed": true,
             "removed_registration_id": "reg-1",
-            "request_id": "cx:req:456"
+            "request_id": "cx:request:456"
         }))
         .unwrap();
 
         assert!(unregister.ok);
         assert!(unregister.already_removed);
         assert_eq!(unregister.removed_registration_id.as_deref(), Some("reg-1"));
-        assert_eq!(unregister.request_id.as_deref(), Some("cx:req:456"));
+        assert_eq!(unregister.request_id.as_deref(), Some("cx:request:456"));
     }
 }

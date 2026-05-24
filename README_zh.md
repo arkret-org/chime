@@ -91,7 +91,7 @@ let config = PushDeviceConfig {
     registration_id: None,
     display_name: Some("Alice Phone"),
     idempotency_key: Some("device-phone-register-v1"),
-    request_id: Some("cx:req:01JS0KE000000000000000000"),
+    request_id: Some("cx:request:01JS0KE000000000000000000"),
     proof: None,
 };
 
@@ -119,7 +119,7 @@ let client = ContrixPushClient::new("https://principal.example")
     .with_bearer_token("session-token")
     .with_timeout(std::time::Duration::from_secs(10))
     .with_retry_policy(chime::PushRetryPolicy::conservative())
-    .with_default_request_id("cx:req:01JS0KE000000000000000000");
+    .with_default_request_id("cx:request:01JS0KE000000000000000000");
 
 let response = client
     .register_device_with_context(&config, &binding, &prefs)
@@ -250,7 +250,7 @@ if let Some(unregister_old) = plan.unregister_old {
 `chime` 发出的 `tracing` 事件带 target 前缀 `chime`：
 
 ```text
-INFO  chime::push::client  Contrix push device registered  platform=android gateway="Contrix Standard" operation_id=cx.push.register_device request_id=cx:req:01JS0KE000000000000000000
+INFO  chime::push::client  Contrix push device registered  platform=android gateway="Contrix Standard" operation_id=cx.push.register_device request_id=cx:request:01JS0KE000000000000000000
 ```
 
 任何 `tracing-subscriber` layer 都能消费；Sentry / OpenTelemetry

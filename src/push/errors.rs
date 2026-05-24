@@ -349,7 +349,7 @@ mod tests {
                 retry_after_ms: None,
                 details: None,
             },
-            request_id: Some("cx:req:test".to_owned()),
+            request_id: Some("cx:request:test".to_owned()),
         };
 
         assert_eq!(

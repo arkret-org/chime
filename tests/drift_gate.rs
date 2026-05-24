@@ -51,7 +51,7 @@ const BRIDGE_DESCRIBE_FIXTURE: &str = r#"{
     "examples": {
         "notify_headers": {
             "X-Contrix-Operation-Id": "cx.push.notify",
-            "X-Contrix-Request-Id": "cx:req:01JS0KE000000000000000000"
+            "X-Contrix-Request-Id": "cx:request:01JS0KE000000000000000000"
         },
         "blind_wakeup_request": {
             "operation_id": "cx.push.notify",
