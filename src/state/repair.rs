@@ -36,7 +36,7 @@ use super::model::{PushRegistrationState, build_unregister_request_for_state, ha
 /// the host app can unregister them after a gateway has been removed
 /// from `gateways`.
 ///
-/// Stability: `0.x`-stable. New optional fields are added with
+/// Stability: `1.0`-stable. New optional fields are added with
 /// `#[serde(default)]`.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct PushMultiGatewayRepairPlan {

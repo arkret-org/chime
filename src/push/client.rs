@@ -47,7 +47,7 @@ impl<T> ContrixResponse<T> {
 
 /// Retry configuration for `ContrixPushClient`.
 ///
-/// Stability: `0.x`-stable. Stays `Copy` + `const`-constructible so
+/// Stability: `1.0`-stable. Stays `Copy` + `const`-constructible so
 /// callers can stash it in static config. The `disabled_kinds_mask`
 /// is a bitmask indexed by [`PushErrorKind`] discriminant ordinal —
 /// see [`PushRetryPolicy::with_disabled_kinds`] for ergonomic builder

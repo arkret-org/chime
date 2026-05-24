@@ -6,7 +6,7 @@ project follows [SemVer](https://semver.org/) once it reaches `1.0`.
 
 ## [Unreleased]
 
-## [0.2.0-rc1] - 2026-05-25
+## [1.0.0] - 2026-05-25
 
 ### Added
 
@@ -19,7 +19,7 @@ project follows [SemVer](https://semver.org/) once it reaches `1.0`.
 
 ### Changed
 
-- The package version is now `0.2.0` for the realm-only wire break.
+- The package version is now `1.0.0` for the realm-only wire break.
 - chime routes forbidden blind-payload key checks through the SDK's
   `is_forbidden_payload_key`.
 - Local package verification no longer contains publish, tag, or GitHub release
@@ -150,7 +150,7 @@ Client-side push SDK alignment with the round-4 wire shapes. See
 - `PushPreferencesStore` trait (load / save / clear) so host apps can
   plug their own keychain / encrypted storage backend without rolling
   the file IO themselves.
-- Pre-1.0 stability banner in `README.md` / `README_zh.md` and
+- Local `1.0.0` stability banner in `README.md` / `README_zh.md` and
   `push/wire.rs` module docs.
 - `package` and `audit` jobs in CI (`cargo package --list` plus
   `rustsec/audit-check` against advisory database).
@@ -198,10 +198,9 @@ Client-side push SDK alignment with the round-4 wire shapes. See
 - Two pre-existing `cargo doc -Dwarnings` errors in
   `src/push/client.rs` and `src/notify.rs`.
 
-## [0.1.0] - Unreleased (target)
+## Pre-1.0 planning snapshot
 
-Initial public release once the items in `_todos.md` Phase G are
-merged.
+Historical planning notes retained from the pre-1.0 task list.
 
 ### Wire types and validators
 
@@ -257,6 +256,3 @@ merged.
   tested, clippied.
 - `rustfmt`, `cargo doc -Dwarnings`, MSRV (1.89), `crate-ci/typos`,
   local package, and `rustsec/audit-check` jobs.
-
-[Unreleased]: https://github.com/contrix-dev/chime/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/contrix-dev/chime/releases/tag/v0.1.0

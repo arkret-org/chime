@@ -2,14 +2,14 @@
 
 ## Supported Versions
 
-`chime` is pre-1.0. Only the latest `0.x` minor release line receives
-security fixes. Once a `0.x+1` minor is published, the previous minor is
-considered unsupported.
+`chime` is in its local `1.0.0` freeze line. Local security fixes should target
+the latest `1.0.x` branch. Remote publication is outside this readiness
+workflow.
 
 | Version | Supported |
 | ------- | --------- |
-| 0.1.x   | ✅         |
-| < 0.1   | ❌         |
+| 1.0.x   | Yes       |
+| < 1.0   | No        |
 
 ## Reporting a Vulnerability
 

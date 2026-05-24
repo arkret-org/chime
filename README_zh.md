@@ -1,7 +1,6 @@
 # chime
 
-> **稳定性：** `0.x`。在同一 `0.x` 小版本内，公开 API 仅做加法演进 —— 新增可选字段、
-> 新增 enum 变体、新增辅助方法。改名或删除需要升级小版本（`0.x → 0.x+1`）。
+> **稳定性：** 本地 `1.0.0` 冻结候选。公开 API 的破坏性修改需要升级主版本。
 > 响应 wire 类型（`RegisterDeviceResponse` / `UnregisterDeviceResponse` /
 > `ContrixErrorEnvelope`）已加 `#[non_exhaustive]`，服务端追加字段不会打断下游消费。
 
@@ -31,10 +30,10 @@ Contrix 推送通知网关类型、偏好设置和设备注册辅助库。
 
 ```toml
 [dependencies]
-chime = "0.1"
+chime = "1.0.0"
 # 如需 Contrix HTTP 注册功能和网关 notify wire 类型：
-# chime = { version = "0.1", features = ["http"] }
-# chime = { version = "0.1", features = ["http", "notify"] }
+# chime = { version = "1.0.0", features = ["http"] }
+# chime = { version = "1.0.0", features = ["http", "notify"] }
 ```
 
 工作区内的同仓库消费方也可以使用 path 依赖：

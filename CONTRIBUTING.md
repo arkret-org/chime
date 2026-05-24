@@ -35,7 +35,7 @@ cargo build
 ### Feature matrix
 
 CI runs `check`, `test`, and `clippy` against four feature
-combinations. Reproduce locally before pushing:
+combinations. Reproduce them locally before handing off changes:
 
 ```bash
 for f in "" "http" "notify" "http,notify"; do
@@ -45,7 +45,7 @@ for f in "" "http" "notify" "http,notify"; do
 done
 ```
 
-### Required gates before opening a PR
+### Required gates before handing off changes
 
 - [ ] `cargo fmt --all -- --check`
 - [ ] `cargo clippy --all-features -- -D warnings`
@@ -68,17 +68,17 @@ chime: bridge capability accessors (B2) + drift gate fixture test (F4)
 Reference TODO IDs (e.g. `A2`, `C3`, `F4`, `G5`) when the change
 addresses an item from `_todos.md`.
 
-## Pull request guidelines
+## Change review guidelines
 
-- Keep PRs focused on a single TODO ID or single concern. Cross-cutting
+- Keep changes focused on a single TODO ID or single concern. Cross-cutting
   refactors should land separately so reviewers can reason about wire
   changes without bundle churn.
 - Document wire-shape changes in `CHANGELOG.md` under the
-  `[Unreleased]` section. Pre-1.0 we do not pretend that response or
-  request shape is unconditionally stable, but we do call out
-  additions vs. renames vs. removals.
-- Run the full feature matrix before pushing. CI reproduces it but
-  catches regressions much earlier locally.
+  `[Unreleased]` section. For the local `1.0.0` line, call out
+  additions separately from renames or removals so downstream consumers
+  can judge SemVer impact.
+- Run the full feature matrix before handing off the branch. CI
+  reproduces it, but the local gates catch regressions earlier.
 
 ## Privacy boundary discipline
 

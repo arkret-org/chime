@@ -14,11 +14,11 @@ use super::PUSH_REGISTRATION_STATE_SCHEMA_VERSION;
 
 /// Persistable local state for a successful push registration.
 ///
-/// Stability: `0.x`-stable. The struct is versioned with
+/// Stability: `1.0`-stable. The struct is versioned with
 /// `schema_version`; new fields are added with `#[serde(default)]` so
 /// older persisted blobs continue to deserialize. Renaming or
-/// removing a field bumps `schema_version` and requires a SemVer
-/// minor bump.
+/// removing a field bumps `schema_version` and requires a major
+/// SemVer bump.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PushRegistrationState {
     #[serde(default = "default_state_schema_version")]

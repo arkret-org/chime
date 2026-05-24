@@ -135,8 +135,8 @@ pub const DEFAULT_BUGLE_PUSH_GATEWAY_URL: &str = "https://push.palpo.im/api/v1/p
 
 /// Which downstream push gateway to ask the Contrix service to use.
 ///
-/// Stability: `0.x`-stable. New variants are additive; renaming or
-/// removing a variant requires a SemVer bump.
+/// Stability: `1.0`-stable. New variants are additive; renaming or
+/// removing a variant requires a major SemVer bump.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum PushGatewayType {
@@ -211,9 +211,9 @@ impl PushGatewayType {
 /// the consumer application — see [`PushPreferencesStore`] for a minimal
 /// trait abstraction.
 ///
-/// Stability: `0.x`-stable. New optional fields are added with
+/// Stability: `1.0`-stable. New optional fields are added with
 /// `#[serde(default)]` so old persisted JSON keeps deserializing.
-/// Renaming or removing a field requires a SemVer bump.
+/// Renaming or removing a field requires a major SemVer bump.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct PushPreferences {

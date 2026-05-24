@@ -130,8 +130,8 @@ pub enum PushRouteCapability {
 /// Single `(push_route, push_target_id, …)` registration written by a
 /// device into its actor-private control stream.
 ///
-/// Stability: `0.x`-stable. Adding capability tags is additive; renaming
-/// or removing fields requires a SemVer bump.
+/// Stability: `1.0`-stable. Adding capability tags is additive; renaming
+/// or removing fields requires a major SemVer bump.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[non_exhaustive]

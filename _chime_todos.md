@@ -22,7 +22,7 @@
 - [x] §4 `src/notify.rs:1095` — drop chime's locally-maintained legacy-key handling when SDK takes over.
 
 ### Compatibility-alias cleanup (paired with SDK realm-rework removal)
-- [x] §5 Remove the `serde(alias = "space_id")` on `PushNotification.realm_id` once SDK 0.8.0 alias removal lands. Bump chime to 0.2.0 (wire-breaking).
+- [x] §5 Remove the `serde(alias = "space_id")` on `PushNotification.realm_id` once SDK 1.0.0 alias removal lands. Bump chime to 1.0.0 (wire-breaking).
 - [x] §6 Remove the `realm-rework` TODO comments in `src/notify.rs` and `src/push_route.rs`.
 
 ### Tests
@@ -40,7 +40,7 @@
 
 ## Phase 5
 
-- [ ] §14 Build local `v1.0.0` package artifacts and record the evidence. Do not tag, push, or publish to crates.io.
+- [x] §14 Build local `v1.0.0` package artifacts and record the evidence. Do not tag, push, or publish to crates.io.
 
 ## Exit gate (phase 3)
 
@@ -48,9 +48,13 @@ All of:
 1. §1-§6 closed.
 2. CI matrix green (4 feature combos).
 3. Live-floria integration test green.
-4. Record a local `v0.2.0-rc1` milestone without creating a git tag or publishing artifacts.
+4. Record a local `v1.0.0` milestone without creating a git tag or publishing artifacts.
 
 ## Notes
 
 - chime has NO platform-specific code; that's intentional. Platform receivers live in yougen.
 - The `live_floria_integration.rs` skips silently when `FLORIA_BIN` is unset — that's fine for OSS contributors; CI should set the env var.
+- 2026-05-25 local `v1.0.0` evidence is recorded in
+  `docs/release-evidence-1.0.0.md`. Full registry package verification remains
+  intentionally out-of-scope because sibling `contrix` is consumed locally, not
+  from crates.io.

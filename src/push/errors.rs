@@ -10,10 +10,10 @@ use super::wire::ContrixErrorEnvelope;
 
 /// Stable high-level category for push registration failures.
 ///
-/// Stability: `0.x`-stable. New variants are additive; matching against
+/// Stability: `1.0`-stable. New variants are additive; matching against
 /// the enum should always include a wildcard arm to forward-compat
 /// against future error categories. Renaming or removing a variant
-/// requires a SemVer bump.
+/// requires a major SemVer bump.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum PushErrorKind {

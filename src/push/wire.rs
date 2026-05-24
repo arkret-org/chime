@@ -2,11 +2,11 @@
 //!
 //! ## Stability
 //!
-//! Pre-1.0 (`0.x`): the wire shape evolves additively, but the SDK leans on
-//! `#[non_exhaustive]` + `#[derive(Default)]` for both request and response
-//! types so adding optional fields never breaks downstream construction. Use
+//! The local `1.0.0` wire shape evolves additively. The SDK leans on
+//! `#[non_exhaustive]` + `#[derive(Default)]` for request/response types so
+//! adding optional fields never breaks downstream construction. Use
 //! `..Default::default()` when building these types in external crates.
-//! Renames and removals require a SemVer bump.
+//! Renames and removals require a major SemVer bump.
 
 use std::fmt;
 
@@ -18,8 +18,8 @@ use super::urls::{redact_push_key, redact_url};
 
 /// Supported Contrix push platform values.
 ///
-/// Stability: `0.x`-stable. New variants are additive; renaming or
-/// removing a variant requires a SemVer bump.
+/// Stability: `1.0`-stable. New variants are additive; renaming or
+/// removing a variant requires a major SemVer bump.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum PushPlatform {
@@ -56,10 +56,10 @@ impl TryFrom<&str> for PushPlatform {
 
 /// Device configuration supplied by the host app.
 ///
-/// Stability: `0.x`-stable. The struct is borrowed (every field is
+/// Stability: `1.0`-stable. The struct is borrowed (every field is
 /// `Option<&'a str>` or `&'a str`) so adding a new optional field is
 /// always source-compatible. Renaming or removing fields requires a
-/// SemVer bump.
+/// major SemVer bump.
 #[derive(Clone, Copy)]
 pub struct PushDeviceConfig<'a> {
     /// Contrix principal DID that owns this device registration.
@@ -111,7 +111,7 @@ impl fmt::Debug for PushDeviceConfig<'_> {
 
 /// Request body for `POST /api/v1/push/register-device`.
 ///
-/// Stability: 0.x-stable + `#[non_exhaustive]`. Build via
+/// Stability: 1.0-stable + `#[non_exhaustive]`. Build via
 /// `RegisterDeviceRequest { ..Default::default() }` from external crates so
 /// future field additions stay source-compatible.
 #[derive(Clone, Default, PartialEq, Serialize, Deserialize)]
@@ -163,7 +163,7 @@ impl fmt::Debug for RegisterDeviceRequest {
 
 /// Response body for `POST /api/v1/push/register-device`.
 ///
-/// Stability: 0.x-stable. New optional fields may be added in a minor release.
+/// Stability: 1.0-stable. New optional fields may be added in a minor release.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[non_exhaustive]
 pub struct RegisterDeviceResponse {
@@ -188,7 +188,7 @@ pub struct RegisterDeviceResponse {
 
 /// Request body for `POST /api/v1/push/unregister-device`.
 ///
-/// Stability: 0.x-stable + `#[non_exhaustive]`. Build via
+/// Stability: 1.0-stable + `#[non_exhaustive]`. Build via
 /// `UnregisterDeviceRequest { ..Default::default() }` from external crates.
 #[derive(Clone, Default, PartialEq, Serialize, Deserialize)]
 #[non_exhaustive]
@@ -241,7 +241,7 @@ impl fmt::Debug for UnregisterDeviceRequest {
 
 /// Response body for `POST /api/v1/push/unregister-device`.
 ///
-/// Stability: 0.x-stable. New optional fields may be added in a minor release.
+/// Stability: 1.0-stable. New optional fields may be added in a minor release.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[non_exhaustive]
 pub struct UnregisterDeviceResponse {
@@ -256,7 +256,7 @@ pub struct UnregisterDeviceResponse {
 
 /// Contrix standard error object.
 ///
-/// Stability: 0.x-stable + `#[non_exhaustive]`. Server-controlled shape.
+/// Stability: 1.0-stable + `#[non_exhaustive]`. Server-controlled shape.
 #[derive(Clone, Default, PartialEq, Serialize, Deserialize)]
 #[non_exhaustive]
 pub struct ContrixError {
@@ -281,7 +281,7 @@ impl fmt::Debug for ContrixError {
 
 /// Contrix standard error envelope.
 ///
-/// Stability: 0.x-stable. Server-controlled response shape, so additional
+/// Stability: 1.0-stable. Server-controlled response shape, so additional
 /// fields may appear in a minor release.
 #[derive(Clone, PartialEq, Serialize, Deserialize)]
 #[non_exhaustive]

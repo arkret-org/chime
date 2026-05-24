@@ -12,7 +12,7 @@ use crate::{PushGatewayType, PushPlatform};
 
 /// Binding of a single push gateway target.
 ///
-/// Stability: `0.x`-stable. New optional fields are added with
+/// Stability: `1.0`-stable. New optional fields are added with
 /// `#[serde(default)]` so older persisted JSON keeps deserializing.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]

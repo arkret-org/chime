@@ -2,9 +2,8 @@
 
 [![coverage](https://img.shields.io/badge/coverage-local%20tarpaulin-informational)](docs/production-checklist.md#local-verification)
 
-> **Stability:** `0.x`. Within a `0.x` minor release, the public surface evolves
-> additively — new optional fields, new enum variants, new helper methods. Renames
-> and removals require bumping the minor (`0.x → 0.x+1`). Response wire types
+> **Stability:** local `1.0.0` freeze candidate. Breaking public API changes
+> now require a major-version bump. Response wire types
 > (`RegisterDeviceResponse`, `UnregisterDeviceResponse`, `ContrixErrorEnvelope`)
 > carry `#[non_exhaustive]` so server-driven field additions do not break
 > downstream consumers.
@@ -75,10 +74,10 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-chime = "0.2"
+chime = "1.0.0"
 # or with Contrix HTTP registration and gateway notify wire types:
-# chime = { version = "0.2", features = ["http"] }
-# chime = { version = "0.2", features = ["http", "notify"] }
+# chime = { version = "1.0.0", features = ["http"] }
+# chime = { version = "1.0.0", features = ["http", "notify"] }
 ```
 
 In-tree workspace consumers can also pull a path dependency:
