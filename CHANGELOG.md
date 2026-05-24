@@ -42,7 +42,7 @@ Client-side push SDK alignment with the round-4 wire shapes. See
   (notify feature). Panics in `debug_assertions` and returns
   `Err(field_path)` in release when any Round R2/R3 governance field
   (`appeal_id`, `attestation_evidence`, `trust_domain`,
-  `policy_frontier_hash`, `reset_event_id`, …) appears anywhere in a
+  `policy_frontier_digest`, `reset_event_id`, …) appears anywhere in a
   blind push payload tree. Backed by the new public
   `ROUND_R2_R3_SENSITIVE_FIELDS: &[&str]` so chime / floria / yougen can
   iterate the same negative-vector list. Mirrors the floria T07/T10/T06

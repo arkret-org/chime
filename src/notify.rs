@@ -1044,7 +1044,7 @@ pub const ROUND_R2_R3_SENSITIVE_FIELDS: &[&str] = &[
     "attestation_evidence",
     "audit_agent_did",
     "audit_purpose",
-    "audit_policy_version_hash",
+    "audit_policy_version_digest",
     "audit_policy_version_id",
     "attestation_chain",
     "attestation_key",
@@ -1056,7 +1056,7 @@ pub const ROUND_R2_R3_SENSITIVE_FIELDS: &[&str] = &[
     "previous_generation",
     "new_generation",
     // T11 — identity link cache + policy frontier
-    "policy_frontier_hash",
+    "policy_frontier_digest",
     "pairwise_did",
     "identity_disclosure_profile",
     "minimal_metadata_mode",
