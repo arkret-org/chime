@@ -52,8 +52,8 @@ done
 - [ ] `cargo test --all-features`
 - [ ] `cargo test` across the four feature combinations above
 - [ ] `cargo doc --all-features --no-deps` builds without warnings
-- [ ] `cargo package --no-verify --allow-dirty` succeeds (CI runs this
-      as the `package` job)
+- [ ] `cargo package --list --allow-dirty` succeeds (CI runs this as
+      the local package file-set job)
 
 ## Commit messages
 
@@ -102,15 +102,15 @@ gateways inherit the same fixture.
 Do not file security-sensitive issues in the public tracker. Follow the
 process in [SECURITY.md](SECURITY.md).
 
-## Releasing (maintainers)
+## Local Release Readiness
 
 1. Bump `version` in `Cargo.toml`.
 2. Move entries in `CHANGELOG.md` from `[Unreleased]` to a new
    `[X.Y.Z] - YYYY-MM-DD` section.
-3. Open a release PR. Once merged on `main`:
-4. Tag: `git tag vX.Y.Z && git push origin vX.Y.Z`. CI's `release.yml`
-   verifies the tag matches `Cargo.toml`, runs `cargo publish
-   --dry-run`, and prepares a draft GitHub release.
-5. To actually publish to crates.io, dispatch the `release` workflow
-   with `dry_run = false` (requires the `CRATES_IO_TOKEN` secret on the
-   `crates-io` environment).
+3. Run the local verification matrix from
+   [docs/production-checklist.md](docs/production-checklist.md).
+4. Verify the local package file set with `cargo package --list
+   --allow-dirty` and record the evidence in the local milestone notes.
+
+Do not tag, push, create a GitHub release, or publish to crates.io from
+this repo's local readiness workflow.

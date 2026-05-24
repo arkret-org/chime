@@ -1,5 +1,7 @@
 # chime
 
+[![coverage](https://img.shields.io/badge/coverage-local%20tarpaulin-informational)](docs/production-checklist.md#local-verification)
+
 > **Stability:** `0.x`. Within a `0.x` minor release, the public surface evolves
 > additively — new optional fields, new enum variants, new helper methods. Renames
 > and removals require bumping the minor (`0.x → 0.x+1`). Response wire types
@@ -73,10 +75,10 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-chime = "0.1"
+chime = "0.2"
 # or with Contrix HTTP registration and gateway notify wire types:
-# chime = { version = "0.1", features = ["http"] }
-# chime = { version = "0.1", features = ["http", "notify"] }
+# chime = { version = "0.2", features = ["http"] }
+# chime = { version = "0.2", features = ["http", "notify"] }
 ```
 
 In-tree workspace consumers can also pull a path dependency:
@@ -148,6 +150,42 @@ let prefs = PushPreferences {
 
 let request = build_register_device_request(&config, &binding, &prefs).unwrap();
 assert_eq!(request.device_id, "did:web:alice.example#device-phone");
+```
+
+### Validate a blind push wakeup
+
+Enable the `notify` feature when implementing a gateway or a host-side push
+receiver. The validator accepts only opaque routing metadata by default.
+
+```rust
+use chime::{
+    PushNotification, PushNotificationDevice, PushNotifyPolicyContext, PushNotifyReqBody,
+    PushTargetId, WakeupKind,
+};
+
+# fn main() -> Result<(), Box<dyn std::error::Error>> {
+let notification = PushNotification {
+    push_target_id: Some(PushTargetId::new(
+        "cx:pseudonym:push:01HYZ8Z000000000000000",
+    )?),
+    wakeup_kind: Some(WakeupKind::Message),
+    devices: vec![PushNotificationDevice {
+        push_key: "fcm:opaque-token".to_owned(),
+        app_id: Some("app.example".to_owned()),
+        registration_id: None,
+        push_key_hash: None,
+        platform: None,
+    }],
+    ..Default::default()
+};
+let request = PushNotifyReqBody {
+    notification,
+    ..Default::default()
+};
+
+request.assert_payload_safe(&PushNotifyPolicyContext::blind_wakeup_only())?;
+# Ok(())
+# }
 ```
 
 ### Register through HTTP
@@ -402,7 +440,7 @@ The crate maps to the Contrix v1 push HTTP binding:
 
 Register/unregister bodies carry the canonical operation id, optional `principal_did`, `device_id`, app id, gateway URL, idempotency key, request id, and caller-supplied proof. Responses expose the accepted gateway, token hash/preview, expiry or refresh hints, warnings, and request id when the service returns them.
 
-Push notifications are derived wakeups, not canonical truth. For E2EE Spaces, push gateways should receive only minimized metadata such as `push_target_id`, `wakeup_kind`, counts, priority/TTL/collapse hints, and optional body-free `push_hint`.
+Push notifications are derived wakeups, not canonical truth. For E2EE Realms, push gateways should receive only minimized metadata such as `push_target_id`, `wakeup_kind`, counts, priority/TTL/collapse hints, and optional body-free `push_hint`.
 
 With the `notify` feature, `PushNotifyRequest::validate_wire_model()` and `PushNotifyRequest::validate_blind_wakeup()` enforce that boundary. Entity facets and view-renderer output are routing or context hints only when the application has explicitly authorized that use; do not serialize facet-derived title, body, display name, or space name into provider payloads. The validator rejects removed aliases such as `schema_id` and `kind`, provider payload wrappers, title/body/preview fields, and facet/view-renderer extension keys before gateway delivery.
 

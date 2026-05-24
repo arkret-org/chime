@@ -6,6 +6,25 @@ project follows [SemVer](https://semver.org/) once it reaches `1.0`.
 
 ## [Unreleased]
 
+## [0.2.0-rc1] - 2026-05-25
+
+### Added
+
+- `NoopAccountDeactivationSink` and `ClosureAccountDeactivationSink` so host
+  applications can wire deactivation queue/cache/session cleanup without a
+  bespoke adapter type.
+- Local `cargo deny` configuration and CI check.
+- Notify-feature README example and `docs/production-checklist.md`.
+- Proptest coverage for safe opaque `validate_blind_wakeup` extension keys.
+
+### Changed
+
+- The package version is now `0.2.0` for the realm-only wire break.
+- chime routes forbidden blind-payload key checks through the SDK's
+  `is_forbidden_payload_key`.
+- Local package verification no longer contains publish, tag, or GitHub release
+  actions.
+
 ### Round R4 — protocol review closures (2026-05-20, contrix-spec `2a4d39b..a77b995`)
 
 Client-side push SDK alignment with the round-4 wire shapes. See
@@ -31,13 +50,14 @@ Client-side push SDK alignment with the round-4 wire shapes. See
   single integrator entrypoint. Drives the four-step fanout from
   `account-lifecycle.md` §7.1: drain local push queue → clear
   keypackage cache → invalidate device session → clear persisted
-  `PushPreferences`. Sub-step bodies live host-side via a new
-  `AccountDeactivationSink` trait so chime stays out of the queue / MLS
+  `PushPreferences`. Sub-step bodies live host-side via
+  `AccountDeactivationSink`, `NoopAccountDeactivationSink`, or
+  `ClosureAccountDeactivationSink` so chime stays out of the queue / MLS
   / keychain layer; the call order and `DeviceSessionInvalidationReason`
   / `DeactivationSource` discriminants are pinned by chime so every
   consumer (yougen / starid / sodmin) winds down the same way. Receipt
   type (`AccountDeactivationReceipt`) reports which sub-steps ran when
-  one fails mid-flight. Sink bodies are `TODO(round23-T07)`.
+  one fails mid-flight.
 - **`assert_no_sensitive_fields(payload)` defense-in-depth helper**
   (notify feature). Panics in `debug_assertions` and returns
   `Err(field_path)` in release when any Round R2/R3 governance field
@@ -62,8 +82,8 @@ Client-side push SDK alignment with the round-4 wire shapes. See
 
 - Realm/Space terminology inversion (wire-breaking): old `Space` (security
   boundary) → **Realm**, old `Place` (container) → **Space**. Push routes
-  and notify payloads now carry the new `realm_id` field; legacy
-  `space_id` is kept as a serde alias for back-compat.
+  and notify payloads now carry the new `realm_id` field. Legacy aliases are
+  removed from the chime wire model.
 
 ### Notes
 
@@ -132,11 +152,11 @@ Client-side push SDK alignment with the round-4 wire shapes. See
   the file IO themselves.
 - Pre-1.0 stability banner in `README.md` / `README_zh.md` and
   `push/wire.rs` module docs.
-- `package` and `audit` jobs in CI (`cargo publish --dry-run` plus
+- `package` and `audit` jobs in CI (`cargo package --list` plus
   `rustsec/audit-check` against advisory database).
-- Release workflow (`.github/workflows/release.yml`) that verifies the
-  pushed tag matches `Cargo.toml` version, runs a dry-run publish, and
-  drafts a GitHub release with notes from this changelog.
+- Local release-readiness workflow (`.github/workflows/release.yml`) that
+  builds package artifacts without tags, pushes, GitHub releases, or
+  crates.io publishing.
 - `CONTRIBUTING.md`, `SECURITY.md`, and `CHANGELOG.md` for repo
   hygiene.
 - Crates.io metadata in `Cargo.toml` (`keywords`, `categories`,
@@ -236,7 +256,7 @@ merged.
 - Feature matrix (`""`, `"http"`, `"notify"`, `"http,notify"`) checked,
   tested, clippied.
 - `rustfmt`, `cargo doc -Dwarnings`, MSRV (1.89), `crate-ci/typos`,
-  `cargo publish --dry-run`, and `rustsec/audit-check` jobs.
+  local package, and `rustsec/audit-check` jobs.
 
 [Unreleased]: https://github.com/contrix-dev/chime/compare/v0.1.0...HEAD
 [0.1.0]: https://github.com/contrix-dev/chime/releases/tag/v0.1.0

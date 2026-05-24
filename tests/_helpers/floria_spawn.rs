@@ -90,12 +90,12 @@ pub async fn spawn_floria() -> Option<SpawnedFloria> {
 }
 
 fn locate_floria_binary() -> Option<PathBuf> {
-    if let Ok(value) = env::var("FLORIA_BIN") {
-        if !value.trim().is_empty() {
-            let candidate = PathBuf::from(value);
-            if candidate.is_file() {
-                return Some(candidate);
-            }
+    if let Ok(value) = env::var("FLORIA_BIN")
+        && !value.trim().is_empty()
+    {
+        let candidate = PathBuf::from(value);
+        if candidate.is_file() {
+            return Some(candidate);
         }
     }
 

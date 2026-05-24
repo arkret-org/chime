@@ -8,15 +8,13 @@ use std::fmt;
 
 use base64::{Engine as _, engine::general_purpose};
 use contrix::blind_payload_sanitizer::{
-    self as sdk_sanitizer, BlindPayloadError, BlindPayloadReasonCode,
+    self as sdk_sanitizer, BlindPayloadError, BlindPayloadReasonCode, is_forbidden_payload_key,
 };
-// Round 4 (B5, spec a77b995) — pull the typed shapes for
-// `mention_redirect_target_actor_ids` plaintext routing and the
-// `cx.audit.policy_access` late-key-recovery banner straight from the
-// SDK so chime stays byte-aligned with what soland/floria emit. The
-// SDK module is `contrix::model::round4::*`, re-exported via
-// `contrix::model::*` and the crate root.
-use contrix::{AccessKind, AuditPolicyAccessPayload, Did, EventId, MentionRedirectRouting};
+// Round 4 (B5, spec a77b995) — pull typed audit surfaces from the SDK so
+// chime stays byte-aligned with what soland/floria emit. The
+// mention-redirect routing wrapper is local to chime until the SDK grows a
+// stable public type for that exact wire object.
+use contrix::{AccessKind, AuditPolicyAccessPayload, Did, EventId};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use thiserror::Error;
@@ -48,12 +46,12 @@ pub struct PushNotifyReqBody {
 
 impl PushNotifyReqBody {
     pub fn validate_wire_model(&self) -> Result<(), PushNotifyPrivacyError> {
-        if let Some(operation_id) = self.operation_id.as_deref() {
-            if operation_id != crate::OPERATION_PUSH_NOTIFY {
-                return Err(PushNotifyPrivacyError::InvalidFieldValue {
-                    field: "operation_id".to_owned(),
-                });
-            }
+        if let Some(operation_id) = self.operation_id.as_deref()
+            && operation_id != crate::OPERATION_PUSH_NOTIFY
+        {
+            return Err(PushNotifyPrivacyError::InvalidFieldValue {
+                field: "operation_id".to_owned(),
+            });
         }
 
         self.notification.validate_wire_model()
@@ -261,13 +259,10 @@ pub struct PushNotification {
     pub wakeup_kind: Option<WakeupKind>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub event_id: Option<String>,
-    /// Security-boundary identifier ("Realm" in the post-reversal
-    /// protocol, formerly called Space). Still emitted on the
-    /// blind-wakeup wire model only when allowed by the privacy
-    /// descriptor; the SDK sanitizer treats `realm_id` (and the
-    /// retained, now-container `space_id`) as forbidden top-level
-    /// payload keys, so this field is also enumerated in
-    /// [`PushNotification::validate_blind_wakeup`] below.
+    /// Security-boundary identifier. Still emitted on the blind-wakeup
+    /// wire model only when allowed by the privacy descriptor; the SDK
+    /// sanitizer treats scope identifiers as forbidden extra payload keys,
+    /// so this typed wire field is validated separately below.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub realm_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -288,10 +283,9 @@ pub struct PushNotification {
     /// encrypted and the wakeup is delivered as opaque routing
     /// metadata only — see [`PushNotification::decrypt_allowed_for_actor`].
     ///
-    /// The field is intentionally typed (`MentionRedirectRouting`,
-    /// re-exported from `contrix::model::round4`) rather than carried in
-    /// `extra`, so consumers cannot accidentally bypass the fail-closed
-    /// check by reading raw JSON.
+    /// The field is intentionally typed (`MentionRedirectRouting`) rather
+    /// than carried in `extra`, so consumers cannot accidentally bypass the
+    /// fail-closed check by reading raw JSON.
     ///
     /// Wire shape (canonical, both modes):
     /// ```json
@@ -316,6 +310,12 @@ pub struct PushNotification {
     pub extra: Map<String, Value>,
 }
 
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MentionRedirectRouting {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub mention_redirect_target_actor_ids: Vec<Did>,
+}
+
 impl PushNotification {
     pub fn validate_wire_model(&self) -> Result<(), PushNotifyPrivacyError> {
         if self.wakeup_kind.is_none() {
@@ -325,10 +325,6 @@ impl PushNotification {
         }
 
         validate_typed_id("event_id", self.event_id.as_deref(), "cx:event:")?;
-        // Realm/Space reversal: the security-boundary id is now `realm_id`
-        // (typed `cx:realm:`). The old container-level `place_id` becomes
-        // the new `space_id`, which is NOT carried on the wire model — both
-        // are blocked at the sanitizer forbidden-key list.
         validate_typed_id("realm_id", self.realm_id.as_deref(), "cx:realm:")?;
         validate_optional_non_empty("sender", self.sender.as_deref())?;
 
@@ -761,15 +757,14 @@ fn validate_push_hint_value(value: &str) -> Result<(), PushNotifyPrivacyError> {
         return Ok(());
     }
 
-    if let Some(token) = value.strip_prefix("l10n_key:") {
-        if !token.is_empty()
-            && token.len() <= 64
-            && token
-                .chars()
-                .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '.' | '_' | '-'))
-        {
-            return Ok(());
-        }
+    if let Some(token) = value.strip_prefix("l10n_key:")
+        && !token.is_empty()
+        && token.len() <= 64
+        && token
+            .chars()
+            .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '.' | '_' | '-'))
+    {
+        return Ok(());
     }
 
     Err(PushNotifyPrivacyError::InvalidFieldValue {
@@ -969,36 +964,17 @@ fn validate_plaintext_extra_value(path: &str, value: &Value) -> Result<(), PushN
 }
 
 fn is_sensitive_payload_key(key: &str) -> bool {
+    if is_forbidden_payload_key(key) {
+        return true;
+    }
+
     matches!(
         key,
-        "body"
-            | "title"
-            | "subtitle"
-            | "preview"
-            | "alert"
-            | "provider_payload"
-            | "aps"
-            | "facets"
-            | "entity_facet"
-            | "view_renderer"
-            | "rendered_view"
-            | "encrypted_payload"
-            | "ciphertext"
-            | "sdp"
-            | "candidate"
-            | "ice"
-            | "turn"
-            | "call_setup"
-            | "sender_display_name"
-            | "realm_name"
-            // TODO(realm-rework): the SDK's `is_forbidden_payload_key`
-            // still references the legacy `space_id` token. Once the SDK
-            // catches up, drop the explicit `realm_name` entry here and
-            // route through the SDK list (it covers `*_name` semantics
-            // via the sender / flow / room family already).
-            | "space_name"
-            | "flow_name"
-            | "content"
+        // Local policy extension: SDK blocks `space_name` / `flow_name` /
+        // `room_name`; chime also treats the v1 security-boundary display
+        // label as sensitive until all downstream services agree on a
+        // generic `*_name` rule.
+        "realm_name"
     )
 }
 
@@ -1022,13 +998,9 @@ fn is_never_allowed_payload_key(key: &str) -> bool {
 ///
 /// These fields belong to spec round 2+3 governance surfaces (moderation
 /// appeals, attestation evidence, cross-signing reset, identity link
-/// routing, realm/space terminal lifecycle). They are deliberately *not*
-/// part of the SDK's [`contrix::blind_payload_sanitizer::is_forbidden_payload_key`]
-/// list yet — the SDK list is generic across services, and chime owns
-/// the policy that says "if a R2/R3 governance identifier ever leaks
-/// into a push wakeup, that's a programmer error worth panicking on in
-/// debug builds." Production builds get the same field surfaced via
-/// [`assert_no_sensitive_fields`] returning an `Err` instead.
+/// routing, realm/space terminal lifecycle). The SDK owns the generic
+/// blind-payload forbidden-key list; this chime-only tripwire covers
+/// governance identifiers that should never enter a device push wakeup.
 ///
 /// Kept as a flat slice (rather than a `match`) so the array is itself
 /// public API — tests in chime / floria / yougen can iterate it to
@@ -1095,10 +1067,6 @@ pub const ROUND_R2_R3_SENSITIVE_FIELDS: &[&str] = &[
 ///
 /// Returns `Ok(())` when the payload is clean.
 //
-// TODO(round23-T07): once the SDK's `is_forbidden_payload_key` adopts
-// the R2/R3 governance fields, fold this list into the SDK call and
-// keep this helper as a thin wrapper that converts the SDK
-// `BlindPayloadError` into chime's panic-in-debug ergonomic.
 pub fn assert_no_sensitive_fields(payload: &Value) -> Result<(), String> {
     fn walk(path: &str, value: &Value) -> Result<(), String> {
         match value {

@@ -62,6 +62,37 @@ fn arb_sensitive_key() -> impl Strategy<Value = &'static str> {
     proptest::sample::select(SENSITIVE_KEYS.to_vec())
 }
 
+fn arb_safe_extra_key() -> impl Strategy<Value = String> {
+    "[a-z][a-z0-9_]{0,24}".prop_filter("avoid known sensitive keys", |key| {
+        !SENSITIVE_KEYS.contains(&key.as_str())
+            && !matches!(
+                key.as_str(),
+                "event_id"
+                    | "message_id"
+                    | "flow_id"
+                    | "realm_id"
+                    | "space_id"
+                    | "place_id"
+                    | "schema_id"
+                    | "kind"
+            )
+    })
+}
+
+fn arb_safe_opaque_string() -> impl Strategy<Value = String> {
+    proptest::collection::vec(
+        prop_oneof![
+            proptest::char::range('a', 'z'),
+            proptest::char::range('A', 'Z'),
+            proptest::char::range('0', '9'),
+            Just('_'),
+            Just('-'),
+        ],
+        0..24,
+    )
+    .prop_map(|chars| chars.into_iter().collect())
+}
+
 /// Strategy: a short unicode/emoji-flavoured string.
 fn arb_unicode_string() -> impl Strategy<Value = String> {
     proptest::collection::vec(
@@ -175,5 +206,18 @@ proptest! {
                 .is_err(),
             "deeply nested sensitive key `{key}` survived"
         );
+    }
+
+    /// Fuzz-style property — opaque, non-sensitive extension keys with
+    /// bounded primitive values must not be rejected by
+    /// `validate_blind_wakeup`.
+    #[test]
+    fn safe_opaque_extra_key_survives_validate_blind_wakeup(
+        key in arb_safe_extra_key(),
+        value in arb_safe_opaque_string(),
+    ) {
+        let mut request = make_request();
+        request.notification.extra.insert(key, Value::String(value));
+        prop_assert!(request.notification.validate_blind_wakeup().is_ok());
     }
 }

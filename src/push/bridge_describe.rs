@@ -327,7 +327,6 @@ mod tests {
             dedup_ttl_seconds: Some(300),
             rate_limit_window_seconds: Some(60),
             rate_limit_scopes: vec!["per-app".to_owned()],
-            ..Default::default()
         };
 
         assert!(descriptor.supports_dedup());

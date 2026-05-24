@@ -51,7 +51,7 @@ it as a security report and use the private channels above.
 
 ## What is in scope
 
-- The published `chime` crate (`http` and `notify` features included).
+- The local `chime` package artifact (`http` and `notify` features included).
 - Default `ContrixPushClient` HTTPS / TLS / retry / idempotency
   behaviour.
 - Default `validate_blind_wakeup` /
@@ -64,6 +64,6 @@ it as a security report and use the private channels above.
   Server, soland, floria, …) — please report those to the respective
   service maintainers.
 - Vulnerabilities in third-party crates listed in `Cargo.toml`. Report
-  those upstream; we will pull a fixed dependency once it is published.
+  those upstream; we will pull a fixed dependency once it is available.
 - Misuse by callers that disable the privacy validators or feed an
   attacker-controlled `plaintext_visible_services` allowlist.

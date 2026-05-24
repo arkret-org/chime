@@ -40,12 +40,12 @@
 //!    by handing the integrator a fresh
 //!    [`DeviceSessionInvalidationReason::AccountDeactivated`] signal.
 //!
-//! The first two steps need real host-side wiring (file IO, keychain
-//! access, MLS state). chime does not own any of that, so the
-//! implementation here is a contract surface: integrators implement
-//! [`AccountDeactivationSink`] and chime drives the call order. The
-//! signature is locked even though the bodies are
-//! `TODO(round23-T07)`.
+//! The first two steps need host-side wiring (file IO, keychain access,
+//! MLS state). chime does not own any of that, so the implementation
+//! here is a contract surface: integrators either implement
+//! [`AccountDeactivationSink`] directly or use
+//! [`ClosureAccountDeactivationSink`] to bind existing queue/cache/session
+//! functions without a custom type.
 
 use crate::PushPreferencesStore;
 
@@ -124,6 +124,83 @@ pub trait AccountDeactivationSink {
     ) -> Result<(), Self::Error>;
 }
 
+/// No-op deactivation sink for integrations that have no local queue,
+/// keypackage cache, or device session state inside the current process.
+///
+/// This is intentionally named, rather than implementing the trait for
+/// `()`, so production callers have to opt into the no-op semantics
+/// explicitly at the call site.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct NoopAccountDeactivationSink;
+
+impl AccountDeactivationSink for NoopAccountDeactivationSink {
+    type Error = core::convert::Infallible;
+
+    fn drain_local_push_queue(&self) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
+    fn clear_keypackage_cache(&self) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
+    fn invalidate_device_session(
+        &self,
+        _reason: DeviceSessionInvalidationReason,
+    ) -> Result<(), Self::Error> {
+        Ok(())
+    }
+}
+
+/// Closure-backed deactivation sink.
+///
+/// Host apps such as yougen can wire their concrete push-outbox flush,
+/// keypackage-cache clear, and session-invalidation functions into chime
+/// without defining a bespoke adapter type.
+pub struct ClosureAccountDeactivationSink<D, C, I> {
+    drain_local_push_queue: D,
+    clear_keypackage_cache: C,
+    invalidate_device_session: I,
+}
+
+impl<D, C, I> ClosureAccountDeactivationSink<D, C, I> {
+    pub fn new(
+        drain_local_push_queue: D,
+        clear_keypackage_cache: C,
+        invalidate_device_session: I,
+    ) -> Self {
+        Self {
+            drain_local_push_queue,
+            clear_keypackage_cache,
+            invalidate_device_session,
+        }
+    }
+}
+
+impl<D, C, I, E> AccountDeactivationSink for ClosureAccountDeactivationSink<D, C, I>
+where
+    D: Fn() -> Result<(), E>,
+    C: Fn() -> Result<(), E>,
+    I: Fn(DeviceSessionInvalidationReason) -> Result<(), E>,
+{
+    type Error = E;
+
+    fn drain_local_push_queue(&self) -> Result<(), Self::Error> {
+        (self.drain_local_push_queue)()
+    }
+
+    fn clear_keypackage_cache(&self) -> Result<(), Self::Error> {
+        (self.clear_keypackage_cache)()
+    }
+
+    fn invalidate_device_session(
+        &self,
+        reason: DeviceSessionInvalidationReason,
+    ) -> Result<(), Self::Error> {
+        (self.invalidate_device_session)(reason)
+    }
+}
+
 /// Errors surfaced by [`on_account_deactivate`].
 ///
 /// Each variant pins down which sub-step failed so the integrator can
@@ -200,10 +277,6 @@ impl AccountDeactivationReceipt {
 /// the push-preferences clear because that step uses a separate
 /// trait/store and doesn't depend on the sink.
 //
-// TODO(round23-T07): wire actual queue flush logic once the host apps
-// (yougen / starid / sodmin) expose their local push outbox. The
-// trait surface and call order are locked by this signature; the
-// bodies live host-side.
 pub fn on_account_deactivate<S, P>(
     sink: &S,
     preferences_store: Option<&P>,
@@ -315,6 +388,25 @@ mod tests {
         }
     }
 
+    #[derive(Default)]
+    struct InfalliblePrefs;
+
+    impl PushPreferencesStore for InfalliblePrefs {
+        type Error = core::convert::Infallible;
+
+        fn load_push_preferences(&self) -> Result<Option<crate::PushPreferences>, Self::Error> {
+            Ok(None)
+        }
+
+        fn save_push_preferences(&self, _: &crate::PushPreferences) -> Result<(), Self::Error> {
+            Ok(())
+        }
+
+        fn clear_push_preferences(&self) -> Result<(), Self::Error> {
+            Ok(())
+        }
+    }
+
     #[test]
     fn happy_path_runs_all_four_substeps_in_order() {
         let sink = CountingSink::default();
@@ -386,5 +478,52 @@ mod tests {
         assert_eq!(sink.clear.get(), 1);
         assert_eq!(sink.invalidate.get(), 1);
         assert_eq!(prefs.cleared.get(), 0);
+    }
+
+    #[test]
+    fn noop_sink_completes_for_stateless_integrations() {
+        let receipt = on_account_deactivate::<_, InfalliblePrefs>(
+            &NoopAccountDeactivationSink,
+            None,
+            DeactivationSource::FloriaPush,
+        )
+        .unwrap();
+        assert!(receipt.is_complete());
+    }
+
+    #[test]
+    fn closure_sink_wires_host_queue_cache_and_session_hooks() {
+        let drain = Cell::new(0);
+        let clear = Cell::new(0);
+        let invalidate = Cell::new(0);
+        let reason = Cell::new(None);
+        let sink = ClosureAccountDeactivationSink::new(
+            || {
+                drain.set(drain.get() + 1);
+                Ok::<_, &'static str>(())
+            },
+            || {
+                clear.set(clear.get() + 1);
+                Ok::<_, &'static str>(())
+            },
+            |next_reason| {
+                invalidate.set(invalidate.get() + 1);
+                reason.set(Some(next_reason));
+                Ok::<_, &'static str>(())
+            },
+        );
+
+        let receipt =
+            on_account_deactivate::<_, InMemoryPrefs>(&sink, None, DeactivationSource::InBandSync)
+                .unwrap();
+
+        assert!(receipt.is_complete());
+        assert_eq!(drain.get(), 1);
+        assert_eq!(clear.get(), 1);
+        assert_eq!(invalidate.get(), 1);
+        assert_eq!(
+            reason.get(),
+            Some(DeviceSessionInvalidationReason::AccountDeactivated)
+        );
     }
 }

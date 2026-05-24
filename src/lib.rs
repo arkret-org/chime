@@ -52,23 +52,24 @@ pub use push_rule_core::{
 
 #[cfg(feature = "notify")]
 pub use notify::{
-    EncryptedEnvelope, EncryptedEnvelopeError, ProviderRetryHint, PushDeliveryReceipt, PushHint,
-    PushNotification, PushNotificationDevice, PushNotifyPolicyContext, PushNotifyPrivacyError,
-    PushNotifyPrivacyMode, PushNotifyPrivacyVector, PushNotifyReqBody, PushNotifyResBody,
-    PushTargetId, ROUND_R2_R3_SENSITIVE_FIELDS, RejectedPushToken, WakeupKind,
-    assert_no_sensitive_fields, shared_push_notify_privacy_vectors,
+    EncryptedEnvelope, EncryptedEnvelopeError, MentionRedirectRouting, ProviderRetryHint,
+    PushDeliveryReceipt, PushHint, PushNotification, PushNotificationDevice,
+    PushNotifyPolicyContext, PushNotifyPrivacyError, PushNotifyPrivacyMode,
+    PushNotifyPrivacyVector, PushNotifyReqBody, PushNotifyResBody, PushTargetId,
+    ROUND_R2_R3_SENSITIVE_FIELDS, RejectedPushToken, WakeupKind, assert_no_sensitive_fields,
+    shared_push_notify_privacy_vectors,
 };
 
-// Round 4 (B5, spec a77b995) — re-export the SDK round-4 surfaces chime
-// consumers (yougen, host apps) need to consume mention-redirect
-// plaintext routing and the late-key-recovery audit banner without
-// having to depend on `contrix` directly.
+// Round 4 (B5, spec a77b995) — re-export the SDK round-4 audit surfaces
+// chime consumers (yougen, host apps) need for the late-key-recovery banner
+// without having to depend on `contrix` directly.
 #[cfg(feature = "notify")]
-pub use contrix::{AccessKind, AuditPolicyAccessPayload, MentionRedirectRouting};
+pub use contrix::{AccessKind, AuditPolicyAccessPayload};
 
 pub use lifecycle::{
     AccountDeactivationError, AccountDeactivationReceipt, AccountDeactivationSink,
-    DeactivationSource, DeviceSessionInvalidationReason, on_account_deactivate,
+    ClosureAccountDeactivationSink, DeactivationSource, DeviceSessionInvalidationReason,
+    NoopAccountDeactivationSink, on_account_deactivate,
 };
 
 pub use gateway_binding::GatewayBinding;
