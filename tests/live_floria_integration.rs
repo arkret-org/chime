@@ -55,8 +55,8 @@ fn notify_payload(idempotency_key: &str) -> Value {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn bridge_describe_round_trips_against_live_floria() {
-    let Some(floria) = require_floria_or_skip("bridge_describe_round_trips_against_live_floria")
-        .await
+    let Some(floria) =
+        require_floria_or_skip("bridge_describe_round_trips_against_live_floria").await
     else {
         return;
     };
@@ -87,8 +87,7 @@ async fn bridge_describe_round_trips_against_live_floria() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn integration_view_combines_describe_endpoints() {
-    let Some(floria) = require_floria_or_skip("integration_view_combines_describe_endpoints")
-        .await
+    let Some(floria) = require_floria_or_skip("integration_view_combines_describe_endpoints").await
     else {
         return;
     };
@@ -121,10 +120,9 @@ async fn integration_view_combines_describe_endpoints() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn push_notify_delivery_receipt_round_trips_into_chime_wire_types() {
-    let Some(floria) = require_floria_or_skip(
-        "push_notify_delivery_receipt_round_trips_into_chime_wire_types",
-    )
-    .await
+    let Some(floria) =
+        require_floria_or_skip("push_notify_delivery_receipt_round_trips_into_chime_wire_types")
+            .await
     else {
         return;
     };
@@ -167,8 +165,7 @@ async fn push_notify_delivery_receipt_round_trips_into_chime_wire_types() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn repeated_notify_advances_floria_request_id() {
-    let Some(floria) = require_floria_or_skip("repeated_notify_advances_floria_request_id")
-        .await
+    let Some(floria) = require_floria_or_skip("repeated_notify_advances_floria_request_id").await
     else {
         return;
     };

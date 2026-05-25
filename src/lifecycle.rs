@@ -550,8 +550,18 @@ mod tests {
 
         assert!(receipt.is_complete());
         assert_eq!(receipt.circle_bindings_cleared.len(), 2);
-        assert!(receipt.circle_bindings_cleared.iter().any(|c| c.ends_with('1')));
-        assert!(receipt.circle_bindings_cleared.iter().any(|c| c.ends_with('2')));
+        assert!(
+            receipt
+                .circle_bindings_cleared
+                .iter()
+                .any(|c| c.ends_with('1'))
+        );
+        assert!(
+            receipt
+                .circle_bindings_cleared
+                .iter()
+                .any(|c| c.ends_with('2'))
+        );
         assert_eq!(receipt.realm_bindings_cleared.len(), 1);
         // And the persisted prefs were actually dropped.
         assert!(prefs.stored.borrow().is_none());

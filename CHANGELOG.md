@@ -6,6 +6,60 @@ project follows [SemVer](https://semver.org/) once it reaches `1.0`.
 
 ## [Unreleased]
 
+### Added — CXP-0007 (Circle primitive) client-side surface
+
+- **`PushNotification.circle_id` and `PushNotification.effective_scope`**
+  expose the typed `cx:circle:` / `cx:realm:` security boundary that an
+  event was authored against. `validate_wire_model` rejects untyped
+  values and `validate_blind_wakeup` enforces the Circle metadata
+  privacy invariant (no `did:` literal smuggled in `circle_id`, no
+  `circle_name` / `circle_members` / `circle_member_dids` in `extra`).
+  `PushNotification` becomes `#[non_exhaustive]`; new constructor
+  `PushNotification::new_blind_wakeup(push_target_id, wakeup_kind)`
+  for external consumers that previously used struct literals.
+- **`PushPreferences.muted_circle_ids` and `muted_realm_ids`**
+  (`BTreeSet<String>`) so a device can opt out of UI surfacing for a
+  specific Circle or Realm while floria continues to account for
+  wire-level delivery. Empty sets are omitted from the persisted JSON.
+- **`AccountDeactivationReceipt.circle_bindings_cleared` and
+  `realm_bindings_cleared`** snapshot the muted Circle / Realm ids
+  observed in the prefs store before `on_account_deactivate` wipes
+  them, so host-side telemetry can report which bindings were live at
+  the moment of deactivation. `AccountDeactivationReceipt` is no
+  longer `Copy` (now contains `Vec<String>`).
+- **wasm32 CI coverage** (`.github/workflows/ci.yml`): a new job runs
+  `cargo check --target wasm32-unknown-unknown --features http` and
+  `cargo doc --target wasm32-unknown-unknown --no-deps --features http`
+  with `RUSTDOCFLAGS=-Dwarnings` so wasm-only regressions are visible.
+- **Doc-test for the blind-wakeup error path**: the
+  `validate a blind push wakeup` README example now branches on a
+  plaintext-`title` payload and asserts the validator surfaces the
+  offending field name.
+
+### Changed
+
+- **`tests/live_floria_integration.rs` is fail-fast in CI.** A new
+  `tests/_helpers/floria_spawn.rs::require_floria_or_skip` helper
+  panics when the floria binary is unavailable AND
+  `CHIME_INTEGRATION_REQUIRED=1` is set (CI sets this); without the
+  env var it still prints a clearly-labelled `[warn]` skip so local
+  developers without a sibling floria checkout keep getting a green
+  run. A new `live-integration` CI job checks out
+  `contrix-dev/floria`, builds the binary, and exercises the tests
+  with `CHIME_INTEGRATION_REQUIRED=1`.
+
+### Security
+
+- Circle metadata privacy: `circle_members` / `circle_member_dids` /
+  `circle_member_actor_ids` are now classified as never-allowed
+  payload keys; they cannot appear on any push wakeup wire even for
+  whitelisted plaintext-visible destination service DIDs.
+
+### Notes
+
+- Version stays at `1.0.0`; no release artifact, no crates.io publish,
+  no git tag in this round (per `_todos_all.md` §0 hard rules).
+
 ## [1.0.0] - 2026-05-25
 
 ### Added
