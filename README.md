@@ -543,3 +543,10 @@ Contrix Push Gateway
 ## License
 
 Licensed under Apache 2.0. See [LICENSE](LICENSE).
+
+---
+
+<!-- circle-rollout milestone pointer -->
+> **Active milestone tracking** (local-only, gitignored): see
+> `_chime_todos.md` in the parent `contrix-dev/` directory for the
+> circle-rollout (CXP-0007) work item list and per-stage checkpoints.
