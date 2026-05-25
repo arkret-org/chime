@@ -99,6 +99,28 @@ jobs:
       - name: Check MSRV (all features)
         run: cargo check --all-features
 
+  # CXP-0007 P2D.4 — wasm32-unknown-unknown coverage. chime advertises
+  # first-class wasm32 support (Cargo.toml splits per-target
+  # dependencies for reqwest/gloo-timers); without this job a wasm-only
+  # regression — e.g. a tokio API call leaking into the http feature
+  # path or a doc-link relying on a native-only re-export — slips
+  # through the linux-only matrix above.
+  wasm32:
+    name: wasm32 (build + doc)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+      - name: cargo check (wasm32, http)
+        run: cargo check --target wasm32-unknown-unknown --features http
+      - name: cargo doc (wasm32, http, no-deps)
+        run: cargo doc --target wasm32-unknown-unknown --no-deps --features http
+        env:
+          RUSTDOCFLAGS: -Dwarnings
+
   typos:
     name: Typos
     runs-on: ubuntu-latest
