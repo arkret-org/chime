@@ -46,6 +46,26 @@ When you report, please include:
   on the explicit `plaintext_visible_services` allowlist may receive
   identifying metadata.
 
+### CXP-0007 Circle metadata invariants
+
+The Circle primitive introduces an encrypted sub-boundary inside a
+Realm. chime's wakeup wire MUST preserve the following invariants on
+top of the generic blind-wakeup rules above:
+
+- `PushNotification.circle_id` MAY travel on the blind-wakeup wire as
+  an opaque typed-id reference, but its value MUST start with the
+  literal `cx:circle:` prefix and MUST NOT contain a `did:` literal
+  anywhere in its tail. Untyped or DID-bearing values are rejected by
+  `validate_wire_model` / `validate_blind_wakeup`.
+- `PushNotification.effective_scope` MUST be either a `cx:circle:` or
+  `cx:realm:` typed reference; any other prefix is wire-broken.
+- The display label (`circle_name` / `circle_display_name`) and any
+  membership listing (`circle_members` / `circle_member_dids` /
+  `circle_member_actor_ids`) are never allowed on the wakeup wire,
+  including in the plaintext-visible mode that whitelisted destination
+  service DIDs see. A wakeup that surfaces them MUST be rejected with
+  `PushNotifyPrivacyError::SensitiveField`.
+
 If you believe you have found a way to bypass any of those rules, treat
 it as a security report and use the private channels above.
 

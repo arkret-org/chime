@@ -23,6 +23,8 @@
 //!   `POST /api/v1/push/register-device` and
 //!   `POST /api/v1/push/unregister-device`.
 
+use std::collections::BTreeSet;
+
 use serde::{Deserialize, Serialize};
 
 /// Compile the README's rust code blocks as doc-tests so the public
@@ -245,6 +247,20 @@ pub struct PushPreferences {
     /// feature) for the multi-gateway register helper.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub gateways: Vec<GatewayBinding>,
+    /// CXP-0007 (Circle primitive) — set of `cx:circle:` ids the user
+    /// has muted on this device. Wakeups whose `circle_id` is in this
+    /// set MUST NOT raise a UI surface; wire-level delivery is
+    /// unchanged so floria can still account for the receipt.
+    ///
+    /// Stored as a `BTreeSet` so the persisted JSON is deterministic
+    /// (essential for diff-based prefs sync).
+    #[serde(default, skip_serializing_if = "BTreeSet::is_empty")]
+    pub muted_circle_ids: BTreeSet<String>,
+    /// Set of `cx:realm:` ids the user has muted on this device. Same
+    /// semantics as [`Self::muted_circle_ids`], scoped to the Realm
+    /// (legacy Realm-scoped wakeups + any Circle-less Realm wakeups).
+    #[serde(default, skip_serializing_if = "BTreeSet::is_empty")]
+    pub muted_realm_ids: BTreeSet<String>,
 }
 
 impl Default for PushPreferences {
@@ -255,6 +271,8 @@ impl Default for PushPreferences {
             allow_push_hint: true,
             webpush_endpoint_allowlist: Vec::new(),
             gateways: Vec::new(),
+            muted_circle_ids: BTreeSet::new(),
+            muted_realm_ids: BTreeSet::new(),
         }
     }
 }
@@ -343,6 +361,7 @@ mod tests {
                 PushGatewayType::Bugle,
                 "https://example.com/api/v1/push/notify",
             )],
+            ..Default::default()
         };
         let json = to_json(&prefs).unwrap();
         let loaded = from_json(&json).unwrap();
@@ -405,5 +424,46 @@ mod tests {
             loaded.is_err(),
             "removed singular fields and aliases must error, not silently default"
         );
+    }
+
+    #[test]
+    fn muted_circle_and_realm_ids_round_trip() {
+        let mut prefs = PushPreferences {
+            enabled: true,
+            ..Default::default()
+        };
+        prefs
+            .muted_circle_ids
+            .insert("cx:circle:01HZK9Z000000000000000001".to_owned());
+        prefs
+            .muted_circle_ids
+            .insert("cx:circle:01HZK9Z000000000000000002".to_owned());
+        prefs
+            .muted_realm_ids
+            .insert("cx:realm:01HZK9Z000000000000000003".to_owned());
+
+        let json = to_json(&prefs).unwrap();
+        assert!(json.contains("muted_circle_ids"));
+        assert!(json.contains("muted_realm_ids"));
+        let loaded = from_json(&json).unwrap();
+        assert_eq!(loaded.muted_circle_ids, prefs.muted_circle_ids);
+        assert_eq!(loaded.muted_realm_ids, prefs.muted_realm_ids);
+    }
+
+    #[test]
+    fn default_preferences_have_empty_mutes() {
+        let prefs = PushPreferences::default();
+        assert!(prefs.muted_circle_ids.is_empty());
+        assert!(prefs.muted_realm_ids.is_empty());
+    }
+
+    #[test]
+    fn empty_mute_sets_are_omitted_from_serialised_form() {
+        let prefs = PushPreferences::default();
+        let json = to_json(&prefs).unwrap();
+        // Defaults should not blow up the on-disk shape with empty
+        // collections; the `skip_serializing_if` predicate keeps them out.
+        assert!(!json.contains("muted_circle_ids"));
+        assert!(!json.contains("muted_realm_ids"));
     }
 }

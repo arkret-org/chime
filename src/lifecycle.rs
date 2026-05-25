@@ -232,13 +232,20 @@ pub enum AccountDeactivationError<E> {
 /// all `true` on the happy path; `false` only when an earlier sub-step
 /// returned an error and the receipt is being constructed for the
 /// caller's metric pipeline.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct AccountDeactivationReceipt {
     pub source: Option<DeactivationSource>,
     pub queue_drained: bool,
     pub keypackage_cache_cleared: bool,
     pub session_invalidated: bool,
     pub push_preferences_cleared: bool,
+    /// CXP-0007 — `cx:circle:` ids whose chime-side subscription /
+    /// mute state was torn down as part of this deactivation. Empty
+    /// when no Circle-scoped state existed for this principal.
+    pub circle_bindings_cleared: Vec<String>,
+    /// CXP-0007 — same as [`Self::circle_bindings_cleared`] but for the
+    /// Realm-scoped mute list (legacy + Circle-less Realm wakeups).
+    pub realm_bindings_cleared: Vec<String>,
 }
 
 impl AccountDeactivationReceipt {
@@ -304,6 +311,22 @@ where
     receipt.session_invalidated = true;
 
     if let Some(store) = preferences_store {
+        // CXP-0007 — before wiping the persisted preferences, snapshot
+        // the circle-scoped and realm-scoped subscription / mute state
+        // so the receipt can report which bindings were torn down
+        // (the receipt is what host apps wire into telemetry; an
+        // empty wholesale clear would otherwise be observability-opaque).
+        // `load_push_preferences` returning `None` is treated as
+        // "nothing to snapshot"; an error here propagates as a
+        // `ClearPushPreferences` step failure so the integrator can
+        // retry the whole sub-step on a transient persistence error.
+        let snapshot = store
+            .load_push_preferences()
+            .map_err(AccountDeactivationError::ClearPushPreferences)?;
+        if let Some(prefs) = snapshot {
+            receipt.circle_bindings_cleared = prefs.muted_circle_ids.iter().cloned().collect();
+            receipt.realm_bindings_cleared = prefs.muted_realm_ids.iter().cloned().collect();
+        }
         store
             .clear_push_preferences()
             .map_err(AccountDeactivationError::ClearPushPreferences)?;
@@ -311,7 +334,8 @@ where
     } else {
         // No store wired — treat as a no-op success so callers without
         // persisted preferences (e.g. one-shot CLI smoke tests) still
-        // get an `is_complete()` receipt.
+        // get an `is_complete()` receipt. The circle/realm binding
+        // lists stay empty by construction.
         receipt.push_preferences_cleared = true;
     }
 
@@ -372,18 +396,24 @@ mod tests {
     #[derive(Default)]
     struct InMemoryPrefs {
         cleared: Cell<u32>,
+        // CXP-0007 — optional pre-loaded preferences so a test can
+        // assert the deactivation hook snapshots circle/realm mute
+        // state before wiping.
+        stored: std::cell::RefCell<Option<crate::PushPreferences>>,
     }
 
     impl PushPreferencesStore for InMemoryPrefs {
         type Error = &'static str;
         fn load_push_preferences(&self) -> Result<Option<crate::PushPreferences>, Self::Error> {
-            Ok(None)
+            Ok(self.stored.borrow().clone())
         }
-        fn save_push_preferences(&self, _: &crate::PushPreferences) -> Result<(), Self::Error> {
+        fn save_push_preferences(&self, prefs: &crate::PushPreferences) -> Result<(), Self::Error> {
+            *self.stored.borrow_mut() = Some(prefs.clone());
             Ok(())
         }
         fn clear_push_preferences(&self) -> Result<(), Self::Error> {
             self.cleared.set(self.cleared.get() + 1);
+            *self.stored.borrow_mut() = None;
             Ok(())
         }
     }
@@ -489,6 +519,52 @@ mod tests {
         )
         .unwrap();
         assert!(receipt.is_complete());
+    }
+
+    #[test]
+    fn on_account_deactivate_snapshots_and_clears_circle_scoped_bindings() {
+        // CXP-0007 — deactivation MUST tear down circle-scoped state.
+        // The wholesale `clear_push_preferences` already drops them on
+        // disk; this test pins the receipt contract so host-side
+        // telemetry can see which circle / realm bindings were live at
+        // the moment of deactivation.
+        let sink = CountingSink::default();
+        let prefs = InMemoryPrefs::default();
+        let mut seeded = crate::PushPreferences {
+            enabled: true,
+            ..Default::default()
+        };
+        seeded
+            .muted_circle_ids
+            .insert("cx:circle:01HZK9Z000000000000000001".to_owned());
+        seeded
+            .muted_circle_ids
+            .insert("cx:circle:01HZK9Z000000000000000002".to_owned());
+        seeded
+            .muted_realm_ids
+            .insert("cx:realm:01HZK9Z000000000000000099".to_owned());
+        prefs.save_push_preferences(&seeded).unwrap();
+
+        let receipt =
+            on_account_deactivate(&sink, Some(&prefs), DeactivationSource::FloriaPush).unwrap();
+
+        assert!(receipt.is_complete());
+        assert_eq!(receipt.circle_bindings_cleared.len(), 2);
+        assert!(
+            receipt
+                .circle_bindings_cleared
+                .iter()
+                .any(|c| c.ends_with('1'))
+        );
+        assert!(
+            receipt
+                .circle_bindings_cleared
+                .iter()
+                .any(|c| c.ends_with('2'))
+        );
+        assert_eq!(receipt.realm_bindings_cleared.len(), 1);
+        // And the persisted prefs were actually dropped.
+        assert!(prefs.stored.borrow().is_none());
     }
 
     #[test]

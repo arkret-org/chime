@@ -24,6 +24,39 @@ Contrix 推送通知网关类型、偏好设置和设备注册辅助库。
 | `http` | 添加 `ContrixPushClient`，使用 `reqwest` 调用 `POST /api/v1/push/register-device` 和 `POST /api/v1/push/unregister-device`。 |
 | `notify` | 添加服务端/网关侧 `cx.push.notify` wire 类型和 blind-wakeup 隐私校验。 |
 
+> **生产环境必须启用 `notify` feature。** 关闭时，blind-wakeup / 明文可见
+> 的隐私校验器（`PushNotifyReqBody::assert_payload_safe`、
+> `PushNotification::validate_blind_wakeup`）以及 Circle / 治理元数据泄
+> 漏检查（`assert_no_sensitive_fields`、`ROUND_R2_R3_SENSITIVE_FIELDS`）
+> 都不会被编译进来——本应被校验器拒绝的 wakeup 会直通到设备。仅本地冒
+> 烟测试可不开；任何接触真实 floria / yougen / soland 流量的集成都必
+> 须使用 `--features http,notify` 编译。
+
+## CXP-0007 Circle 订阅
+
+[CXP-0007 Circle primitive](../contrix-spec/specs/protocol/circle.md)
+在 Realm 内部引入了独立加密的子边界。chime 暴露客户端侧的接入面，使
+wakeup 携带 Circle 上下文一路抵达终端：
+
+- **接收 Circle 范围的 wakeup。** `PushNotification.circle_id` 携带
+  适用时的 `cx:circle:` 类型化引用；`PushNotification.effective_scope`
+  镜像事件信封上的 `effective_scope`（`cx:circle:...` 或
+  `cx:realm:...`），让客户端无需额外往返即可把 wakeup 关联到对应的
+  安全边界。两者都由 `validate_wire_model` 校验形状；
+  `validate_blind_wakeup` 中的 Circle 元数据隐私校验器还会拒绝在
+  `extra` 内出现的 `circle_name` / `circle_members` /
+  `circle_member_dids`，以及在 `circle_id` 尾部夹带 `did:` 字面量的
+  写法。
+- **在本机静音某个 Circle。** `PushPreferences` 增加了
+  `muted_circle_ids: BTreeSet<String>` 与 `muted_realm_ids:
+  BTreeSet<String>`。命中相应集合的 wakeup 不应升起 UI；wire 层不
+  受影响，floria 仍能计入回执。
+- **去激活时的清理。** `on_account_deactivate` 在清空持久化偏好之前会
+  把 `muted_circle_ids` / `muted_realm_ids` 快照到
+  `AccountDeactivationReceipt`（字段 `circle_bindings_cleared` /
+  `realm_bindings_cleared`），便于宿主侧把去激活瞬间生效的 Circle /
+  Realm 绑定上报到遥测。
+
 ## 快速开始
 
 添加到你的 `Cargo.toml`：
