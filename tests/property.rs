@@ -201,14 +201,11 @@ mod notify_props {
                 "app_id": "app.example",
             }))
             .unwrap();
-            let mut notification = PushNotification {
-                wakeup_kind: Some(WakeupKind::Message),
-                push_target_id: Some(
-                    PushTargetId::new("cx:pseudonym:push:01HYZ8Z000000000000000").unwrap(),
-                ),
-                devices: vec![device],
-                ..Default::default()
-            };
+            let mut notification = PushNotification::new_blind_wakeup(
+                PushTargetId::new("cx:pseudonym:push:01HYZ8Z000000000000000").unwrap(),
+                WakeupKind::Message,
+            );
+            notification.devices = vec![device];
             notification.extra.insert(sensitive_key.to_owned(), value);
 
             let request = PushNotifyReqBody {

@@ -252,6 +252,7 @@ impl<'de> Deserialize<'de> for WakeupKind {
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct PushNotification {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub push_target_id: Option<PushTargetId>,
@@ -265,6 +266,31 @@ pub struct PushNotification {
     /// so this typed wire field is validated separately below.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub realm_id: Option<String>,
+    /// CXP-0007 (Circle primitive) — typed `cx:circle:` identifier of
+    /// the Circle (intra-Realm encrypted sub-boundary) the wakeup is
+    /// scoped to, when applicable. `None` for legacy Realm-scoped
+    /// wakeups.
+    ///
+    /// Blind-wakeup mode: the typed string MAY appear on the wire as
+    /// opaque routing metadata — see [`PushNotification::validate_blind_wakeup`]
+    /// for the privacy validator that enforces the wire shape and the
+    /// "no Circle member name leak" invariant.
+    ///
+    /// Plaintext-visible mode (whitelisted service DIDs only): MUST
+    /// stay absent unless the destination service explicitly opts in
+    /// via [`PushNotifyPolicyContext::plaintext_visible_services`].
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub circle_id: Option<String>,
+    /// CXP-0007 (Circle primitive) — mirror of the event envelope's
+    /// `effective_scope` field that floria stamps on the originating
+    /// `cx.event.*` envelope. Lets the client side correlate a wakeup
+    /// with the security boundary the event was authored against
+    /// without having to round-trip back to floria.
+    ///
+    /// Shape: typed reference string (`cx:circle:...` or `cx:realm:...`).
+    /// Validated by [`PushNotification::validate_wire_model`].
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub effective_scope: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub sender: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -317,6 +343,21 @@ pub struct MentionRedirectRouting {
 }
 
 impl PushNotification {
+    /// Construct a minimal blind-wakeup `PushNotification`.
+    ///
+    /// Equivalent to `PushNotification::default()` plus the only two
+    /// fields the SDK / floria treat as mandatory (`wakeup_kind`,
+    /// `push_target_id`). Provided as a constructor so external
+    /// consumers can build instances despite the `#[non_exhaustive]`
+    /// attribute on the struct.
+    pub fn new_blind_wakeup(push_target_id: PushTargetId, wakeup_kind: WakeupKind) -> Self {
+        Self {
+            push_target_id: Some(push_target_id),
+            wakeup_kind: Some(wakeup_kind),
+            ..Self::default()
+        }
+    }
+
     pub fn validate_wire_model(&self) -> Result<(), PushNotifyPrivacyError> {
         if self.wakeup_kind.is_none() {
             return Err(PushNotifyPrivacyError::MissingField {
@@ -326,6 +367,13 @@ impl PushNotification {
 
         validate_typed_id("event_id", self.event_id.as_deref(), "cx:event:")?;
         validate_typed_id("realm_id", self.realm_id.as_deref(), "cx:realm:")?;
+        // CXP-0007 — Circle primitive typed-shape validation. We don't
+        // require either to be present (legacy Realm-scoped wakeups
+        // still set realm_id only), but when present they MUST be the
+        // canonical typed-id shape so floria/yougen don't have to
+        // re-parse arbitrary strings later.
+        validate_typed_id("circle_id", self.circle_id.as_deref(), "cx:circle:")?;
+        validate_effective_scope(self.effective_scope.as_deref())?;
         validate_optional_non_empty("sender", self.sender.as_deref())?;
 
         if self.devices.is_empty() {
@@ -368,6 +416,18 @@ impl PushNotification {
         if self.realm_name.is_some() {
             return Err(PushNotifyPrivacyError::SensitiveField {
                 field: "realm_name".to_owned(),
+            });
+        }
+        // CXP-0007 Circle metadata privacy invariant: even in blind
+        // mode where `circle_id` may travel as opaque routing metadata,
+        // the wakeup MUST NOT leak Circle membership/display fields.
+        // The typed `circle_id` itself is fine (already validated for
+        // shape above); composite member/name surfaces are not.
+        if let Some(circle_id) = self.circle_id.as_deref()
+            && circle_id.to_ascii_lowercase().contains("did:")
+        {
+            return Err(PushNotifyPrivacyError::SensitiveField {
+                field: "circle_id".to_owned(),
             });
         }
         if let Some(counts) = &self.counts {
@@ -863,6 +923,24 @@ fn validate_typed_id(
     Ok(())
 }
 
+/// CXP-0007 — `effective_scope` is a typed reference that floria stamps on
+/// `cx.event.*` envelopes. The only two legal prefixes are `cx:circle:`
+/// (intra-Realm encrypted sub-boundary) and `cx:realm:` (legacy
+/// Realm-scoped). Anything else is wire-broken.
+fn validate_effective_scope(value: Option<&str>) -> Result<(), PushNotifyPrivacyError> {
+    let Some(value) = value else {
+        return Ok(());
+    };
+    if value.trim().is_empty()
+        || !(value.starts_with("cx:circle:") || value.starts_with("cx:realm:"))
+    {
+        return Err(PushNotifyPrivacyError::InvalidFieldValue {
+            field: "effective_scope".to_owned(),
+        });
+    }
+    Ok(())
+}
+
 fn validate_active_reference_extension(
     key: &str,
     value: &Value,
@@ -975,6 +1053,14 @@ fn is_sensitive_payload_key(key: &str) -> bool {
         // label as sensitive until all downstream services agree on a
         // generic `*_name` rule.
         "realm_name"
+            // CXP-0007 — Circle display / membership surfaces. The typed
+            // `circle_id` may travel; the human-readable label and any
+            // member listing must not.
+            | "circle_name"
+            | "circle_display_name"
+            | "circle_members"
+            | "circle_member_dids"
+            | "circle_member_actor_ids"
     )
 }
 
@@ -990,6 +1076,11 @@ fn is_never_allowed_payload_key(key: &str) -> bool {
             | "ice"
             | "turn"
             | "call_setup"
+            // CXP-0007 — Circle membership surfaces are never allowed
+            // on any wakeup wire even for plaintext-visible service DIDs.
+            | "circle_members"
+            | "circle_member_dids"
+            | "circle_member_actor_ids"
     )
 }
 
@@ -1136,6 +1227,9 @@ mod tests {
     }
 
     fn notification() -> PushNotification {
+        // `PushNotification` is `#[non_exhaustive]`; build through
+        // `Default` and field-update so adding a new optional field
+        // does not require touching every test fixture.
         PushNotification {
             push_target_id: Some(
                 PushTargetId::new("cx:pseudonym:push:01HYZ8Z000000000000000").unwrap(),
@@ -1143,15 +1237,10 @@ mod tests {
             wakeup_kind: Some(WakeupKind::Message),
             event_id: Some("cx:event:01JS0EV000000000000000000".to_owned()),
             realm_id: Some("cx:realm:01JS0SP000000000000000000".to_owned()),
-            sender: None,
-            sender_display_name: None,
-            realm_name: None,
             push_hint: Some(PushHint::new("new_message").unwrap()),
             counts: Some(serde_json::json!({ "unread": 1 })),
-            mention_redirect: None,
-            policy_access: None,
             devices: vec![device()],
-            extra: Map::new(),
+            ..Default::default()
         }
     }
 
@@ -1447,5 +1536,97 @@ mod tests {
     fn late_recovery_event_id_is_none_when_payload_absent() {
         let notification = notification();
         assert!(notification.late_recovery_event_id().is_none());
+    }
+
+    // ── CXP-0007 (Circle primitive) — circle_id / effective_scope ────────
+
+    #[test]
+    fn circle_id_and_effective_scope_round_trip_through_json() {
+        let mut n = notification();
+        n.circle_id = Some("cx:circle:01HZK9Z000000000000000000".to_owned());
+        n.effective_scope = Some("cx:circle:01HZK9Z000000000000000000".to_owned());
+        let json = serde_json::to_string(&n).unwrap();
+        assert!(json.contains("circle_id"));
+        assert!(json.contains("effective_scope"));
+        let loaded: PushNotification = serde_json::from_str(&json).unwrap();
+        assert_eq!(loaded.circle_id, n.circle_id);
+        assert_eq!(loaded.effective_scope, n.effective_scope);
+        // Wire shape validates.
+        loaded.validate_wire_model().unwrap();
+        // And it passes blind-wakeup privacy (typed circle_id is allowed
+        // as opaque routing metadata).
+        loaded.validate_blind_wakeup().unwrap();
+    }
+
+    #[test]
+    fn circle_id_rejects_untyped_value() {
+        let mut n = notification();
+        n.circle_id = Some("not-a-typed-id".to_owned());
+        assert!(matches!(
+            n.validate_wire_model().unwrap_err(),
+            PushNotifyPrivacyError::InvalidFieldValue { field } if field == "circle_id"
+        ));
+    }
+
+    #[test]
+    fn effective_scope_accepts_circle_or_realm_prefix() {
+        let mut n = notification();
+        n.effective_scope = Some("cx:realm:01HZK9Z000000000000000000".to_owned());
+        n.validate_wire_model().unwrap();
+        n.effective_scope = Some("cx:circle:01HZK9Z000000000000000000".to_owned());
+        n.validate_wire_model().unwrap();
+    }
+
+    #[test]
+    fn effective_scope_rejects_other_prefixes() {
+        let mut n = notification();
+        n.effective_scope = Some("cx:flow:01HZK9Z000000000000000000".to_owned());
+        assert!(matches!(
+            n.validate_wire_model().unwrap_err(),
+            PushNotifyPrivacyError::InvalidFieldValue { field } if field == "effective_scope"
+        ));
+    }
+
+    #[test]
+    fn blind_wakeup_rejects_circle_id_carrying_did_literal() {
+        let mut n = notification();
+        // Force-bypass the typed-id check at construction by skipping
+        // PushTargetId's constructor; the wire-model validator is what
+        // we want to exercise here. We set a value that satisfies the
+        // `cx:circle:` prefix but smuggles a did: literal in the tail.
+        n.circle_id = Some("cx:circle:did:web:alice.example".to_owned());
+        let err = n.validate_blind_wakeup().unwrap_err();
+        assert!(matches!(
+            err,
+            PushNotifyPrivacyError::SensitiveField { field } if field == "circle_id"
+        ));
+    }
+
+    #[test]
+    fn blind_wakeup_rejects_circle_name_in_extra() {
+        let mut n = notification();
+        n.extra.insert(
+            "circle_name".to_owned(),
+            Value::String("Bridge Team".to_owned()),
+        );
+        let err = n.validate_blind_wakeup().unwrap_err();
+        assert!(matches!(
+            err,
+            PushNotifyPrivacyError::SensitiveField { field } if field == "circle_name"
+        ));
+    }
+
+    #[test]
+    fn plaintext_visible_service_rejects_circle_members_array() {
+        let mut n = notification();
+        n.extra.insert(
+            "circle_members".to_owned(),
+            serde_json::json!(["did:web:alice.example"]),
+        );
+        let err = n.validate_plaintext_visible_service().unwrap_err();
+        assert!(matches!(
+            err,
+            PushNotifyPrivacyError::SensitiveField { field } if field == "circle_members"
+        ));
     }
 }
