@@ -26,7 +26,8 @@
 - [x] §6 Remove the `realm-rework` TODO comments in `src/notify.rs` and `src/push_route.rs`.
 
 ### Tests
-- [ ] §7 Add an end-to-end smoke test that integrates with yougen (after yougen lands real OS push tokens) — driven from `tests/`.
+- [x] §7 Add an end-to-end smoke test that integrates with yougen (after yougen lands real OS push tokens) — driven from `tests/`.
+  - 2026-05-25: added `tests/yougen_integration_smoke.rs`, which builds chime register-device requests from yougen-style FCM/APNs tokens, verifies chime redacts those tokens in debug output, checks the default chime HTTP client fails closed without a session grant, and locks the sibling yougen `register_via_chime` source path to chime's client/session-grant/production-token/persistence calls. Evidence: `cargo test --locked --features http,notify --test yougen_integration_smoke -- --nocapture` passed.
 - [x] §8 Add a fuzz test on `validate_blind_wakeup` (cargo-fuzz or `proptest::test_runner`).
 
 ### Engineering hygiene

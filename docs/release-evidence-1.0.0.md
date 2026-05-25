@@ -35,6 +35,11 @@ sibling crate in the local readiness workflow.
 
 - `tests/live_floria_integration.rs` exercises the live floria bridge when
   `FLORIA_BIN` is available.
+- `tests/yougen_integration_smoke.rs` locks the local yougen integration
+  boundary: real FCM/APNs token-shaped requests build through chime, debug
+  output redacts token material, registration requires a session grant, and
+  the sibling yougen checkout still wires `register_via_chime` through chime's
+  client and persisted registration state.
 - yougen owns platform push receivers and OS token acquisition. The chime
   crate stays platform-neutral and exposes the validation/registration/lifecycle
   contract used by that host integration.
