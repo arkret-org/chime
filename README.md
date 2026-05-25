@@ -68,6 +68,46 @@ Per-project task lists are consolidated upstream — see
 | `http` | Adds `ContrixPushClient`, a small `reqwest` helper for `POST /api/v1/push/register-device` and `POST /api/v1/push/unregister-device`. |
 | `notify` | Adds server/gateway-side `cx.push.notify` wire types and blind-wakeup privacy validation. |
 
+> **Production deployments MUST enable the `notify` feature.** Without it,
+> the blind-wakeup / plaintext-visible privacy validators
+> (`PushNotifyReqBody::assert_payload_safe`,
+> `PushNotification::validate_blind_wakeup`) and the Circle / governance
+> metadata leak checks (`assert_no_sensitive_fields`,
+> `ROUND_R2_R3_SENSITIVE_FIELDS`) are not compiled in — a wakeup that
+> would otherwise be rejected by the validator will pass straight through
+> to the device. Local-only smoke tests can leave it off, but any
+> integration that touches real floria / yougen / soland traffic must
+> compile with `--features http,notify`.
+
+## CXP-0007 Circle subscriptions
+
+[CXP-0007 Circle primitive](../contrix-spec/specs/protocol/circle.md)
+introduces an encrypted sub-boundary inside a Realm. chime exposes the
+client-side surface so a wakeup can carry the Circle context end-to-end:
+
+- **Receiving a Circle-scoped wakeup.** `PushNotification.circle_id`
+  carries the typed `cx:circle:` reference of the Circle the wakeup
+  was authored against (when applicable). `PushNotification.effective_scope`
+  mirrors the event envelope's `effective_scope` field
+  (`cx:circle:...` or `cx:realm:...`) so the client can correlate the
+  wakeup with the security boundary without an extra round-trip.
+  Both fields are validated by `validate_wire_model`; the Circle
+  metadata privacy validator in `validate_blind_wakeup` additionally
+  rejects `circle_name` / `circle_members` / `circle_member_dids` in
+  the `extra` map and any `circle_id` value that smuggles a `did:`
+  literal in its tail.
+- **Muting a Circle on this device.** `PushPreferences` carries
+  `muted_circle_ids: BTreeSet<String>` and `muted_realm_ids:
+  BTreeSet<String>`. Wakeups whose `circle_id` (or `realm_id`) is in
+  the matching set MUST NOT raise a UI surface; wire-level delivery
+  is unchanged so floria can still account for the receipt.
+- **Deactivation cleanup.** `on_account_deactivate` snapshots
+  `muted_circle_ids` / `muted_realm_ids` onto the returned
+  `AccountDeactivationReceipt` (fields `circle_bindings_cleared` and
+  `realm_bindings_cleared`) before wiping the persisted prefs, so
+  host-side telemetry can observe which Circle / Realm bindings were
+  live at the moment of deactivation.
+
 ## Quick Start
 
 Add to your `Cargo.toml`:
@@ -163,26 +203,55 @@ use chime::{
 };
 
 # fn main() -> Result<(), Box<dyn std::error::Error>> {
-let notification = PushNotification {
-    push_target_id: Some(PushTargetId::new(
-        "cx:pseudonym:push:01HYZ8Z000000000000000",
-    )?),
-    wakeup_kind: Some(WakeupKind::Message),
-    devices: vec![PushNotificationDevice {
-        push_key: "fcm:opaque-token".to_owned(),
-        app_id: Some("app.example".to_owned()),
-        registration_id: None,
-        push_key_hash: None,
-        platform: None,
-    }],
-    ..Default::default()
-};
+// `PushNotification` is `#[non_exhaustive]` so additive Circle / R2-R3
+// fields cannot break downstream constructors. Build through
+// `new_blind_wakeup` plus field-update from the returned value.
+let mut notification = PushNotification::new_blind_wakeup(
+    PushTargetId::new("cx:pseudonym:push:01HYZ8Z000000000000000")?,
+    WakeupKind::Message,
+);
+notification.devices = vec![PushNotificationDevice {
+    push_key: "fcm:opaque-token".to_owned(),
+    app_id: Some("app.example".to_owned()),
+    registration_id: None,
+    push_key_hash: None,
+    platform: None,
+}];
 let request = PushNotifyReqBody {
     notification,
     ..Default::default()
 };
 
 request.assert_payload_safe(&PushNotifyPolicyContext::blind_wakeup_only())?;
+
+// P2D.5 — error-path doc-test: a plaintext label in `extra` is
+// rejected by the blind-wakeup validator even when the wire shape
+// otherwise looks innocent. This is the exact path that protects
+// against an integrator accidentally bypassing the SDK sanitizer.
+let mut leaky = PushNotification::new_blind_wakeup(
+    PushTargetId::new("cx:pseudonym:push:01HYZ8Z000000000000001")?,
+    WakeupKind::Message,
+);
+leaky.devices = vec![PushNotificationDevice {
+    push_key: "fcm:opaque-token".to_owned(),
+    app_id: Some("app.example".to_owned()),
+    registration_id: None,
+    push_key_hash: None,
+    platform: None,
+}];
+leaky.extra.insert(
+    "title".to_owned(),
+    serde_json::Value::String("Secret".to_owned()),
+);
+let leaky_request = PushNotifyReqBody {
+    notification: leaky,
+    ..Default::default()
+};
+let err = leaky_request
+    .assert_payload_safe(&PushNotifyPolicyContext::blind_wakeup_only())
+    .expect_err("plaintext metadata must be rejected");
+let msg = err.to_string();
+assert!(msg.contains("title"), "error should name the leaking field: {msg}");
 # Ok(())
 # }
 ```
