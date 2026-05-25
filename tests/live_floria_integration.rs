@@ -1,7 +1,11 @@
 //! Live floria integration tests for chime.
 //!
-//! These tests skip silently when a floria binary is unavailable. Set
-//! `FLORIA_BIN` or build the sibling `floria` checkout to exercise them.
+//! By default these tests skip when a floria binary is unavailable —
+//! local developers without a sibling `floria` checkout still get a
+//! green run. CI MUST set `CHIME_INTEGRATION_REQUIRED=1` (and supply
+//! `FLORIA_BIN=/path/to/floria` or a built sibling checkout) so a
+//! missing binary becomes a hard test failure instead of a silent
+//! green. See `tests/_helpers/floria_spawn.rs::require_floria_or_skip`.
 
 #![cfg(all(feature = "http", feature = "notify"))]
 
@@ -16,7 +20,7 @@ use serde_json::{Value, json};
 #[path = "_helpers/floria_spawn.rs"]
 mod floria_spawn;
 
-use floria_spawn::{SpawnedFloria, spawn_floria};
+use floria_spawn::{SpawnedFloria, require_floria_or_skip};
 
 const APP_ID: &str = "chime.live.placeholder";
 const ORIGIN_DID: &str = "did:web:chime.live.test";
@@ -51,10 +55,9 @@ fn notify_payload(idempotency_key: &str) -> Value {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn bridge_describe_round_trips_against_live_floria() {
-    let Some(floria) = spawn_floria().await else {
-        eprintln!(
-            "skip bridge_describe_round_trips_against_live_floria: floria binary unavailable"
-        );
+    let Some(floria) = require_floria_or_skip("bridge_describe_round_trips_against_live_floria")
+        .await
+    else {
         return;
     };
 
@@ -84,8 +87,9 @@ async fn bridge_describe_round_trips_against_live_floria() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn integration_view_combines_describe_endpoints() {
-    let Some(floria) = spawn_floria().await else {
-        eprintln!("skip integration_view_combines_describe_endpoints: floria binary unavailable");
+    let Some(floria) = require_floria_or_skip("integration_view_combines_describe_endpoints")
+        .await
+    else {
         return;
     };
 
@@ -117,10 +121,11 @@ async fn integration_view_combines_describe_endpoints() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn push_notify_delivery_receipt_round_trips_into_chime_wire_types() {
-    let Some(floria) = spawn_floria().await else {
-        eprintln!(
-            "skip push_notify_delivery_receipt_round_trips_into_chime_wire_types: floria binary unavailable"
-        );
+    let Some(floria) = require_floria_or_skip(
+        "push_notify_delivery_receipt_round_trips_into_chime_wire_types",
+    )
+    .await
+    else {
         return;
     };
 
@@ -162,8 +167,9 @@ async fn push_notify_delivery_receipt_round_trips_into_chime_wire_types() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn repeated_notify_advances_floria_request_id() {
-    let Some(floria) = spawn_floria().await else {
-        eprintln!("skip repeated_notify_advances_floria_request_id: floria binary unavailable");
+    let Some(floria) = require_floria_or_skip("repeated_notify_advances_floria_request_id")
+        .await
+    else {
         return;
     };
 

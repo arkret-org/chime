@@ -54,6 +54,39 @@ impl Drop for SpawnedFloria {
     }
 }
 
+/// CXP-0007 P2D.3 — gate that turns the historical "silent skip when
+/// FLORIA_BIN is missing" behaviour into a fail-fast in CI.
+///
+/// Returns `Some(SpawnedFloria)` when a floria binary is available and
+/// the live integration ran successfully. Returns `None` when the
+/// binary is unavailable AND the environment did NOT mandate the
+/// integration. Panics when `CHIME_INTEGRATION_REQUIRED=1` is set but
+/// floria could not be spawned — CI sets this so a missing floria
+/// binary shows up as a hard test failure instead of a silent green.
+pub async fn require_floria_or_skip(test_name: &str) -> Option<SpawnedFloria> {
+    if let Some(handle) = spawn_floria().await {
+        return Some(handle);
+    }
+
+    let required = env::var("CHIME_INTEGRATION_REQUIRED")
+        .ok()
+        .map(|raw| raw.trim() == "1")
+        .unwrap_or(false);
+
+    if required {
+        panic!(
+            "CHIME_INTEGRATION_REQUIRED=1 but floria binary unavailable for `{test_name}` \
+             (set FLORIA_BIN=/path/to/floria, or unset CHIME_INTEGRATION_REQUIRED to opt out)"
+        );
+    }
+
+    eprintln!(
+        "[warn] FLORIA_BIN not set; skipping {test_name} (set CHIME_INTEGRATION_REQUIRED=1 \
+         to make this a hard failure in CI)"
+    );
+    None
+}
+
 pub async fn spawn_floria() -> Option<SpawnedFloria> {
     let floria_bin = locate_floria_binary()?;
     let bind_port = free_port().ok()?;

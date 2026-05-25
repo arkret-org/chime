@@ -118,6 +118,39 @@ jobs:
       - name: cargo publish --dry-run
         run: cargo publish --dry-run --allow-dirty --all-features
 
+  # CXP-0007 P2D.3 — exercise the live floria integration test with
+  # CHIME_INTEGRATION_REQUIRED=1 so a missing floria binary fails the
+  # CI run instead of silently green-skipping.
+  live-integration:
+    name: Live floria integration
+    runs-on: ubuntu-latest
+    env:
+      CHIME_INTEGRATION_REQUIRED: "1"
+    steps:
+      - name: Checkout chime
+        uses: actions/checkout@v4
+        with:
+          path: chime
+      - name: Checkout sibling floria
+        uses: actions/checkout@v4
+        with:
+          repository: contrix-dev/floria
+          path: floria
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            chime
+            floria
+      - name: Build floria binary
+        working-directory: floria
+        run: cargo build --bin floria
+      - name: Run chime live floria integration
+        working-directory: chime
+        env:
+          FLORIA_BIN: ${{ github.workspace }}/floria/target/debug/floria
+        run: cargo test --features http,notify --test live_floria_integration -- --test-threads=1
+
   deny:
     name: Cargo deny
     runs-on: ubuntu-latest
