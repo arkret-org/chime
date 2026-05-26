@@ -76,6 +76,7 @@ pub use lifecycle::{
 };
 
 pub use gateway_binding::GatewayBinding;
+pub use push::{DefaultPlatformAppIdResolver, PlatformAppIdResolver};
 pub use push::{
     CONTENT_DIGEST_HEADER, CONTRIX_ACTOR_DID_HEADER, CONTRIX_AUDIENCE_HEADER,
     CONTRIX_CREATED_AT_HEADER, CONTRIX_DESTINATION_SERVICE_DID_HEADER, CONTRIX_DEVICE_ID_HEADER,
@@ -106,6 +107,7 @@ pub use push_route::{
 };
 pub use state::{
     BridgeContractCache, BridgeContractCacheError, BridgeContractDriftVerdict,
+    MemoizingPushPreferencesStore, PUSH_PREFERENCES_CACHE_TTL,
     PUSH_REGISTRATION_STATE_SCHEMA_VERSION, PushMultiGatewayRepairPlan, PushPreferencesStore,
     PushRegistrationLastError, PushRegistrationRepairPlan, PushRegistrationState,
     PushRegistrationStore, PushTokenRotationPlan, PushTokenRotationStrategy,

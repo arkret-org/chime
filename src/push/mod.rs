@@ -13,10 +13,13 @@ mod bridge_describe;
 #[cfg(feature = "http")]
 mod client;
 mod errors;
+pub mod platform_app_id;
 mod registration;
 mod signing;
 mod urls;
 mod wire;
+
+pub use platform_app_id::{DefaultPlatformAppIdResolver, PlatformAppIdResolver};
 
 // -- Path constants ---------------------------------------------------------
 

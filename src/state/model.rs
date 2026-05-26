@@ -1,6 +1,8 @@
 //! Persistable push registration state types and lifecycle helpers.
 
 use std::fmt::Write as _;
+use std::sync::RwLock;
+use std::time::{Duration, Instant};
 
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -85,6 +87,120 @@ pub trait PushPreferencesStore {
     /// true deletion should override.
     fn clear_push_preferences(&self) -> Result<(), Self::Error> {
         self.save_push_preferences(&crate::PushPreferences::default())
+    }
+}
+
+/// Default TTL for [`MemoizingPushPreferencesStore`] — short enough that
+/// out-of-band edits (a user toggling the setting in another app
+/// instance, a sync push from soland) catch up within a minute, long
+/// enough that the hot path (push-notification fan-out) does not hit
+/// the inner store on every event.
+pub const PUSH_PREFERENCES_CACHE_TTL: Duration = Duration::from_secs(60);
+
+/// Snapshot of the last `load_push_preferences()` call. `value` is the
+/// loaded preferences (or `None` if the store reported "not set yet");
+/// `loaded_at` is the monotonic instant the snapshot was taken.
+#[derive(Default)]
+struct PushPreferencesCache {
+    value: Option<crate::PushPreferences>,
+    loaded_at: Option<Instant>,
+}
+
+/// Decorator that adds TTL-bounded in-memory memoization to any
+/// [`PushPreferencesStore`].
+///
+/// Push fan-out hot paths can call `load_push_preferences()` once per
+/// inbound event — the underlying stores are typically file IO or a
+/// keychain query, both of which are slow enough to matter under load.
+/// This decorator caches the last loaded value for
+/// [`PUSH_PREFERENCES_CACHE_TTL`] and serves subsequent reads from a
+/// `RwLock` read guard. Any `save_push_preferences` /
+/// `clear_push_preferences` call invalidates the cache so the next read
+/// goes through to the inner store.
+///
+/// The cache is intentionally process-local — it is NOT a coherence
+/// layer across host-app processes. Callers that need cross-process
+/// invalidation must drive it themselves (e.g. on a sync push).
+pub struct MemoizingPushPreferencesStore<S> {
+    inner: S,
+    ttl: Duration,
+    cache: RwLock<PushPreferencesCache>,
+}
+
+impl<S> MemoizingPushPreferencesStore<S> {
+    /// Wrap `inner` with the default 60s TTL.
+    pub fn new(inner: S) -> Self {
+        Self::with_ttl(inner, PUSH_PREFERENCES_CACHE_TTL)
+    }
+
+    /// Wrap `inner` with a custom TTL. A zero TTL effectively disables
+    /// memoization (every read goes through).
+    pub fn with_ttl(inner: S, ttl: Duration) -> Self {
+        Self {
+            inner,
+            ttl,
+            cache: RwLock::new(PushPreferencesCache::default()),
+        }
+    }
+
+    /// Drop the cached snapshot. Safe to call from any thread.
+    pub fn invalidate(&self) {
+        let mut guard = self.cache.write().expect("preferences cache poisoned");
+        guard.value = None;
+        guard.loaded_at = None;
+    }
+
+    fn fresh(snapshot: &PushPreferencesCache, ttl: Duration) -> bool {
+        match snapshot.loaded_at {
+            Some(at) => at.elapsed() < ttl,
+            None => false,
+        }
+    }
+}
+
+impl<S> PushPreferencesStore for MemoizingPushPreferencesStore<S>
+where
+    S: PushPreferencesStore,
+{
+    type Error = S::Error;
+
+    fn load_push_preferences(&self) -> Result<Option<crate::PushPreferences>, Self::Error> {
+        // Fast path: read-lock and serve from cache if still fresh.
+        {
+            let guard = self.cache.read().expect("preferences cache poisoned");
+            if Self::fresh(&guard, self.ttl) {
+                return Ok(guard.value.clone());
+            }
+        }
+
+        // Slow path: upgrade to write lock. We re-check freshness
+        // under the write lock to absorb the race where two readers
+        // simultaneously found the cache stale.
+        let mut guard = self.cache.write().expect("preferences cache poisoned");
+        if Self::fresh(&guard, self.ttl) {
+            return Ok(guard.value.clone());
+        }
+        let loaded = self.inner.load_push_preferences()?;
+        guard.value = loaded.clone();
+        guard.loaded_at = Some(Instant::now());
+        Ok(loaded)
+    }
+
+    fn save_push_preferences(&self, prefs: &crate::PushPreferences) -> Result<(), Self::Error> {
+        self.inner.save_push_preferences(prefs)?;
+        // Write-through: refresh the cache so the immediately-following
+        // read returns the value we just wrote, without round-tripping
+        // through the inner store.
+        let mut guard = self.cache.write().expect("preferences cache poisoned");
+        guard.value = Some(prefs.clone());
+        guard.loaded_at = Some(Instant::now());
+        Ok(())
+    }
+
+    fn clear_push_preferences(&self) -> Result<(), Self::Error> {
+        self.inner.clear_push_preferences()?;
+        self.invalidate();
+        Ok(())
     }
 }
 
@@ -514,5 +630,128 @@ mod tests {
         let cleared = store.load_push_preferences().unwrap().unwrap();
         assert!(!cleared.enabled);
         assert!(cleared.gateways.is_empty());
+    }
+
+    // ── MemoizingPushPreferencesStore TTL coverage ──────────────────
+
+    /// Counting store so we can assert how many times the inner
+    /// `load_push_preferences` was actually invoked.
+    struct CountingStore {
+        loads: std::sync::atomic::AtomicUsize,
+        inner: std::sync::Mutex<Option<crate::PushPreferences>>,
+    }
+
+    impl CountingStore {
+        fn new(initial: Option<crate::PushPreferences>) -> Self {
+            Self {
+                loads: std::sync::atomic::AtomicUsize::new(0),
+                inner: std::sync::Mutex::new(initial),
+            }
+        }
+
+        fn load_count(&self) -> usize {
+            self.loads.load(std::sync::atomic::Ordering::SeqCst)
+        }
+    }
+
+    impl PushPreferencesStore for CountingStore {
+        type Error = std::convert::Infallible;
+        fn load_push_preferences(&self) -> Result<Option<crate::PushPreferences>, Self::Error> {
+            self.loads.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            Ok(self.inner.lock().unwrap().clone())
+        }
+        fn save_push_preferences(
+            &self,
+            prefs: &crate::PushPreferences,
+        ) -> Result<(), Self::Error> {
+            *self.inner.lock().unwrap() = Some(prefs.clone());
+            Ok(())
+        }
+    }
+
+    fn sample_prefs() -> crate::PushPreferences {
+        crate::PushPreferences {
+            enabled: true,
+            gateways: vec![crate::GatewayBinding::new(
+                crate::PushGatewayType::Bugle,
+                "https://push.palpo.im/api/v1/push/notify",
+            )],
+            ..crate::PushPreferences::default()
+        }
+    }
+
+    /// Within the TTL window, repeated loads must hit the cache and
+    /// NOT round-trip to the inner store.
+    #[test]
+    fn memoizing_store_serves_cached_value_within_ttl() {
+        let inner = CountingStore::new(Some(sample_prefs()));
+        let memo = MemoizingPushPreferencesStore::with_ttl(inner, Duration::from_secs(60));
+
+        let first = memo.load_push_preferences().unwrap();
+        assert!(first.unwrap().enabled);
+        // Three more reads in quick succession — all served from cache.
+        for _ in 0..3 {
+            memo.load_push_preferences().unwrap();
+        }
+        assert_eq!(memo.inner.load_count(), 1);
+
+        // save_push_preferences refreshes the cache; the immediately
+        // following load still does not hit the inner store.
+        let mut next = sample_prefs();
+        next.enabled = false;
+        memo.save_push_preferences(&next).unwrap();
+        let after_save = memo.load_push_preferences().unwrap().unwrap();
+        assert!(!after_save.enabled);
+        assert_eq!(memo.inner.load_count(), 1, "save must write-through, not re-load");
+    }
+
+    /// A zero TTL effectively disables memoization: every load goes
+    /// through to the inner store. (We use this to assert the
+    /// stale-cache code path is hit deterministically without sleeping.)
+    #[test]
+    fn memoizing_store_zero_ttl_disables_caching() {
+        let inner = CountingStore::new(Some(sample_prefs()));
+        let memo = MemoizingPushPreferencesStore::with_ttl(inner, Duration::from_secs(0));
+
+        memo.load_push_preferences().unwrap();
+        memo.load_push_preferences().unwrap();
+        memo.load_push_preferences().unwrap();
+        // Loaded at least 3 times — every read past TTL re-acquires.
+        assert!(memo.inner.load_count() >= 3, "got {}", memo.inner.load_count());
+    }
+
+    /// `clear_push_preferences` invalidates the cache so the next read
+    /// reflects the cleared inner store.
+    #[test]
+    fn memoizing_store_clear_invalidates_cache_and_picks_up_external_writes() {
+        let inner = CountingStore::new(Some(sample_prefs()));
+        let memo = MemoizingPushPreferencesStore::new(inner);
+
+        // Prime the cache.
+        assert!(memo.load_push_preferences().unwrap().is_some());
+        let baseline = memo.inner.load_count();
+        assert_eq!(baseline, 1);
+
+        // Clear → the inner store gets reset AND the cache is dropped.
+        memo.clear_push_preferences().unwrap();
+        let after_clear = memo.load_push_preferences().unwrap();
+        // Default prefs round-trip through the inner store: enabled=false.
+        assert!(!after_clear.unwrap().enabled);
+        assert!(memo.inner.load_count() > baseline);
+
+        // Bypass the decorator and tamper with the inner store directly;
+        // the memoized read must still serve the cached value until the
+        // cache is explicitly invalidated.
+        let baseline2 = memo.inner.load_count();
+        *memo.inner.inner.lock().unwrap() = Some(sample_prefs());
+        let still_cached = memo.load_push_preferences().unwrap().unwrap();
+        assert!(!still_cached.enabled, "cached value must win within TTL");
+        assert_eq!(memo.inner.load_count(), baseline2);
+
+        // After explicit invalidate, the tampered value is observed.
+        memo.invalidate();
+        let after_invalidate = memo.load_push_preferences().unwrap().unwrap();
+        assert!(after_invalidate.enabled);
+        assert_eq!(memo.inner.load_count(), baseline2 + 1);
     }
 }

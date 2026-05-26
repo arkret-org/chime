@@ -21,7 +21,8 @@ pub use bridge_cache::{
     BridgeContractCache, BridgeContractDriftVerdict, CacheError as BridgeContractCacheError,
 };
 pub use model::{
-    PushPreferencesStore, PushRegistrationLastError, PushRegistrationState, PushRegistrationStore,
+    MemoizingPushPreferencesStore, PUSH_PREFERENCES_CACHE_TTL, PushPreferencesStore,
+    PushRegistrationLastError, PushRegistrationState, PushRegistrationStore,
     build_registration_state, find_registration_by_token, find_registration_for_device,
     hash_push_key, merge_registration_state, token_moved_to_different_device,
     token_rotation_required,

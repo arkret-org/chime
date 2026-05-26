@@ -116,6 +116,12 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - name: cargo check (wasm32, http)
         run: cargo check --target wasm32-unknown-unknown --features http
+      - name: cargo build (wasm32, http)
+        # `cargo check` exercises typeck but not codegen; a real build
+        # surfaces wasm-specific codegen panics (e.g. an inadvertent
+        # `unsafe` block that monomorphises to an unsupported intrinsic)
+        # before they reach a release tag.
+        run: cargo build --target wasm32-unknown-unknown --features http
       - name: cargo doc (wasm32, http, no-deps)
         run: cargo doc --target wasm32-unknown-unknown --no-deps --features http
         env:
