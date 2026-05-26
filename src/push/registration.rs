@@ -10,7 +10,10 @@ use super::urls::{
     redact_push_key, require_non_empty, require_optional_non_empty, validate_push_gateway_url,
     validate_webpush_endpoint_allowlist,
 };
-use super::wire::{PushDeviceConfig, PushPlatform, RegisterDeviceRequest, UnregisterDeviceRequest};
+use super::wire::{
+    PushDeviceConfig, PushPlatform, PushUnsubscribeRequest, RegisterDeviceRequest,
+    UnregisterDeviceRequest, compute_push_key_hmac,
+};
 use super::{REGISTER_DEVICE_PATH, UNREGISTER_DEVICE_PATH};
 
 /// Build the Contrix register-device request body from app configuration,
@@ -84,6 +87,10 @@ pub fn build_register_device_request(
         display_name: config.display_name.map(str::to_owned),
         idempotency_key: config.idempotency_key.map(str::to_owned),
         request_id: config.request_id.map(str::to_owned),
+        // A.5 #5 — bind the push token to the device id with an
+        // HMAC-SHA256 so a tampered wire envelope (push_key swap) is
+        // rejected by floria's verifier.
+        push_key_hmac: Some(compute_push_key_hmac(push_key, config.device_id)),
         proof: config.proof.cloned(),
         ..Default::default()
     })
@@ -163,6 +170,47 @@ pub fn build_unregister_device_request(
         proof: config.proof.cloned(),
         ..Default::default()
     })
+}
+
+/// B.5 #8 — build a push-unsubscribe request body.
+///
+/// Wraps [`PushUnsubscribeRequest::for_circle`] /
+/// [`PushUnsubscribeRequest::for_realm`] /
+/// [`PushUnsubscribeRequest::for_flow`] with the device id, principal
+/// did, and request metadata taken from a [`PushDeviceConfig`] so the
+/// shape mirrors the other `build_*_request` helpers in this module.
+///
+/// `target_id` MUST be a typed reference of the form
+/// `cx:{scope}:{opaque}` where `{scope}` is `circle`, `realm`, or
+/// `flow`. Other prefixes fail with
+/// [`PushRegistrationError::MissingField`].
+pub fn build_unsubscribe_request(
+    config: &PushDeviceConfig<'_>,
+    target_id: &str,
+) -> Result<PushUnsubscribeRequest, PushRegistrationError> {
+    require_non_empty("device_id", config.device_id)?;
+    require_non_empty("target_id", target_id)?;
+
+    let mut request = if target_id.starts_with("cx:circle:") {
+        PushUnsubscribeRequest::for_circle(config.device_id, target_id)?
+    } else if target_id.starts_with("cx:realm:") {
+        PushUnsubscribeRequest::for_realm(config.device_id, target_id)?
+    } else if target_id.starts_with("cx:flow:") {
+        PushUnsubscribeRequest::for_flow(config.device_id, target_id)?
+    } else {
+        return Err(PushRegistrationError::MissingField("target_id"));
+    };
+
+    if let Some(principal_did) = config.principal_did.and_then(non_empty_str) {
+        request = request.with_principal_did(principal_did);
+    }
+    if let Some(idempotency_key) = config.idempotency_key.and_then(non_empty_str) {
+        request = request.with_idempotency_key(idempotency_key);
+    }
+    if let Some(request_id) = config.request_id.and_then(non_empty_str) {
+        request = request.with_request_id(request_id);
+    }
+    Ok(request)
 }
 
 /// Build the signing context for `cx.push.register_device`.

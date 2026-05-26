@@ -12,9 +12,96 @@ use std::fmt;
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use sha2::{Digest, Sha256};
 
 use super::errors::PushRegistrationError;
 use super::urls::{redact_push_key, redact_url};
+
+/// A.5 #5 — HMAC-SHA256 over the push token, keyed by the device id.
+///
+/// The output is hex-encoded so it travels through `serde_json` as a
+/// plain ASCII string without base64 alphabet ambiguity. This binding is
+/// stamped into [`RegisterDeviceRequest::push_key_hmac`] so the floria /
+/// soland verifier can reject a tampered payload where an attacker swapped
+/// the `push_key` field for one of their own tokens but left the rest of
+/// the signed envelope intact.
+///
+/// We deliberately implement HMAC-SHA256 inline rather than pulling in
+/// the `hmac` crate: the algorithm is one page of code, and chime's
+/// transitive dep graph is already on `sha2 = 0.10`. Constants follow
+/// RFC 2104 — `ipad = 0x36`, `opad = 0x5C`, block size 64 bytes for
+/// SHA-256.
+pub fn compute_push_key_hmac(push_key: &str, device_id: &str) -> String {
+    let mac = hmac_sha256(device_id.as_bytes(), push_key.as_bytes());
+    let mut out = String::with_capacity(mac.len() * 2);
+    use std::fmt::Write as _;
+    for byte in mac {
+        let _ = write!(out, "{byte:02x}");
+    }
+    out
+}
+
+/// A.5 #5 — verify the encryption binding between a push token and a
+/// device id.
+///
+/// Returns `true` only when [`compute_push_key_hmac`] over `push_key` and
+/// `device_id` matches `expected` byte-for-byte. The comparison is
+/// constant-time so a timing side-channel doesn't leak which bytes
+/// matched.
+///
+/// Callers should treat a `false` result as fatal — it means the
+/// persisted state has been tampered with, the registration request has
+/// been man-in-the-middled, or the verifier is reading state across an
+/// incompatible device id boundary. Either way the registration MUST be
+/// rebuilt from scratch rather than retried with the old material.
+pub fn verify_push_key_binding(push_key: &str, device_id: &str, expected: &str) -> bool {
+    let expected = expected.as_bytes();
+    let computed = compute_push_key_hmac(push_key, device_id);
+    let computed = computed.as_bytes();
+    if expected.len() != computed.len() {
+        return false;
+    }
+    // Constant-time byte comparison.
+    let mut diff: u8 = 0;
+    for (a, b) in expected.iter().zip(computed.iter()) {
+        diff |= a ^ b;
+    }
+    diff == 0
+}
+
+fn hmac_sha256(key: &[u8], message: &[u8]) -> [u8; 32] {
+    const BLOCK_SIZE: usize = 64;
+    const IPAD: u8 = 0x36;
+    const OPAD: u8 = 0x5c;
+
+    // Normalise the key to BLOCK_SIZE bytes.
+    let mut block_key = [0u8; BLOCK_SIZE];
+    if key.len() > BLOCK_SIZE {
+        let digest = Sha256::digest(key);
+        block_key[..32].copy_from_slice(&digest);
+    } else {
+        block_key[..key.len()].copy_from_slice(key);
+    }
+
+    let mut inner_key = [0u8; BLOCK_SIZE];
+    let mut outer_key = [0u8; BLOCK_SIZE];
+    for i in 0..BLOCK_SIZE {
+        inner_key[i] = block_key[i] ^ IPAD;
+        outer_key[i] = block_key[i] ^ OPAD;
+    }
+
+    // Inner hash: SHA256(inner_key || message)
+    let mut inner = Sha256::new();
+    inner.update(inner_key);
+    inner.update(message);
+    let inner_digest = inner.finalize();
+
+    // Outer hash: SHA256(outer_key || inner_digest)
+    let mut outer = Sha256::new();
+    outer.update(outer_key);
+    outer.update(inner_digest);
+    outer.finalize().into()
+}
 
 /// Supported Contrix push platform values.
 ///
@@ -138,6 +225,17 @@ pub struct RegisterDeviceRequest {
     /// with the old one and reclaim it server-side.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub previous_token_hash: Option<String>,
+    /// A.5 #5 — HMAC-SHA256(`push_key`, key=`device_id`), hex-encoded.
+    ///
+    /// Binds the push token to the device id so an attacker that
+    /// intercepts the wire envelope cannot swap the `push_key` field
+    /// for one of their own tokens. Floria/soland verifiers
+    /// recompute the HMAC from the signed payload's `push_key` +
+    /// `device_id` and reject mismatches. See
+    /// [`compute_push_key_hmac`] for the production helper and
+    /// [`verify_push_key_binding`] for the verifier-side check.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub push_key_hmac: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub proof: Option<Value>,
 }
@@ -156,6 +254,7 @@ impl fmt::Debug for RegisterDeviceRequest {
             .field("idempotency_key", &self.idempotency_key)
             .field("request_id", &self.request_id)
             .field("previous_token_hash", &self.previous_token_hash)
+            .field("push_key_hmac", &self.push_key_hmac)
             .field("proof", &self.proof.as_ref().map(|_| "<present>"))
             .finish()
     }
@@ -254,6 +353,121 @@ pub struct UnregisterDeviceResponse {
     pub request_id: Option<String>,
 }
 
+/// B.5 #8 — request body for `POST /api/v1/push/unsubscribe`.
+///
+/// Mutes a Circle / Realm / Flow at the gateway so chime does NOT have
+/// to receive (and silently drop) wakeups for it. The previous design
+/// kept the mute list purely client-side in
+/// [`crate::PushPreferences::muted_circle_ids`] and
+/// [`crate::PushPreferences::muted_realm_ids`], which meant every muted
+/// scope still woke the device. The unsubscribe API tells the gateway
+/// to stop emitting wakeups for the target altogether.
+///
+/// Stability: 1.0-stable + `#[non_exhaustive]`. Use
+/// [`Self::for_circle`], [`Self::for_realm`], [`Self::for_flow`] to
+/// build canonical requests; future scopes (e.g. per-app) will be
+/// added as new constructors without bumping SemVer.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[non_exhaustive]
+pub struct PushUnsubscribeRequest {
+    pub operation_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub principal_did: Option<String>,
+    pub device_id: String,
+    /// Typed reference to the scope being unsubscribed from
+    /// (`cx:circle:...`, `cx:realm:...`, or `cx:flow:...`). The
+    /// gateway echoes this back in the `target_id` of the response and
+    /// matches it against the registration set when picking who to
+    /// remove.
+    pub target_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub idempotency_key: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub request_id: Option<String>,
+}
+
+impl PushUnsubscribeRequest {
+    /// Construct an unsubscribe request for a Circle.
+    pub fn for_circle(
+        device_id: impl Into<String>,
+        circle_id: impl Into<String>,
+    ) -> Result<Self, PushRegistrationError> {
+        Self::new(device_id, "cx:circle:", circle_id)
+    }
+
+    /// Construct an unsubscribe request for a Realm.
+    pub fn for_realm(
+        device_id: impl Into<String>,
+        realm_id: impl Into<String>,
+    ) -> Result<Self, PushRegistrationError> {
+        Self::new(device_id, "cx:realm:", realm_id)
+    }
+
+    /// Construct an unsubscribe request for a Flow.
+    pub fn for_flow(
+        device_id: impl Into<String>,
+        flow_id: impl Into<String>,
+    ) -> Result<Self, PushRegistrationError> {
+        Self::new(device_id, "cx:flow:", flow_id)
+    }
+
+    fn new(
+        device_id: impl Into<String>,
+        prefix: &str,
+        target_id: impl Into<String>,
+    ) -> Result<Self, PushRegistrationError> {
+        let device_id = device_id.into();
+        let target_id = target_id.into();
+        if device_id.trim().is_empty() {
+            return Err(PushRegistrationError::MissingField("device_id"));
+        }
+        if !target_id.starts_with(prefix) {
+            return Err(PushRegistrationError::MissingField("target_id"));
+        }
+        Ok(Self {
+            operation_id: crate::OPERATION_PUSH_UNSUBSCRIBE.to_owned(),
+            principal_did: None,
+            device_id,
+            target_id,
+            idempotency_key: None,
+            request_id: None,
+        })
+    }
+
+    /// Attach a principal DID. The gateway uses this to scope the
+    /// unsubscribe to a specific actor when a device hosts multiple
+    /// principals (e.g. shared family device).
+    pub fn with_principal_did(mut self, principal_did: impl Into<String>) -> Self {
+        self.principal_did = Some(principal_did.into());
+        self
+    }
+
+    /// Attach an explicit idempotency key.
+    pub fn with_idempotency_key(mut self, idempotency_key: impl Into<String>) -> Self {
+        self.idempotency_key = Some(idempotency_key.into());
+        self
+    }
+
+    /// Attach an explicit request id.
+    pub fn with_request_id(mut self, request_id: impl Into<String>) -> Self {
+        self.request_id = Some(request_id.into());
+        self
+    }
+}
+
+/// Response body for `POST /api/v1/push/unsubscribe`.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[non_exhaustive]
+pub struct PushUnsubscribeResponse {
+    pub ok: bool,
+    #[serde(default)]
+    pub already_unsubscribed: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub target_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub request_id: Option<String>,
+}
+
 /// Contrix standard error object.
 ///
 /// Stability: 1.0-stable + `#[non_exhaustive]`. Server-controlled shape.
@@ -320,6 +534,70 @@ mod tests {
             PushPlatform::try_from("desktop").unwrap(),
             PushPlatform::Desktop
         );
+    }
+
+    #[test]
+    fn push_key_hmac_is_stable_and_device_bound() {
+        // A.5 #5 — same `(push_key, device_id)` always produces the
+        // same digest; swapping either input changes the digest. This
+        // is the property the floria verifier relies on.
+        let hmac_a = compute_push_key_hmac("fcm:token-a", "did:web:alice.example#device-phone");
+        let hmac_a_again =
+            compute_push_key_hmac("fcm:token-a", "did:web:alice.example#device-phone");
+        assert_eq!(hmac_a, hmac_a_again);
+
+        let hmac_other_key =
+            compute_push_key_hmac("fcm:token-b", "did:web:alice.example#device-phone");
+        assert_ne!(
+            hmac_a, hmac_other_key,
+            "different push_key MUST move the HMAC"
+        );
+
+        let hmac_other_device =
+            compute_push_key_hmac("fcm:token-a", "did:web:alice.example#device-tablet");
+        assert_ne!(
+            hmac_a, hmac_other_device,
+            "different device_id MUST move the HMAC"
+        );
+
+        // 32 raw bytes -> 64 hex chars.
+        assert_eq!(hmac_a.len(), 64);
+        assert!(hmac_a.chars().all(|ch| ch.is_ascii_hexdigit()));
+    }
+
+    #[test]
+    fn verify_push_key_binding_round_trip_and_rejects_tamper() {
+        let expected =
+            compute_push_key_hmac("fcm:token-a", "did:web:alice.example#device-phone");
+
+        assert!(verify_push_key_binding(
+            "fcm:token-a",
+            "did:web:alice.example#device-phone",
+            &expected,
+        ));
+        // Tampered push_key.
+        assert!(!verify_push_key_binding(
+            "fcm:swapped-by-attacker",
+            "did:web:alice.example#device-phone",
+            &expected,
+        ));
+        // Tampered device_id.
+        assert!(!verify_push_key_binding(
+            "fcm:token-a",
+            "did:web:mallory.example#device-phone",
+            &expected,
+        ));
+        // Tampered HMAC (single-byte flip in the hex string).
+        let mut flipped = expected.clone();
+        let last = flipped.pop().unwrap();
+        // Swap the last hex digit to something else so the comparison
+        // is *just barely* wrong.
+        flipped.push(if last == '0' { '1' } else { '0' });
+        assert!(!verify_push_key_binding(
+            "fcm:token-a",
+            "did:web:alice.example#device-phone",
+            &flipped,
+        ));
     }
 
     #[test]

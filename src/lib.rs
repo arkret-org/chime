@@ -55,11 +55,11 @@ pub use push_rule_core::{
 #[cfg(feature = "notify")]
 pub use notify::{
     EncryptedEnvelope, EncryptedEnvelopeError, MentionRedirectRouting, ProviderRetryHint,
-    PushDeliveryReceipt, PushHint, PushNotification, PushNotificationDevice,
-    PushNotifyPolicyContext, PushNotifyPrivacyError, PushNotifyPrivacyMode,
-    PushNotifyPrivacyVector, PushNotifyReqBody, PushNotifyResBody, PushTargetId,
-    ROUND_R2_R3_SENSITIVE_FIELDS, RejectedPushToken, WakeupKind, assert_no_sensitive_fields,
-    shared_push_notify_privacy_vectors,
+    PushDeliveryReceipt, PushHint, PushNotification, PushNotificationDedup,
+    PushNotificationDevice, PushNotifyPolicyContext, PushNotifyPrivacyError,
+    PushNotifyPrivacyMode, PushNotifyPrivacyVector, PushNotifyReqBody, PushNotifyResBody,
+    PushTargetId, ROUND_R2_R3_SENSITIVE_FIELDS, RejectedPushToken, WakeupKind,
+    assert_no_sensitive_fields, shared_push_notify_privacy_vectors,
 };
 
 // Round 4 (B5, spec a77b995) — re-export the SDK round-4 audit surfaces
@@ -70,8 +70,9 @@ pub use contrix::{AccessKind, AuditPolicyAccessPayload};
 
 pub use lifecycle::{
     AccountDeactivationError, AccountDeactivationReceipt, AccountDeactivationSink,
+    BackgroundFetchDriver, BackgroundFetchHint, BackgroundFetchOutcome,
     ClosureAccountDeactivationSink, DeactivationSource, DeviceSessionInvalidationReason,
-    NoopAccountDeactivationSink, on_account_deactivate,
+    NoopAccountDeactivationSink, NoopBackgroundFetchDriver, on_account_deactivate,
 };
 
 pub use gateway_binding::GatewayBinding;
@@ -81,31 +82,35 @@ pub use push::{
     CONTRIX_EXPIRES_AT_HEADER, CONTRIX_IDEMPOTENCY_KEY_HEADER, CONTRIX_NONCE_HEADER,
     CONTRIX_OPERATION_ID_HEADER, CONTRIX_ORIGIN_HEADER, CONTRIX_ORIGIN_SERVICE_DID_HEADER,
     CONTRIX_REQUEST_ID_HEADER, CONTRIX_SESSION_GRANT_HEADER, ContrixError, ContrixErrorEnvelope,
-    IntegrationView, PUSH_BRIDGE_DESCRIBE_PATH, PUSH_INTEGRATION_DESCRIBE_PATH,
-    PushBridgeDescribeGatewayDescriptor, PushBridgeDescribeNotifyDescriptor,
-    PushBridgeDescribePrivacyDescriptor, PushBridgeDescribeResponse, PushDeviceConfig,
-    PushErrorKind, PushGatewayIntegrationDependency, PushGatewayIntegrationDescribeResponse,
-    PushGatewayIntegrationSurface, PushPlatform, PushRegistrationError, PushRequestSigningContext,
-    PushRequestSigningOptions, REGISTER_DEVICE_PATH, RegisterDeviceRequest, RegisterDeviceResponse,
-    SIGNATURE_HEADER, SIGNATURE_INPUT_HEADER, UNREGISTER_DEVICE_PATH, UnregisterDeviceRequest,
-    UnregisterDeviceResponse, build_register_device_request, build_register_signing_context,
+    EXPECTED_SPEC_VERSION, IntegrationView, NonceReplayError, NonceTracker,
+    PUSH_BRIDGE_DESCRIBE_PATH, PUSH_INTEGRATION_DESCRIBE_PATH,
+    PushBridgeDescribeGatewayDescriptor,
+    PushBridgeDescribeNotifyDescriptor, PushBridgeDescribePrivacyDescriptor,
+    PushBridgeDescribeResponse, PushDeviceConfig, PushErrorKind, PushGatewayIntegrationDependency,
+    PushGatewayIntegrationDescribeResponse, PushGatewayIntegrationSurface, PushPlatform,
+    PushRegistrationError, PushRequestSigningContext, PushRequestSigningOptions,
+    PushUnsubscribeRequest, PushUnsubscribeResponse, PUSH_UNSUBSCRIBE_PATH, REGISTER_DEVICE_PATH,
+    RegisterDeviceRequest, RegisterDeviceResponse, SIGNATURE_HEADER, SIGNATURE_INPUT_HEADER,
+    UNREGISTER_DEVICE_PATH, UnregisterDeviceRequest, UnregisterDeviceResponse,
+    build_register_device_request, build_register_signing_context,
     build_register_signing_context_with_options, build_unregister_device_request,
     build_unregister_signing_context, build_unregister_signing_context_with_options,
-    content_digest_sha256, contrix_api_url, push_bridge_describe_url,
-    push_gateway_service_base_url, push_integration_describe_url, redact_push_key,
-    validate_push_gateway_url, validate_webpush_endpoint_allowlist,
+    build_unsubscribe_request, compute_push_key_hmac, content_digest_sha256, contrix_api_url,
+    push_bridge_describe_url, push_gateway_service_base_url, push_integration_describe_url,
+    redact_push_key, validate_push_gateway_url, validate_webpush_endpoint_allowlist,
+    verify_push_key_binding,
 };
 pub use push_route::{
     PushRoute, PushRouteCapability, PushRouteError, PushRouteId, PushRouteValidationError,
     ServiceDid,
 };
 pub use state::{
-    BridgeContractCache, BridgeContractDriftVerdict, PUSH_REGISTRATION_STATE_SCHEMA_VERSION,
-    PushMultiGatewayRepairPlan, PushPreferencesStore, PushRegistrationLastError,
-    PushRegistrationRepairPlan, PushRegistrationState, PushRegistrationStore,
-    PushTokenRotationPlan, PushTokenRotationStrategy, build_registration_state,
-    find_registration_by_token, find_registration_for_device, hash_push_key,
-    merge_registration_state, plan_multi_gateway_repair, plan_registration_repair,
+    BridgeContractCache, BridgeContractCacheError, BridgeContractDriftVerdict,
+    PUSH_REGISTRATION_STATE_SCHEMA_VERSION, PushMultiGatewayRepairPlan, PushPreferencesStore,
+    PushRegistrationLastError, PushRegistrationRepairPlan, PushRegistrationState,
+    PushRegistrationStore, PushTokenRotationPlan, PushTokenRotationStrategy,
+    build_registration_state, find_registration_by_token, find_registration_for_device,
+    hash_push_key, merge_registration_state, plan_multi_gateway_repair, plan_registration_repair,
     plan_token_rotation, plan_token_rotation_with_strategy, token_moved_to_different_device,
     token_rotation_required,
 };
@@ -123,6 +128,11 @@ pub const OPERATION_PUSH_UNREGISTER_DEVICE: &str = "cx.push.unregister_device";
 
 /// Canonical Contrix operation id for push wakeup delivery.
 pub const OPERATION_PUSH_NOTIFY: &str = "cx.push.notify";
+
+/// B.5 #8 — Canonical Contrix operation id for the push unsubscribe
+/// call. Sent as the `operation_id` field on
+/// [`PushUnsubscribeRequest`](crate::PushUnsubscribeRequest).
+pub const OPERATION_PUSH_UNSUBSCRIBE: &str = "cx.push.unsubscribe";
 
 /// Default standard Contrix push gateway URL.
 ///

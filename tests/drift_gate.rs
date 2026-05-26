@@ -117,13 +117,16 @@ fn bridge_describe_fixture_blind_wakeup_example_validates() {
 fn bridge_describe_digest_is_stable_across_serialize_round_trip() {
     let response: PushBridgeDescribeResponse =
         serde_json::from_str(BRIDGE_DESCRIBE_FIXTURE).unwrap();
-    let cache = BridgeContractCache::from_response(&response, Some("2026-05-06T00:00:00Z"));
+    let cache = BridgeContractCache::from_response(&response, Some("2026-05-06T00:00:00Z"))
+        .expect("baseline digest must compute");
 
     // Re-deserialize through serde and confirm the digest stays put.
     let json = serde_json::to_string(&response).unwrap();
     let round_trip: PushBridgeDescribeResponse = serde_json::from_str(&json).unwrap();
     assert_eq!(
-        cache.evaluate(&round_trip),
+        cache
+            .evaluate(&round_trip)
+            .expect("round-trip digest must compute"),
         BridgeContractDriftVerdict::Unchanged
     );
 }

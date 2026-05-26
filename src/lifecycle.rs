@@ -49,6 +49,120 @@
 
 use crate::PushPreferencesStore;
 
+/// B.5 #9 — host-supplied driver for the background-fetch wakeup path.
+///
+/// When a Contrix push gateway delivers a blind wakeup, the device's
+/// integration code typically needs to:
+///
+/// 1. Hand control to the host app (iOS BGAppRefreshTask, Android
+///    WorkManager job, Web Push `pushevent`, desktop launcher hook).
+/// 2. Wait for the app to fetch fresh events from sync.
+/// 3. Hand control back to the OS within the platform-imposed budget.
+///
+/// chime does not own any of that — the host app does. This trait is
+/// the seam so chime's higher-level helpers (e.g. the notify-handling
+/// layer in [`crate::notify`]) can request the fetch without
+/// hard-coding a platform.
+///
+/// The trait is intentionally small and synchronous from chime's
+/// perspective: a host implementor that needs async behaviour should
+/// dispatch the work onto its own runtime and return immediately,
+/// using the returned [`BackgroundFetchOutcome`] to signal whether
+/// the dispatch succeeded.
+///
+/// Implementors are expected to be `Send + Sync` so the driver can be
+/// stashed in an `Arc<dyn BackgroundFetchDriver<Error = _>>`.
+pub trait BackgroundFetchDriver: Send + Sync {
+    /// Host-side error type. chime bubbles it back to the caller
+    /// without inspection.
+    type Error;
+
+    /// Kick off a background fetch for the given wakeup. The host app
+    /// implementation is responsible for whatever platform plumbing
+    /// (BGAppRefreshTask, WorkManager, …) it uses.
+    ///
+    /// `hint` is opaque routing metadata copied from the wakeup. chime
+    /// guarantees it does not carry plaintext message bodies (the
+    /// blind-wakeup privacy gate runs first), so implementors can log
+    /// it freely.
+    fn dispatch_background_fetch(
+        &self,
+        hint: &BackgroundFetchHint,
+    ) -> Result<BackgroundFetchOutcome, Self::Error>;
+}
+
+/// Routing metadata for a background-fetch dispatch.
+///
+/// Held flat as `&'a str` so chime can hand a borrowed view to the
+/// driver without forcing the host to allocate. The struct is
+/// `#[non_exhaustive]` so future fields (e.g. priority, deadline) do
+/// not break existing implementors.
+#[derive(Clone, Copy, Debug)]
+#[non_exhaustive]
+pub struct BackgroundFetchHint<'a> {
+    /// Opaque push target id (`cx:pseudonym:push:...`). Always present.
+    pub push_target_id: &'a str,
+    /// Wakeup kind (`message`, `incoming_call`, ...).
+    pub wakeup_kind: &'a str,
+    /// Optional Circle scope, when the originating wakeup carried one.
+    pub circle_id: Option<&'a str>,
+    /// Optional Realm scope, when the originating wakeup carried one.
+    pub realm_id: Option<&'a str>,
+}
+
+impl<'a> BackgroundFetchHint<'a> {
+    /// Construct a minimal hint from a push target id + wakeup kind.
+    pub fn new(push_target_id: &'a str, wakeup_kind: &'a str) -> Self {
+        Self {
+            push_target_id,
+            wakeup_kind,
+            circle_id: None,
+            realm_id: None,
+        }
+    }
+
+    /// Attach a Circle scope.
+    pub fn with_circle_id(mut self, circle_id: &'a str) -> Self {
+        self.circle_id = Some(circle_id);
+        self
+    }
+
+    /// Attach a Realm scope.
+    pub fn with_realm_id(mut self, realm_id: &'a str) -> Self {
+        self.realm_id = Some(realm_id);
+        self
+    }
+}
+
+/// Outcome of [`BackgroundFetchDriver::dispatch_background_fetch`].
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum BackgroundFetchOutcome {
+    /// The driver dispatched the fetch onto the platform queue.
+    Dispatched,
+    /// The driver chose not to dispatch (e.g. the device is in
+    /// power-saver mode, the platform's daily budget is exhausted).
+    /// chime treats this as a non-error path so callers can surface
+    /// metrics without alerting.
+    Skipped,
+}
+
+/// No-op `BackgroundFetchDriver` for integrations that have no
+/// background-fetch surface (CLI smoke tests, server-side bridges, etc.).
+#[derive(Clone, Copy, Debug, Default)]
+pub struct NoopBackgroundFetchDriver;
+
+impl BackgroundFetchDriver for NoopBackgroundFetchDriver {
+    type Error = core::convert::Infallible;
+
+    fn dispatch_background_fetch(
+        &self,
+        _hint: &BackgroundFetchHint<'_>,
+    ) -> Result<BackgroundFetchOutcome, Self::Error> {
+        Ok(BackgroundFetchOutcome::Skipped)
+    }
+}
+
 /// Why the device session is being invalidated.
 ///
 /// Round R2/R3 only emits one variant from chime, but the enum is

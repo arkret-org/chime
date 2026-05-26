@@ -8,8 +8,34 @@ use std::fmt::Write as _;
 
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+use thiserror::Error;
 
 use crate::PushBridgeDescribeResponse;
+
+/// A.5 #3 — error surface for `BridgeContractCache` construction / drift
+/// evaluation.
+///
+/// Previously `BridgeContractCache::from_response` swallowed serialise
+/// failures via `unwrap_or_default()`, which silently produced a cache
+/// entry whose digest was the SHA-256 of an empty byte slice. That is
+/// fail-open: a subsequent `evaluate` of the SAME response would still
+/// flip to `Drifted` (because the fresh digest is now over real bytes),
+/// but a `from_response` taken on the drift side at the wrong moment
+/// could compare `digest("")` against itself and report `Unchanged` on
+/// totally different contracts. The current contract is fail-closed —
+/// every digest computation MUST succeed, and the only way the
+/// underlying `serde_json::to_vec` can fail in practice is a struct
+/// containing a non-string map key or a `f64` NaN, neither of which the
+/// `PushBridgeDescribeResponse` schema allows. Surfacing the error
+/// nonetheless guards against future schema additions.
+#[derive(Debug, Error)]
+pub enum CacheError {
+    /// Serialising the bridge/describe response to canonical JSON failed.
+    /// The digest cannot be computed; the cache entry MUST NOT be
+    /// constructed.
+    #[error("bridge/describe response failed to serialise for cache digest: {0}")]
+    Serialize(#[from] serde_json::Error),
+}
 
 /// Locally cached fingerprint of the most recent `bridge/describe` response.
 ///
@@ -33,19 +59,35 @@ pub struct BridgeContractCache {
 
 impl BridgeContractCache {
     /// Compute a fresh cache entry from a bridge describe response.
-    pub fn from_response(response: &PushBridgeDescribeResponse, observed_at: Option<&str>) -> Self {
-        Self {
-            digest: compute_digest(response),
+    ///
+    /// A.5 #3 — fail-closed: when the underlying serialisation fails the
+    /// constructor returns `Err(CacheError::Serialize)` rather than
+    /// silently building a cache entry whose digest is over an empty
+    /// byte slice.
+    pub fn from_response(
+        response: &PushBridgeDescribeResponse,
+        observed_at: Option<&str>,
+    ) -> Result<Self, CacheError> {
+        Ok(Self {
+            digest: compute_digest(response)?,
             contract: response.contract.clone(),
             version: response.version.clone(),
             observed_at: observed_at.map(str::to_owned),
-        }
+        })
     }
 
     /// Compare a fresh response against this cache and return a drift verdict.
-    pub fn evaluate(&self, fresh: &PushBridgeDescribeResponse) -> BridgeContractDriftVerdict {
-        let fresh_digest = compute_digest(fresh);
-        if self.digest == fresh_digest {
+    ///
+    /// A.5 #3 — also fail-closed: a serialisation failure of the fresh
+    /// response prevents an honest comparison, so the call surfaces the
+    /// error rather than reporting `Unchanged` or `Drifted` based on an
+    /// empty-input digest.
+    pub fn evaluate(
+        &self,
+        fresh: &PushBridgeDescribeResponse,
+    ) -> Result<BridgeContractDriftVerdict, CacheError> {
+        let fresh_digest = compute_digest(fresh)?;
+        Ok(if self.digest == fresh_digest {
             BridgeContractDriftVerdict::Unchanged
         } else {
             BridgeContractDriftVerdict::Drifted {
@@ -56,7 +98,7 @@ impl BridgeContractCache {
                 cached_version: self.version.clone(),
                 fresh_version: fresh.version.clone(),
             }
-        }
+        })
     }
 }
 
@@ -102,14 +144,14 @@ impl BridgeContractDriftVerdict {
     }
 }
 
-fn compute_digest(response: &PushBridgeDescribeResponse) -> String {
-    let json = serde_json::to_vec(response).unwrap_or_default();
+fn compute_digest(response: &PushBridgeDescribeResponse) -> Result<String, CacheError> {
+    let json = serde_json::to_vec(response)?;
     let digest = Sha256::digest(&json);
     let mut output = String::with_capacity(digest.len() * 2);
     for byte in digest {
         let _ = write!(output, "{byte:02x}");
     }
-    output
+    Ok(output)
 }
 
 #[cfg(test)]
@@ -128,8 +170,8 @@ mod tests {
     #[test]
     fn digest_is_stable_for_identical_responses() {
         let response = baseline_response();
-        let a = compute_digest(&response);
-        let b = compute_digest(&response);
+        let a = compute_digest(&response).unwrap();
+        let b = compute_digest(&response).unwrap();
         assert_eq!(a, b);
         assert_eq!(a.len(), 64);
     }
@@ -137,21 +179,22 @@ mod tests {
     #[test]
     fn cache_evaluates_unchanged_when_digest_matches() {
         let response = baseline_response();
-        let cache = BridgeContractCache::from_response(&response, Some("2026-05-06T00:00:00Z"));
+        let cache =
+            BridgeContractCache::from_response(&response, Some("2026-05-06T00:00:00Z")).unwrap();
         assert_eq!(
-            cache.evaluate(&response),
+            cache.evaluate(&response).unwrap(),
             BridgeContractDriftVerdict::Unchanged
         );
-        assert!(!cache.evaluate(&response).is_drift());
+        assert!(!cache.evaluate(&response).unwrap().is_drift());
     }
 
     #[test]
     fn cache_detects_version_only_drift() {
-        let cache = BridgeContractCache::from_response(&baseline_response(), None);
+        let cache = BridgeContractCache::from_response(&baseline_response(), None).unwrap();
         let mut fresh = baseline_response();
         fresh.version = "1.1.0".to_owned();
 
-        let verdict = cache.evaluate(&fresh);
+        let verdict = cache.evaluate(&fresh).unwrap();
         assert!(verdict.is_drift());
         assert!(
             !verdict.contract_changed(),
@@ -173,11 +216,11 @@ mod tests {
 
     #[test]
     fn cache_detects_contract_drift() {
-        let cache = BridgeContractCache::from_response(&baseline_response(), None);
+        let cache = BridgeContractCache::from_response(&baseline_response(), None).unwrap();
         let mut fresh = baseline_response();
         fresh.contract = "cx.push.bridge.v2".to_owned();
 
-        let verdict = cache.evaluate(&fresh);
+        let verdict = cache.evaluate(&fresh).unwrap();
         assert!(verdict.is_drift());
         assert!(verdict.contract_changed());
     }
@@ -185,7 +228,8 @@ mod tests {
     #[test]
     fn cache_round_trips_through_json() {
         let cache =
-            BridgeContractCache::from_response(&baseline_response(), Some("2026-05-06T00:00:00Z"));
+            BridgeContractCache::from_response(&baseline_response(), Some("2026-05-06T00:00:00Z"))
+                .unwrap();
         let json = serde_json::to_string(&cache).unwrap();
         let loaded: BridgeContractCache = serde_json::from_str(&json).unwrap();
         assert_eq!(loaded, cache);

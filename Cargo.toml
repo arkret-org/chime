@@ -44,10 +44,21 @@ url = "2"
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"], optional = true }
 tokio = { version = "1", features = ["time"], optional = true }
+# A.5 #2 — wrap bearer tokens in a `SecretString` so Drop zeroes the
+# heap allocation. Pulled in only for native targets that build the
+# `http` client; the wasm32 build also needs it (token surface is
+# identical) and so re-declares the same dep below.
+zeroize = { version = "1", features = ["derive"], optional = true }
+# A.5 #4 — `NonceTracker` needs a monotonic clock for replay-window
+# expiry. The `time` feature on tokio already gives us
+# `tokio::time::Instant`, but the nonce tracker also runs in pure
+# library tests without a tokio runtime; pull in `instant` so the
+# tracker can compile on every target without a runtime dependency.
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 reqwest = { version = "0.12", default-features = false, features = ["json"], optional = true }
 gloo-timers = { version = "0.3", features = ["futures"], optional = true }
+zeroize = { version = "1", features = ["derive"], optional = true }
 
 [features]
 default = []
@@ -56,7 +67,12 @@ default = []
 ## On native targets this enables reqwest with rustls-tls + a tokio
 ## time driver. On wasm32 it enables reqwest's fetch backend and
 ## gloo-timers (browser `setTimeout`) for the retry backoff.
-http = ["dep:reqwest", "dep:tokio", "dep:gloo-timers"]
+##
+## A.5 #2 — also pulls in `zeroize` so bearer tokens stored on
+## `ContrixPushClient` zero their heap allocation on drop. The
+## dependency is feature-gated because the bearer-token surface only
+## exists when the `http` client is compiled.
+http = ["dep:reqwest", "dep:tokio", "dep:gloo-timers", "dep:zeroize"]
 ## Enable server/gateway-side cx.push.notify wire types.
 notify = []
 

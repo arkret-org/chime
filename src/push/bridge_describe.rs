@@ -17,6 +17,16 @@ pub struct PushBridgeDescribeResponse {
     pub contract: String,
     pub version: String,
     pub api_base_path: String,
+    /// B.5 #6 — optional spec revision the gateway is built against
+    /// (e.g. `"contrix-spec@2026-05-26"`). chime compares this to the
+    /// SDK's compiled-in [`EXPECTED_SPEC_VERSION`] and emits a
+    /// `tracing::warn!` on mismatch via
+    /// [`Self::warn_on_spec_version_mismatch`]. Absence is tolerated
+    /// (older gateways did not advertise the field); presence with a
+    /// non-matching value indicates a likely contract drift the host
+    /// app should investigate.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub spec_version: Option<String>,
     pub gateway: PushBridgeDescribeGatewayDescriptor,
     pub notify: PushBridgeDescribeNotifyDescriptor,
     pub privacy: PushBridgeDescribePrivacyDescriptor,
@@ -30,7 +40,40 @@ pub struct PushBridgeDescribeResponse {
     pub todos: Vec<String>,
 }
 
+/// B.5 #6 — spec revision chime was compiled against. Used by
+/// [`PushBridgeDescribeResponse::warn_on_spec_version_mismatch`] to flag
+/// gateway responses pinned to a different revision.
+pub const EXPECTED_SPEC_VERSION: &str = "contrix-spec@2026-05-26";
+
 impl PushBridgeDescribeResponse {
+    /// B.5 #6 — emit a `tracing::warn!` when the gateway's advertised
+    /// `spec_version` does not match the SDK's compiled-in
+    /// [`EXPECTED_SPEC_VERSION`].
+    ///
+    /// Returns `true` when the response carried a spec version that
+    /// matched, `false` when it carried one that did not match (warning
+    /// emitted) or did not advertise the field at all (no warning).
+    ///
+    /// Hosts that prefer a fail-closed contract should inspect
+    /// [`Self::spec_version`] directly rather than rely on the
+    /// log-only side effect.
+    pub fn warn_on_spec_version_mismatch(&self) -> bool {
+        match self.spec_version.as_deref() {
+            Some(advertised) if advertised == EXPECTED_SPEC_VERSION => true,
+            Some(advertised) => {
+                tracing::warn!(
+                    advertised_spec_version = advertised,
+                    expected_spec_version = EXPECTED_SPEC_VERSION,
+                    contract = self.contract,
+                    version = self.version,
+                    "push bridge spec_version mismatch — gateway/SDK may drift",
+                );
+                false
+            }
+            None => false,
+        }
+    }
+
     /// Look up a per-app provider capability descriptor by configured app
     /// name (case-insensitive). Returns `None` when the bridge response
     /// did not carry the per-provider matrix or no entry matches.

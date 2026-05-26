@@ -21,7 +21,9 @@
 //!    that have a `SigningKey` should call it directly with the
 //!    canonical message built from chime's `PushRequestSigningContext`.
 
+use std::collections::HashMap;
 use std::fmt;
+use std::time::{Duration, SystemTime, SystemTimeError};
 
 use contrix::http_signature::{
     Component, ContentDigest, ContentDigestAlgorithm, format_signature_header,
@@ -29,6 +31,7 @@ use contrix::http_signature::{
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use thiserror::Error;
 
 use super::errors::PushRegistrationError;
 use super::urls::{
@@ -384,6 +387,149 @@ where
     })
 }
 
+/// A.5 #4 — per-`(device_id, nonce)` replay-window tracker.
+///
+/// The chime push device registration / unregistration flow stamps a
+/// random `X-Contrix-Nonce` value on every signed request so floria's
+/// verifier can reject replays. The signed transcript would otherwise
+/// stay valid forever, which means an attacker who recorded one
+/// `register-device` request can resubmit it from any vantage point
+/// until the soland session grant expires.
+///
+/// `NonceTracker` is the client-side counterpart of that defence — it
+/// short-circuits the *same* `(device_id, nonce)` pair before the
+/// signing context is ever built so chime can't accidentally hand
+/// floria a replay-able payload. It is also useful in server-side
+/// integrations that delegate signing to chime but need to remember
+/// which nonces they have already accepted on the inbound leg.
+///
+/// ## Semantics
+///
+/// - Entries expire after [`NonceTracker::window`] seconds. The
+///   tracker prunes lazily on insert; long-running processes that
+///   never insert do not see growth from this tracker alone.
+/// - The store is in-memory and per-`NonceTracker` instance. Hosts
+///   that want cross-process coverage are expected to layer a
+///   redis/key-value backend on top — the unit of correctness here is
+///   the local SDK boundary.
+/// - `observe` returns `Err(NonceReplayError::DuplicateNonce)` on
+///   replay so the caller fail-closes rather than silently dropping
+///   the second request.
+///
+/// The tracker is intentionally lockless internally (single
+/// `HashMap`); callers that share it across threads should wrap it in
+/// a `Mutex`/`RwLock` themselves to keep dependencies minimal.
+#[derive(Debug)]
+pub struct NonceTracker {
+    window: Duration,
+    /// (device_id, nonce) → observed-at SystemTime
+    seen: HashMap<NonceKey, SystemTime>,
+}
+
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+struct NonceKey {
+    device_id: String,
+    nonce: String,
+}
+
+/// Error returned by [`NonceTracker::observe`] on replay or clock skew.
+#[derive(Clone, Debug, Error, PartialEq, Eq)]
+pub enum NonceReplayError {
+    /// The supplied `(device_id, nonce)` pair was already observed
+    /// within the active replay window. The request MUST NOT be
+    /// signed/submitted again — fail-closed.
+    #[error("duplicate nonce `{nonce}` for device `{device_id}` within replay window")]
+    DuplicateNonce { device_id: String, nonce: String },
+}
+
+impl From<SystemTimeError> for NonceReplayError {
+    fn from(_: SystemTimeError) -> Self {
+        // Clock skew is treated as duplicate-equivalent: returning
+        // anything else would let a backward clock jump silently
+        // re-accept old nonces.
+        Self::DuplicateNonce {
+            device_id: String::new(),
+            nonce: String::new(),
+        }
+    }
+}
+
+impl NonceTracker {
+    /// Construct a tracker that retains `(device_id, nonce)` pairs for
+    /// `window`. A typical value is 5 minutes.
+    pub fn new(window: Duration) -> Self {
+        Self {
+            window,
+            seen: HashMap::new(),
+        }
+    }
+
+    /// Active replay-window duration.
+    pub fn window(&self) -> Duration {
+        self.window
+    }
+
+    /// Record a `(device_id, nonce)` pair. Returns
+    /// `Err(NonceReplayError::DuplicateNonce)` if the same pair has
+    /// already been recorded within the active window.
+    ///
+    /// Use the value of [`crate::CONTRIX_NONCE_HEADER`] for `nonce`.
+    pub fn observe(
+        &mut self,
+        device_id: &str,
+        nonce: &str,
+    ) -> Result<(), NonceReplayError> {
+        self.observe_at(device_id, nonce, SystemTime::now())
+    }
+
+    /// Test-friendly variant of [`Self::observe`] that takes the
+    /// observation timestamp explicitly. Production callers should use
+    /// [`Self::observe`].
+    pub fn observe_at(
+        &mut self,
+        device_id: &str,
+        nonce: &str,
+        now: SystemTime,
+    ) -> Result<(), NonceReplayError> {
+        // Drop entries older than the active window. We do this on
+        // every insert so the tracker stays bounded in size for
+        // long-running processes.
+        self.prune(now);
+
+        let key = NonceKey {
+            device_id: device_id.to_owned(),
+            nonce: nonce.to_owned(),
+        };
+        if self.seen.contains_key(&key) {
+            return Err(NonceReplayError::DuplicateNonce {
+                device_id: key.device_id,
+                nonce: key.nonce,
+            });
+        }
+        self.seen.insert(key, now);
+        Ok(())
+    }
+
+    /// Number of unexpired `(device_id, nonce)` pairs currently tracked.
+    pub fn len(&self) -> usize {
+        self.seen.len()
+    }
+
+    /// `true` when the tracker holds no unexpired entries.
+    pub fn is_empty(&self) -> bool {
+        self.seen.is_empty()
+    }
+
+    fn prune(&mut self, now: SystemTime) {
+        let window = self.window;
+        self.seen.retain(|_, observed_at| {
+            now.duration_since(*observed_at)
+                .map(|elapsed| elapsed < window)
+                .unwrap_or(true)
+        });
+    }
+}
+
 #[cfg(test)]
 mod tests {
     //! CH-1 wire-equivalence tests for the SDK-routed `content_digest_sha256`.
@@ -475,5 +621,75 @@ mod tests {
             BASE64_STANDARD.encode(Sha256::digest(&json))
         );
         assert_eq!(wire, expected);
+    }
+
+    // ─── A.5 #4 NonceTracker replay-window tests ───────────────────────
+
+    #[test]
+    fn nonce_tracker_accepts_distinct_nonces() {
+        let mut tracker = NonceTracker::new(Duration::from_secs(300));
+        tracker
+            .observe("did:web:alice.example#device-phone", "nonce-a")
+            .expect("fresh nonce accepted");
+        tracker
+            .observe("did:web:alice.example#device-phone", "nonce-b")
+            .expect("distinct nonce accepted");
+        assert_eq!(tracker.len(), 2);
+    }
+
+    #[test]
+    fn nonce_tracker_rejects_duplicate_within_window() {
+        let mut tracker = NonceTracker::new(Duration::from_secs(300));
+        tracker
+            .observe("did:web:alice.example#device-phone", "nonce-a")
+            .expect("first observation accepted");
+        let err = tracker
+            .observe("did:web:alice.example#device-phone", "nonce-a")
+            .unwrap_err();
+        assert!(matches!(
+            err,
+            NonceReplayError::DuplicateNonce { ref device_id, ref nonce }
+                if device_id == "did:web:alice.example#device-phone"
+                    && nonce == "nonce-a"
+        ));
+    }
+
+    #[test]
+    fn nonce_tracker_scopes_by_device_id() {
+        // The same nonce string from two different devices is fine —
+        // the replay primitive is `(device_id, nonce)`, not nonce
+        // alone.
+        let mut tracker = NonceTracker::new(Duration::from_secs(300));
+        tracker
+            .observe("did:web:alice.example#device-phone", "shared-nonce")
+            .unwrap();
+        tracker
+            .observe("did:web:alice.example#device-tablet", "shared-nonce")
+            .expect("same nonce on different device is not a replay");
+    }
+
+    #[test]
+    fn nonce_tracker_prunes_entries_past_window() {
+        let mut tracker = NonceTracker::new(Duration::from_secs(60));
+        let base = SystemTime::UNIX_EPOCH + Duration::from_secs(1_000);
+        tracker
+            .observe_at("did:web:alice.example#device-phone", "nonce-a", base)
+            .unwrap();
+        assert_eq!(tracker.len(), 1);
+
+        // Insert past the window: the old entry must be evicted, and
+        // re-observing the same nonce must now succeed because it has
+        // aged out.
+        let later = base + Duration::from_secs(120);
+        tracker
+            .observe_at("did:web:alice.example#device-phone", "nonce-b", later)
+            .unwrap();
+        // After the prune the only surviving entry is `nonce-b`.
+        assert_eq!(tracker.len(), 1);
+
+        tracker
+            .observe_at("did:web:alice.example#device-phone", "nonce-a", later)
+            .expect("aged-out nonce can be re-observed");
+        assert_eq!(tracker.len(), 2);
     }
 }

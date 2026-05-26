@@ -372,7 +372,14 @@ impl PushNotification {
         // still set realm_id only), but when present they MUST be the
         // canonical typed-id shape so floria/yougen don't have to
         // re-parse arbitrary strings later.
-        validate_typed_id("circle_id", self.circle_id.as_deref(), "cx:circle:")?;
+        //
+        // A.5 #1 — `circle_id` is the canonical opaque routing token in
+        // blind-wakeup mode. Tighten its shape from the generic
+        // `validate_typed_id` (which only checks the prefix) to a strict
+        // regex equivalent of `^cx:circle:[a-z0-9]+$` so member-name /
+        // display-label exfiltration via the tail is rejected at the
+        // wire layer.
+        validate_circle_id_opaque(self.circle_id.as_deref())?;
         validate_effective_scope(self.effective_scope.as_deref())?;
         validate_optional_non_empty("sender", self.sender.as_deref())?;
 
@@ -421,10 +428,14 @@ impl PushNotification {
         // CXP-0007 Circle metadata privacy invariant: even in blind
         // mode where `circle_id` may travel as opaque routing metadata,
         // the wakeup MUST NOT leak Circle membership/display fields.
-        // The typed `circle_id` itself is fine (already validated for
-        // shape above); composite member/name surfaces are not.
+        // The strict opaque validator in `validate_wire_model` already
+        // rejects any `did:`/`:did` substring in the tail (it enforces
+        // `^cx:circle:[a-z0-9]+$`), so we keep the belt-and-braces
+        // SensitiveField mapping here for callers that bypass the
+        // wire-model validator and call `validate_blind_wakeup` directly.
         if let Some(circle_id) = self.circle_id.as_deref()
-            && circle_id.to_ascii_lowercase().contains("did:")
+            && (circle_id.to_ascii_lowercase().contains("did:")
+                || circle_id.contains(":did"))
         {
             return Err(PushNotifyPrivacyError::SensitiveField {
                 field: "circle_id".to_owned(),
@@ -504,6 +515,29 @@ impl PushNotification {
     /// "@-mention redirected to N actors" UI.
     pub fn has_mention_redirect_routing(&self) -> bool {
         self.mention_redirect.is_some()
+    }
+
+    /// B.5 #9 — build a [`crate::BackgroundFetchHint`] that mirrors the
+    /// wakeup's opaque routing metadata. Host code passes the result
+    /// into [`crate::BackgroundFetchDriver::dispatch_background_fetch`]
+    /// to schedule the platform background-fetch job.
+    ///
+    /// Returns `None` when the wakeup is missing the two required
+    /// fields (`push_target_id`, `wakeup_kind`). The wire-model
+    /// validator rejects that shape upstream, so a `None` return at
+    /// this point means an integrator constructed an out-of-spec
+    /// notification manually — the safe default is "do not dispatch".
+    pub fn background_fetch_hint(&self) -> Option<crate::BackgroundFetchHint<'_>> {
+        let push_target_id = self.push_target_id.as_ref()?.as_str();
+        let wakeup_kind = self.wakeup_kind.as_ref()?.as_str();
+        let mut hint = crate::BackgroundFetchHint::new(push_target_id, wakeup_kind);
+        if let Some(circle_id) = self.circle_id.as_deref() {
+            hint = hint.with_circle_id(circle_id);
+        }
+        if let Some(realm_id) = self.realm_id.as_deref() {
+            hint = hint.with_realm_id(realm_id);
+        }
+        Some(hint)
     }
 
     /// Round 4 (B5) — when the wakeup is a late-key-recovery audit
@@ -771,6 +805,61 @@ fn run_sdk_sanitizer_over_extra(extra: &Map<String, Value>) -> Result<(), PushNo
     sdk_sanitizer::sanitize_blind_payload(&envelope).map_err(PushNotifyPrivacyError::from)
 }
 
+/// B.5 #7 — client-facing summary of the push gateway's deduplication
+/// configuration.
+///
+/// `bridge/describe` advertises a `dedup_backend` (e.g. `"redis"`,
+/// `"in-memory"`) and a `dedup_ttl_seconds` field on the notify
+/// descriptor. Host apps that want to mirror the gateway's dedup
+/// behaviour locally (so they don't double-process a wakeup that the
+/// gateway already short-circuited) need both values together — this
+/// helper bundles them so callers don't have to reach into the bridge
+/// descriptor at every consumption site.
+///
+/// Construct via [`PushNotificationDedup::from_descriptor`] from a
+/// fetched [`crate::PushBridgeDescribeNotifyDescriptor`]; the factory
+/// returns `None` when the gateway has no dedup backend advertised
+/// (i.e. `dedup_backend` is `None` or empty), in which case the host
+/// app should NOT assume any cross-request dedup at the gateway and
+/// must apply its own.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct PushNotificationDedup {
+    /// Canonical backend identifier — copied verbatim from
+    /// `bridge/describe.notify.dedup_backend` for downstream logs /
+    /// metrics. Examples: `"redis"`, `"in-memory"`.
+    pub backend: String,
+    /// Retention window for the dedup record. When the gateway did not
+    /// advertise a TTL, this is `Duration::ZERO`; callers should treat
+    /// that as "fall back to your local default" rather than "no
+    /// dedup".
+    pub window: std::time::Duration,
+}
+
+impl PushNotificationDedup {
+    /// Construct a [`PushNotificationDedup`] from a notify descriptor.
+    ///
+    /// Returns `None` when no `dedup_backend` is advertised, i.e. the
+    /// gateway does NOT perform server-side dedup and the host app
+    /// must handle it itself.
+    pub fn from_descriptor(
+        notify: &crate::PushBridgeDescribeNotifyDescriptor,
+    ) -> Option<Self> {
+        let backend = notify.dedup_backend.as_deref()?.trim();
+        if backend.is_empty() {
+            return None;
+        }
+        Some(Self {
+            backend: backend.to_owned(),
+            window: notify.dedup_window().unwrap_or(std::time::Duration::ZERO),
+        })
+    }
+
+    /// `true` when the gateway advertised a positive retention window.
+    pub fn has_window(&self) -> bool {
+        !self.window.is_zero()
+    }
+}
+
 pub fn shared_push_notify_privacy_vectors() -> Vec<PushNotifyPrivacyVector> {
     vec![
         PushNotifyPrivacyVector {
@@ -918,6 +1007,56 @@ fn validate_typed_id(
     if value.trim().is_empty() || !value.starts_with(prefix) {
         return Err(PushNotifyPrivacyError::InvalidFieldValue {
             field: field.to_owned(),
+        });
+    }
+    Ok(())
+}
+
+/// A.5 #1 — strict shape validator for `circle_id`.
+///
+/// Enforces the canonical opaque routing-token regex
+/// `^cx:circle:[a-z0-9]+$` (case-insensitive ASCII alphanumerics in the
+/// tail — chime allows both lowercase `cx:circle:abc123` and ULID-style
+/// uppercase `cx:circle:01HZK9Z...` because both are emitted today by
+/// floria). The validator rejects:
+///
+/// - missing / empty tail,
+/// - any non-alphanumeric byte in the tail (`:` / `-` / `_` / `.` etc.),
+/// - `did:` / `:did` infix anywhere in the value (mapped to
+///   [`PushNotifyPrivacyError::SensitiveField`] so the caller can tell
+///   "leaked DID literal" apart from "bad shape" in its observability
+///   pipeline).
+///
+/// The wire-model validator runs this on the typed `circle_id` field so
+/// member display labels, DID literals, or any other non-opaque content
+/// cannot be smuggled through the Circle routing surface even in
+/// blind-wakeup mode.
+fn validate_circle_id_opaque(value: Option<&str>) -> Result<(), PushNotifyPrivacyError> {
+    let Some(value) = value else {
+        return Ok(());
+    };
+    if value.trim().is_empty() {
+        return Err(PushNotifyPrivacyError::InvalidFieldValue {
+            field: "circle_id".to_owned(),
+        });
+    }
+    // Reject `:did` infix (e.g. `cx:circle:did:web:alice...`) as a
+    // sensitive field rather than a shape violation so the caller can
+    // tell the difference between "bad shape" and "leaked DID literal"
+    // in its observability pipeline.
+    if value.to_ascii_lowercase().contains("did:") || value.contains(":did") {
+        return Err(PushNotifyPrivacyError::SensitiveField {
+            field: "circle_id".to_owned(),
+        });
+    }
+    let Some(tail) = value.strip_prefix("cx:circle:") else {
+        return Err(PushNotifyPrivacyError::InvalidFieldValue {
+            field: "circle_id".to_owned(),
+        });
+    };
+    if tail.is_empty() || !tail.chars().all(|ch| ch.is_ascii_alphanumeric()) {
+        return Err(PushNotifyPrivacyError::InvalidFieldValue {
+            field: "circle_id".to_owned(),
         });
     }
     Ok(())

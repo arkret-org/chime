@@ -8,8 +8,62 @@ use std::time::{Duration, SystemTime};
 
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+use zeroize::Zeroize;
 
 use crate::{GatewayBinding, PushPreferences};
+
+/// A.5 #2 — minimal `SecretString` wrapper for credential material the
+/// HTTP client must hold in memory (bearer tokens today; the surface is
+/// designed so we can extend it to other secrets later).
+///
+/// Semantics:
+/// - `Clone` is intentionally supported so the surrounding
+///   `ContrixPushClient` can remain `Clone`. Each clone owns its own
+///   zeroed-on-drop allocation.
+/// - `Debug` returns the literal string `"<redacted>"`; the inner
+///   `String` is never formatted.
+/// - `Drop` zeroes the underlying allocation via the `zeroize` crate so
+///   a `ContrixPushClient` going out of scope does not leave the token
+///   sitting in the freed heap region.
+///
+/// We do NOT implement `Display`, `PartialEq`, or `Serialize` on this
+/// type — callers explicitly call [`Self::expose`] only at the very
+/// moment they hand the secret to a reqwest header.
+struct SecretString(String);
+
+impl SecretString {
+    fn new(value: impl Into<String>) -> Self {
+        Self(value.into())
+    }
+
+    /// Borrow the underlying secret. Callers MUST NOT clone the returned
+    /// `&str` into a long-lived owned `String` outside of the request
+    /// builder, and MUST NOT format it through `Debug`/`Display`.
+    fn expose(&self) -> &str {
+        self.0.as_str()
+    }
+}
+
+impl Clone for SecretString {
+    fn clone(&self) -> Self {
+        // Allocate a fresh String so each `ContrixPushClient` clone gets
+        // its own zeroed-on-drop buffer.
+        Self(self.0.clone())
+    }
+}
+
+impl fmt::Debug for SecretString {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("<redacted>")
+    }
+}
+
+impl Drop for SecretString {
+    fn drop(&mut self) {
+        // `String::zeroize` wipes the allocation before it is freed.
+        self.0.zeroize();
+    }
+}
 
 use super::bridge_describe::{
     IntegrationView, PushBridgeDescribeResponse, PushGatewayIntegrationDescribeResponse,
@@ -23,9 +77,11 @@ use super::wire::{
 };
 use super::{
     CONTRIX_REQUEST_ID_HEADER, CONTRIX_SESSION_GRANT_HEADER, PUSH_BRIDGE_DESCRIBE_PATH,
-    PUSH_INTEGRATION_DESCRIBE_PATH, REGISTER_DEVICE_PATH, RETRY_AFTER_HEADER, SDK_USER_AGENT,
-    UNREGISTER_DEVICE_PATH,
+    PUSH_INTEGRATION_DESCRIBE_PATH, PUSH_UNSUBSCRIBE_PATH, REGISTER_DEVICE_PATH,
+    RETRY_AFTER_HEADER, SDK_USER_AGENT, UNREGISTER_DEVICE_PATH,
 };
+use super::wire::{PushUnsubscribeRequest, PushUnsubscribeResponse};
+use super::registration::build_unsubscribe_request;
 
 /// HTTP response body plus Contrix response metadata.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -114,7 +170,10 @@ impl Default for PushRetryPolicy {
 pub struct ContrixPushClient {
     http: reqwest::Client,
     service_base_url: String,
-    bearer_token: Option<String>,
+    // A.5 #2 — bearer token is held in a zeroize-on-drop wrapper so
+    // it does not linger in freed heap allocations after the client is
+    // dropped. The Debug impl below redacts it.
+    bearer_token: Option<SecretString>,
     timeout: Option<Duration>,
     retry_policy: PushRetryPolicy,
     retry_jitter_seed: u64,
@@ -133,12 +192,14 @@ pub struct ContrixPushClient {
 
 impl fmt::Debug for ContrixPushClient {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // A.5 #2 — `SecretString::Debug` already prints `<redacted>`,
+        // so handing the `Option<SecretString>` straight to
+        // `debug_struct` cannot leak the token. The explicit cast to
+        // `Option<&SecretString>` makes that contract grep-able.
+        let bearer: Option<&SecretString> = self.bearer_token.as_ref();
         f.debug_struct("ContrixPushClient")
             .field("service_base_url", &redact_url(&self.service_base_url))
-            .field(
-                "bearer_token",
-                &self.bearer_token.as_ref().map(|_| "<redacted>"),
-            )
+            .field("bearer_token", &bearer)
             .field("timeout", &self.timeout)
             .field("retry_policy", &self.retry_policy)
             .field("user_agent", &self.user_agent)
@@ -178,7 +239,7 @@ impl ContrixPushClient {
     }
 
     pub fn with_bearer_token(mut self, token: impl Into<String>) -> Self {
-        self.bearer_token = Some(token.into());
+        self.bearer_token = Some(SecretString::new(token));
         self
     }
 
@@ -493,6 +554,73 @@ impl ContrixPushClient {
         Ok(response)
     }
 
+    /// B.5 #8 — unsubscribe a device from a specific Circle / Realm /
+    /// Flow at the gateway.
+    ///
+    /// Differs from [`Self::unregister_device`] in scope: unregister
+    /// removes the device's push registration entirely (no more
+    /// wakeups from any scope), whereas `unsubscribe` removes a single
+    /// scope while keeping the registration alive for other scopes.
+    /// Use this when the user mutes a single Circle but expects other
+    /// Circles and Realms to keep waking the device.
+    ///
+    /// The `target_id` query parameter is added to the URL in
+    /// addition to the wire body, mirroring the floria contract that
+    /// accepts both forms for the same operation.
+    pub async fn unsubscribe(
+        &self,
+        config: &PushDeviceConfig<'_>,
+        target_id: &str,
+    ) -> Result<PushUnsubscribeResponse, PushRegistrationError> {
+        Ok(self.unsubscribe_with_context(config, target_id).await?.body)
+    }
+
+    /// Unsubscribe a device from a scope and return response metadata.
+    pub async fn unsubscribe_with_context(
+        &self,
+        config: &PushDeviceConfig<'_>,
+        target_id: &str,
+    ) -> Result<ContrixResponse<PushUnsubscribeResponse>, PushRegistrationError> {
+        self.assert_session_grant_if_required()?;
+        let body = build_unsubscribe_request(config, target_id)?;
+        let path = format!(
+            "{PUSH_UNSUBSCRIBE_PATH}?target_id={}",
+            urlencode_for_query(target_id),
+        );
+        let response = self
+            .post_json(&path, &body, config.idempotency_key, config.request_id)
+            .await?;
+
+        tracing::info!(
+            target_id = target_id,
+            operation_id = crate::OPERATION_PUSH_UNSUBSCRIBE,
+            request_id = response.request_id.as_deref(),
+            "Contrix push device unsubscribed from scope",
+        );
+
+        Ok(response)
+    }
+
+    /// Variant of [`Self::unsubscribe`] that posts a pre-built body
+    /// (caller-supplied [`PushUnsubscribeRequest`]).
+    pub async fn unsubscribe_with_request(
+        &self,
+        body: &PushUnsubscribeRequest,
+    ) -> Result<ContrixResponse<PushUnsubscribeResponse>, PushRegistrationError> {
+        self.assert_session_grant_if_required()?;
+        let path = format!(
+            "{PUSH_UNSUBSCRIBE_PATH}?target_id={}",
+            urlencode_for_query(&body.target_id),
+        );
+        self.post_json(
+            &path,
+            body,
+            body.idempotency_key.as_deref(),
+            body.request_id.as_deref(),
+        )
+        .await
+    }
+
     /// Unregister a push-capable device from a Contrix service against
     /// a specific gateway binding.
     pub async fn unregister_device(
@@ -722,7 +850,11 @@ impl ContrixPushClient {
         }
 
         if let Some(token) = &self.bearer_token {
-            request = request.bearer_auth(token);
+            // `SecretString::expose` is the one and only sanctioned
+            // place to materialise the bearer secret — it is consumed
+            // immediately by reqwest's builder. Do not stash the
+            // returned `&str` elsewhere.
+            request = request.bearer_auth(token.expose());
         }
 
         if let Some(idempotency_key) = idempotency_key {
@@ -789,7 +921,11 @@ impl ContrixPushClient {
         }
 
         if let Some(token) = &self.bearer_token {
-            request = request.bearer_auth(token);
+            // `SecretString::expose` is the one and only sanctioned
+            // place to materialise the bearer secret — it is consumed
+            // immediately by reqwest's builder. Do not stash the
+            // returned `&str` elsewhere.
+            request = request.bearer_auth(token.expose());
         }
 
         if let Some(request_id) = self.default_request_id.as_deref() {
@@ -868,8 +1004,19 @@ impl ContrixPushClient {
             return Duration::ZERO;
         }
 
-        let mut value =
-            self.retry_jitter_seed ^ ((retry_count as u64).wrapping_add(1) * 0x9E37_79B9_7F4A_7C15);
+        // C.6 #10 — re-seed the jitter mixer per attempt by folding in
+        // a fresh wall-clock sample. Without this every retry of a
+        // given `(client, retry_count)` pair would produce the same
+        // jitter — which means concurrent retries from many clients
+        // that happen to share a construction timestamp (e.g. a fleet
+        // restarting at the same minute) would line up into thundering
+        // herds. The fresh-per-attempt seed breaks the alignment without
+        // pulling in the `rand` crate.
+        let attempt_seed = retry_jitter_seed();
+        let mut value = self
+            .retry_jitter_seed
+            .wrapping_add(attempt_seed)
+            ^ ((retry_count as u64).wrapping_add(1) * 0x9E37_79B9_7F4A_7C15);
         value ^= value >> 30;
         value = value.wrapping_mul(0xBF58_476D_1CE4_E5B9);
         value ^= value >> 27;
@@ -930,6 +1077,28 @@ fn generate_idempotency_key() -> String {
         let _ = write!(output, "{byte:02x}");
     }
     output
+}
+
+/// Percent-encode a value for use as a URL query parameter.
+///
+/// Minimal implementation — the typed `cx:scope:opaque` strings chime
+/// builds for unsubscribe only need `:` and a small punctuation set
+/// encoded. We avoid pulling in `percent-encoding` just for this one
+/// call site.
+fn urlencode_for_query(value: &str) -> String {
+    let mut out = String::with_capacity(value.len());
+    for byte in value.bytes() {
+        match byte {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
+                out.push(byte as char);
+            }
+            _ => {
+                use std::fmt::Write as _;
+                let _ = write!(out, "%{byte:02X}");
+            }
+        }
+    }
+    out
 }
 
 fn header_value(headers: &reqwest::header::HeaderMap, name: &str) -> Option<String> {
@@ -1514,5 +1683,32 @@ mod tests {
             .await;
 
         assert!(results.is_empty());
+    }
+
+    /// A.5 #2 — formatting a [`ContrixPushClient`] through `{:?}` MUST
+    /// NOT leak the bearer token. We assert the redaction marker is
+    /// present and the secret is absent in both the option-empty and
+    /// option-present arms so a future refactor that drops the
+    /// `SecretString` wrapper trips this test.
+    #[test]
+    fn bearer_token_is_redacted_in_debug_output() {
+        let secret = "super-secret-session-bearer-do-not-log";
+
+        let no_token = ContrixPushClient::new("https://principal.example");
+        let no_token_debug = format!("{no_token:?}");
+        assert!(no_token_debug.contains("bearer_token: None"));
+        assert!(!no_token_debug.contains(secret));
+
+        let with_token =
+            ContrixPushClient::new("https://principal.example").with_bearer_token(secret);
+        let debug = format!("{with_token:?}");
+        assert!(
+            !debug.contains(secret),
+            "bearer token leaked through Debug: {debug}"
+        );
+        assert!(
+            debug.contains("<redacted>"),
+            "Debug output is missing the redaction marker: {debug}"
+        );
     }
 }

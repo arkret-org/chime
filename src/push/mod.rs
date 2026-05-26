@@ -26,6 +26,12 @@ pub const REGISTER_DEVICE_PATH: &str = "/api/v1/push/register-device";
 /// Contrix HTTP path for `cx.push.unregister_device`.
 pub const UNREGISTER_DEVICE_PATH: &str = "/api/v1/push/unregister-device";
 
+/// B.5 #8 — Contrix HTTP path for `cx.push.unsubscribe`. The body is a
+/// [`PushUnsubscribeRequest`]; the URL also accepts an optional
+/// `target_id` query parameter for callers that prefer to encode the
+/// scope outside the JSON envelope (the wire body remains canonical).
+pub const PUSH_UNSUBSCRIBE_PATH: &str = "/api/v1/push/unsubscribe";
+
 /// Contrix HTTP path for discovering the active push gateway bridge contract.
 pub const PUSH_BRIDGE_DESCRIBE_PATH: &str = "/api/v1/push/bridge/describe";
 
@@ -90,26 +96,32 @@ const RETRY_AFTER_HEADER: &str = "Retry-After";
 // -- Re-exports -------------------------------------------------------------
 
 pub use bridge_describe::{
-    IntegrationView, PushBridgeDescribeGatewayDescriptor, PushBridgeDescribeNotifyDescriptor,
-    PushBridgeDescribePrivacyDescriptor, PushBridgeDescribeResponse,
-    PushGatewayIntegrationDependency, PushGatewayIntegrationDescribeResponse,
-    PushGatewayIntegrationSurface,
+    EXPECTED_SPEC_VERSION, IntegrationView, PushBridgeDescribeGatewayDescriptor,
+    PushBridgeDescribeNotifyDescriptor, PushBridgeDescribePrivacyDescriptor,
+    PushBridgeDescribeResponse, PushGatewayIntegrationDependency,
+    PushGatewayIntegrationDescribeResponse, PushGatewayIntegrationSurface,
 };
 pub use errors::{PushErrorKind, PushRegistrationError};
 pub use registration::{
     build_register_device_request, build_register_signing_context,
     build_register_signing_context_with_options, build_unregister_device_request,
     build_unregister_signing_context, build_unregister_signing_context_with_options,
+    build_unsubscribe_request,
 };
-pub use signing::{PushRequestSigningContext, PushRequestSigningOptions, content_digest_sha256};
+pub use signing::{
+    NonceReplayError, NonceTracker, PushRequestSigningContext, PushRequestSigningOptions,
+    content_digest_sha256,
+};
 pub use urls::{
     contrix_api_url, push_bridge_describe_url, push_gateway_service_base_url,
     push_integration_describe_url, redact_push_key, validate_push_gateway_url,
     validate_webpush_endpoint_allowlist,
 };
 pub use wire::{
-    ContrixError, ContrixErrorEnvelope, PushDeviceConfig, PushPlatform, RegisterDeviceRequest,
-    RegisterDeviceResponse, UnregisterDeviceRequest, UnregisterDeviceResponse,
+    ContrixError, ContrixErrorEnvelope, PushDeviceConfig, PushPlatform, PushUnsubscribeRequest,
+    PushUnsubscribeResponse, RegisterDeviceRequest, RegisterDeviceResponse,
+    UnregisterDeviceRequest, UnregisterDeviceResponse, compute_push_key_hmac,
+    verify_push_key_binding,
 };
 
 #[cfg(feature = "http")]
