@@ -54,12 +54,15 @@ pub use push_rule_core::{
 
 #[cfg(feature = "notify")]
 pub use notify::{
-    EncryptedEnvelope, EncryptedEnvelopeError, MentionRedirectRouting, ProviderRetryHint,
-    PushDeliveryReceipt, PushHint, PushNotification, PushNotificationDedup,
-    PushNotificationDevice, PushNotifyPolicyContext, PushNotifyPrivacyError,
-    PushNotifyPrivacyMode, PushNotifyPrivacyVector, PushNotifyReqBody, PushNotifyResBody,
-    PushTargetId, ROUND_R2_R3_SENSITIVE_FIELDS, RejectedPushToken, WakeupKind,
-    assert_no_sensitive_fields, shared_push_notify_privacy_vectors,
+    AGENT_ACTOR_PRIVATE_KINDS, AGENT_LIFECYCLE_DURABLE_KINDS, AgentEventRouting,
+    AgentLifecycleSummary, EncryptedEnvelope, EncryptedEnvelopeError, MentionRedirectRouting,
+    PHASE_P2_AGENT_TYPED_ID_PREFIXES, PHASE_P2_LEGACY_FIELD_ALIASES, ProviderRetryHint,
+    PushDeliveryReceipt, PushHint, PushNotification, PushNotificationDedup, PushNotificationDevice,
+    PushNotifyPolicyContext, PushNotifyPrivacyError, PushNotifyPrivacyMode,
+    PushNotifyPrivacyVector, PushNotifyReqBody, PushNotifyResBody, PushTargetId,
+    ROUND_R2_R3_SENSITIVE_FIELDS, RejectedPushToken, WakeupKind, assert_no_sensitive_fields,
+    classify_agent_event_kind, is_legacy_field_alias, is_phase_p2_agent_typed_id,
+    render_agent_lifecycle_summary, shared_push_notify_privacy_vectors,
 };
 
 // Round 4 (B5, spec a77b995) — re-export the SDK round-4 audit surfaces
@@ -76,7 +79,6 @@ pub use lifecycle::{
 };
 
 pub use gateway_binding::GatewayBinding;
-pub use push::{DefaultPlatformAppIdResolver, PlatformAppIdResolver};
 pub use push::{
     CONTENT_DIGEST_HEADER, CONTRIX_ACTOR_DID_HEADER, CONTRIX_AUDIENCE_HEADER,
     CONTRIX_CREATED_AT_HEADER, CONTRIX_DESTINATION_SERVICE_DID_HEADER, CONTRIX_DEVICE_ID_HEADER,
@@ -84,16 +86,15 @@ pub use push::{
     CONTRIX_OPERATION_ID_HEADER, CONTRIX_ORIGIN_HEADER, CONTRIX_ORIGIN_SERVICE_DID_HEADER,
     CONTRIX_REQUEST_ID_HEADER, CONTRIX_SESSION_GRANT_HEADER, ContrixError, ContrixErrorEnvelope,
     EXPECTED_SPEC_VERSION, IntegrationView, NonceReplayError, NonceTracker,
-    PUSH_BRIDGE_DESCRIBE_PATH, PUSH_INTEGRATION_DESCRIBE_PATH,
-    PushBridgeDescribeGatewayDescriptor,
-    PushBridgeDescribeNotifyDescriptor, PushBridgeDescribePrivacyDescriptor,
-    PushBridgeDescribeResponse, PushDeviceConfig, PushErrorKind, PushGatewayIntegrationDependency,
-    PushGatewayIntegrationDescribeResponse, PushGatewayIntegrationSurface, PushPlatform,
-    PushRegistrationError, PushRequestSigningContext, PushRequestSigningOptions,
-    PushUnsubscribeRequest, PushUnsubscribeResponse, PUSH_UNSUBSCRIBE_PATH, REGISTER_DEVICE_PATH,
-    RegisterDeviceRequest, RegisterDeviceResponse, SIGNATURE_HEADER, SIGNATURE_INPUT_HEADER,
-    UNREGISTER_DEVICE_PATH, UnregisterDeviceRequest, UnregisterDeviceResponse,
-    build_register_device_request, build_register_signing_context,
+    PUSH_BRIDGE_DESCRIBE_PATH, PUSH_INTEGRATION_DESCRIBE_PATH, PUSH_UNSUBSCRIBE_PATH,
+    PushBridgeDescribeGatewayDescriptor, PushBridgeDescribeNotifyDescriptor,
+    PushBridgeDescribePrivacyDescriptor, PushBridgeDescribeResponse, PushDeviceConfig,
+    PushErrorKind, PushGatewayIntegrationDependency, PushGatewayIntegrationDescribeResponse,
+    PushGatewayIntegrationSurface, PushPlatform, PushRegistrationError, PushRequestSigningContext,
+    PushRequestSigningOptions, PushUnsubscribeRequest, PushUnsubscribeResponse,
+    REGISTER_DEVICE_PATH, RegisterDeviceRequest, RegisterDeviceResponse, SIGNATURE_HEADER,
+    SIGNATURE_INPUT_HEADER, UNREGISTER_DEVICE_PATH, UnregisterDeviceRequest,
+    UnregisterDeviceResponse, build_register_device_request, build_register_signing_context,
     build_register_signing_context_with_options, build_unregister_device_request,
     build_unregister_signing_context, build_unregister_signing_context_with_options,
     build_unsubscribe_request, compute_push_key_hmac, content_digest_sha256, contrix_api_url,
@@ -101,6 +102,7 @@ pub use push::{
     redact_push_key, validate_push_gateway_url, validate_webpush_endpoint_allowlist,
     verify_push_key_binding,
 };
+pub use push::{DefaultPlatformAppIdResolver, PlatformAppIdResolver};
 pub use push_route::{
     PushRoute, PushRouteCapability, PushRouteError, PushRouteId, PushRouteValidationError,
     ServiceDid,

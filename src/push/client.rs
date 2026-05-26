@@ -69,19 +69,19 @@ use super::bridge_describe::{
     IntegrationView, PushBridgeDescribeResponse, PushGatewayIntegrationDescribeResponse,
 };
 use super::errors::{PushErrorKind, PushRegistrationError, classify_http_error};
+use super::registration::build_unsubscribe_request;
 use super::registration::{build_register_device_request, build_unregister_device_request};
 use super::urls::{redact_url, try_contrix_api_url};
 use super::wire::{
     ContrixErrorEnvelope, PushDeviceConfig, RegisterDeviceRequest, RegisterDeviceResponse,
     UnregisterDeviceRequest, UnregisterDeviceResponse,
 };
+use super::wire::{PushUnsubscribeRequest, PushUnsubscribeResponse};
 use super::{
     CONTRIX_REQUEST_ID_HEADER, CONTRIX_SESSION_GRANT_HEADER, PUSH_BRIDGE_DESCRIBE_PATH,
     PUSH_INTEGRATION_DESCRIBE_PATH, PUSH_UNSUBSCRIBE_PATH, REGISTER_DEVICE_PATH,
     RETRY_AFTER_HEADER, SDK_USER_AGENT, UNREGISTER_DEVICE_PATH,
 };
-use super::wire::{PushUnsubscribeRequest, PushUnsubscribeResponse};
-use super::registration::build_unsubscribe_request;
 
 /// HTTP response body plus Contrix response metadata.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -1013,9 +1013,7 @@ impl ContrixPushClient {
         // herds. The fresh-per-attempt seed breaks the alignment without
         // pulling in the `rand` crate.
         let attempt_seed = retry_jitter_seed();
-        let mut value = self
-            .retry_jitter_seed
-            .wrapping_add(attempt_seed)
+        let mut value = self.retry_jitter_seed.wrapping_add(attempt_seed)
             ^ ((retry_count as u64).wrapping_add(1) * 0x9E37_79B9_7F4A_7C15);
         value ^= value >> 30;
         value = value.wrapping_mul(0xBF58_476D_1CE4_E5B9);

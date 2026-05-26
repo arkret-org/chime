@@ -79,19 +79,13 @@ async fn token_rotation_reclaims_old_registration() {
     let binding = fixture_binding();
     let prefs = fixture_prefs();
 
-    let old_request: RegisterDeviceRequest = build_register_device_request(
-        &config_for_token(old_token, "rot-old"),
-        &binding,
-        &prefs,
-    )
-    .expect("old token request builds");
+    let old_request: RegisterDeviceRequest =
+        build_register_device_request(&config_for_token(old_token, "rot-old"), &binding, &prefs)
+            .expect("old token request builds");
 
-    let mut new_request: RegisterDeviceRequest = build_register_device_request(
-        &config_for_token(new_token, "rot-new"),
-        &binding,
-        &prefs,
-    )
-    .expect("new token request builds");
+    let mut new_request: RegisterDeviceRequest =
+        build_register_device_request(&config_for_token(new_token, "rot-new"), &binding, &prefs)
+            .expect("new token request builds");
     new_request.previous_token_hash = Some(format!("sha256:{}", sha256_hex(old_token)));
 
     assert_eq!(old_request.device_id, new_request.device_id);

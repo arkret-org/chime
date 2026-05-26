@@ -474,11 +474,7 @@ impl NonceTracker {
     /// already been recorded within the active window.
     ///
     /// Use the value of [`crate::CONTRIX_NONCE_HEADER`] for `nonce`.
-    pub fn observe(
-        &mut self,
-        device_id: &str,
-        nonce: &str,
-    ) -> Result<(), NonceReplayError> {
+    pub fn observe(&mut self, device_id: &str, nonce: &str) -> Result<(), NonceReplayError> {
         self.observe_at(device_id, nonce, SystemTime::now())
     }
 

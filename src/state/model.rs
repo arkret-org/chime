@@ -660,10 +660,7 @@ mod tests {
             self.loads.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
             Ok(self.inner.lock().unwrap().clone())
         }
-        fn save_push_preferences(
-            &self,
-            prefs: &crate::PushPreferences,
-        ) -> Result<(), Self::Error> {
+        fn save_push_preferences(&self, prefs: &crate::PushPreferences) -> Result<(), Self::Error> {
             *self.inner.lock().unwrap() = Some(prefs.clone());
             Ok(())
         }
@@ -702,7 +699,11 @@ mod tests {
         memo.save_push_preferences(&next).unwrap();
         let after_save = memo.load_push_preferences().unwrap().unwrap();
         assert!(!after_save.enabled);
-        assert_eq!(memo.inner.load_count(), 1, "save must write-through, not re-load");
+        assert_eq!(
+            memo.inner.load_count(),
+            1,
+            "save must write-through, not re-load"
+        );
     }
 
     /// A zero TTL effectively disables memoization: every load goes
@@ -717,7 +718,11 @@ mod tests {
         memo.load_push_preferences().unwrap();
         memo.load_push_preferences().unwrap();
         // Loaded at least 3 times — every read past TTL re-acquires.
-        assert!(memo.inner.load_count() >= 3, "got {}", memo.inner.load_count());
+        assert!(
+            memo.inner.load_count() >= 3,
+            "got {}",
+            memo.inner.load_count()
+        );
     }
 
     /// `clear_push_preferences` invalidates the cache so the next read

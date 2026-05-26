@@ -392,6 +392,35 @@ impl PushNotification {
             device.validate_wire_model()?;
         }
         for (key, value) in &self.extra {
+            // Phase P2 (spec 37ce729) — legacy B-B field-naming aliases
+            // fail closed at the wire layer. floria 6496235 mirrors the
+            // same reject set on the gateway side; chime is the
+            // client-side mirror so a legacy-pinned producer can't
+            // sneak the old wire shape past us.
+            if is_legacy_field_alias(key) {
+                return Err(PushNotifyPrivacyError::RemovedField {
+                    field: key.to_owned(),
+                });
+            }
+            // Reject nested legacy aliases too (e.g. `media.size`).
+            if let Err(path) = assert_no_legacy_aliases(value) {
+                return Err(PushNotifyPrivacyError::RemovedField {
+                    field: format!("{key}.{path}"),
+                });
+            }
+            // Phase P2 — agent / sidecar / backup / recovery typed-id
+            // prefixes are never expected to appear in a blind wakeup's
+            // `extra` map. Reject any string value that starts with one
+            // of the eight new SDK typed-id prefixes so a caller can't
+            // smuggle an agent_principal / accountability_grant /
+            // sidecar_circle id through.
+            if let Some(raw) = value.as_str()
+                && is_phase_p2_agent_typed_id(raw)
+            {
+                return Err(PushNotifyPrivacyError::SensitiveField {
+                    field: key.to_owned(),
+                });
+            }
             validate_active_reference_extension(key, value)?;
         }
 
@@ -434,8 +463,7 @@ impl PushNotification {
         // SensitiveField mapping here for callers that bypass the
         // wire-model validator and call `validate_blind_wakeup` directly.
         if let Some(circle_id) = self.circle_id.as_deref()
-            && (circle_id.to_ascii_lowercase().contains("did:")
-                || circle_id.contains(":did"))
+            && (circle_id.to_ascii_lowercase().contains("did:") || circle_id.contains(":did"))
         {
             return Err(PushNotifyPrivacyError::SensitiveField {
                 field: "circle_id".to_owned(),
@@ -841,9 +869,7 @@ impl PushNotificationDedup {
     /// Returns `None` when no `dedup_backend` is advertised, i.e. the
     /// gateway does NOT perform server-side dedup and the host app
     /// must handle it itself.
-    pub fn from_descriptor(
-        notify: &crate::PushBridgeDescribeNotifyDescriptor,
-    ) -> Option<Self> {
+    pub fn from_descriptor(notify: &crate::PushBridgeDescribeNotifyDescriptor) -> Option<Self> {
         let backend = notify.dedup_backend.as_deref()?.trim();
         if backend.is_empty() {
             return None;
@@ -1266,7 +1292,194 @@ pub const ROUND_R2_R3_SENSITIVE_FIELDS: &[&str] = &[
     "tombstone_event_id",
     "successor_realm_id",
     "erasure_receipt_id",
+    // Phase P2 (spec 37ce729, CXP-0008 / CXP-0009) — Personal Agent /
+    // Sidecar governance identifiers. None of these may appear on a push
+    // wakeup wire: they identify the controller↔agent binding state and
+    // the action-approval transcript. Leaking either correlates a user
+    // device with their native agent runtime endpoint.
+    "accountability_grant_id",
+    "controller_did",
+    "agent_principal_id",
+    "agent_session_id",
+    "agent_key_id",
+    "sidecar_circle_id",
+    "agent_draft_id",
+    "proposed_action",
+    "action_payload_digest",
+    "approval_nonce",
 ];
+
+/// Phase P2 (spec 37ce729, CXP-0008 / CXP-0009) — durable Personal Agent
+/// lifecycle event kinds that floria silently consumes upstream
+/// (`AGENT_LIFECYCLE_SILENT_KINDS` in floria 6496235). chime mirrors the
+/// list so client-side notification recognizers can render a *minimal*
+/// summary (no PII, no actor identity, no payload) when the host app
+/// chooses to surface these events to a control plane UI. The default
+/// behaviour for any caller that doesn't explicitly opt in is to drop
+/// the wakeup — these kinds never raise an end-user notification.
+pub const AGENT_LIFECYCLE_DURABLE_KINDS: &[&str] =
+    &["cx.agent.pause", "cx.agent.resume", "cx.agent.deactivate"];
+
+/// Phase P2 — actor-private Personal Agent event kinds. These never
+/// reach end-user devices by default: they're controller-private state
+/// transitions between the controller and its native agent runtime.
+/// chime's recognizer enforces the **blind-wakeup sanitizer** for these
+/// kinds unconditionally — no payload may surface to a UI unless the
+/// destination service DID is on a [`PushNotifyPolicyContext::plaintext_visible_services`]
+/// whitelist.
+pub const AGENT_ACTOR_PRIVATE_KINDS: &[&str] = &[
+    "cx.agent.draft.propose",
+    "cx.agent.action_request",
+    "cx.agent.action_approve",
+    "cx.agent.action_reject",
+];
+
+/// Phase P2 — eight new SDK typed-id prefixes mirrored from floria
+/// 6496235's `PHASE_P2_AGENT_TYPED_ID_PREFIXES`. chime uses the list to
+/// reject inbound payloads that route an agent/sidecar/backup/recovery
+/// typed id into a slot reserved for a *different* typed-id prefix
+/// (e.g. an `agent_principal` id smuggled into a wakeup's `event_id`
+/// slot). The "right" slots for these typed ids never travel on the
+/// blind-wakeup wire; if one appears there, it is by definition a
+/// correlation leak.
+pub const PHASE_P2_AGENT_TYPED_ID_PREFIXES: &[&str] = &[
+    "cx:agent_principal:",
+    "cx:agent_session:",
+    "cx:agent_key:",
+    "cx:agent_draft:",
+    "cx:accountability_grant:",
+    "cx:sidecar_circle:",
+    "cx:backup_series:",
+    "cx:recovery_session:",
+];
+
+/// Classification of an inbound `event_kind` against chime's Phase P2
+/// agent-routing table. Returned by [`classify_agent_event_kind`].
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum AgentEventRouting {
+    /// Durable lifecycle (`cx.agent.{pause,resume,deactivate}`). The
+    /// host MAY render a minimal summary to a control-plane UI, but
+    /// MUST NOT carry any payload onto an end-user surface.
+    DurableLifecycle,
+    /// Actor-private (`cx.agent.{draft.propose,action_request,
+    /// action_approve,action_reject}`). MUST go through the
+    /// blind-wakeup sanitizer; any plaintext payload is rejected
+    /// unless the destination service DID is explicitly whitelisted.
+    ActorPrivate,
+}
+
+/// Classify a top-level `event_kind` against chime's Phase P2 agent
+/// routing table. Returns `None` for kinds chime does not route
+/// specially (the historical default: fall through to the normal
+/// notification surface).
+pub fn classify_agent_event_kind(event_kind: &str) -> Option<AgentEventRouting> {
+    if AGENT_LIFECYCLE_DURABLE_KINDS.contains(&event_kind) {
+        return Some(AgentEventRouting::DurableLifecycle);
+    }
+    if AGENT_ACTOR_PRIVATE_KINDS.contains(&event_kind) {
+        return Some(AgentEventRouting::ActorPrivate);
+    }
+    None
+}
+
+/// Return `true` if `value` starts with one of the eight new SDK typed-id
+/// prefixes mirrored in [`PHASE_P2_AGENT_TYPED_ID_PREFIXES`]. Used by
+/// chime's wire-validation layer to fail closed when one of these typed
+/// ids appears in a wakeup slot that should never carry an agent /
+/// sidecar / backup / recovery identifier (e.g. `event_id`,
+/// `circle_id`).
+pub fn is_phase_p2_agent_typed_id(value: &str) -> bool {
+    PHASE_P2_AGENT_TYPED_ID_PREFIXES
+        .iter()
+        .any(|prefix| value.starts_with(prefix))
+}
+
+/// Phase P2 — minimal, PII-free notification summary for a durable
+/// agent lifecycle event. Returned by [`render_agent_lifecycle_summary`]
+/// for callers that want to surface a control-plane breadcrumb without
+/// reaching into the wire payload.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct AgentLifecycleSummary {
+    /// The matched event kind literal (`cx.agent.pause` /
+    /// `cx.agent.resume` / `cx.agent.deactivate`). Stable wire string.
+    pub event_kind: &'static str,
+    /// Localisation key for the human-readable summary, e.g.
+    /// `l10n_key:agent.lifecycle.pause`. Hosts SHOULD render this
+    /// rather than the raw `event_kind` so end-users see translated
+    /// copy. No actor identity, payload digest, or accountability
+    /// grant id is embedded.
+    pub l10n_key: &'static str,
+}
+
+/// Render a minimal lifecycle summary for one of the three durable
+/// agent kinds. Returns `None` for any other kind. The returned summary
+/// is PII-free by construction — no actor, no payload, no grant id.
+pub fn render_agent_lifecycle_summary(event_kind: &str) -> Option<AgentLifecycleSummary> {
+    let (kind, l10n_key) = match event_kind {
+        "cx.agent.pause" => ("cx.agent.pause", "l10n_key:agent.lifecycle.pause"),
+        "cx.agent.resume" => ("cx.agent.resume", "l10n_key:agent.lifecycle.resume"),
+        "cx.agent.deactivate" => ("cx.agent.deactivate", "l10n_key:agent.lifecycle.deactivate"),
+        _ => return None,
+    };
+    Some(AgentLifecycleSummary {
+        event_kind: kind,
+        l10n_key,
+    })
+}
+
+/// Phase P2 — legacy B-B field-naming aliases that were renamed in the
+/// candidate-stage breaking pass (spec 37ce729 / SDK 4d5a1af). chime
+/// mirrors floria 6496235's wire-side reject list so inbound push frames
+/// carrying any of these legacy keys fail closed at deserialisation
+/// rather than getting silently translated. The hard reject is
+/// belt-and-braces: the SDK's blind-payload sanitizer also rejects
+/// `message_content` / similar leaves, but the *legacy* names need
+/// their own pass so an old caller can't slip past by sending the
+/// rename's old form (`size` / `flow_body` / `message_body` /
+/// `body_only`).
+pub const PHASE_P2_LEGACY_FIELD_ALIASES: &[&str] =
+    &["size", "flow_body", "message_body", "body_only"];
+
+/// Return `true` if `key` is one of the legacy B-B field-naming aliases
+/// listed in [`PHASE_P2_LEGACY_FIELD_ALIASES`]. Used by chime's wire
+/// recognizers to fail closed at deserialisation.
+pub fn is_legacy_field_alias(key: &str) -> bool {
+    PHASE_P2_LEGACY_FIELD_ALIASES.contains(&key)
+}
+
+/// Recursively walk a JSON value and return `Err(field_path)` if any
+/// nested key matches a legacy B-B field-naming alias. Used by chime's
+/// wire validators (`PushNotifyReqBody::validate_wire_model`) and by
+/// the drift-gate to ensure no caller can smuggle a renamed-from name
+/// past us.
+fn assert_no_legacy_aliases(payload: &Value) -> Result<(), String> {
+    fn walk(path: &str, value: &Value) -> Result<(), String> {
+        match value {
+            Value::Object(map) => {
+                for (key, nested) in map {
+                    let nested_path = if path.is_empty() {
+                        key.clone()
+                    } else {
+                        format!("{path}.{key}")
+                    };
+                    if is_legacy_field_alias(key) {
+                        return Err(nested_path);
+                    }
+                    walk(&nested_path, nested)?;
+                }
+                Ok(())
+            }
+            Value::Array(values) => {
+                for (index, nested) in values.iter().enumerate() {
+                    walk(&format!("{path}[{index}]"), nested)?;
+                }
+                Ok(())
+            }
+            _ => Ok(()),
+        }
+    }
+    walk("", payload)
+}
 
 /// Defense-in-depth: panic in debug if any of the round 2+3 sensitive
 /// fields leak into a blind push payload.
@@ -1767,5 +1980,109 @@ mod tests {
             err,
             PushNotifyPrivacyError::SensitiveField { field } if field == "circle_members"
         ));
+    }
+
+    // ── Phase P2 (spec 37ce729) — Personal Agent event-kind parsing ─────
+
+    #[test]
+    fn agent_lifecycle_summary_is_pii_free() {
+        // Each durable lifecycle kind renders an l10n key and no actor,
+        // payload, or grant identifier. The host MUST be able to
+        // surface the summary to a control-plane UI without leaking PII.
+        for (kind, expected_suffix) in [
+            ("cx.agent.pause", "pause"),
+            ("cx.agent.resume", "resume"),
+            ("cx.agent.deactivate", "deactivate"),
+        ] {
+            let summary = render_agent_lifecycle_summary(kind).expect("renders");
+            assert_eq!(summary.event_kind, kind);
+            assert_eq!(
+                summary.l10n_key,
+                format!("l10n_key:agent.lifecycle.{expected_suffix}")
+            );
+        }
+        assert!(render_agent_lifecycle_summary("cx.agent.draft.propose").is_none());
+        assert!(render_agent_lifecycle_summary("cx.message.send").is_none());
+    }
+
+    #[test]
+    fn legacy_alias_in_extra_is_fail_closed() {
+        // The B-B rename pass replaced `size` / `flow_body` /
+        // `message_body` / `body_only`. Any inbound frame still
+        // carrying one of those keys MUST fail closed.
+        for alias in PHASE_P2_LEGACY_FIELD_ALIASES {
+            let mut n = notification();
+            n.extra
+                .insert((*alias).to_owned(), Value::String("legacy".to_owned()));
+            let err = n.validate_wire_model().unwrap_err();
+            match err {
+                PushNotifyPrivacyError::RemovedField { field } => {
+                    assert_eq!(field, *alias);
+                }
+                other => panic!("expected RemovedField for `{alias}`, got {other:?}"),
+            }
+        }
+    }
+
+    #[test]
+    fn agent_typed_id_in_extra_fails_closed() {
+        // An agent / sidecar / backup / recovery typed-id appearing in
+        // `extra` is a correlation leak — the wakeup wire never carries
+        // these prefixes in a non-Agent slot. chime MUST reject the
+        // frame.
+        for prefix in PHASE_P2_AGENT_TYPED_ID_PREFIXES {
+            let mut n = notification();
+            n.extra.insert(
+                "smuggled".to_owned(),
+                Value::String(format!("{prefix}01HZK9Z000000000000000000")),
+            );
+            let err = n.validate_wire_model().unwrap_err();
+            match err {
+                PushNotifyPrivacyError::SensitiveField { field } => {
+                    assert_eq!(field, "smuggled");
+                }
+                other => panic!("expected SensitiveField for prefix `{prefix}`, got {other:?}"),
+            }
+        }
+    }
+
+    #[test]
+    fn round23_sensitive_fields_cover_agent_governance_set() {
+        // Phase P2 added 10 agent / sidecar / recovery governance
+        // identifiers to the `assert_no_sensitive_fields` tripwire.
+        // Spot-check each one to lock in the wire-side reject.
+        for field in [
+            "accountability_grant_id",
+            "controller_did",
+            "agent_principal_id",
+            "agent_session_id",
+            "agent_key_id",
+            "sidecar_circle_id",
+            "agent_draft_id",
+            "proposed_action",
+            "action_payload_digest",
+            "approval_nonce",
+        ] {
+            assert!(
+                ROUND_R2_R3_SENSITIVE_FIELDS.contains(&field),
+                "field `{field}` must be in ROUND_R2_R3_SENSITIVE_FIELDS"
+            );
+            let payload = serde_json::json!({
+                "push_target_id": "cx:pseudonym:push:01HYZ8Z000000000000000",
+                "wakeup_kind": "message",
+                field: "leaked-value",
+            });
+            let outcome = std::panic::catch_unwind(|| assert_no_sensitive_fields(&payload));
+            match outcome {
+                Ok(Ok(())) => panic!("agent field `{field}` slipped through"),
+                Ok(Err(path)) => assert!(
+                    path.contains(field),
+                    "returned path `{path}` should mention `{field}`"
+                ),
+                Err(_) => {
+                    // debug_assert! triggered — also a pass.
+                }
+            }
+        }
     }
 }

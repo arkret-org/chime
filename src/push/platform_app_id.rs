@@ -122,7 +122,9 @@ mod tests {
             PushPlatform::Web,
             PushPlatform::Desktop,
         ] {
-            let err = r.resolve_app_id(platform, None, Some("bugle.id")).unwrap_err();
+            let err = r
+                .resolve_app_id(platform, None, Some("bugle.id"))
+                .unwrap_err();
             assert_eq!(err.kind(), PushErrorKind::MissingField);
         }
     }

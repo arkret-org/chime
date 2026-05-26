@@ -567,8 +567,7 @@ mod tests {
 
     #[test]
     fn verify_push_key_binding_round_trip_and_rejects_tamper() {
-        let expected =
-            compute_push_key_hmac("fcm:token-a", "did:web:alice.example#device-phone");
+        let expected = compute_push_key_hmac("fcm:token-a", "did:web:alice.example#device-phone");
 
         assert!(verify_push_key_binding(
             "fcm:token-a",

@@ -8,15 +8,34 @@
 //! The fixture also contains an embedded `blind_wakeup_request` example
 //! that is parsed back through `PushNotifyReqBody` + `validate_blind_wakeup`,
 //! catching drift in the privacy contract end-to-end.
+//!
+//! ## Snapshot
+//!
+//! Re-snapshotted on `2026-05-26` against floria `6496235` and
+//! contrix-spec head `37ce729`. The fixture mirrors:
+//!
+//! - The extended forbidden-key table — legacy aliases (`size` /
+//!   `flow_body` / `message_body` / `body_only`) fail closed.
+//! - Phase P2 agent-kind routing (`cx.agent.{pause,resume,deactivate}`
+//!   silent-consume; `cx.agent.{draft.propose,action_request,
+//!   action_approve,action_reject}` drop unless subscribed).
+//! - The eight new SDK typed-id prefixes (`agent_principal`,
+//!   `agent_session`, `agent_key`, `agent_draft`,
+//!   `accountability_grant`, `sidecar_circle`, `backup_series`,
+//!   `recovery_session`).
 
 #![cfg(feature = "notify")]
 
 use chime::{
-    BridgeContractCache, BridgeContractDriftVerdict, PushBridgeDescribeResponse,
-    PushNotifyPrivacyMode, PushNotifyReqBody,
+    AGENT_ACTOR_PRIVATE_KINDS, AGENT_LIFECYCLE_DURABLE_KINDS, AgentEventRouting,
+    BridgeContractCache, BridgeContractDriftVerdict, PHASE_P2_AGENT_TYPED_ID_PREFIXES,
+    PHASE_P2_LEGACY_FIELD_ALIASES, PushBridgeDescribeResponse, PushNotifyPrivacyMode,
+    PushNotifyReqBody, classify_agent_event_kind, is_legacy_field_alias,
+    is_phase_p2_agent_typed_id, render_agent_lifecycle_summary,
 };
 
-/// Canonical floria `bridge/describe` payload (snapshot 2026-05-06).
+/// Canonical floria `bridge/describe` payload (snapshot 2026-05-26,
+/// floria `6496235`, spec `37ce729`).
 ///
 /// Update *deliberately* when floria's bridge contract advances; never
 /// silently. The accompanying assertions encode the SDK's expectations.
@@ -24,6 +43,7 @@ const BRIDGE_DESCRIBE_FIXTURE: &str = r#"{
     "contract": "cx.push.bridge.v1",
     "version": "1.0.0",
     "api_base_path": "/api/v1",
+    "spec_version": "contrix-spec@2026-05-26",
     "gateway": {
         "service_did": "did:web:gateway.example",
         "supported_profiles": ["fcm", "apns", "webpush"],
@@ -60,6 +80,8 @@ const BRIDGE_DESCRIBE_FIXTURE: &str = r#"{
                 "wakeup_kind": "message",
                 "push_hint": "new_message",
                 "counts": { "unread": 1 },
+                "circle_id": "cx:circle:01HZK9Z000000000000000000",
+                "effective_scope": "cx:circle:01HZK9Z000000000000000000",
                 "devices": [
                     {
                         "push_key": "fcm:opaque-token",
@@ -81,6 +103,11 @@ fn bridge_describe_fixture_round_trips_into_chime_dto() {
 
     assert_eq!(response.contract, "cx.push.bridge.v1");
     assert_eq!(response.version, "1.0.0");
+    assert_eq!(
+        response.spec_version.as_deref(),
+        Some("contrix-spec@2026-05-26"),
+        "fixture must pin to the current spec head"
+    );
     assert!(response.gateway.supports_profile("fcm"));
     assert!(response.notify.supports_dedup());
     assert!(response.notify.rate_limits_by("per-app"));
@@ -117,7 +144,7 @@ fn bridge_describe_fixture_blind_wakeup_example_validates() {
 fn bridge_describe_digest_is_stable_across_serialize_round_trip() {
     let response: PushBridgeDescribeResponse =
         serde_json::from_str(BRIDGE_DESCRIBE_FIXTURE).unwrap();
-    let cache = BridgeContractCache::from_response(&response, Some("2026-05-06T00:00:00Z"))
+    let cache = BridgeContractCache::from_response(&response, Some("2026-05-26T00:00:00Z"))
         .expect("baseline digest must compute");
 
     // Re-deserialize through serde and confirm the digest stays put.
@@ -129,4 +156,226 @@ fn bridge_describe_digest_is_stable_across_serialize_round_trip() {
             .expect("round-trip digest must compute"),
         BridgeContractDriftVerdict::Unchanged
     );
+}
+
+// ── Phase P2 (spec 37ce729) — agent event-kind routing ─────────────────
+
+#[test]
+fn agent_lifecycle_kinds_classify_as_durable_lifecycle() {
+    // Mirrors floria 6496235's `AGENT_LIFECYCLE_SILENT_KINDS` exactly.
+    for kind in AGENT_LIFECYCLE_DURABLE_KINDS {
+        assert_eq!(
+            classify_agent_event_kind(kind),
+            Some(AgentEventRouting::DurableLifecycle),
+            "kind `{kind}` must classify as DurableLifecycle"
+        );
+        let summary = render_agent_lifecycle_summary(kind)
+            .expect("durable lifecycle kinds must render a summary");
+        // Summary must NOT leak any PII — only the event kind literal +
+        // a stable l10n key prefix.
+        assert_eq!(summary.event_kind, *kind);
+        assert!(
+            summary.l10n_key.starts_with("l10n_key:agent.lifecycle."),
+            "summary l10n key `{}` must be a stable agent.lifecycle prefix",
+            summary.l10n_key
+        );
+    }
+    // The exact set is locked at 3.
+    assert_eq!(AGENT_LIFECYCLE_DURABLE_KINDS.len(), 3);
+}
+
+#[test]
+fn agent_actor_private_kinds_classify_as_actor_private() {
+    // Mirrors floria 6496235's `AGENT_ACTOR_PRIVATE_KINDS` exactly.
+    for kind in AGENT_ACTOR_PRIVATE_KINDS {
+        assert_eq!(
+            classify_agent_event_kind(kind),
+            Some(AgentEventRouting::ActorPrivate),
+            "kind `{kind}` must classify as ActorPrivate"
+        );
+        // No lifecycle summary for actor-private kinds; the host MUST
+        // route them through the blind-wakeup sanitizer.
+        assert!(
+            render_agent_lifecycle_summary(kind).is_none(),
+            "actor-private kind `{kind}` must NOT have a lifecycle summary"
+        );
+    }
+    // The exact set is locked at 4.
+    assert_eq!(AGENT_ACTOR_PRIVATE_KINDS.len(), 4);
+}
+
+#[test]
+fn agent_event_kind_unknown_falls_through() {
+    // Anything outside the two locked-down sets returns None — the
+    // host's normal notification surface decides how to handle it.
+    assert!(classify_agent_event_kind("cx.message.send").is_none());
+    assert!(classify_agent_event_kind("cx.agent.unknown").is_none());
+    assert!(classify_agent_event_kind("").is_none());
+}
+
+// ── Phase P2 — typed-id prefix recognizer ─────────────────────────────
+
+#[test]
+fn phase_p2_typed_id_prefixes_match_floria_6496235() {
+    // The exact set is locked at 8. If floria 6496235 adds or removes a
+    // prefix, this test fires loudly so the chime mirror gets updated
+    // in the same change.
+    assert_eq!(PHASE_P2_AGENT_TYPED_ID_PREFIXES.len(), 8);
+    for prefix in PHASE_P2_AGENT_TYPED_ID_PREFIXES {
+        assert!(
+            prefix.starts_with("cx:"),
+            "prefix `{prefix}` must be a typed-id"
+        );
+        assert!(prefix.ends_with(':'), "prefix `{prefix}` must end with `:`");
+    }
+    // Spot-check a known typed-id value passes the recognizer.
+    assert!(is_phase_p2_agent_typed_id(
+        "cx:agent_principal:01HZK9Z000000000000000000"
+    ));
+    assert!(is_phase_p2_agent_typed_id(
+        "cx:accountability_grant:01HZK9Z000000000000000000"
+    ));
+    assert!(is_phase_p2_agent_typed_id(
+        "cx:sidecar_circle:01HZK9Z000000000000000000"
+    ));
+    // Non-agent typed ids are NOT recognized.
+    assert!(!is_phase_p2_agent_typed_id(
+        "cx:circle:01HZK9Z000000000000000000"
+    ));
+    assert!(!is_phase_p2_agent_typed_id(
+        "cx:realm:01HZK9Z000000000000000000"
+    ));
+}
+
+// ── Phase P2 — legacy B-B field alias rejection ─────────────────────────
+
+#[test]
+fn legacy_field_aliases_match_floria_forbidden_table() {
+    // The legacy set is locked at 4 — `size` / `flow_body` /
+    // `message_body` / `body_only`. Floria 6496235 mirrors this exact
+    // list on the gateway side; chime is the client-side mirror.
+    assert_eq!(PHASE_P2_LEGACY_FIELD_ALIASES.len(), 4);
+    assert!(is_legacy_field_alias("size"));
+    assert!(is_legacy_field_alias("flow_body"));
+    assert!(is_legacy_field_alias("message_body"));
+    assert!(is_legacy_field_alias("body_only"));
+    // The renamed-to forms are NOT in the legacy list (they're the new
+    // canonical names; the SDK sanitizer covers content-style leaks).
+    assert!(!is_legacy_field_alias("size_bytes"));
+    assert!(!is_legacy_field_alias("flow_content"));
+    assert!(!is_legacy_field_alias("message_content"));
+    assert!(!is_legacy_field_alias("content_only"));
+}
+
+// ── Negative tests — fail-closed at deserialisation ─────────────────────
+
+#[test]
+fn legacy_alias_frame_fails_closed_at_wire_model() {
+    // A push frame that still carries the pre-rename `size` field MUST
+    // fail closed at the wire-model validator. This guards against an
+    // old caller silently shipping the legacy wire shape past chime.
+    let frame = serde_json::json!({
+        "operation_id": "cx.push.notify",
+        "notification": {
+            "push_target_id": "cx:pseudonym:push:01HYZ8Z000000000000000",
+            "wakeup_kind": "message",
+            "size": 12345,
+            "devices": [
+                { "push_key": "fcm:opaque-token", "app_id": "app.example" }
+            ]
+        }
+    });
+    let request: PushNotifyReqBody =
+        serde_json::from_value(frame).expect("request must parse syntactically");
+    let err = request.validate_wire_model().unwrap_err();
+    let field = match err {
+        chime::PushNotifyPrivacyError::RemovedField { field } => field,
+        other => panic!("expected RemovedField, got {other:?}"),
+    };
+    assert_eq!(field, "size", "legacy `size` alias must be flagged");
+}
+
+#[test]
+fn legacy_alias_nested_under_extra_fails_closed() {
+    // Even when the legacy alias appears nested under an `extra` field,
+    // chime's wire validator walks the JSON tree and rejects it.
+    let frame = serde_json::json!({
+        "operation_id": "cx.push.notify",
+        "notification": {
+            "push_target_id": "cx:pseudonym:push:01HYZ8Z000000000000000",
+            "wakeup_kind": "message",
+            "media": { "flow_body": "legacy-payload-blob" },
+            "devices": [
+                { "push_key": "fcm:opaque-token", "app_id": "app.example" }
+            ]
+        }
+    });
+    let request: PushNotifyReqBody =
+        serde_json::from_value(frame).expect("request must parse syntactically");
+    let err = request.validate_wire_model().unwrap_err();
+    let field = match err {
+        chime::PushNotifyPrivacyError::RemovedField { field } => field,
+        other => panic!("expected RemovedField, got {other:?}"),
+    };
+    assert!(
+        field.contains("flow_body"),
+        "expected path containing `flow_body`, got `{field}`"
+    );
+}
+
+#[test]
+fn agent_typed_id_in_event_id_slot_fails_closed() {
+    // An agent typed-id (`cx:agent_principal:...`) MUST NOT appear in
+    // the wakeup's `event_id` slot — that slot is pinned to `cx:event:`.
+    // chime's `validate_typed_id` already enforces the prefix, so this
+    // exercises the same fail-closed rule from the wire side: the
+    // typed-id appears in a slot where its `actor_kind=Agent` cousin
+    // would belong on a non-Agent event.
+    let frame = serde_json::json!({
+        "operation_id": "cx.push.notify",
+        "notification": {
+            "push_target_id": "cx:pseudonym:push:01HYZ8Z000000000000000",
+            "wakeup_kind": "message",
+            "event_id": "cx:agent_principal:01HZK9Z000000000000000000",
+            "devices": [
+                { "push_key": "fcm:opaque-token", "app_id": "app.example" }
+            ]
+        }
+    });
+    let request: PushNotifyReqBody =
+        serde_json::from_value(frame).expect("request must parse syntactically");
+    let err = request.validate_wire_model().unwrap_err();
+    let field = match err {
+        chime::PushNotifyPrivacyError::InvalidFieldValue { field } => field,
+        other => panic!("expected InvalidFieldValue, got {other:?}"),
+    };
+    assert_eq!(
+        field, "event_id",
+        "an agent_principal typed-id smuggled into the event_id slot must be rejected"
+    );
+}
+
+#[test]
+fn agent_typed_id_in_extra_fails_closed() {
+    // Any Phase P2 agent typed-id appearing in `extra` (a non-Agent
+    // wire context) is a correlation leak and MUST be rejected.
+    let frame = serde_json::json!({
+        "operation_id": "cx.push.notify",
+        "notification": {
+            "push_target_id": "cx:pseudonym:push:01HYZ8Z000000000000000",
+            "wakeup_kind": "message",
+            "agent_link": "cx:sidecar_circle:01HZK9Z000000000000000000",
+            "devices": [
+                { "push_key": "fcm:opaque-token", "app_id": "app.example" }
+            ]
+        }
+    });
+    let request: PushNotifyReqBody =
+        serde_json::from_value(frame).expect("request must parse syntactically");
+    let err = request.validate_wire_model().unwrap_err();
+    let field = match err {
+        chime::PushNotifyPrivacyError::SensitiveField { field } => field,
+        other => panic!("expected SensitiveField, got {other:?}"),
+    };
+    assert_eq!(field, "agent_link");
 }
