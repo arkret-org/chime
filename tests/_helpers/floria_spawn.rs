@@ -100,7 +100,7 @@ pub async fn spawn_floria() -> Option<SpawnedFloria> {
 
     let mut command = Command::new(&floria_bin);
     command
-        .env("SOFLARE_CONF", &config_path)
+        .env("FLORIA_CONF", &config_path)
         .env("RUST_LOG", "warn")
         .stdout(Stdio::null())
         .stderr(Stdio::null());
