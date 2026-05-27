@@ -88,3 +88,54 @@ raw `device_id`, or DID. Hash device ids with a per-deployment salt
 before exposing them as a label, and prefer SHA-256 truncation to 8
 hex chars so a single attacker can't enumerate the userbase from
 metrics scrapes.
+
+## Nonce replay window guidance
+
+The `NonceTracker` records every nonce chime has observed within a
+configurable window and rejects duplicates. The window value is the
+single most important defense against push-payload replay attacks; this
+section is the source of truth for picking a value.
+
+The general rule:
+
+> **The nonce window MUST exceed the maximum end-to-end push delivery
+> latency you tolerate, plus the maximum clock-skew tolerance you grant
+> signers.**
+
+Push delivery from `floria → carrier → device → chime` regularly takes
+30–90 seconds in normal operation and can stretch to several minutes
+under provider degradation. A window that's too tight produces
+false-positive replay rejections during provider blips; a window that's
+too wide enlarges the in-memory tracker's footprint and softens the
+replay protection.
+
+### Window table by deployment scenario
+
+| Deployment scenario | Recommended window | Maximum acceptable | Rationale |
+|---|---|---|---|
+| **Consumer mobile, healthy provider** | 5 min | 10 min | Covers typical APNS/FCM latency tails plus a 30s skew budget. The default. |
+| **Consumer mobile, OEM-route (Huawei / Xiaomi / OPPO / vivo / JPush)** | 10 min | 15 min | OEM routes have longer 99p latency; 5 min produces false rejects during provider degradation. |
+| **Enterprise / regulated, single carrier** | 3 min | 5 min | Tighter posture; signer clocks are NTP-controlled. |
+| **Lab / staging** | 1 min | 2 min | Stress-tests the replay defense; never use in prod. |
+| **Disaster recovery (provider degraded)** | 20 min | 30 min | Temporary widen during a documented incident; revert within 24h. |
+| **High-volume bot / agent integration** | 2 min | 3 min | Signers are server-side (no human clock), so the skew budget collapses. |
+
+When in doubt, **prefer the recommended column over the maximum**. The
+maximum is the ceiling above which you should be looking at a different
+mitigation (e.g. per-tenant rate limiting) rather than widening the
+nonce window.
+
+### Operational expectations
+
+- The tracker's memory footprint scales linearly with `window × inbound
+  push rate per device`. At the recommended 5-min window and a typical
+  consumer-mobile rate, expect <2 KB per active device.
+- Window changes require a tracker flush. Restart the process after a
+  config change; do NOT hot-swap the window without a flush, as nonces
+  recorded under the prior window may collide with the new window's
+  ordering assumptions.
+- Page on `chime.push.nonce.replay_rejected_total{device_id_hash}`
+  rising above the per-device baseline. A single device hash producing
+  >5 rejections/hour is either a misbehaving signer (likely a
+  re-issuing client) or an active replay attempt; investigate
+  immediately.
