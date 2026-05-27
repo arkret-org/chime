@@ -91,7 +91,7 @@ project follows [SemVer](https://semver.org/) once it reaches `1.0`.
 ### Round R4 — protocol review closures (2026-05-20, contrix-spec `2a4d39b..a77b995`)
 
 Client-side push SDK alignment with the round-4 wire shapes. See
-[`../_todos.md`](../_todos.md) for the workstream context.
+[`_chime_todos.md`](./_chime_todos.md) for the workstream context.
 
 - **Added** recognition of the `mention_redirect_target_actor_ids` payload
   field on message / system-message push routing — chime now exposes the
