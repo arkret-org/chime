@@ -87,3 +87,96 @@ it as a security report and use the private channels above.
   those upstream; we will pull a fixed dependency once it is available.
 - Misuse by callers that disable the privacy validators or feed an
   attacker-controlled `plaintext_visible_services` allowlist.
+
+## Inbound push frame handling
+
+`chime` ships the wire-shape, privacy, and replay validators for inbound
+`cx.push.notify` frames, but it deliberately stops short of cryptographic
+authentication of the frame itself. The host application owns the
+remaining pieces.
+
+### Signature verification is the host's responsibility
+
+`chime` does **NOT** verify the signature on inbound push frames. This
+is intentional:
+
+1. The signing key set lives in the host's deployment configuration
+   (gateway service DIDs, key rotation cadence, allowlist of accepted
+   `kid` values), and chime cannot know that set without becoming a
+   service-discovery client.
+2. Different host integrations use different transport envelopes — APNs
+   provider tokens, FCM bearer tokens, WebPush VAPID, OEM-provider HMAC
+   headers — and chime would have to recapitulate each one to verify.
+3. Keeping the verifier outside chime keeps the privacy validator
+   (`validate_blind_wakeup`) usable as a pure function in tests and
+   fuzzers without requiring the test to manage a keystore.
+
+Host applications MUST:
+
+- verify the `Signature` / `Signature-Input` headers (RFC 9421) against
+  their configured set of accepted signer DIDs BEFORE handing the
+  decoded body to `PushNotifyReqBody::assert_payload_safe`;
+- treat a signature failure as `403` and drop the frame silently — do
+  not retry, do not surface to UI, do not log the body;
+- include the verifier's accepted `kid` set in their monitoring so
+  unexpected `kid` values page on appearance.
+
+### `EncryptedEnvelope` nonce check path
+
+When an inbound frame carries an `EncryptedEnvelope` (E2EE message
+body for plaintext-visible destination services), the host MUST:
+
+1. Decode the `nonce` field as base64url and reject the frame if it
+   decodes to anything other than the algorithm's required nonce
+   width (e.g. 12 bytes for `AES-256-GCM`, 24 bytes for
+   `XChaCha20-Poly1305`).
+2. Maintain a per-`(recipient, key_id)` nonce-seen set for the
+   envelope's key lifetime. A repeated nonce under the same key is a
+   protocol break and MUST cause the frame to be dropped with an alert.
+3. Refuse envelopes whose `algorithm` field is not on the host's
+   allowlist of accepted AEAD suites — never trust the wire value.
+
+`EncryptedEnvelope::nonce` is intentionally `Option<String>` because
+some algorithms (e.g. deterministic AEAD variants) omit it; the host
+MUST treat the absence as algorithm-dependent rather than as a default
+"any nonce is fine" path.
+
+### Stale-timestamp frame handling
+
+Inbound frames carry a `CONTRIX_CREATED_AT_HEADER`. The host MUST
+enforce a freshness window on that header:
+
+- **Recommended window: 5 minutes** (matches the default
+  `NonceTracker` window).
+- Frames older than the window MUST be dropped before
+  `assert_payload_safe` runs. Old frames may carry signatures that
+  were valid at signing time but reference keys that have since
+  rotated; treating them as fresh defeats the rotation.
+- Clock skew tolerance MUST be symmetric and small (≤ 30 seconds).
+  Unbounded future timestamps are a replay vector — drop them.
+- Drops MUST be counted in monitoring (`chime.push.notify.rejected_total{reason="stale_timestamp"}`)
+  so a misconfigured upstream clock surfaces quickly.
+
+### Replay window: inbound vs outbound
+
+`NonceTracker` is used in both directions, but the windows protect
+different invariants and SHOULD NOT share state:
+
+- **Outbound (chime → gateway).** The window protects against the
+  host re-signing the same `(device_id, nonce)` after a retry or a
+  process restart. The window only needs to cover the maximum end-to-end
+  retry budget (~ 60 seconds is enough in practice). A short window
+  keeps the tracker's memory footprint trivial on long-running clients.
+- **Inbound (gateway → chime relay).** The window protects against an
+  attacker (or a buggy upstream) re-injecting an old frame to fan it
+  out twice. The window MUST be at least as long as the host's
+  `CONTRIX_CREATED_AT_HEADER` freshness window plus the host's broker
+  retry budget; **5 minutes is the recommended floor**. A short
+  inbound window opens a re-fanout vector — when in doubt, lean long.
+
+Mixing the two windows in a single `NonceTracker` is a foot-gun: a
+short outbound-style window can silently accept replays of inbound
+frames. Maintain separate trackers per direction, and surface their
+sizes as `chime.push.nonce.replay_rejected_total` / a complementary
+`tracker_size` gauge so unbounded growth shows up before it eats
+memory.
