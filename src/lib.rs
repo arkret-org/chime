@@ -43,13 +43,10 @@ mod lifecycle;
 #[cfg(feature = "notify")]
 mod notify;
 mod push;
-mod push_route;
-mod push_rule_core;
 mod state;
 
-pub use push_rule_core::{
-    EventContext as PushRuleEventContext, ShouldNotify, WatchLevel, evaluate_watch_level,
-    reason_code as push_rule_reason_code,
+pub use push::{
+    PushRuleEventContext, ShouldNotify, WatchLevel, evaluate_watch_level, push_rule_reason_code,
 };
 
 #[cfg(feature = "notify")]
@@ -103,7 +100,7 @@ pub use push::{
     verify_push_key_binding,
 };
 pub use push::{DefaultPlatformAppIdResolver, PlatformAppIdResolver};
-pub use push_route::{
+pub use push::{
     PushRoute, PushRouteCapability, PushRouteError, PushRouteId, PushRouteValidationError,
     ServiceDid,
 };

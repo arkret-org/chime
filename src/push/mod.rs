@@ -8,6 +8,8 @@
 //! - [`urls`]: URL helpers, validation, redaction
 //! - [`registration`]: request body + signing context builders
 //! - [`client`]: async `ContrixPushClient` (feature = "http")
+//! - [`route`]: actor-private `cx.device.push_route` state event wire model
+//! - [`rule_core`]: T4.4 shared client-side push rule evaluator
 
 mod bridge_describe;
 #[cfg(feature = "http")]
@@ -15,6 +17,8 @@ mod client;
 mod errors;
 pub mod platform_app_id;
 mod registration;
+mod route;
+mod rule_core;
 mod signing;
 mod urls;
 mod wire;
@@ -129,3 +133,12 @@ pub use wire::{
 
 #[cfg(feature = "http")]
 pub use client::{ContrixPushClient, ContrixResponse, PushRetryPolicy};
+
+pub use route::{
+    PushRoute, PushRouteCapability, PushRouteError, PushRouteId, PushRouteValidationError,
+    ServiceDid,
+};
+pub use rule_core::{
+    EventContext as PushRuleEventContext, ShouldNotify, WatchLevel, evaluate_watch_level,
+    reason_code as push_rule_reason_code,
+};
