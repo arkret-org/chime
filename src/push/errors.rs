@@ -55,6 +55,73 @@ pub enum PushErrorKind {
     /// MUST NOT trigger another push fanout from a `historical_only`
     /// response.
     HistoricalOnly,
+    // ── R3 (CXP-0010 media binding + agent lifecycle, spec b47ff6ec) ─────
+    // The variants below mirror the 20 new error codes added in the SDK
+    // (see `contrix_core::error`). Chime mirrors the media-binding,
+    // agent-lifecycle, and handle-homograph subsets because those are
+    // the codes a push-SDK consumer can plausibly observe — either while
+    // calling `cx.call.media.token_exchange` directly (`Media*`) or
+    // while the user's agent/principal pair is in an inactive state
+    // (`Agent*`) or while a handle homograph slips through wire-level
+    // validation (`HandleHomographForbidden`).
+    /// CXP-0010 — focus referenced by client does not match the
+    /// committed `cx.call.state.session_focus`.
+    FocusMismatch,
+    /// CXP-0010 — media focus backend label not recognised by the SDK.
+    /// Receivers MUST fail closed instead of forwarding the focus.
+    UnknownFocusType,
+    /// CXP-0010 — token issuer DID is not anchored to the current
+    /// `cx.realm.media_service.service_id` epoch.
+    TokenIssuerUnauthorised,
+    /// CXP-0010 — `participant_binding` signature, tuple, or TTL does
+    /// not validate against the realm media-service binding.
+    ParticipantBindingInvalid,
+    /// CXP-0010 — `participant_identity` returned by the focus does not
+    /// match any entry in `cx.call.state.participants[]`.
+    ParticipantIdentityUnrecognised,
+    /// CXP-0010 — `cx.call.state.session_focus` is write-once; a
+    /// concurrent commit attempt collided with the existing value.
+    SessionFocusAlreadyCommitted,
+    /// CXP-0010 — backend cloud attempted to supply the SFrame key
+    /// material; MLS-Exporter is the only authorised source.
+    E2eeKeySourceUnauthorised,
+    /// CXP-0010 — recording artifact bypassed the Contrix blob upload
+    /// pipeline (e.g. LiveKit Egress direct-to-S3).
+    RecordingArtifactPipelineBypassed,
+    /// CXP-0010 — realm's `cx.realm.media_service` is still configured
+    /// as a single-endpoint legacy service; multi-focus binding is
+    /// required for the requested operation.
+    LegacySingleEndpointMediaService,
+    /// CXP-0010 — chosen focus is unavailable to this client (e.g. the
+    /// focus has been retired or the client is on an unsupported
+    /// platform); callers MUST surface this rather than silently
+    /// downgrading the media path.
+    FocusUnavailableForClient,
+    /// Agent lifecycle — pairing request expired before completion.
+    PairingRequestExpired,
+    /// Agent lifecycle — supplied proof signature did not validate.
+    ProofInvalid,
+    /// Agent lifecycle — verification method does not match the
+    /// asserted principal.
+    VerificationMethodPrincipalMismatch,
+    /// Agent lifecycle — agent principal is currently paused.
+    AgentPaused,
+    /// Agent lifecycle — agent principal has been deactivated
+    /// (terminal; no resume path).
+    AgentDeactivated,
+    /// Agent lifecycle — approval token already consumed.
+    ApprovalAlreadyConsumed,
+    /// Agent lifecycle — sidecar thread creation was denied by policy.
+    SidecarCreateDenied,
+    /// Agent lifecycle — actor kind is reducer-managed and cannot be
+    /// mutated through the requested surface.
+    ActorKindReducerManaged,
+    /// Recovery — recovery witness revoke lagged behind the policy
+    /// timeline; receivers should retry after the witness catches up.
+    RecoveryWitnessRevokeLagging,
+    /// Handle — wire-level NFC + UTS#39 confusable-skeleton + script-mix
+    /// rejection. The handle MUST NOT be created or resolved.
+    HandleHomographForbidden,
 }
 
 impl PushErrorKind {
@@ -87,7 +154,87 @@ impl PushErrorKind {
             Self::DeliveryBindingStale => 19,
             Self::DeliveryBindingHandedOver => 20,
             Self::HistoricalOnly => 21,
+            // R3 (spec b47ff6ec) — bit positions appended; never reorder.
+            // (CALL-2 + ERR-1) Codes ordered to keep media-binding /
+            // agent-lifecycle / handle subgroups contiguous.
+            Self::FocusMismatch => 22,
+            Self::UnknownFocusType => 23,
+            Self::TokenIssuerUnauthorised => 24,
+            Self::ParticipantBindingInvalid => 25,
+            Self::ParticipantIdentityUnrecognised => 26,
+            Self::SessionFocusAlreadyCommitted => 27,
+            Self::E2eeKeySourceUnauthorised => 28,
+            Self::RecordingArtifactPipelineBypassed => 29,
+            Self::LegacySingleEndpointMediaService => 30,
+            Self::FocusUnavailableForClient => 31,
+            // R3 ordinals ≥ 32 spill outside the u32 retry mask. The
+            // codes below are not retry candidates anyway — they are
+            // terminal classifications surfaced through the `kind()`
+            // path. We saturate at 31 so the existing `with_disabled_kinds`
+            // call sites keep compiling without panicking on shift
+            // overflow; callers MUST NOT add them to the retry mask.
+            Self::PairingRequestExpired
+            | Self::ProofInvalid
+            | Self::VerificationMethodPrincipalMismatch
+            | Self::AgentPaused
+            | Self::AgentDeactivated
+            | Self::ApprovalAlreadyConsumed
+            | Self::SidecarCreateDenied
+            | Self::ActorKindReducerManaged
+            | Self::RecoveryWitnessRevokeLagging
+            | Self::HandleHomographForbidden => 31,
         }
+    }
+
+    /// R3 (CALL-2) — the five CXP-0010 codes the chime SDK guarantees
+    /// will be surfaced as typed `PushErrorKind` variants when the
+    /// underlying transport returns a media-token error. Consumers can
+    /// use this helper to branch the call UI without listing every
+    /// variant by hand.
+    pub const fn is_media_token_rejection(self) -> bool {
+        matches!(
+            self,
+            Self::UnknownFocusType
+                | Self::TokenIssuerUnauthorised
+                | Self::ParticipantBindingInvalid
+                | Self::FocusMismatch
+                | Self::LegacySingleEndpointMediaService
+        )
+    }
+
+    /// R3 — full set of CXP-0010 media-binding error codes (the
+    /// rejection subset above plus the additional codes that may be
+    /// raised by the server but are not flagged in CALL-2). Useful for
+    /// telemetry that wants to label the wider media-binding bucket.
+    pub const fn is_media_binding_code(self) -> bool {
+        matches!(
+            self,
+            Self::UnknownFocusType
+                | Self::TokenIssuerUnauthorised
+                | Self::ParticipantBindingInvalid
+                | Self::FocusMismatch
+                | Self::LegacySingleEndpointMediaService
+                | Self::ParticipantIdentityUnrecognised
+                | Self::SessionFocusAlreadyCommitted
+                | Self::E2eeKeySourceUnauthorised
+                | Self::RecordingArtifactPipelineBypassed
+                | Self::FocusUnavailableForClient
+        )
+    }
+
+    /// R3 — agent-lifecycle subset of the mirrored error codes.
+    pub const fn is_agent_lifecycle_code(self) -> bool {
+        matches!(
+            self,
+            Self::PairingRequestExpired
+                | Self::ProofInvalid
+                | Self::VerificationMethodPrincipalMismatch
+                | Self::AgentPaused
+                | Self::AgentDeactivated
+                | Self::ApprovalAlreadyConsumed
+                | Self::SidecarCreateDenied
+                | Self::ActorKindReducerManaged
+        )
     }
 
     /// Round 4 — `historical_only` is a diagnostic surface: the server
@@ -128,6 +275,71 @@ impl PushErrorKind {
         }
         if code == contrix::ERROR_CODE_HISTORICAL_ONLY {
             return Some(Self::HistoricalOnly);
+        }
+        // R3 (spec b47ff6ec) — CXP-0010 media-binding + agent-lifecycle
+        // + handle homograph codes. Sourced from the SDK constants
+        // (in the `contrix::error` module — the R3 codes are not
+        // glob-reexported at the crate root yet) so chime stays
+        // byte-aligned with soland/floria emission.
+        if code == contrix::error::ERROR_CODE_FOCUS_MISMATCH {
+            return Some(Self::FocusMismatch);
+        }
+        if code == contrix::error::ERROR_CODE_UNKNOWN_FOCUS_TYPE {
+            return Some(Self::UnknownFocusType);
+        }
+        if code == contrix::error::ERROR_CODE_TOKEN_ISSUER_UNAUTHORISED {
+            return Some(Self::TokenIssuerUnauthorised);
+        }
+        if code == contrix::error::ERROR_CODE_PARTICIPANT_BINDING_INVALID {
+            return Some(Self::ParticipantBindingInvalid);
+        }
+        if code == contrix::error::ERROR_CODE_PARTICIPANT_IDENTITY_UNRECOGNISED {
+            return Some(Self::ParticipantIdentityUnrecognised);
+        }
+        if code == contrix::error::ERROR_CODE_SESSION_FOCUS_ALREADY_COMMITTED {
+            return Some(Self::SessionFocusAlreadyCommitted);
+        }
+        if code == contrix::error::ERROR_CODE_E2EE_KEY_SOURCE_UNAUTHORISED {
+            return Some(Self::E2eeKeySourceUnauthorised);
+        }
+        if code == contrix::error::ERROR_CODE_RECORDING_ARTIFACT_PIPELINE_BYPASSED {
+            return Some(Self::RecordingArtifactPipelineBypassed);
+        }
+        if code == contrix::error::ERROR_CODE_LEGACY_SINGLE_ENDPOINT_MEDIA_SERVICE {
+            return Some(Self::LegacySingleEndpointMediaService);
+        }
+        if code == contrix::error::ERROR_CODE_FOCUS_UNAVAILABLE_FOR_CLIENT {
+            return Some(Self::FocusUnavailableForClient);
+        }
+        if code == contrix::error::ERROR_CODE_PAIRING_REQUEST_EXPIRED {
+            return Some(Self::PairingRequestExpired);
+        }
+        if code == contrix::error::ERROR_CODE_PROOF_INVALID {
+            return Some(Self::ProofInvalid);
+        }
+        if code == contrix::error::ERROR_CODE_VERIFICATION_METHOD_PRINCIPAL_MISMATCH {
+            return Some(Self::VerificationMethodPrincipalMismatch);
+        }
+        if code == contrix::error::ERROR_CODE_AGENT_PAUSED {
+            return Some(Self::AgentPaused);
+        }
+        if code == contrix::error::ERROR_CODE_AGENT_DEACTIVATED {
+            return Some(Self::AgentDeactivated);
+        }
+        if code == contrix::error::ERROR_CODE_APPROVAL_ALREADY_CONSUMED {
+            return Some(Self::ApprovalAlreadyConsumed);
+        }
+        if code == contrix::error::ERROR_CODE_SIDECAR_CREATE_DENIED {
+            return Some(Self::SidecarCreateDenied);
+        }
+        if code == contrix::error::ERROR_CODE_ACTOR_KIND_REDUCER_MANAGED {
+            return Some(Self::ActorKindReducerManaged);
+        }
+        if code == contrix::error::ERROR_CODE_RECOVERY_WITNESS_REVOKE_LAGGING {
+            return Some(Self::RecoveryWitnessRevokeLagging);
+        }
+        if code == contrix::error::ERROR_CODE_HANDLE_HOMOGRAPH_FORBIDDEN {
+            return Some(Self::HandleHomographForbidden);
         }
         Some(match code {
             "unauthenticated" | "auth_expired" | "soft_logged_out" => Self::Unauthenticated,

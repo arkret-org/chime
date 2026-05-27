@@ -23,6 +23,12 @@ rustdoc-args = ["--cfg", "docsrs"]
 
 [dependencies]
 base64 = "0.22"
+# R3 CALL-1 (spec b47ff6ec) — the SDK's `MediaTokenResponse.expires_at`
+# is `chrono::DateTime<Utc>`. Chime needs the type at its public surface
+# (chime exposes the SDK response through `verify_media_token_response`
+# / `MediaTokenVerifyContext`) so we pull chrono in directly with the
+# default features stripped to keep the wasm32 build slim.
+chrono = { version = "0.4", default-features = false, features = ["serde", "clock"] }
 # CH-1: pin chime's RFC 9530 content-digest computation to the SDK's
 # `http_signature::ContentDigest` so the wire bytes stay byte-identical
 # to what floria's verifier and soland's fanout signer emit. The SDK is

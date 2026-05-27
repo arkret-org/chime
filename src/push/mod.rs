@@ -15,6 +15,7 @@ mod bridge_describe;
 #[cfg(feature = "http")]
 mod client;
 mod errors;
+mod media_token;
 pub mod platform_app_id;
 mod registration;
 mod route;
@@ -109,6 +110,11 @@ pub use bridge_describe::{
     PushGatewayIntegrationDescribeResponse, PushGatewayIntegrationSurface,
 };
 pub use errors::{PushErrorKind, PushRegistrationError};
+pub use media_token::{
+    MediaBackendType, MediaTokenError, MediaTokenExchangeRequest, MediaTokenResponse,
+    MediaTokenVerifyContext, ParticipantBinding, call_media_token_exchange, ensure_known_backend,
+    verify_media_token_response,
+};
 pub use registration::{
     build_register_device_request, build_register_signing_context,
     build_register_signing_context_with_options, build_unregister_device_request,

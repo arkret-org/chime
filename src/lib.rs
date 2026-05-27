@@ -76,6 +76,15 @@ pub use lifecycle::{
 };
 
 pub use gateway_binding::GatewayBinding;
+// R3 (CALL-1 / CALL-2, spec b47ff6ec) — media token exchange surface.
+// Re-exported so chime consumers (yougen) call
+// `chime::call_media_token_exchange` + `chime::verify_media_token_response`
+// without depending on `contrix` directly.
+pub use push::{
+    MediaBackendType, MediaTokenError, MediaTokenExchangeRequest, MediaTokenResponse,
+    MediaTokenVerifyContext, ParticipantBinding, call_media_token_exchange, ensure_known_backend,
+    verify_media_token_response,
+};
 pub use push::{
     CONTENT_DIGEST_HEADER, CONTRIX_ACTOR_DID_HEADER, CONTRIX_AUDIENCE_HEADER,
     CONTRIX_CREATED_AT_HEADER, CONTRIX_DESTINATION_SERVICE_DID_HEADER, CONTRIX_DEVICE_ID_HEADER,
