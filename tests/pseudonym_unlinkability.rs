@@ -103,7 +103,7 @@ fn multiple_routes_per_device_keep_distinct_pseudonyms() {
     );
     let voip = {
         let mut r = PushRoute::active(
-            recipient.clone(),
+            recipient,
             PushRouteId::new("fcm_voip").unwrap(),
             PushTargetId::new("cx:pseudonym:push:01HYZ8Z000000000000XYZ").unwrap(),
             "did:web:gateway.example",

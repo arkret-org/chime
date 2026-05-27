@@ -1,5 +1,6 @@
 //! URL construction, validation, and redaction helpers.
 
+use std::fmt::Write as _;
 use std::net::IpAddr;
 
 use url::Url;
@@ -75,7 +76,12 @@ pub fn push_gateway_service_base_url(
         url.set_path(&path);
     }
 
-    Ok(url.to_string().trim_end_matches('/').to_owned())
+    // Avoid the extra `to_owned()` allocation by truncating the
+    // `String` in place after measuring the trailing-slash run.
+    let mut s = url.to_string();
+    let new_len = s.trim_end_matches('/').len();
+    s.truncate(new_len);
+    Ok(s)
 }
 
 /// Derive the active bridge-describe URL from a configured push gateway URL.
@@ -325,8 +331,9 @@ fn url_origin(url: &Url) -> Option<String> {
     let host = url.host_str()?;
     let mut origin = format!("{}://{}", url.scheme(), host);
     if let Some(port) = url.port() {
-        origin.push(':');
-        origin.push_str(&port.to_string());
+        // Use `write!` to avoid an intermediate `String` allocation that
+        // `push_str(&port.to_string())` would produce.
+        let _ = write!(origin, ":{port}");
     }
     Some(origin)
 }

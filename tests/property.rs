@@ -59,7 +59,7 @@ proptest! {
             ..Default::default()
         };
         let binding = GatewayBinding::new(
-            gateway.clone(),
+            gateway,
             "https://push.example.com/api/v1/push/notify",
         );
         let config = PushDeviceConfig {
@@ -147,7 +147,7 @@ proptest! {
     fn hash_push_key_is_deterministic_and_opaque(token in ascii_token(8, 96)) {
         let h1 = hash_push_key(&token);
         let h2 = hash_push_key(&token);
-        prop_assert_eq!(h1.clone(), h2.clone());
+        prop_assert_eq!(&h1, &h2);
 
         prop_assert!(h1.starts_with("sha256:"));
         // sha256 hex is exactly 64 chars after the prefix.

@@ -438,8 +438,10 @@ where
             .load_push_preferences()
             .map_err(AccountDeactivationError::ClearPushPreferences)?;
         if let Some(prefs) = snapshot {
-            receipt.circle_bindings_cleared = prefs.muted_circle_ids.iter().cloned().collect();
-            receipt.realm_bindings_cleared = prefs.muted_realm_ids.iter().cloned().collect();
+            // `prefs` is owned here, so we can move the strings straight
+            // out of the `BTreeSet` instead of cloning each `String`.
+            receipt.circle_bindings_cleared = prefs.muted_circle_ids.into_iter().collect();
+            receipt.realm_bindings_cleared = prefs.muted_realm_ids.into_iter().collect();
         }
         store
             .clear_push_preferences()

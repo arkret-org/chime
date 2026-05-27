@@ -126,7 +126,7 @@ fn bridge_describe_fixture_blind_wakeup_example_validates() {
     let response: PushBridgeDescribeResponse =
         serde_json::from_str(BRIDGE_DESCRIBE_FIXTURE).expect("fixture must parse");
 
-    let example = response.examples.blind_wakeup_request.clone();
+    let example = response.examples.blind_wakeup_request;
     assert!(
         !example.is_null(),
         "fixture must carry a blind-wakeup example"

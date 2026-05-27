@@ -109,13 +109,14 @@ impl PushRequestSigningContext {
     /// Return deterministic metadata headers that should be present on the
     /// HTTP request and covered by HTTP Message Signatures.
     pub fn signed_metadata_headers(&self) -> Vec<(&'static str, String)> {
-        let mut headers = vec![
-            (CONTENT_DIGEST_HEADER, self.content_digest.clone()),
-            (CONTRIX_OPERATION_ID_HEADER, self.operation_id.clone()),
-            (CONTRIX_DEVICE_ID_HEADER, self.device_id.clone()),
-            (CONTRIX_CREATED_AT_HEADER, self.created_at.clone()),
-            (CONTRIX_AUDIENCE_HEADER, self.audience.clone()),
-        ];
+        // Pre-allocate the worst-case header count so we avoid up to four
+        // small grows as the optional headers are appended below.
+        let mut headers: Vec<(&'static str, String)> = Vec::with_capacity(13);
+        headers.push((CONTENT_DIGEST_HEADER, self.content_digest.clone()));
+        headers.push((CONTRIX_OPERATION_ID_HEADER, self.operation_id.clone()));
+        headers.push((CONTRIX_DEVICE_ID_HEADER, self.device_id.clone()));
+        headers.push((CONTRIX_CREATED_AT_HEADER, self.created_at.clone()));
+        headers.push((CONTRIX_AUDIENCE_HEADER, self.audience.clone()));
 
         if let Some(actor_did) = &self.actor_did {
             headers.push((CONTRIX_ACTOR_DID_HEADER, actor_did.clone()));
@@ -156,15 +157,15 @@ impl PushRequestSigningContext {
         &self,
         label: &str,
     ) -> Result<String, PushRegistrationError> {
-        let mut components = vec![
-            Component::Method,
-            Component::TargetUri,
-            Component::Header("content-digest".to_owned()),
-            Component::Header("x-contrix-operation-id".to_owned()),
-            Component::Header("x-contrix-device-id".to_owned()),
-            Component::Header("x-contrix-created-at".to_owned()),
-            Component::Header("x-contrix-audience".to_owned()),
-        ];
+        // Pre-allocate the worst-case component count (7 mandatory + 8 optional).
+        let mut components: Vec<Component> = Vec::with_capacity(15);
+        components.push(Component::Method);
+        components.push(Component::TargetUri);
+        components.push(Component::Header("content-digest".to_owned()));
+        components.push(Component::Header("x-contrix-operation-id".to_owned()));
+        components.push(Component::Header("x-contrix-device-id".to_owned()));
+        components.push(Component::Header("x-contrix-created-at".to_owned()));
+        components.push(Component::Header("x-contrix-audience".to_owned()));
 
         if self.actor_did.is_some() {
             components.push(Component::Header("x-contrix-actor-did".to_owned()));

@@ -254,29 +254,6 @@ impl PushRoute {
         }
     }
 
-    /// Backwards-compatibility shim for callers that still spell out
-    /// `active_with_recipient`. Identical to [`PushRoute::active`]
-    /// after T4.1 — the recipient_service_did is required by both
-    /// constructors. Will be removed in the next breaking release.
-    #[cfg(feature = "notify")]
-    #[deprecated(
-        since = "0.1.0",
-        note = "`active` now requires `recipient_service_did`; call `PushRoute::active` directly"
-    )]
-    pub fn active_with_recipient(
-        recipient_service_did: ServiceDid,
-        route: PushRouteId,
-        push_target_id: PushTargetId,
-        push_gateway_did: impl Into<String>,
-    ) -> Self {
-        Self::active(
-            recipient_service_did,
-            route,
-            push_target_id,
-            push_gateway_did,
-        )
-    }
-
     /// Mint a placeholder route that is not yet bound to a recipient
     /// Principal Server. Useful for cold-start fixtures and unit
     /// tests that assert how the SDK reacts to an unauthenticated /
@@ -499,7 +476,7 @@ mod tests {
             }
         ));
 
-        let mut bad = route.clone();
+        let mut bad = route;
         bad.recipient_service_did = None;
         let err = bad.validate().unwrap_err();
         assert!(matches!(
@@ -571,8 +548,8 @@ mod tests {
         let service_did = ServiceDid::new("did:web:principal.example").unwrap();
         let route_id = PushRouteId::new("apns_main").unwrap();
         let active = PushRoute::active(
-            service_did.clone(),
-            route_id.clone(),
+            service_did,
+            route_id,
             pseudo,
             "did:web:gateway.example",
         );

@@ -131,7 +131,7 @@ pub fn plan_registration_repair(
         .map(str::to_owned);
 
     let mut active_state = None::<PushRegistrationState>;
-    let mut stale_states = Vec::new();
+    let mut stale_states: Vec<PushRegistrationState> = Vec::with_capacity(states.len());
     let mut token_moved = false;
 
     for state in states {

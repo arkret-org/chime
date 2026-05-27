@@ -587,7 +587,7 @@ mod tests {
             &expected,
         ));
         // Tampered HMAC (single-byte flip in the hex string).
-        let mut flipped = expected.clone();
+        let mut flipped = expected;
         let last = flipped.pop().unwrap();
         // Swap the last hex digit to something else so the comparison
         // is *just barely* wrong.
