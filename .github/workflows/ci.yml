@@ -25,8 +25,8 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-      # rustfmt enforcement was dropped intentionally in commit 18e70c3;
-      # restore via `cargo fmt --all -- --check` before tagging a release.
+      - name: Check formatting
+        run: cargo fmt --all -- --check
       - name: Check (features=${{ matrix.features || 'default' }})
         run: cargo check --no-default-features --features "${{ matrix.features }}"
 

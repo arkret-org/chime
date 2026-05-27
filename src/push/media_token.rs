@@ -299,7 +299,9 @@ pub fn verify_media_token_response(
 /// consumers can perform the check without depending on `contrix`
 /// directly.
 pub fn ensure_known_backend(backend: &MediaBackendType) -> Result<(), MediaTokenError> {
-    backend.ensure_known().map_err(|_| MediaTokenError::UnknownFocusType)
+    backend
+        .ensure_known()
+        .map_err(|_| MediaTokenError::UnknownFocusType)
 }
 
 fn strip_kid_fragment(kid: &str) -> &str {
@@ -469,13 +471,8 @@ mod tests {
     fn helper_builds_request_with_provided_focus_id() {
         // CALL-1: chime exposes the SDK request-builder so consumers
         // don't need their own `contrix` dep.
-        let req = call_media_token_exchange(
-            realm(),
-            call(),
-            actor(),
-            device(),
-            "cx:focus:01".to_owned(),
-        );
+        let req =
+            call_media_token_exchange(realm(), call(), actor(), device(), "cx:focus:01".to_owned());
         assert_eq!(req.focus_id, "cx:focus:01");
         assert_eq!(req.realm_id, realm());
     }
@@ -487,8 +484,16 @@ mod tests {
             expected_service_id: "s".to_owned(),
         };
         assert!(err.kind().is_media_token_rejection());
-        assert!(MediaTokenError::UnknownFocusType.kind().is_media_token_rejection());
-        assert!(MediaTokenError::LegacySingleEndpointMediaService.kind().is_media_token_rejection());
+        assert!(
+            MediaTokenError::UnknownFocusType
+                .kind()
+                .is_media_token_rejection()
+        );
+        assert!(
+            MediaTokenError::LegacySingleEndpointMediaService
+                .kind()
+                .is_media_token_rejection()
+        );
         assert!(
             MediaTokenError::FocusMismatch {
                 expected_focus_id: "a".to_owned(),

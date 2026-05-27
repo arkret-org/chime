@@ -81,11 +81,6 @@ pub use gateway_binding::GatewayBinding;
 // `chime::call_media_token_exchange` + `chime::verify_media_token_response`
 // without depending on `contrix` directly.
 pub use push::{
-    MediaBackendType, MediaTokenError, MediaTokenExchangeRequest, MediaTokenResponse,
-    MediaTokenVerifyContext, ParticipantBinding, call_media_token_exchange, ensure_known_backend,
-    verify_media_token_response,
-};
-pub use push::{
     CONTENT_DIGEST_HEADER, CONTRIX_ACTOR_DID_HEADER, CONTRIX_AUDIENCE_HEADER,
     CONTRIX_CREATED_AT_HEADER, CONTRIX_DESTINATION_SERVICE_DID_HEADER, CONTRIX_DEVICE_ID_HEADER,
     CONTRIX_EXPIRES_AT_HEADER, CONTRIX_IDEMPOTENCY_KEY_HEADER, CONTRIX_NONCE_HEADER,
@@ -109,6 +104,11 @@ pub use push::{
     verify_push_key_binding,
 };
 pub use push::{DefaultPlatformAppIdResolver, PlatformAppIdResolver};
+pub use push::{
+    MediaBackendType, MediaTokenError, MediaTokenExchangeRequest, MediaTokenResponse,
+    MediaTokenVerifyContext, ParticipantBinding, call_media_token_exchange, ensure_known_backend,
+    verify_media_token_response,
+};
 pub use push::{
     PushRoute, PushRouteCapability, PushRouteError, PushRouteId, PushRouteValidationError,
     ServiceDid,

@@ -6,6 +6,20 @@ and an optional HTTP client. The project value is in being _boring and
 correct_ — we trade bells and whistles for stable wire shapes and
 strict privacy validators.
 
+## Pre-commit hook setup
+
+After cloning, enable the project's pre-commit hooks:
+
+```sh
+git config core.hooksPath .githooks
+```
+
+The hook runs `cargo fmt --all -- --check` plus `cargo clippy --no-deps
+-- -D warnings` on staged Rust changes. If `.githooks/pre-commit` is
+missing, copy it from
+[`contrix-rust-sdk`](https://github.com/contrix-dev/contrix-rust-sdk)
+and adapt to your local toolchain.
+
 ## Development environment
 
 - Rust toolchain: stable channel.
