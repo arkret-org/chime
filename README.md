@@ -1,5 +1,7 @@
 # chime
 
+> **Spec target**: [contrix-spec @ b47ff6ec](../contrix-spec) (R3 sync 2026-05-27)
+
 [![coverage](https://img.shields.io/badge/coverage-local%20tarpaulin-informational)](docs/production-checklist.md#local-verification)
 
 > **Stability:** local `1.0.0` freeze candidate. Breaking public API changes

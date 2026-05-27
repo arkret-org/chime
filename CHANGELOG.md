@@ -4,6 +4,15 @@ All notable changes to `chime` are documented here. The format is based
 on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this
 project follows [SemVer](https://semver.org/) once it reaches `1.0`.
 
+## R3 — Spec sync 2026-05-27 (contrix-spec @ b47ff6ec)
+
+- CALL-1: `push::media_token` wraps the SDK `call_media_token_exchange` request builder and exposes `verify_media_token_response` + `MediaTokenVerifyContext` for the anchor / TTL / participant-binding tuple check. Signature cryptography is stubbed `TODO(R3.1)`.
+- CALL-2: token responses are rejected with typed `MediaTokenError` variants for `unknown_focus_type`, `token_issuer_unauthorised`, `participant_binding_invalid`, `focus_mismatch`, `legacy_single_endpoint_media_service`; classified by `PushErrorKind::is_media_token_rejection`.
+- ERR-1: 20 new R3 error codes mirrored from contrix-rust-sdk into `PushErrorKind` (media-binding + agent-lifecycle + recovery + handle homograph); `from_failure_code` matches via `contrix::error::ERROR_CODE_*` constants.
+- Telemetry / UI helpers added: `is_media_token_rejection`, `is_media_binding_code`, `is_agent_lifecycle_code` for branching error UX.
+
+> No version tag, no crates.io / Docker Hub / npm publish — git commit only.
+
 ## [Unreleased]
 
 ### Added — CXP-0007 (Circle primitive) client-side surface
