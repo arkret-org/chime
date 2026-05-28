@@ -4,6 +4,12 @@ All notable changes to `chime` are documented here. The format is based
 on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this
 project follows [SemVer](https://semver.org/) once it reaches `1.0`.
 
+## R3.2 — Spec sync 2026-05-28 (contrix-spec @ b56cab1)
+
+- Audited for mention-reference decode types: none present (push SDK uses DID actor routing lists + push-rule booleans). No wire change required for the §3.8 mention shape v2; `drift_gate` green.
+- Synced to contrix-spec @ b56cab1.
+
+> No version tag, no crates.io / Docker Hub / npm publish — git commit only.
 ## R3 — Spec sync 2026-05-27 (contrix-spec @ b47ff6ec)
 
 - CALL-1: `push::media_token` wraps the SDK `call_media_token_exchange` request builder and exposes `verify_media_token_response` + `MediaTokenVerifyContext` for the anchor / TTL / participant-binding tuple check. Signature cryptography is stubbed `TODO(R3.1)`.
