@@ -1,7 +1,5 @@
 //! chime-local floria spawn helper for live-gateway integration tests.
 
-#![allow(dead_code)]
-
 use std::{
     env,
     fs::File,
