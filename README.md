@@ -1,6 +1,6 @@
 # chime
 
-> **Spec target**: [contrix-spec @ b56cab1](../contrix-spec) (R3.2 sync 2026-05-28)
+> **Spec target**: [contrix-spec @ cced4b8](../contrix-spec) (R3.3 sync 2026-05-28)
 
 [![coverage](https://img.shields.io/badge/coverage-local%20tarpaulin-informational)](docs/production-checklist.md#local-verification)
 

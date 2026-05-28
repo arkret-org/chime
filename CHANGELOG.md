@@ -4,6 +4,11 @@ All notable changes to `chime` are documented here. The format is based
 on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this
 project follows [SemVer](https://semver.org/) once it reaches `1.0`.
 
+## R3.3 — Spec sync 2026-05-28 (contrix-spec @ cced4b8)
+
+- R3.3 spec sync — pin to contrix-spec @ cced4b8 (CXP-0011 shareable object addressing / `cx.directory.resolve_target`: N/A for this service; object-address resolution belongs to the Directory Service).
+
+> No version tag, no crates.io / Docker Hub / npm publish — git commit only.
 ## R3.2 — Spec sync 2026-05-28 (contrix-spec @ b56cab1)
 
 - Audited for mention-reference decode types: none present (push SDK uses DID actor routing lists + push-rule booleans). No wire change required for the §3.8 mention shape v2; `drift_gate` green.
