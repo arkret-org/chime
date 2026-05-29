@@ -199,11 +199,13 @@ Enable the `notify` feature when implementing a gateway or a host-side push
 receiver. The validator accepts only opaque routing metadata by default.
 
 ```rust
+# #[cfg(feature = "notify")]
 use chime::{
     PushNotification, PushNotificationDevice, PushNotifyPolicyContext, PushNotifyReqBody,
     PushTargetId, WakeupKind,
 };
 
+# #[cfg(feature = "notify")]
 # fn main() -> Result<(), Box<dyn std::error::Error>> {
 // `PushNotification` is `#[non_exhaustive]` so additive Circle / R2-R3
 // fields cannot break downstream constructors. Build through
@@ -256,6 +258,8 @@ let msg = err.to_string();
 assert!(msg.contains("title"), "error should name the leaking field: {msg}");
 # Ok(())
 # }
+# #[cfg(not(feature = "notify"))]
+# fn main() {}
 ```
 
 ### Register through HTTP
