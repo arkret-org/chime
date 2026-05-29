@@ -203,7 +203,7 @@ pub fn verify_media_token_response(
     // ── 2. Focus mismatch: the binding's focus_id MUST equal the
     // committed session_focus (when present) and the focus the caller
     // requested. The two-step check distinguishes a server-side
-    // mis-routing (binding != committed) from a client-side focus
+    // incorrect routing (binding != committed) from a client-side focus
     // selection bug (requested != binding).
     if response.participant_binding.focus_id != ctx.requested_focus_id {
         return Err(MediaTokenError::FocusMismatch {

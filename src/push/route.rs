@@ -547,12 +547,7 @@ mod tests {
         let pseudo = PushTargetId::new("cx:pseudonym:push:01HYZ8Z000000000000000").unwrap();
         let service_did = ServiceDid::new("did:web:principal.example").unwrap();
         let route_id = PushRouteId::new("apns_main").unwrap();
-        let active = PushRoute::active(
-            service_did,
-            route_id,
-            pseudo,
-            "did:web:gateway.example",
-        );
+        let active = PushRoute::active(service_did, route_id, pseudo, "did:web:gateway.example");
 
         let revoked = active.clone().revoke().unwrap();
         // (recipient_service_did, push_route) leg of the cell_subject

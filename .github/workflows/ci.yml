@@ -24,6 +24,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - name: Checkout sibling Contrix Rust SDK
+        env:
+          CI_REPO_TOKEN: ${{ secrets.CI_REPO_TOKEN || github.token }}
+        run: bash .ci/checkout-sibling.sh contrix-rust-sdk ../contrix-rust-sdk
       - uses: Swatinem/rust-cache@v2
       - name: Check formatting
         run: cargo fmt --all -- --check
@@ -43,6 +49,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+      - name: Checkout sibling Contrix Rust SDK
+        env:
+          CI_REPO_TOKEN: ${{ secrets.CI_REPO_TOKEN || github.token }}
+        run: bash .ci/checkout-sibling.sh contrix-rust-sdk ../contrix-rust-sdk
       - uses: Swatinem/rust-cache@v2
       - name: Test (features=${{ matrix.features || 'default' }})
         run: cargo test --no-default-features --features "${{ matrix.features }}"
@@ -62,6 +72,10 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
+      - name: Checkout sibling Contrix Rust SDK
+        env:
+          CI_REPO_TOKEN: ${{ secrets.CI_REPO_TOKEN || github.token }}
+        run: bash .ci/checkout-sibling.sh contrix-rust-sdk ../contrix-rust-sdk
       - uses: Swatinem/rust-cache@v2
       - name: Clippy (features=${{ matrix.features || 'default' }})
         run: cargo clippy --no-default-features --features "${{ matrix.features }}" -- -D warnings
@@ -72,6 +86,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+      - name: Checkout sibling Contrix Rust SDK
+        env:
+          CI_REPO_TOKEN: ${{ secrets.CI_REPO_TOKEN || github.token }}
+        run: bash .ci/checkout-sibling.sh contrix-rust-sdk ../contrix-rust-sdk
       - uses: Swatinem/rust-cache@v2
       - name: Build docs
         run: cargo doc --all-features --no-deps
@@ -86,6 +104,10 @@ jobs:
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: "1.89"
+      - name: Checkout sibling Contrix Rust SDK
+        env:
+          CI_REPO_TOKEN: ${{ secrets.CI_REPO_TOKEN || github.token }}
+        run: bash .ci/checkout-sibling.sh contrix-rust-sdk ../contrix-rust-sdk
       - uses: Swatinem/rust-cache@v2
       - name: Check MSRV (all features)
         run: cargo check --all-features
@@ -104,6 +126,10 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: wasm32-unknown-unknown
+      - name: Checkout sibling Contrix Rust SDK
+        env:
+          CI_REPO_TOKEN: ${{ secrets.CI_REPO_TOKEN || github.token }}
+        run: bash .ci/checkout-sibling.sh contrix-rust-sdk ../contrix-rust-sdk
       - uses: Swatinem/rust-cache@v2
       - name: cargo check (wasm32, http)
         run: cargo check --target wasm32-unknown-unknown --features http
@@ -131,6 +157,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+      - name: Checkout sibling Contrix Rust SDK
+        env:
+          CI_REPO_TOKEN: ${{ secrets.CI_REPO_TOKEN || github.token }}
+        run: bash .ci/checkout-sibling.sh contrix-rust-sdk ../contrix-rust-sdk
       - uses: Swatinem/rust-cache@v2
       - name: cargo package --no-verify
         run: cargo package --no-verify --allow-dirty
@@ -151,10 +181,13 @@ jobs:
         with:
           path: chime
       - name: Checkout sibling floria
-        uses: actions/checkout@v4
-        with:
-          repository: contrix-dev/floria
-          path: floria
+        env:
+          CI_REPO_TOKEN: ${{ secrets.CI_REPO_TOKEN || github.token }}
+        run: bash chime/.ci/checkout-sibling.sh floria floria
+      - name: Checkout sibling Contrix Rust SDK
+        env:
+          CI_REPO_TOKEN: ${{ secrets.CI_REPO_TOKEN || github.token }}
+        run: bash chime/.ci/checkout-sibling.sh contrix-rust-sdk contrix-rust-sdk
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
@@ -176,6 +209,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+      - name: Checkout sibling Contrix Rust SDK
+        env:
+          CI_REPO_TOKEN: ${{ secrets.CI_REPO_TOKEN || github.token }}
+        run: bash .ci/checkout-sibling.sh contrix-rust-sdk ../contrix-rust-sdk
       - uses: EmbarkStudios/cargo-deny-action@v2
         with:
           command: check
@@ -188,6 +225,11 @@ jobs:
       checks: write
     steps:
       - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Checkout sibling Contrix Rust SDK
+        env:
+          CI_REPO_TOKEN: ${{ secrets.CI_REPO_TOKEN || github.token }}
+        run: bash .ci/checkout-sibling.sh contrix-rust-sdk ../contrix-rust-sdk
       - uses: rustsec/audit-check@v2.0.0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
