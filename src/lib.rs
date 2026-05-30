@@ -38,6 +38,7 @@ use serde::{Deserialize, Serialize};
 #[doc = include_str!("../README.md")]
 mod readme_doctest {}
 
+pub mod bugle;
 mod gateway_binding;
 mod lifecycle;
 #[cfg(feature = "notify")]
@@ -75,11 +76,14 @@ pub use lifecycle::{
     NoopAccountDeactivationSink, NoopBackgroundFetchDriver, on_account_deactivate,
 };
 
+pub use bugle::BugleAppIdResolver;
 pub use gateway_binding::GatewayBinding;
 // R3 (CALL-1 / CALL-2, spec b47ff6ec) — media token exchange surface.
 // Re-exported so chime consumers (yougen) call
-// `chime::call_media_token_exchange` + `chime::verify_media_token_response`
-// without depending on `contrix` directly.
+// `chime::call_media_token_exchange` +
+// `chime::structurally_validate_media_token_response` without depending on
+// `contrix` directly. The validation marker is structure-only; hosts must
+// perform Ed25519 signature verification before SFrame keying.
 pub use push::{
     CONTENT_DIGEST_HEADER, CONTRIX_ACTOR_DID_HEADER, CONTRIX_AUDIENCE_HEADER,
     CONTRIX_CREATED_AT_HEADER, CONTRIX_DESTINATION_SERVICE_DID_HEADER, CONTRIX_DEVICE_ID_HEADER,
@@ -106,8 +110,9 @@ pub use push::{
 pub use push::{DefaultPlatformAppIdResolver, PlatformAppIdResolver};
 pub use push::{
     MediaBackendType, MediaTokenError, MediaTokenExchangeRequest, MediaTokenResponse,
-    MediaTokenVerifyContext, ParticipantBinding, call_media_token_exchange, ensure_known_backend,
-    verify_media_token_response,
+    MediaTokenStructuralValidationContext, ParticipantBinding,
+    StructurallyValidatedMediaTokenResponse, call_media_token_exchange, ensure_known_backend,
+    structurally_validate_media_token_response,
 };
 pub use push::{
     PushRoute, PushRouteCapability, PushRouteError, PushRouteId, PushRouteValidationError,
@@ -141,7 +146,7 @@ pub const OPERATION_PUSH_NOTIFY: &str = "cx.push.notify";
 
 /// B.5 #8 — Canonical Contrix operation id for the push unsubscribe
 /// call. Sent as the `operation_id` field on
-/// [`PushUnsubscribeRequest`](crate::PushUnsubscribeRequest).
+/// [`PushUnsubscribeRequest`].
 pub const OPERATION_PUSH_UNSUBSCRIBE: &str = "cx.push.unsubscribe";
 
 /// Default standard Contrix push gateway URL.

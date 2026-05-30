@@ -61,8 +61,7 @@ use crate::PushPreferencesStore;
 ///
 /// chime does not own any of that — the host app does. This trait is
 /// the seam so chime's higher-level helpers (e.g. the notify-handling
-/// layer in [`crate::notify`]) can request the fetch without
-/// hard-coding a platform.
+/// layer) can request the fetch without hard-coding a platform.
 ///
 /// The trait is intentionally small and synchronous from chime's
 /// perspective: a host implementor that needs async behaviour should

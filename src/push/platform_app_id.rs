@@ -1,17 +1,11 @@
 //! Platform → `app_id` resolution for push registration.
 //!
-//! Round 2 (post-improve) — extracted as a typed trait so the bugle /
-//! domestic-Android resolver can plug in later without touching the
-//! `registration` module. The default implementation only handles the
-//! cross-platform `Android` / `Ios` mappings; `Web` / `Desktop` fall
-//! back to `app_id` and other platforms error out so callers see the
-//! missing branch instead of silently sending the wrong identifier.
-//!
-//! TODO(round-3): build the `chime::bugle` module that supplies a
-//! `BugleAppIdResolver` selecting `domestic_app_id` for the curated
-//! Chinese-OEM provider matrix (Huawei / Xiaomi / OPPO / Vivo /
-//! Meizu / ColorOS). Until then, callers wanting bugle semantics MUST
-//! implement [`PlatformAppIdResolver`] themselves.
+//! Round 2 (post-improve) — extracted as a typed trait so custom
+//! platform resolvers can plug in without touching the `registration`
+//! module. The default implementation uses the cross-platform
+//! `app_id` value. Domestic Android integrations that need Bugle's
+//! `domestic_app_id` preference can use
+//! [`crate::bugle::BugleAppIdResolver`].
 
 use super::errors::PushRegistrationError;
 use super::wire::PushPlatform;
@@ -46,9 +40,9 @@ pub trait PlatformAppIdResolver {
 
 /// Default `PlatformAppIdResolver` implementation.
 ///
-/// - `Android` / `Ios` → require `app_id`; reject `domestic_app_id`
-///   alone because routing through Bugle requires the round-3 bugle
-///   resolver (see TODO at the top of the module).
+/// - `Android` / `Ios` → require `app_id`; ignore `domestic_app_id`
+///   because provider-specific routing belongs to
+///   [`crate::bugle::BugleAppIdResolver`] or a host-supplied resolver.
 /// - `Web` / `Desktop` → fall back to `app_id` when present; treat the
 ///   field as required (the gateway needs *some* identifier even for
 ///   webpush so it can scope subscriptions per origin).

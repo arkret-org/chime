@@ -40,7 +40,7 @@ Notes:
 ## `spec_version` alignment
 
 chime exposes the compiled-in protocol version as
-`chime::push::EXPECTED_SPEC_VERSION` (current value pinned in
+`chime::EXPECTED_SPEC_VERSION` (current value pinned in
 `chime/src/push/bridge_describe.rs`). The push bridge's
 `PushBridgeDescribeResponse::spec_version` field carries whatever the
 deployed gateway advertises; the SDK provides
@@ -51,10 +51,14 @@ yougen's smoke-test harness MUST:
 
 1. Call `bridge_describe()` against the target gateway.
 2. Compare the returned `spec_version` to
-   `chime::push::EXPECTED_SPEC_VERSION`.
+   `chime::EXPECTED_SPEC_VERSION`.
 3. Fail the smoke test if the two differ — gateway drift is the most
    common cause of "registrations succeed but notifications never
    arrive" bugs and is cheap to catch up-front.
+
+The crate-level audited spec target is `contrix-spec @ cced4b8`; older
+SHAs in changelog history are retained only as round-by-round audit
+records.
 
 ## chime APIs yougen calls
 
@@ -76,6 +80,15 @@ releases.
   inbound push through this helper before raising a system
   notification; otherwise re-delivered pushes (common on flaky
   cellular) appear twice in the user's tray.
+- `chime::call_media_token_exchange(...)` plus
+  `chime::structurally_validate_media_token_response(&response, &ctx)`
+  — builds and structure-checks a `cx.call.media.token_exchange`
+  response. The validation context type is
+  `MediaTokenStructuralValidationContext`, and success returns
+  `StructurallyValidatedMediaTokenResponse`. This marker means only
+  issuer-anchor, tuple, and TTL checks passed; yougen MUST verify
+  `service_signature` and `participant_binding.sig` with the realm
+  media-service Ed25519 key before SFrame keying.
 
 ## `BackgroundFetchDriver` integration
 

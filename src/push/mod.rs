@@ -112,8 +112,9 @@ pub use bridge_describe::{
 pub use errors::{PushErrorKind, PushRegistrationError};
 pub use media_token::{
     MediaBackendType, MediaTokenError, MediaTokenExchangeRequest, MediaTokenResponse,
-    MediaTokenVerifyContext, ParticipantBinding, call_media_token_exchange, ensure_known_backend,
-    verify_media_token_response,
+    MediaTokenStructuralValidationContext, ParticipantBinding,
+    StructurallyValidatedMediaTokenResponse, call_media_token_exchange, ensure_known_backend,
+    structurally_validate_media_token_response,
 };
 pub use registration::{
     build_register_device_request, build_register_signing_context,

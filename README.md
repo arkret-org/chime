@@ -53,6 +53,16 @@ normative source.
 
 Per-project task lists are consolidated upstream — see
 [`../_todos.md`](../_todos.md) for the active cross-project task plan.
+The current audited protocol pin for this crate is
+`contrix-spec @ cced4b8`; older SHAs in `CHANGELOG.md` are historical
+round entries, not the active completion gate.
+
+## Chinese docs
+
+简体中文接入文档见 [`zh/README.md`](zh/README.md)，包括
+[`zh/integration-guide.md`](zh/integration-guide.md)、
+[`zh/error-codes.md`](zh/error-codes.md) 和
+[`zh/production-checklist.md`](zh/production-checklist.md)。
 
 ## Gateway Support
 
@@ -61,6 +71,13 @@ Per-project task lists are consolidated upstream — see
 | **Standard** | Contrix Push Gateway using platform adapters such as FCM, APNs, Web Push, or desktop notification bridges. |
 | **Bugle** | Contrix Push Gateway with domestic Chinese Android OEM provider support through JPush, Huawei, Xiaomi, OPPO, vivo, HONOR, and HarmonyOS routes. |
 | **Custom** | User-provided gateway URL for self-hosted or third-party gateways. |
+
+Bugle host integrations still own provider SDK setup and token
+acquisition. For app-id resolution, `GatewayBinding::resolve_app_id`
+and `PushGatewayType::Bugle` prefer `domestic_app_id` for Android;
+hosts that need the standalone resolver trait can use
+`chime::bugle::BugleAppIdResolver` or provide their own
+`PlatformAppIdResolver`.
 
 ## Features
 
@@ -80,6 +97,12 @@ Per-project task lists are consolidated upstream — see
 > to the device. Local-only smoke tests can leave it off, but any
 > integration that touches real floria / yougen / soland traffic must
 > compile with `--features http,notify`.
+>
+> Deserializing `PushNotifyReqBody` or `PushNotification` is not enough:
+> `PushNotification.extra` uses `#[serde(flatten)]`, so unknown fields
+> are captured and must be rejected by `assert_payload_safe`,
+> `validate_blind_wakeup`, or `validate_wire_model` before the host reads
+> fields or shows UI.
 
 ## CXP-0007 Circle subscriptions
 
@@ -312,6 +335,13 @@ assert!(response.body.ok);
 Production notes:
 
 - Authentication material is only sent through headers. Do not put session tokens, API keys, signatures, or bearer tokens in a binding's `push_gateway` URL query string.
+- Media-token exchange uses a structure-only helper:
+  `structurally_validate_media_token_response` returns
+  `StructurallyValidatedMediaTokenResponse` after issuer-anchor,
+  participant tuple, and TTL checks. It does not verify
+  `service_signature` or `participant_binding.sig`; host code must run
+  Ed25519 verification with the realm media-service key before SFrame
+  keying.
 - Each binding's `push_gateway` must be HTTPS unless `allow_insecure_loopback_push_gateway` is enabled for localhost development.
 - WebPush registrations can set `webpush_endpoint_allowlist` to restrict accepted endpoint origins or host patterns before a browser endpoint is sent to the service.
 - `push_key` is redacted in debug output and logs; callers should still store it as a secret.
@@ -468,6 +498,11 @@ into a Contrix Principal Server / Sync Service deployment.
   client generates one and reuses it across retries. Persist your own
   key for server-side dedup if you care about cross-process
   deduplication.
+- **Nonce replay storage.** `NonceTracker` is in-memory and
+  per-instance. Server-side relays and multi-process hosts must back it
+  with a shared persistent store, such as Redis or an encrypted local
+  key-value database, before accepting inbound frames after restart or
+  across workers.
 - **Retries.** Default `PushRetryPolicy::disabled()`. Use
   `PushRetryPolicy::conservative()` for `429`/`503`/network-timeout
   retries with `Retry-After` honoring and bounded jitter.
@@ -477,7 +512,7 @@ into a Contrix Principal Server / Sync Service deployment.
   tracing fields, and you should mirror that in your own code.
 - **Privacy gate.** When you build the `notify` feature into a
   gateway, validate every outbound payload through
-  `PushNotifyRequest::assert_payload_safe(&policy)`. Empty
+  `PushNotifyReqBody::assert_payload_safe(&policy)`. Empty
   `PushNotifyPolicyContext` means every notification is treated as
   blind wakeup, which is the safest default.
 

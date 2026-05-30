@@ -253,6 +253,16 @@ impl<'de> Deserialize<'de> for WakeupKind {
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[non_exhaustive]
+/// Wire notification descriptor for `cx.push.notify`.
+///
+/// This type intentionally carries unknown JSON fields in [`Self::extra`]
+/// because `#[serde(flatten)]` cannot be combined with
+/// `deny_unknown_fields`. Deserialization alone is therefore not a
+/// safety boundary: callers that parse JSON into `PushNotification`
+/// or [`PushNotifyReqBody`] MUST immediately run
+/// [`PushNotifyReqBody::assert_payload_safe`],
+/// [`PushNotifyReqBody::validate_blind_wakeup`], or
+/// [`Self::validate_wire_model`] before reading fields or showing UI.
 pub struct PushNotification {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub push_target_id: Option<PushTargetId>,
@@ -332,6 +342,12 @@ pub struct PushNotification {
     pub policy_access: Option<AuditPolicyAccessPayload>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub devices: Vec<PushNotificationDevice>,
+    /// Unknown extension fields captured from the wire.
+    ///
+    /// Because this field uses `#[serde(flatten)]`, serde cannot reject
+    /// unknown fields during deserialization. Treat this map as
+    /// untrusted until [`Self::validate_wire_model`] and the relevant
+    /// privacy validator have accepted the payload.
     #[serde(flatten)]
     pub extra: Map<String, Value>,
 }
@@ -1620,6 +1636,26 @@ mod tests {
                 field: "title".to_owned()
             }
         );
+    }
+
+    #[test]
+    fn deserialized_extra_fields_require_runtime_validation() {
+        let loaded: PushNotification = serde_json::from_value(serde_json::json!({
+            "push_target_id": "cx:pseudonym:push:01HYZ8Z000000000000000",
+            "wakeup_kind": "message",
+            "kind": "legacy-alias-that-serde-flatten-captures",
+            "devices": [{
+                "push_key": "fcm:very-secret-token",
+                "app_id": "app.example"
+            }]
+        }))
+        .unwrap();
+
+        assert!(loaded.extra.contains_key("kind"));
+        assert!(matches!(
+            loaded.validate_wire_model().unwrap_err(),
+            PushNotifyPrivacyError::RemovedField { field } if field == "kind"
+        ));
     }
 
     #[test]

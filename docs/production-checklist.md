@@ -12,9 +12,17 @@ platform receivers and call into chime for validation and wire-shape handling.
   service DID is explicitly authorized to see plaintext.
 - Wire account deactivation into `on_account_deactivate` with either a concrete
   `AccountDeactivationSink` implementation or `ClosureAccountDeactivationSink`.
+- Treat media-token exchange as two gates: first call
+  `structurally_validate_media_token_response` for anchor / tuple / TTL
+  checks, then run host-side Ed25519 verification of
+  `service_signature` and `participant_binding.sig` before SFrame
+  keying.
 - Drain local push queues before invalidating the device session.
 - Clear keypackage caches and persisted push preferences after deactivation.
 - Store push gateway credentials outside logs and crash reports.
+- Persist replay nonces outside a single `NonceTracker` process for
+  server-side relays, clustered workers, or restart-surviving inbound
+  validation. The in-memory tracker is only a local SDK guard.
 
 ## Local Verification
 
@@ -134,6 +142,10 @@ nonce window.
   config change; do NOT hot-swap the window without a flush, as nonces
   recorded under the prior window may collide with the new window's
   ordering assumptions.
+- Server-side relay deployments MUST store `(origin_service_did,
+  nonce)` or `(device_id, nonce)` in a shared persistent store for at
+  least the active replay window. A process-local `NonceTracker` alone
+  does not prevent replay after restart or across workers.
 - Page on `chime.push.nonce.replay_rejected_total{device_id_hash}`
   rising above the per-device baseline. A single device hash producing
   >5 rejections/hour is either a misbehaving signer (likely a

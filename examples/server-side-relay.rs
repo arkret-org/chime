@@ -13,7 +13,9 @@
 //!    NEVER assume plaintext visibility.
 //! 3. Track replay nonces with `NonceTracker` so a duplicated frame
 //!    cannot be re-fanned out. The relay's nonce window is decoupled
-//!    from any downstream device's window (see `SECURITY.md`).
+//!    from any downstream device's window (see `SECURITY.md`). In
+//!    production, persist these nonces in a shared store; the example's
+//!    in-memory tracker is process-local only.
 //! 4. Hand the validated frame to a stand-in "queue" function. In
 //!    production this is the host application's broker client; the
 //!    example just prints to stdout to stay dependency-free.
@@ -43,7 +45,10 @@ mod inner {
         // 5-minute replay window — matches the recommended inbound
         // value from `SECURITY.md`. The relay tracks nonces keyed by
         // the upstream (origin) service so a single misbehaving floria
-        // shard does not poison other origins' windows.
+        // shard does not poison other origins' windows. Production
+        // relays should back this with Redis or another persistent
+        // shared store before accepting traffic across restarts or
+        // multiple workers.
         let mut nonces = NonceTracker::new(Duration::from_secs(5 * 60));
 
         let policy = PushNotifyPolicyContext::blind_wakeup_only();

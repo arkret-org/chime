@@ -3,19 +3,20 @@
 //!
 //! This module is intentionally transport-agnostic: it builds the
 //! request body via the SDK's [`call_media_token_exchange`] helper and
-//! exposes [`verify_media_token_response`] that performs the
-//! wire-level checks chime owes its consumer (yougen):
+//! exposes [`structurally_validate_media_token_response`] that performs
+//! the structure-level checks chime owes its consumer (yougen):
 //!
-//! - `service_signature.kid` is anchored to the realm's current
-//!   `cx.realm.media_service.service_id`,
-//! - `participant_binding.issuer_kid` matches the same service id and
+//! - `participant_binding.issuer_kid` matches the realm's current
+//!   `cx.realm.media_service.service_id` and
 //!   ties together the call-id / focus-id / actor-id / device-id tuple
 //!   that the caller asked for,
-//! - the focus backend type is recognised (rejects `unknown_focus_type`
-//!   fail-closed via [`MediaBackendType::ensure_known`]),
 //! - the token TTL is within the spec ceiling
 //!   ([`MEDIA_TOKEN_TTL_MAX_SECS`](contrix::MEDIA_TOKEN_TTL_MAX_SECS))
 //!   via the SDK's [`validate_token_ttl`].
+//!
+//! The companion [`ensure_known_backend`] helper rejects unsupported
+//! media focus backend labels before the host forwards a focus into
+//! the wire layer.
 //!
 //! When validation fails this helper returns a typed [`MediaTokenError`]
 //! whose [`MediaTokenError::kind`] aligns one-to-one with the CXP-0010
@@ -31,8 +32,11 @@
 //! (`TODO(R3.1)`): we structurally validate the binding tuple and TTL
 //! but defer the Ed25519 signature check to the host application's
 //! keystore until the SDK's `verify_service_signature` lands. The
-//! anchor checks DO run today — those are pure equality checks against
-//! the caller-supplied current service id.
+//! issuer anchor check DOES run today — it is a pure equality check
+//! against the caller-supplied current service id. A returned
+//! [`StructurallyValidatedMediaTokenResponse`] is not proof that
+//! `service_signature` or `participant_binding.sig` has been
+//! cryptographically verified.
 
 use std::fmt;
 
@@ -56,8 +60,8 @@ pub use contrix::{
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum MediaTokenError {
-    /// CALL-2 — `service_signature.kid` (or `participant_binding.issuer_kid`)
-    /// is not anchored to the realm's current
+    /// CALL-2 — `participant_binding.issuer_kid` is not anchored to
+    /// the realm's current
     /// `cx.realm.media_service.service_id`.
     TokenIssuerUnauthorised {
         observed_kid: String,
@@ -73,11 +77,13 @@ pub enum MediaTokenError {
     /// `cx.realm.media_service` binding yet; the realm is still on the
     /// single-endpoint legacy contract.
     LegacySingleEndpointMediaService,
-    /// CALL-2 — committed `cx.call.state.session_focus` does not match
-    /// the focus id the caller asked the SDK to exchange.
+    /// CALL-2 — the focus id in `participant_binding` does not match
+    /// either the requested focus id or the already-committed
+    /// `cx.call.state.session_focus`.
     FocusMismatch {
-        expected_focus_id: String,
-        committed_focus_id: String,
+        requested_focus_id: String,
+        binding_focus_id: String,
+        committed_focus_id: Option<String>,
     },
 }
 
@@ -107,7 +113,7 @@ impl fmt::Display for MediaTokenError {
                 expected_service_id,
             } => write!(
                 f,
-                "token_issuer_unauthorised: signature kid `{observed_kid}` is not anchored to current media_service.service_id `{expected_service_id}`"
+                "token_issuer_unauthorised: participant_binding.issuer_kid `{observed_kid}` is not anchored to current media_service.service_id `{expected_service_id}`"
             ),
             Self::UnknownFocusType => f.write_str(
                 "unknown_focus_type: media focus backend label not recognised by this SDK",
@@ -119,23 +125,33 @@ impl fmt::Display for MediaTokenError {
                 "legacy_single_endpoint_media_service: realm still on single-endpoint media service",
             ),
             Self::FocusMismatch {
-                expected_focus_id,
+                requested_focus_id,
+                binding_focus_id,
                 committed_focus_id,
-            } => write!(
-                f,
-                "focus_mismatch: requested focus `{expected_focus_id}` does not match committed session_focus `{committed_focus_id}`"
-            ),
+            } => {
+                if let Some(committed_focus_id) = committed_focus_id {
+                    write!(
+                        f,
+                        "focus_mismatch: participant_binding.focus_id `{binding_focus_id}` does not match committed session_focus `{committed_focus_id}` (requested `{requested_focus_id}`)"
+                    )
+                } else {
+                    write!(
+                        f,
+                        "focus_mismatch: requested focus `{requested_focus_id}` does not match participant_binding.focus_id `{binding_focus_id}`"
+                    )
+                }
+            }
         }
     }
 }
 
 impl std::error::Error for MediaTokenError {}
 
-/// Inputs to the CALL-1 verification pipeline. Bundled in a struct so
-/// the call site stays readable when chime grows additional anchor
-/// dimensions (e.g. epoch number) in R3.1+.
+/// Inputs to the CALL-1 structure-validation pipeline. Bundled in a
+/// struct so the call site stays readable when chime grows additional
+/// anchor dimensions (e.g. epoch number) in R3.1+.
 #[derive(Clone, Debug)]
-pub struct MediaTokenVerifyContext<'a> {
+pub struct MediaTokenStructuralValidationContext<'a> {
     /// The current `cx.realm.media_service.service_id` resolved by the
     /// caller (yougen) from realm state at the moment of the exchange.
     pub current_media_service_id: &'a str,
@@ -164,12 +180,52 @@ pub struct MediaTokenVerifyContext<'a> {
     pub now: DateTime<Utc>,
 }
 
-/// Verify a [`MediaTokenResponse`] against the realm's current media
-/// service anchor and the call state the caller committed to.
+/// Marker returned after a [`MediaTokenResponse`] has passed chime's
+/// structure-level media-token checks.
 ///
-/// On success, returns the recognised [`MediaBackendType`] parsed from
-/// `response.participant_binding` — callers MUST forward this to their
-/// SFU client. On failure, returns a typed [`MediaTokenError`] whose
+/// This type deliberately means "structurally validated", not
+/// "cryptographically verified". Host applications MUST verify
+/// `service_signature` and `participant_binding.sig` with the realm
+/// media-service key before using the token response for SFrame
+/// keying.
+#[derive(Clone, Copy, Debug)]
+pub struct StructurallyValidatedMediaTokenResponse<'a> {
+    response: &'a MediaTokenResponse,
+}
+
+impl<'a> StructurallyValidatedMediaTokenResponse<'a> {
+    /// Borrow the original response after structure-level checks have
+    /// passed.
+    pub fn response(&self) -> &'a MediaTokenResponse {
+        self.response
+    }
+
+    /// Borrow the participant binding whose tuple/TTL/issuer anchor
+    /// has been structurally checked.
+    pub fn participant_binding(&self) -> &'a ParticipantBinding {
+        &self.response.participant_binding
+    }
+
+    /// Detached service signature material that still requires host-side
+    /// Ed25519 verification.
+    pub fn service_signature(&self) -> &'a str {
+        &self.response.service_signature
+    }
+
+    /// Participant-binding signature material that still requires
+    /// host-side Ed25519 verification.
+    pub fn participant_binding_signature(&self) -> &'a str {
+        &self.response.participant_binding.sig
+    }
+}
+
+/// Structurally validate a [`MediaTokenResponse`] against the realm's
+/// current media service anchor and the call state the caller committed
+/// to.
+///
+/// On success, returns a [`StructurallyValidatedMediaTokenResponse`]
+/// marker around the borrowed response. On failure, returns a typed
+/// [`MediaTokenError`] whose
 /// [`MediaTokenError::kind`] matches one of the five CXP-0010
 /// rejection codes the chime SDK guarantees to surface (CALL-2).
 ///
@@ -177,13 +233,13 @@ pub struct MediaTokenVerifyContext<'a> {
 /// service-id anchor. Cryptographic verification of
 /// `service_signature` and `participant_binding.sig` is deferred to a
 /// follow-up (`TODO(R3.1)`) once the SDK's
-/// `verify_service_signature` lands. Until then, callers SHOULD treat
-/// `MediaTokenResponse` as advisory and gate any SFrame keying on the
-/// host application's own signature check.
-pub fn verify_media_token_response(
-    response: &MediaTokenResponse,
-    ctx: &MediaTokenVerifyContext<'_>,
-) -> Result<(), MediaTokenError> {
+/// `verify_service_signature` lands. Until then, callers MUST treat
+/// the returned value as structure-only evidence and gate any SFrame
+/// keying on the host application's own signature check.
+pub fn structurally_validate_media_token_response<'response>(
+    response: &'response MediaTokenResponse,
+    ctx: &MediaTokenStructuralValidationContext<'_>,
+) -> Result<StructurallyValidatedMediaTokenResponse<'response>, MediaTokenError> {
     // ── 1. Anchor: `participant_binding.issuer_kid` MUST resolve to
     // the realm's current `cx.realm.media_service.service_id`. We
     // accept either a plain service id ("did:web:host:media") or a
@@ -207,16 +263,18 @@ pub fn verify_media_token_response(
     // selection bug (requested != binding).
     if response.participant_binding.focus_id != ctx.requested_focus_id {
         return Err(MediaTokenError::FocusMismatch {
-            expected_focus_id: ctx.requested_focus_id.to_owned(),
-            committed_focus_id: response.participant_binding.focus_id.clone(),
+            requested_focus_id: ctx.requested_focus_id.to_owned(),
+            binding_focus_id: response.participant_binding.focus_id.clone(),
+            committed_focus_id: None,
         });
     }
     if let Some(committed) = ctx.committed_session_focus
         && response.participant_binding.focus_id != committed
     {
         return Err(MediaTokenError::FocusMismatch {
-            expected_focus_id: ctx.requested_focus_id.to_owned(),
-            committed_focus_id: committed.to_owned(),
+            requested_focus_id: ctx.requested_focus_id.to_owned(),
+            binding_focus_id: response.participant_binding.focus_id.clone(),
+            committed_focus_id: Some(committed.to_owned()),
         });
     }
 
@@ -286,10 +344,11 @@ pub fn verify_media_token_response(
     // ── 5. TODO(R3.1): once the SDK exposes a service-key
     // verification helper, validate `response.service_signature` and
     // `binding.sig` against the resolved media-service public key.
-    // Until then we structurally accept the response and rely on the
-    // surrounding TLS / session-grant channel for authenticity.
+    // Until then we only return a structure-validation marker. Host
+    // applications must perform Ed25519 verification before SFrame
+    // keying.
 
-    Ok(())
+    Ok(StructurallyValidatedMediaTokenResponse { response })
 }
 
 /// Reject the focus when the SDK does not recognise the backend
@@ -359,8 +418,8 @@ mod tests {
         call_id: &'a CallId,
         actor_id: &'a Did,
         device_id: &'a DeviceId,
-    ) -> MediaTokenVerifyContext<'a> {
-        MediaTokenVerifyContext {
+    ) -> MediaTokenStructuralValidationContext<'a> {
+        MediaTokenStructuralValidationContext {
             current_media_service_id: "did:web:media.example:media",
             committed_session_focus: Some("cx:focus:01"),
             requested_focus_id: "cx:focus:01",
@@ -381,7 +440,16 @@ mod tests {
         let actor_id = actor();
         let device_id = device();
         let ctx = good_ctx(now, &realm_id, &call_id, &actor_id, &device_id);
-        assert!(verify_media_token_response(&response, &ctx).is_ok());
+        let structurally_validated =
+            structurally_validate_media_token_response(&response, &ctx).unwrap();
+        assert_eq!(
+            structurally_validated.response().participant_identity,
+            response.participant_identity
+        );
+        assert_eq!(
+            structurally_validated.participant_binding_signature(),
+            "stub-sig"
+        );
     }
 
     #[test]
@@ -394,7 +462,7 @@ mod tests {
         let actor_id = actor();
         let device_id = device();
         let ctx = good_ctx(now, &realm_id, &call_id, &actor_id, &device_id);
-        let err = verify_media_token_response(&response, &ctx).unwrap_err();
+        let err = structurally_validate_media_token_response(&response, &ctx).unwrap_err();
         assert_eq!(err.kind(), PushErrorKind::TokenIssuerUnauthorised);
     }
 
@@ -408,8 +476,39 @@ mod tests {
         let device_id = device();
         let mut ctx = good_ctx(now, &realm_id, &call_id, &actor_id, &device_id);
         ctx.requested_focus_id = "cx:focus:02";
-        let err = verify_media_token_response(&response, &ctx).unwrap_err();
+        let err = structurally_validate_media_token_response(&response, &ctx).unwrap_err();
         assert_eq!(err.kind(), PushErrorKind::FocusMismatch);
+        assert!(matches!(
+            err,
+            MediaTokenError::FocusMismatch {
+                requested_focus_id,
+                binding_focus_id,
+                committed_focus_id: None,
+            } if requested_focus_id == "cx:focus:02" && binding_focus_id == "cx:focus:01"
+        ));
+    }
+
+    #[test]
+    fn rejects_committed_focus_mismatch_with_explicit_fields() {
+        let now = Utc::now();
+        let response = good_response(now);
+        let realm_id = realm();
+        let call_id = call();
+        let actor_id = actor();
+        let device_id = device();
+        let mut ctx = good_ctx(now, &realm_id, &call_id, &actor_id, &device_id);
+        ctx.committed_session_focus = Some("cx:focus:committed-other");
+        let err = structurally_validate_media_token_response(&response, &ctx).unwrap_err();
+        assert!(matches!(
+            err,
+            MediaTokenError::FocusMismatch {
+                requested_focus_id,
+                binding_focus_id,
+                committed_focus_id: Some(committed_focus_id),
+            } if requested_focus_id == "cx:focus:01"
+                && binding_focus_id == "cx:focus:01"
+                && committed_focus_id == "cx:focus:committed-other"
+        ));
     }
 
     #[test]
@@ -423,7 +522,7 @@ mod tests {
         let actor_id = actor();
         let device_id = device();
         let ctx = good_ctx(now, &realm_id, &call_id, &actor_id, &device_id);
-        let err = verify_media_token_response(&response, &ctx).unwrap_err();
+        let err = structurally_validate_media_token_response(&response, &ctx).unwrap_err();
         assert_eq!(err.kind(), PushErrorKind::ParticipantBindingInvalid);
     }
 
@@ -439,7 +538,7 @@ mod tests {
         let actor_id = actor();
         let device_id = device();
         let ctx = good_ctx(now, &realm_id, &call_id, &actor_id, &device_id);
-        let err = verify_media_token_response(&response, &ctx).unwrap_err();
+        let err = structurally_validate_media_token_response(&response, &ctx).unwrap_err();
         assert_eq!(err.kind(), PushErrorKind::ParticipantBindingInvalid);
     }
 
@@ -455,7 +554,7 @@ mod tests {
         let actor_id = actor();
         let device_id = device();
         let ctx = good_ctx(now, &realm_id, &call_id, &actor_id, &device_id);
-        let err = verify_media_token_response(&response, &ctx).unwrap_err();
+        let err = structurally_validate_media_token_response(&response, &ctx).unwrap_err();
         assert_eq!(err.kind(), PushErrorKind::ParticipantBindingInvalid);
     }
 
@@ -496,8 +595,9 @@ mod tests {
         );
         assert!(
             MediaTokenError::FocusMismatch {
-                expected_focus_id: "a".to_owned(),
-                committed_focus_id: "b".to_owned(),
+                requested_focus_id: "a".to_owned(),
+                binding_focus_id: "b".to_owned(),
+                committed_focus_id: None,
             }
             .kind()
             .is_media_token_rejection()

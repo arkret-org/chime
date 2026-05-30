@@ -410,9 +410,10 @@ where
 ///   tracker prunes lazily on insert; long-running processes that
 ///   never insert do not see growth from this tracker alone.
 /// - The store is in-memory and per-`NonceTracker` instance. Hosts
-///   that want cross-process coverage are expected to layer a
-///   redis/key-value backend on top — the unit of correctness here is
-///   the local SDK boundary.
+///   that want restart-surviving or cross-process coverage MUST layer
+///   Redis, an encrypted local key-value store, or another durable
+///   backend on top — the unit of correctness here is the local SDK
+///   boundary.
 /// - `observe` returns `Err(NonceReplayError::DuplicateNonce)` on
 ///   replay so the caller fail-closes rather than silently dropping
 ///   the second request.

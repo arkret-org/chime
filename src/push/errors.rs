@@ -74,7 +74,10 @@ pub enum PushErrorKind {
     /// `cx.realm.media_service.service_id` epoch.
     TokenIssuerUnauthorised,
     /// CXP-0010 — `participant_binding` signature, tuple, or TTL does
-    /// not validate against the realm media-service binding.
+    /// not validate against the realm media-service binding. Chime's
+    /// current structure-only media-token helper emits this for tuple
+    /// and TTL failures; host-side Ed25519 verification remains
+    /// responsible for signature failures until the SDK verifier lands.
     ParticipantBindingInvalid,
     /// CXP-0010 — `participant_identity` returned by the focus does not
     /// match any entry in `cx.call.state.participants[]`.

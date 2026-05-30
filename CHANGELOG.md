@@ -17,7 +17,7 @@ project follows [SemVer](https://semver.org/) once it reaches `1.0`.
 > No version tag, no crates.io / Docker Hub / npm publish — git commit only.
 ## R3 — Spec sync 2026-05-27 (contrix-spec @ b47ff6ec)
 
-- CALL-1: `push::media_token` wraps the SDK `call_media_token_exchange` request builder and exposes `verify_media_token_response` + `MediaTokenVerifyContext` for the anchor / TTL / participant-binding tuple check. Signature cryptography is stubbed `TODO(R3.1)`.
+- CALL-1: `push::media_token` wraps the SDK `call_media_token_exchange` request builder and exposes `structurally_validate_media_token_response` + `MediaTokenStructuralValidationContext` for the anchor / TTL / participant-binding tuple check. The successful return type is `StructurallyValidatedMediaTokenResponse`, explicitly not cryptographic verification; host applications must verify `service_signature` and `participant_binding.sig` before SFrame keying until SDK signature verification lands.
 - CALL-2: token responses are rejected with typed `MediaTokenError` variants for `unknown_focus_type`, `token_issuer_unauthorised`, `participant_binding_invalid`, `focus_mismatch`, `legacy_single_endpoint_media_service`; classified by `PushErrorKind::is_media_token_rejection`.
 - ERR-1: 20 new R3 error codes mirrored from contrix-rust-sdk into `PushErrorKind` (media-binding + agent-lifecycle + recovery + handle homograph); `from_failure_code` matches via `contrix::error::ERROR_CODE_*` constants.
 - Telemetry / UI helpers added: `is_media_token_rejection`, `is_media_binding_code`, `is_agent_lifecycle_code` for branching error UX.
@@ -28,6 +28,11 @@ project follows [SemVer](https://semver.org/) once it reaches `1.0`.
 
 ### Added — CXP-0007 (Circle primitive) client-side surface
 
+- **`chime::bugle::BugleAppIdResolver`** provides the minimal
+  domestic-Android app-id resolution path: Android prefers
+  `domestic_app_id`, other platforms use the normal `app_id`.
+- **Chinese documentation** under `zh/` covers integration, error
+  codes, and production checks for yougen-facing SDK consumers.
 - **`PushNotification.circle_id` and `PushNotification.effective_scope`**
   expose the typed `cx:circle:` / `cx:realm:` security boundary that an
   event was authored against. `validate_wire_model` rejects untyped
@@ -58,6 +63,16 @@ project follows [SemVer](https://semver.org/) once it reaches `1.0`.
 
 ### Changed
 
+- **Breaking security rename:** removed the misleading
+  `verify_media_token_response` / `MediaTokenVerifyContext` surface.
+  Consumers must use `structurally_validate_media_token_response` with
+  `MediaTokenStructuralValidationContext`; the success marker is
+  `StructurallyValidatedMediaTokenResponse`, not a signature-verification
+  proof.
+- **`MediaTokenError::FocusMismatch` fields are explicit**: errors now
+  carry `requested_focus_id`, `binding_focus_id`, and optional
+  `committed_focus_id` so logs no longer conflate a requested-vs-binding
+  mismatch with a committed-session-focus mismatch.
 - **`tests/live_floria_integration.rs` is fail-fast in CI.** A new
   `tests/_helpers/floria_spawn.rs::require_floria_or_skip` helper
   panics when the floria binary is unavailable AND
@@ -70,6 +85,17 @@ project follows [SemVer](https://semver.org/) once it reaches `1.0`.
 
 ### Security
 
+- Media-token exchange validation is now named as structure-only:
+  `structurally_validate_media_token_response` returns
+  `StructurallyValidatedMediaTokenResponse`, so yougen cannot confuse
+  tuple/anchor/TTL checks with Ed25519 verification before SFrame
+  keying.
+- `PushNotification` documentation now calls out the `#[serde(flatten)]`
+  `extra` map explicitly: deserialization must be followed by
+  `assert_payload_safe`, `validate_blind_wakeup`, or
+  `validate_wire_model`.
+- `NonceTracker` documentation now treats persistent replay storage as
+  mandatory for server-side relays and multi-process hosts.
 - Circle metadata privacy: `circle_members` / `circle_member_dids` /
   `circle_member_actor_ids` are now classified as never-allowed
   payload keys; they cannot appear on any push wakeup wire even for
