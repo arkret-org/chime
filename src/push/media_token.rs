@@ -393,7 +393,8 @@ mod tests {
         let expires_at = now + Duration::seconds(300);
         MediaTokenResponse {
             backend_token: "livekit-jwt-token".to_owned(),
-            participant_identity: "cx:rtcpart:01904100-0000-7000-8000-000000000003".to_owned(),
+            participant_identity: "cx:rtc_participant:01904100-0000-7000-8000-000000000003"
+                .to_owned(),
             participant_binding: ParticipantBinding {
                 scheme: ParticipantBinding::SCHEME.to_owned(),
                 sig: "stub-sig".to_owned(),
@@ -403,7 +404,8 @@ mod tests {
                 focus_id: "cx:focus:01".to_owned(),
                 actor_id: actor(),
                 device_id: device(),
-                participant_identity: "cx:rtcpart:01904100-0000-7000-8000-000000000003".to_owned(),
+                participant_identity: "cx:rtc_participant:01904100-0000-7000-8000-000000000003"
+                    .to_owned(),
                 expires_at,
             },
             expires_at,

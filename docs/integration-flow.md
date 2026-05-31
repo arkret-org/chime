@@ -32,7 +32,7 @@ yougen (device)          chime (device)             floria (server)         chim
      │    push_key,           │                          │                       │
      │    PushPlatform,       │                          │                       │
      │    device_id,          │                          │                       │
-     │    accountable_to,     │                          │                       │
+     │ accountable_principal_ids │                       │                       │
      │  }                     │                          │                       │
      │───────────────────────►│                          │                       │
      │                        │                          │                       │
@@ -74,7 +74,7 @@ Notes:
 - Steps (3) and (5) run the same `validate_register_device` contract
   code on both sides — the device-side check is for fail-fast UX; the
   server-side check is the security boundary.
-- The `accountable_to` chain in (2) flows through floria unmodified; the
+- The `accountable_principal_ids` chain in (2) flows through floria unmodified; the
   server-side chime instance checks the chain depth against the realm's
   policy.
 - If (5) rejects on `nonce_replay`, the rejection envelope returned to

@@ -1286,6 +1286,7 @@ pub const ROUND_R2_R3_SENSITIVE_FIELDS: &[&str] = &[
     "modify_decision_ref",
     // T10 — attestation evidence
     "attestation_evidence",
+    "audit_agent_principal_id",
     "audit_agent_did",
     "audit_purpose",
     "audit_policy_version_digest",

@@ -4,6 +4,12 @@ All notable changes to `chime` are documented here. The format is based
 on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this
 project follows [SemVer](https://semver.org/) once it reaches `1.0`.
 
+## R3.4 — Spec sync 2026-05-31 (contrix-spec @ c2848a4)
+
+- Synced protocol-facing names and fixtures to `c2848a4`: event envelope schema naming, `_ids` grant constraints, accountability principal vocabulary, `cx:rtc_participant:` media participants, agent session start fields, and key-backup signature algorithm naming where applicable.
+
+> No version tag, no crates.io / Docker Hub / npm publish — git commit only.
+
 ## R3.3 — Spec sync 2026-05-28 (contrix-spec @ cced4b8)
 
 - R3.3 spec sync — pin to contrix-spec @ cced4b8 (CXP-0011 shareable object addressing / `cx.directory.resolve_target`: N/A for this service; object-address resolution belongs to the Directory Service).

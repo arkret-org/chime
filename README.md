@@ -1,6 +1,6 @@
 # chime
 
-> **Spec target**: [contrix-spec @ cced4b8](../contrix-spec) (R3.3 sync 2026-05-28)
+> **Spec target**: [contrix-spec @ c2848a4](../contrix-spec) (R3.4 sync 2026-05-31)
 
 [![coverage](https://img.shields.io/badge/coverage-local%20tarpaulin-informational)](docs/production-checklist.md#local-verification)
 
@@ -54,7 +54,7 @@ normative source.
 Per-project task lists are consolidated upstream — see
 [`../_todos.md`](../_todos.md) for the active cross-project task plan.
 The current audited protocol pin for this crate is
-`contrix-spec @ cced4b8`; older SHAs in `CHANGELOG.md` are historical
+`contrix-spec @ c2848a4`; older SHAs in `CHANGELOG.md` are historical
 round entries, not the active completion gate.
 
 ## Chinese docs
