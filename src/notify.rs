@@ -1603,6 +1603,26 @@ mod tests {
     }
 
     #[test]
+    fn wakeup_kind_rejects_legacy_and_unknown_values() {
+        for value in ["incoming_call", "member", "presence", "custom_kind"] {
+            let error = serde_json::from_value::<WakeupKind>(Value::String(value.to_owned()))
+                .expect_err("retired wakeup kind must fail closed");
+            assert!(
+                error
+                    .to_string()
+                    .contains("message, mention, reaction, call_invite"),
+                "unexpected error for {value}: {error}"
+            );
+        }
+
+        assert_eq!(
+            serde_json::from_value::<WakeupKind>(Value::String("call_invite".to_owned()))
+                .unwrap(),
+            WakeupKind::CallInvite
+        );
+    }
+
+    #[test]
     fn blind_wakeup_rejects_plaintext_metadata() {
         let mut notification = notification();
         notification

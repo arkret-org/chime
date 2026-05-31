@@ -599,6 +599,23 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "notify")]
+    fn call_invite_routes_advertise_voip_capability() {
+        let pseudo = PushTargetId::new("cx:pseudonym:push:01HYZ8Z000000000000000").unwrap();
+        let service_did = ServiceDid::new("did:web:principal.example").unwrap();
+        let mut route = PushRoute::active(
+            service_did,
+            PushRouteId::new("apns_voip").unwrap(),
+            pseudo,
+            "did:web:gateway.example",
+        );
+        route.capabilities.push(PushRouteCapability::Voip);
+
+        assert!(route.supports(&PushRouteCapability::Voip));
+        assert!(!route.supports(&PushRouteCapability::Chat));
+    }
+
+    #[test]
     fn route_rejects_unknown_fields() {
         let bad =
             serde_json::from_str::<PushRoute>(r#"{"route": "apns_main", "extra_unknown": true}"#);
