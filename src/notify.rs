@@ -1638,6 +1638,25 @@ mod tests {
     }
 
     #[test]
+    fn blind_wakeup_rejects_audience_mention_expansion_metadata() {
+        let mut notification = notification();
+        notification.extra.insert(
+            "audience_mention_routing_hint".to_owned(),
+            serde_json::json!({
+                "audience": "flow_engaged",
+                "recipient_count": 3,
+            }),
+        );
+
+        assert_eq!(
+            notification.validate_blind_wakeup().unwrap_err(),
+            PushNotifyPrivacyError::SensitiveField {
+                field: "audience_mention_routing_hint".to_owned()
+            }
+        );
+    }
+
+    #[test]
     fn deserialized_extra_fields_require_runtime_validation() {
         let loaded: PushNotification = serde_json::from_value(serde_json::json!({
             "push_target_id": "cx:pseudonym:push:01HYZ8Z000000000000000",
