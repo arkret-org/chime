@@ -16,8 +16,8 @@
 //! and the local device session that lets the client speak to floria.
 //! Floria reaches us either by emitting a `cx.principal.deactivate`
 //! event on the device's normal sync stream (in-band) or by sending a
-//! dedicated push wakeup whose `wakeup_kind` is a custom token signalling
-//! deactivation. Either path funnels into [`on_account_deactivate`] —
+//! dedicated push wakeup whose `wakeup_kind` is a closed v1 token
+//! signalling deactivation. Either path funnels into [`on_account_deactivate`] —
 //! the single entrypoint a chime integrator should call when they
 //! observe a deactivation for the principal currently bound to this
 //! device.
@@ -101,7 +101,7 @@ pub trait BackgroundFetchDriver: Send + Sync {
 pub struct BackgroundFetchHint<'a> {
     /// Opaque push target id (`cx:pseudonym:push:...`). Always present.
     pub push_target_id: &'a str,
-    /// Wakeup kind (`message`, `incoming_call`, ...).
+    /// Wakeup kind (`message`, `mention`, `reaction`, `call_invite`).
     pub wakeup_kind: &'a str,
     /// Optional Circle scope, when the originating wakeup carried one.
     pub circle_id: Option<&'a str>,

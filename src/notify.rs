@@ -202,22 +202,18 @@ impl<'de> Deserialize<'de> for PushTargetId {
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum WakeupKind {
     Message,
-    IncomingCall,
     Mention,
-    Member,
-    Presence,
-    Custom(String),
+    Reaction,
+    CallInvite,
 }
 
 impl WakeupKind {
     pub fn as_str(&self) -> &str {
         match self {
             Self::Message => "message",
-            Self::IncomingCall => "incoming_call",
             Self::Mention => "mention",
-            Self::Member => "member",
-            Self::Presence => "presence",
-            Self::Custom(value) => value.as_str(),
+            Self::Reaction => "reaction",
+            Self::CallInvite => "call_invite",
         }
     }
 }
@@ -239,14 +235,12 @@ impl<'de> Deserialize<'de> for WakeupKind {
         let raw = String::deserialize(deserializer)?;
         Ok(match raw.as_str() {
             "message" => Self::Message,
-            "incoming_call" => Self::IncomingCall,
             "mention" => Self::Mention,
-            "member" => Self::Member,
-            "presence" => Self::Presence,
-            _ => {
-                validate_custom_wakeup_kind(&raw).map_err(serde::de::Error::custom)?;
-                Self::Custom(raw)
-            }
+            "reaction" => Self::Reaction,
+            "call_invite" => Self::CallInvite,
+            _ => return Err(serde::de::Error::custom(
+                "wakeup_kind must be one of message, mention, reaction, call_invite",
+            )),
         })
     }
 }
@@ -998,22 +992,6 @@ fn validate_push_target_id(value: &str) -> Result<(), PushNotifyPrivacyError> {
         });
     }
 
-    Ok(())
-}
-
-fn validate_custom_wakeup_kind(value: &str) -> Result<(), PushNotifyPrivacyError> {
-    if value.is_empty()
-        || value.len() > 32
-        || value.to_ascii_lowercase().contains("did:")
-        || value.contains("cx:")
-        || !value
-            .chars()
-            .all(|ch| ch.is_ascii_lowercase() || ch.is_ascii_digit() || ch == '_')
-    {
-        return Err(PushNotifyPrivacyError::InvalidFieldValue {
-            field: "wakeup_kind".to_owned(),
-        });
-    }
     Ok(())
 }
 

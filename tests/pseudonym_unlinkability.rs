@@ -142,10 +142,9 @@ fn target_id_serde_round_trip_preserves_byte_form() {
 fn wakeup_kind_serializes_to_opaque_vocabulary_only() {
     for kind in [
         WakeupKind::Message,
-        WakeupKind::IncomingCall,
         WakeupKind::Mention,
-        WakeupKind::Member,
-        WakeupKind::Presence,
+        WakeupKind::Reaction,
+        WakeupKind::CallInvite,
     ] {
         let json = serde_json::to_string(&kind).unwrap();
         assert!(!json.contains("did:"), "wakeup_kind leaked DID: {json}");

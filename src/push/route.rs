@@ -110,7 +110,7 @@ impl<'de> Deserialize<'de> for ServiceDid {
 ///
 /// Sync Service consults these tags before fanning a wakeup to the
 /// route — for example, only routes with `voip` may receive
-/// `WakeupKind::IncomingCall`.
+/// `WakeupKind::CallInvite`.
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum PushRouteCapability {
