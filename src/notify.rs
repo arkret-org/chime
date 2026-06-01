@@ -238,9 +238,11 @@ impl<'de> Deserialize<'de> for WakeupKind {
             "mention" => Self::Mention,
             "reaction" => Self::Reaction,
             "call_invite" => Self::CallInvite,
-            _ => return Err(serde::de::Error::custom(
-                "wakeup_kind must be one of message, mention, reaction, call_invite",
-            )),
+            _ => {
+                return Err(serde::de::Error::custom(
+                    "wakeup_kind must be one of message, mention, reaction, call_invite",
+                ));
+            }
         })
     }
 }
@@ -1616,8 +1618,7 @@ mod tests {
         }
 
         assert_eq!(
-            serde_json::from_value::<WakeupKind>(Value::String("call_invite".to_owned()))
-                .unwrap(),
+            serde_json::from_value::<WakeupKind>(Value::String("call_invite".to_owned())).unwrap(),
             WakeupKind::CallInvite
         );
     }
