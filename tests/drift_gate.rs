@@ -17,10 +17,10 @@
 //! - Phase P2 agent-kind routing (`cx.agent.{pause,resume,deactivate}`
 //!   silent-consume; `cx.agent.{draft.propose,action_request,
 //!   action_approve,action_reject}` drop unless subscribed).
-//! - The eight new SDK typed-id prefixes (`agent_principal`,
-//!   `agent_session`, `agent_key`, `agent_draft`,
+//! - The seven SDK typed-id prefixes (`agent_session`, `agent_key`,
+//!   `agent_draft`,
 //!   `accountability_grant`, `sidecar_circle`, `backup_series`,
-//!   `recovery_session`).
+//!   `recovery_session`). `agent_principal_id` is a DID-as-id.
 
 #![cfg(feature = "notify")]
 
@@ -214,10 +214,10 @@ fn agent_event_kind_unknown_falls_through() {
 
 #[test]
 fn phase_p2_typed_id_prefixes_match_floria_6496235() {
-    // The exact set is locked at 8. If floria 6496235 adds or removes a
+    // The exact set is locked at 7. If floria 6496235 adds or removes a
     // prefix, this test fires loudly so the chime mirror gets updated
     // in the same change.
-    assert_eq!(PHASE_P2_AGENT_TYPED_ID_PREFIXES.len(), 8);
+    assert_eq!(PHASE_P2_AGENT_TYPED_ID_PREFIXES.len(), 7);
     for prefix in PHASE_P2_AGENT_TYPED_ID_PREFIXES {
         assert!(
             prefix.starts_with("cx:"),
@@ -227,7 +227,7 @@ fn phase_p2_typed_id_prefixes_match_floria_6496235() {
     }
     // Spot-check a known typed-id value passes the recognizer.
     assert!(is_phase_p2_agent_typed_id(
-        "cx:agent_principal:01HZK9Z000000000000000000"
+        "cx:agent_session:01HZK9Z000000000000000000"
     ));
     assert!(is_phase_p2_agent_typed_id(
         "cx:accountability_grant:01HZK9Z000000000000000000"
@@ -246,7 +246,7 @@ fn phase_p2_typed_id_prefixes_match_floria_6496235() {
 
 #[test]
 fn agent_typed_id_in_event_id_slot_fails_closed() {
-    // An agent typed-id (`cx:agent_principal:...`) MUST NOT appear in
+    // An agent typed-id (`cx:agent_session:...`) MUST NOT appear in
     // the wakeup's `event_id` slot — that slot is pinned to `cx:event:`.
     // chime's `validate_typed_id` already enforces the prefix, so this
     // exercises the same fail-closed rule from the wire side: the
@@ -257,7 +257,7 @@ fn agent_typed_id_in_event_id_slot_fails_closed() {
         "notification": {
             "push_target_id": "cx:pseudonym:push:01HYZ8Z000000000000000",
             "wakeup_kind": "message",
-            "event_id": "cx:agent_principal:01HZK9Z000000000000000000",
+            "event_id": "cx:agent_session:01HZK9Z000000000000000000",
             "devices": [
                 { "push_key": "fcm:opaque-token", "app_id": "app.example" }
             ]
@@ -272,7 +272,7 @@ fn agent_typed_id_in_event_id_slot_fails_closed() {
     };
     assert_eq!(
         field, "event_id",
-        "an agent_principal typed-id smuggled into the event_id slot must be rejected"
+        "an agent_session typed-id smuggled into the event_id slot must be rejected"
     );
 }
 

@@ -423,8 +423,8 @@ impl PushNotification {
             // Phase P2 — agent / sidecar / backup / recovery typed-id
             // prefixes are never expected to appear in a blind wakeup's
             // `extra` map. Reject any string value that starts with one
-            // of the eight new SDK typed-id prefixes so a caller can't
-            // smuggle an agent_principal / accountability_grant /
+            // of the seven SDK typed-id prefixes so a caller can't
+            // smuggle an agent_session / accountability_grant /
             // sidecar_circle id through.
             if let Some(raw) = value.as_str()
                 && is_phase_p2_agent_typed_id(raw)
@@ -1338,16 +1338,13 @@ pub const AGENT_ACTOR_PRIVATE_KINDS: &[&str] = &[
     "cx.agent.action_reject",
 ];
 
-/// Phase P2 — eight new SDK typed-id prefixes mirrored from floria
+/// Phase P2 — seven SDK typed-id prefixes mirrored from floria
 /// 6496235's `PHASE_P2_AGENT_TYPED_ID_PREFIXES`. chime uses the list to
 /// reject inbound payloads that route an agent/sidecar/backup/recovery
 /// typed id into a slot reserved for a *different* typed-id prefix
-/// (e.g. an `agent_principal` id smuggled into a wakeup's `event_id`
-/// slot). The "right" slots for these typed ids never travel on the
-/// blind-wakeup wire; if one appears there, it is by definition a
-/// correlation leak.
+/// (e.g. an `agent_session` id smuggled into a wakeup's `event_id`
+/// slot). `agent_principal_id` is a DID-as-id, not a `cx:*` typed id.
 pub const PHASE_P2_AGENT_TYPED_ID_PREFIXES: &[&str] = &[
-    "cx:agent_principal:",
     "cx:agent_session:",
     "cx:agent_key:",
     "cx:agent_draft:",
@@ -1386,7 +1383,7 @@ pub fn classify_agent_event_kind(event_kind: &str) -> Option<AgentEventRouting> 
     None
 }
 
-/// Return `true` if `value` starts with one of the eight new SDK typed-id
+/// Return `true` if `value` starts with one of the seven SDK typed-id
 /// prefixes mirrored in [`PHASE_P2_AGENT_TYPED_ID_PREFIXES`]. Used by
 /// chime's wire-validation layer to fail closed when one of these typed
 /// ids appears in a wakeup slot that should never carry an agent /
