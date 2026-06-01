@@ -1,6 +1,6 @@
 //! Bridge describe + integration describe response DTOs.
 //!
-//! The wire structs live in `contrix-api` and are re-exported here for
+//! The wire structs live in `contrix-contracts` and are re-exported here for
 //! chime's existing public API. Keeping the producer/consumer contract in
 //! the SDK prevents floria and chime from carrying divergent copies.
 
