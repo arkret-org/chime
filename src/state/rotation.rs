@@ -77,7 +77,7 @@ pub fn plan_token_rotation_with_strategy(
 
     let unregister_old = existing.map(|state| {
         let old_config = PushDeviceConfig {
-            principal_did: config.principal_did,
+            principal_id: config.principal_id,
             device_id: &state.device_id,
             push_key: None,
             platform: config.platform,

@@ -66,8 +66,8 @@ pub const CONTRIX_CREATED_AT_HEADER: &str = "X-Contrix-Created-At";
 /// Contrix request audience header covered by request signatures.
 pub const CONTRIX_AUDIENCE_HEADER: &str = "X-Contrix-Audience";
 
-/// Contrix actor DID header covered by request signatures.
-pub const CONTRIX_ACTOR_DID_HEADER: &str = "X-Contrix-Actor-Did";
+/// Contrix actor ID header covered by request signatures.
+pub const CONTRIX_ACTOR_ID_HEADER: &str = "X-Contrix-Actor-Id";
 
 /// Contrix request expiry timestamp header covered by request signatures.
 pub const CONTRIX_EXPIRES_AT_HEADER: &str = "X-Contrix-Expires-At";

@@ -63,7 +63,7 @@ proptest! {
             "https://push.example.com/api/v1/push/notify",
         );
         let config = PushDeviceConfig {
-            principal_did: Some("did:web:alice.example"),
+            principal_id: Some("did:web:alice.example"),
             device_id: &device_id_with_fragment,
             push_key: Some(&push_key),
             platform: platform.map(PushPlatform::as_str),
@@ -120,7 +120,7 @@ proptest! {
             "https://push.example.com/api/v1/push/notify",
         );
         let config = PushDeviceConfig {
-            principal_did: Some("did:web:bob.example"),
+            principal_id: Some("did:web:bob.example"),
             device_id: &device_id_with_fragment,
             push_key: None,
             platform: None,
@@ -182,7 +182,7 @@ mod notify_props {
                 Just("subtitle"),
                 Just("preview"),
                 Just("realm_name"),
-                Just("sender_display_name"),
+                Just("sender_actor_display_name"),
                 Just("provider_payload"),
                 Just("aps"),
                 Just("encrypted_payload"),

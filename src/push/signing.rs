@@ -38,7 +38,7 @@ use super::urls::{
     redact_url, require_optional_owned_non_empty, require_owned_non_empty, try_contrix_api_url,
 };
 use super::{
-    CONTENT_DIGEST_HEADER, CONTRIX_ACTOR_DID_HEADER, CONTRIX_AUDIENCE_HEADER,
+    CONTENT_DIGEST_HEADER, CONTRIX_ACTOR_ID_HEADER, CONTRIX_AUDIENCE_HEADER,
     CONTRIX_CREATED_AT_HEADER, CONTRIX_DESTINATION_SERVICE_DID_HEADER, CONTRIX_DEVICE_ID_HEADER,
     CONTRIX_EXPIRES_AT_HEADER, CONTRIX_IDEMPOTENCY_KEY_HEADER, CONTRIX_NONCE_HEADER,
     CONTRIX_OPERATION_ID_HEADER, CONTRIX_ORIGIN_HEADER, CONTRIX_ORIGIN_SERVICE_DID_HEADER,
@@ -57,7 +57,7 @@ pub struct PushRequestSigningContext {
     pub created_at: String,
     pub audience: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub actor_did: Option<String>,
+    pub actor_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub expires_at: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -85,7 +85,7 @@ impl fmt::Debug for PushRequestSigningContext {
             .field("device_id", &self.device_id)
             .field("created_at", &self.created_at)
             .field("audience", &self.audience)
-            .field("actor_did", &self.actor_did)
+            .field("actor_id", &self.actor_id)
             .field("expires_at", &self.expires_at)
             .field("origin", &self.origin)
             .field("origin_service_did", &self.origin_service_did)
@@ -118,8 +118,8 @@ impl PushRequestSigningContext {
         headers.push((CONTRIX_CREATED_AT_HEADER, self.created_at.clone()));
         headers.push((CONTRIX_AUDIENCE_HEADER, self.audience.clone()));
 
-        if let Some(actor_did) = &self.actor_did {
-            headers.push((CONTRIX_ACTOR_DID_HEADER, actor_did.clone()));
+        if let Some(actor_id) = &self.actor_id {
+            headers.push((CONTRIX_ACTOR_ID_HEADER, actor_id.clone()));
         }
         if let Some(expires_at) = &self.expires_at {
             headers.push((CONTRIX_EXPIRES_AT_HEADER, expires_at.clone()));
@@ -167,8 +167,8 @@ impl PushRequestSigningContext {
         components.push(Component::Header("x-contrix-created-at".to_owned()));
         components.push(Component::Header("x-contrix-audience".to_owned()));
 
-        if self.actor_did.is_some() {
-            components.push(Component::Header("x-contrix-actor-did".to_owned()));
+        if self.actor_id.is_some() {
+            components.push(Component::Header("x-contrix-actor-id".to_owned()));
         }
         if self.expires_at.is_some() {
             components.push(Component::Header("x-contrix-expires-at".to_owned()));
@@ -239,7 +239,7 @@ pub struct PushRequestSigningOptions {
     pub created_at: String,
     pub audience: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub actor_did: Option<String>,
+    pub actor_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub expires_at: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -261,7 +261,7 @@ impl PushRequestSigningOptions {
         Self {
             created_at: created_at.into(),
             audience: audience.into(),
-            actor_did: None,
+            actor_id: None,
             expires_at: None,
             origin: None,
             origin_service_did: None,
@@ -272,8 +272,8 @@ impl PushRequestSigningOptions {
         }
     }
 
-    pub fn with_actor_did(mut self, actor_did: impl Into<String>) -> Self {
-        self.actor_did = Some(actor_did.into());
+    pub fn with_actor_id(mut self, actor_id: impl Into<String>) -> Self {
+        self.actor_id = Some(actor_id.into());
         self
     }
 
@@ -354,7 +354,7 @@ where
 {
     let created_at = require_owned_non_empty("created_at", options.created_at)?;
     let audience = require_owned_non_empty("audience", options.audience)?;
-    let actor_did = require_optional_owned_non_empty("actor_did", options.actor_did)?;
+    let actor_id = require_optional_owned_non_empty("actor_id", options.actor_id)?;
     let expires_at = require_optional_owned_non_empty("expires_at", options.expires_at)?;
     let origin = require_optional_owned_non_empty("origin", options.origin)?;
     let origin_service_did =
@@ -377,7 +377,7 @@ where
         device_id: device_id.to_owned(),
         created_at,
         audience,
-        actor_did,
+        actor_id,
         expires_at,
         origin,
         origin_service_did,

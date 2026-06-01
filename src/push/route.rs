@@ -74,7 +74,7 @@ pub struct ServiceDid(String);
 impl ServiceDid {
     /// Construct a service DID. Empty / whitespace-only inputs are
     /// rejected up front so an "active" route can never end up with a
-    /// blank recipient_service_did even when the caller forgot to
+    /// blank recipient service DID even when the caller forgot to
     /// thread one through.
     pub fn new(value: impl Into<String>) -> Result<Self, PushRouteError> {
         let value = value.into();
@@ -195,12 +195,9 @@ pub enum PushRouteError {
     InvalidRouteIdCharacter(char),
     #[error("push_route is active but missing required field `{field}`")]
     ActiveRouteMissing { field: &'static str },
-    /// T4.1: active routes MUST carry a non-empty `recipient_service_did`
-    /// because it is the first leg of the cell_subject quadruple.
-    /// `ActiveRouteMissing { field: "recipient_service_did" }` covers
-    /// the omission case; this variant covers the
-    /// "explicitly-supplied-but-blank" case so we never silently accept
-    /// a service DID of `""` from JSON or from a buggy caller.
+    /// T4.1: active routes MUST carry a non-empty
+    /// `recipient_service_did` because it is the first leg of the
+    /// cell_subject quadruple.
     #[error("recipient_service_did must not be empty")]
     EmptyServiceDid,
     /// T4.1: the cell_subject contract pins
@@ -226,8 +223,8 @@ impl PushRoute {
     /// Construct an active route scoped to a recipient Principal
     /// Server.
     ///
-    /// T4.1 (2026-05-20): `recipient_service_did` is now mandatory and
-    /// typed as [`ServiceDid`]. The previous signature
+    /// T4.1 (2026-05-20): the recipient service DID is now mandatory
+    /// and typed as [`ServiceDid`]. The previous signature
     /// `active(route, push_target_id, push_gateway_did)` allowed
     /// construction of active routes with `recipient_service_did:
     /// None`, which violated the `cx.device.push_route` cell_subject
@@ -311,7 +308,7 @@ impl PushRoute {
     /// keeping them stable across the active → revoked transition.
     ///
     /// T4.1: returns [`PushRouteError::RevokeMissingServiceDid`] if
-    /// the input route somehow has no recipient_service_did (which
+    /// the input route somehow has no `recipient_service_did` (which
     /// can only happen via [`PushRoute::stub_unauthenticated`] or a
     /// deserialized legacy record), so a buggy revoke can never land
     /// in the wrong cell.

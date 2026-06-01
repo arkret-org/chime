@@ -30,7 +30,7 @@ use super::{REGISTER_DEVICE_PATH, UNREGISTER_DEVICE_PATH};
 /// };
 ///
 /// let config = PushDeviceConfig {
-///     principal_did: Some("did:web:alice.example"),
+///     principal_id: Some("did:web:alice.example"),
 ///     device_id: "did:web:alice.example#device-phone",
 ///     push_key: Some("fcm:token"),
 ///     platform: Some("android"),
@@ -75,8 +75,8 @@ pub fn build_register_device_request(
 
     Ok(RegisterDeviceRequest {
         operation_id: crate::OPERATION_PUSH_REGISTER_DEVICE.to_owned(),
-        principal_did: config
-            .principal_did
+        principal_id: config
+            .principal_id
             .and_then(non_empty_str)
             .map(str::to_owned),
         device_id: config.device_id.to_owned(),
@@ -106,7 +106,7 @@ pub fn build_register_device_request(
 /// };
 ///
 /// let config = PushDeviceConfig {
-///     principal_did: Some("did:web:alice.example"),
+///     principal_id: Some("did:web:alice.example"),
 ///     device_id: "did:web:alice.example#device-phone",
 ///     push_key: None,
 ///     platform: Some("android"),
@@ -153,8 +153,8 @@ pub fn build_unregister_device_request(
 
     Ok(UnregisterDeviceRequest {
         operation_id: crate::OPERATION_PUSH_UNREGISTER_DEVICE.to_owned(),
-        principal_did: config
-            .principal_did
+        principal_id: config
+            .principal_id
             .and_then(non_empty_str)
             .map(str::to_owned),
         device_id: config.device_id.to_owned(),
@@ -201,8 +201,8 @@ pub fn build_unsubscribe_request(
         return Err(PushRegistrationError::MissingField("target_id"));
     };
 
-    if let Some(principal_did) = config.principal_did.and_then(non_empty_str) {
-        request = request.with_principal_did(principal_did);
+    if let Some(principal_id) = config.principal_id.and_then(non_empty_str) {
+        request = request.with_principal_id(principal_id);
     }
     if let Some(idempotency_key) = config.idempotency_key.and_then(non_empty_str) {
         request = request.with_idempotency_key(idempotency_key);
@@ -222,7 +222,7 @@ pub fn build_unsubscribe_request(
 /// };
 ///
 /// let config = PushDeviceConfig {
-///     principal_did: Some("did:web:alice.example"),
+///     principal_id: Some("did:web:alice.example"),
 ///     device_id: "did:web:alice.example#device-phone",
 ///     push_key: Some("fcm:token"),
 ///     platform: Some("android"),
@@ -337,7 +337,7 @@ fn non_empty_str(value: &str) -> Option<&str> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::push::CONTRIX_ACTOR_DID_HEADER;
+    use crate::push::CONTRIX_ACTOR_ID_HEADER;
     use crate::push::CONTRIX_DESTINATION_SERVICE_DID_HEADER;
     use crate::push::CONTRIX_EXPIRES_AT_HEADER;
     use crate::push::CONTRIX_ORIGIN_SERVICE_DID_HEADER;
@@ -349,7 +349,7 @@ mod tests {
 
     fn config<'a>(platform: Option<&'a str>) -> PushDeviceConfig<'a> {
         PushDeviceConfig {
-            principal_did: Some("did:web:alice.example"),
+            principal_id: Some("did:web:alice.example"),
             device_id: "did:web:alice.example#device-phone",
             push_key: Some("fcm:very-secret-token"),
             platform,
@@ -383,7 +383,7 @@ mod tests {
 
         assert_eq!(request.operation_id, crate::OPERATION_PUSH_REGISTER_DEVICE);
         assert_eq!(
-            request.principal_did.as_deref(),
+            request.principal_id.as_deref(),
             Some("did:web:alice.example")
         );
         assert_eq!(request.device_id, "did:web:alice.example#device-phone");
@@ -417,7 +417,7 @@ mod tests {
             crate::OPERATION_PUSH_UNREGISTER_DEVICE
         );
         assert_eq!(
-            request.principal_did.as_deref(),
+            request.principal_id.as_deref(),
             Some("did:web:alice.example")
         );
         assert_eq!(request.device_id, "did:web:alice.example#device-phone");
@@ -585,7 +585,7 @@ mod tests {
             "https://principal.example",
             &request,
             PushRequestSigningOptions::new("2026-04-29T00:00:00Z", "https://principal.example")
-                .with_actor_did("did:web:alice.example")
+                .with_actor_id("did:web:alice.example")
                 .with_expires_at("2026-04-29T00:05:00Z")
                 .with_origin("https://app.example")
                 .with_origin_service_did("did:web:sync.example.com")
@@ -596,7 +596,7 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(context.actor_did.as_deref(), Some("did:web:alice.example"));
+        assert_eq!(context.actor_id.as_deref(), Some("did:web:alice.example"));
         assert_eq!(context.expires_at.as_deref(), Some("2026-04-29T00:05:00Z"));
 
         let proof_body = context.canonical_proof_body().unwrap();
@@ -604,7 +604,7 @@ mod tests {
             proof_body["operation_id"],
             crate::OPERATION_PUSH_REGISTER_DEVICE
         );
-        assert_eq!(proof_body["actor_did"], "did:web:alice.example");
+        assert_eq!(proof_body["actor_id"], "did:web:alice.example");
         assert_eq!(proof_body["expires_at"], "2026-04-29T00:05:00Z");
         assert_eq!(proof_body["origin"], "https://app.example");
         assert_eq!(proof_body["nonce"], "idem-1");
@@ -612,7 +612,7 @@ mod tests {
         let metadata_headers = context.signed_metadata_headers();
         assert!(
             metadata_headers
-                .contains(&(CONTRIX_ACTOR_DID_HEADER, "did:web:alice.example".to_owned()))
+                .contains(&(CONTRIX_ACTOR_ID_HEADER, "did:web:alice.example".to_owned()))
         );
         assert!(
             metadata_headers
@@ -632,7 +632,7 @@ mod tests {
         )));
 
         let signature_input = context.http_message_signature_input("sig1").unwrap();
-        assert!(signature_input.contains("\"x-contrix-actor-did\""));
+        assert!(signature_input.contains("\"x-contrix-actor-id\""));
         assert!(signature_input.contains("\"x-contrix-expires-at\""));
         assert!(signature_input.contains("\"x-contrix-origin-service-did\""));
         assert!(signature_input.contains("\"x-contrix-destination-service-did\""));

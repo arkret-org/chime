@@ -396,7 +396,7 @@ impl ContrixPushClient {
     /// # async fn doc_run() -> Result<(), chime::PushRegistrationError> {
     /// # use chime::{GatewayBinding, PushDeviceConfig, PushGatewayType, PushPreferences};
     /// # let config = PushDeviceConfig {
-    /// #     principal_did: None,
+    /// #     principal_id: None,
     /// #     device_id: "did:web:alice.example#device-phone",
     /// #     push_key: Some("fcm-or-apns-device-token"),
     /// #     platform: None, app_id: None, domestic_app_id: None,
@@ -688,7 +688,7 @@ impl ContrixPushClient {
     ///
     /// Per-binding `push_key` and `app_id` overrides on the binding
     /// take priority over the values in `config`. The base
-    /// `device_id`, `principal_did`, `platform`, `idempotency_key`,
+    /// `device_id`, `principal_id`, `platform`, `idempotency_key`,
     /// `request_id`, and `proof` are shared across bindings.
     pub async fn register_device_all(
         &self,
@@ -1158,7 +1158,7 @@ mod tests {
 
     fn config<'a>() -> PushDeviceConfig<'a> {
         PushDeviceConfig {
-            principal_did: Some("did:web:alice.example"),
+            principal_id: Some("did:web:alice.example"),
             device_id: "did:web:alice.example#device-phone",
             push_key: Some("fcm:very-secret-token"),
             platform: Some("android"),

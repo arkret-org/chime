@@ -135,7 +135,7 @@ pub fn plan_registration_repair(
     let mut token_moved = false;
 
     for state in states {
-        let same_logical = state.principal_did.as_deref() == config.principal_did
+        let same_logical = state.principal_id.as_deref() == config.principal_id
             && state.device_id == config.device_id
             && state.platform.as_deref() == current_platform.as_deref()
             && state.app_id.as_deref() == current_app_id.as_deref()

@@ -39,7 +39,7 @@ const SENSITIVE_KEYS: &[&str] = &[
     "sender",
     "sender_did",
     "sender_handle",
-    "sender_display_name",
+    "sender_actor_display_name",
     "from",
     "to",
     "target_did",

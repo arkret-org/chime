@@ -26,7 +26,7 @@ const GATEWAY: &str = "https://push.gateway.example/api/v1/push/notify";
 
 fn config_for_token<'a>(token: &'a str, idempotency: &'a str) -> PushDeviceConfig<'a> {
     PushDeviceConfig {
-        principal_did: Some("did:web:rotation.test"),
+        principal_id: Some("did:web:rotation.test"),
         device_id: DEVICE_ID,
         push_key: Some(token),
         platform: Some("android"),

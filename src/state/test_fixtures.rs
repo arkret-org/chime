@@ -24,7 +24,7 @@ pub(crate) fn binding() -> GatewayBinding {
 
 pub(crate) fn config(push_key: &str) -> PushDeviceConfig<'_> {
     PushDeviceConfig {
-        principal_did: Some("did:web:alice.example"),
+        principal_id: Some("did:web:alice.example"),
         device_id: "did:web:alice.example#device-phone",
         push_key: Some(push_key),
         platform: Some("android"),

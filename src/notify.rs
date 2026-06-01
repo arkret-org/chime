@@ -300,7 +300,7 @@ pub struct PushNotification {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub sender: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub sender_display_name: Option<String>,
+    pub sender_actor_display_name: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub realm_name: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -308,7 +308,7 @@ pub struct PushNotification {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub counts: Option<Value>,
     /// Round 4 (B5, spec a77b995) — plaintext routing fragment for
-    /// mention-redirect scenarios. Only actor DIDs in
+    /// mention-redirect scenarios. Only actor IDs in
     /// `mention_redirect_target_actor_ids` are permitted to decrypt the
     /// (otherwise encrypted) message body at the push layer. If the
     /// receiver's actor_id is NOT in the list, the body MUST stay
@@ -456,9 +456,9 @@ impl PushNotification {
     pub fn validate_blind_wakeup(&self) -> Result<(), PushNotifyPrivacyError> {
         self.validate_wire_model()?;
 
-        if self.sender_display_name.is_some() {
+        if self.sender_actor_display_name.is_some() {
             return Err(PushNotifyPrivacyError::SensitiveField {
-                field: "sender_display_name".to_owned(),
+                field: "sender_actor_display_name".to_owned(),
             });
         }
         if self.realm_name.is_some() {
@@ -528,7 +528,7 @@ impl PushNotification {
     /// - When [`Self::mention_redirect`] is `None`, this is NOT a
     ///   mention-redirect scenario and the call returns `true` (the
     ///   normal recipient-set gate elsewhere applies).
-    /// - When `mention_redirect` is `Some`, the receiver's actor DID
+    /// - When `mention_redirect` is `Some`, the receiver's actor ID
     ///   MUST appear in `mention_redirect_target_actor_ids` to be
     ///   permitted. **Empty array means nobody is permitted** —
     ///   fail-closed by construction.
@@ -1214,6 +1214,7 @@ fn is_sensitive_payload_key(key: &str) -> bool {
         // label as sensitive until all downstream services agree on a
         // generic `*_name` rule.
         "realm_name"
+            | "sender_actor_display_name"
             // CXP-0007 — Circle display / membership surfaces. The typed
             // `circle_id` may travel; the human-readable label and any
             // member listing must not.
@@ -2063,7 +2064,7 @@ mod tests {
             );
         }
         assert!(render_agent_lifecycle_summary("cx.agent.draft.propose").is_none());
-        assert!(render_agent_lifecycle_summary("cx.message.send").is_none());
+        assert!(render_agent_lifecycle_summary("cx.message.create").is_none());
     }
 
     #[test]

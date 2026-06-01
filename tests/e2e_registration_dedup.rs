@@ -24,7 +24,7 @@ const GATEWAY_URL: &str = "https://push.gateway.example/api/v1/push/notify";
 
 fn fixture_device_config<'a>(idempotency: &'a str) -> PushDeviceConfig<'a> {
     PushDeviceConfig {
-        principal_did: Some("did:web:dedup.test"),
+        principal_id: Some("did:web:dedup.test"),
         device_id: "did:web:dedup.test#device-phone",
         push_key: Some("fcm:dedup-token-001"),
         platform: Some("android"),

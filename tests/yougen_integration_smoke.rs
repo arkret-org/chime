@@ -125,7 +125,7 @@ fn yougen_register_request(
         ..Default::default()
     };
     let config = PushDeviceConfig {
-        principal_did: Some("did:web:yougen.local"),
+        principal_id: Some("did:web:yougen.local"),
         device_id: "did:web:yougen.local#device-smoke",
         push_key: Some(token),
         platform: Some(platform),

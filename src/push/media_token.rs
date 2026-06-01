@@ -169,7 +169,7 @@ pub struct MediaTokenStructuralValidationContext<'a> {
     /// Call id the request was built with — must match
     /// `participant_binding.call_id`.
     pub call_id: &'a contrix::CallId,
-    /// Actor DID the request was built with — must match
+    /// Actor ID the request was built with — must match
     /// `participant_binding.actor_id`.
     pub actor_id: &'a contrix::Did,
     /// Device id the request was built with — must match

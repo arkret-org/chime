@@ -26,7 +26,7 @@ pub struct PushRegistrationState {
     #[serde(default = "default_state_schema_version")]
     pub schema_version: u16,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub principal_did: Option<String>,
+    pub principal_id: Option<String>,
     pub registration_id: Option<String>,
     pub device_id: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -263,12 +263,12 @@ pub fn token_rotation_required(
 
 pub fn find_registration_for_device<'a>(
     states: &'a [PushRegistrationState],
-    principal_did: Option<&str>,
+    principal_id: Option<&str>,
     device_id: &str,
     app_id: Option<&str>,
 ) -> Option<&'a PushRegistrationState> {
     states.iter().find(|state| {
-        state.principal_did.as_deref() == principal_did
+        state.principal_id.as_deref() == principal_id
             && state.device_id == device_id
             && state.app_id.as_deref() == app_id
     })
@@ -286,12 +286,12 @@ pub fn find_registration_by_token<'a>(
 
 pub fn token_moved_to_different_device(
     states: &[PushRegistrationState],
-    principal_did: Option<&str>,
+    principal_id: Option<&str>,
     device_id: &str,
     push_key: &str,
 ) -> bool {
     find_registration_by_token(states, push_key).is_some_and(|state| {
-        state.principal_did.as_deref() == principal_did && state.device_id != device_id
+        state.principal_id.as_deref() == principal_id && state.device_id != device_id
     })
 }
 
@@ -305,7 +305,7 @@ pub fn token_moved_to_different_device(
 /// };
 ///
 /// let config = PushDeviceConfig {
-///     principal_did: Some("did:web:alice.example"),
+///     principal_id: Some("did:web:alice.example"),
 ///     device_id: "did:web:alice.example#device-phone",
 ///     push_key: Some("fcm:token"),
 ///     platform: Some("android"),
@@ -340,7 +340,7 @@ pub fn build_registration_state(
 ) -> PushRegistrationState {
     PushRegistrationState {
         schema_version: PUSH_REGISTRATION_STATE_SCHEMA_VERSION,
-        principal_did: request.principal_did.clone(),
+        principal_id: request.principal_id.clone(),
         registration_id: response.registration_id.clone(),
         device_id: request.device_id.clone(),
         platform: request.platform.clone(),
@@ -390,7 +390,7 @@ impl PushRegistrationState {
     /// Stable key for stores that support multiple registrations per device.
     pub fn storage_key(&self) -> String {
         [
-            self.principal_did.as_deref().unwrap_or("_"),
+            self.principal_id.as_deref().unwrap_or("_"),
             &self.device_id,
             self.platform.as_deref().unwrap_or("_"),
             self.app_id.as_deref().unwrap_or("_"),
@@ -400,7 +400,7 @@ impl PushRegistrationState {
     }
 
     pub fn is_same_logical_registration(&self, other: &Self) -> bool {
-        self.principal_did == other.principal_did
+        self.principal_id == other.principal_id
             && self.device_id == other.device_id
             && self.platform == other.platform
             && self.app_id == other.app_id
@@ -444,7 +444,7 @@ pub(super) fn build_unregister_request_for_state(
     let binding = GatewayBinding::new(crate::PushGatewayType::Standard, state.push_gateway.clone());
 
     let unregister_config = PushDeviceConfig {
-        principal_did: state.principal_did.as_deref().or(config.principal_did),
+        principal_id: state.principal_id.as_deref().or(config.principal_id),
         device_id: &state.device_id,
         push_key: None,
         platform: state.platform.as_deref().or(config.platform),
@@ -498,10 +498,7 @@ mod tests {
         );
 
         assert_eq!(state.schema_version, PUSH_REGISTRATION_STATE_SCHEMA_VERSION);
-        assert_eq!(
-            state.principal_did.as_deref(),
-            Some("did:web:alice.example")
-        );
+        assert_eq!(state.principal_id.as_deref(), Some("did:web:alice.example"));
         assert_eq!(state.platform.as_deref(), Some("android"));
         assert_eq!(state.registration_id.as_deref(), Some("reg-new"));
         assert_eq!(state.push_key_preview, "fcm:<redacted,len=9>");

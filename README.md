@@ -190,7 +190,7 @@ use chime::{
 };
 
 let config = PushDeviceConfig {
-    principal_did: Some("did:web:alice.example"),
+    principal_id: Some("did:web:alice.example"),
     device_id: "did:web:alice.example#device-phone",
     push_key: Some("fcm-or-apns-device-token"),
     platform: Some("android"),
@@ -292,7 +292,7 @@ assert!(msg.contains("title"), "error should name the leaking field: {msg}");
 # async fn doc_run() -> Result<(), chime::PushRegistrationError> {
 # use chime::{GatewayBinding, PushDeviceConfig, PushGatewayType, PushPreferences};
 # let config = PushDeviceConfig {
-#     principal_did: None,
+#     principal_id: None,
 #     device_id: "did:web:alice.example#device-phone",
 #     push_key: Some("fcm-or-apns-device-token"),
 #     platform: None,
@@ -356,7 +356,7 @@ Production notes:
 # fn doc_run() -> Result<(), chime::PushRegistrationError> {
 # use chime::{GatewayBinding, PushDeviceConfig, PushGatewayType, PushPreferences};
 # let config = PushDeviceConfig {
-#     principal_did: None,
+#     principal_id: None,
 #     device_id: "did:web:alice.example#device-phone",
 #     push_key: Some("fcm-or-apns-device-token"),
 #     platform: None, app_id: None, domestic_app_id: None,
@@ -387,7 +387,7 @@ let context = build_register_signing_context_with_options(
     "https://principal.example",
     &request,
     PushRequestSigningOptions::new("2026-04-29T00:00:00Z", "https://principal.example")
-        .with_actor_did("did:web:alice.example")
+        .with_actor_id("did:web:alice.example")
         .with_expires_at("2026-04-29T00:05:00Z")
         .with_origin("https://app.example")
         .with_origin_service_did("did:web:sync.example.com")
@@ -409,7 +409,7 @@ let headers = context.http_message_signature_headers("sig1", &signature)?;
 
 ### Local registration state
 
-`PushRegistrationState` stores non-secret local state: principal DID, device id, platform/app id, gateway, token hash/preview, registration id, expiry/refresh hint, and last success/error summary. The `PushRegistrationStore` trait exposes single-registration methods plus multi-registration helpers (`load_push_registrations`, `save_push_registrations`, and `delete_push_registration`) for apps that store several accounts, apps, or devices.
+`PushRegistrationState` stores non-secret local state: principal ID, device id, platform/app id, gateway, token hash/preview, registration id, expiry/refresh hint, and last success/error summary. The `PushRegistrationStore` trait exposes single-registration methods plus multi-registration helpers (`load_push_registrations`, `save_push_registrations`, and `delete_push_registration`) for apps that store several accounts, apps, or devices.
 
 Store implementations should use OS keychain, encrypted app storage, or another locally protected store. The state includes `schema_version` so applications can migrate persisted records without exposing raw platform tokens.
 
@@ -421,7 +421,7 @@ After a successful register, `merge_registration_state()` drops stale logical du
 # fn doc_run() -> Result<(), chime::PushRegistrationError> {
 # use chime::{GatewayBinding, PushDeviceConfig, PushGatewayType, PushPreferences};
 # let config = PushDeviceConfig {
-#     principal_did: None,
+#     principal_id: None,
 #     device_id: "did:web:alice.example#device-phone",
 #     push_key: Some("fcm-or-apns-device-token"),
 #     platform: None, app_id: None, domestic_app_id: None,
@@ -547,7 +547,7 @@ The crate maps to the Contrix v1 push HTTP binding:
 | `cx.push.unregister_device` | `POST /api/v1/push/unregister-device` | `build_unregister_device_request()` |
 | `cx.push.notify` | `POST /api/v1/push/notify` | Gateway/server-side operation, not a client registration call. |
 
-Register/unregister bodies carry the canonical operation id, optional `principal_did`, `device_id`, app id, gateway URL, idempotency key, request id, and caller-supplied proof. Responses expose the accepted gateway, token hash/preview, expiry or refresh hints, warnings, and request id when the service returns them.
+Register/unregister bodies carry the canonical operation id, optional `principal_id`, `device_id`, app id, gateway URL, idempotency key, request id, and caller-supplied proof. Responses expose the accepted gateway, token hash/preview, expiry or refresh hints, warnings, and request id when the service returns them.
 
 Push notifications are derived wakeups, not canonical truth. For E2EE Realms, push gateways should receive only minimized metadata such as `push_target_id`, `wakeup_kind`, counts, priority/TTL/collapse hints, and optional body-free `push_hint`.
 

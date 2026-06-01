@@ -36,7 +36,7 @@ mod inner {
         // WebPush endpoint and now needs to hand the resulting token
         // to Contrix.
         let config = PushDeviceConfig {
-            principal_did: Some("did:web:alice.example"),
+            principal_id: Some("did:web:alice.example"),
             device_id: "did:web:alice.example#tauri-desktop",
             // In a real Tauri integration this is the
             // `PushSubscription.endpoint` returned by the embedded

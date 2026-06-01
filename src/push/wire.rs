@@ -149,8 +149,8 @@ impl TryFrom<&str> for PushPlatform {
 /// major SemVer bump.
 #[derive(Clone, Copy)]
 pub struct PushDeviceConfig<'a> {
-    /// Contrix principal DID that owns this device registration.
-    pub principal_did: Option<&'a str>,
+    /// Contrix principal ID that owns this device registration.
+    pub principal_id: Option<&'a str>,
     /// Contrix device id, usually a DID fragment such as
     /// `did:web:alice.example#device-phone`.
     pub device_id: &'a str,
@@ -181,7 +181,7 @@ pub struct PushDeviceConfig<'a> {
 impl fmt::Debug for PushDeviceConfig<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("PushDeviceConfig")
-            .field("principal_did", &self.principal_did)
+            .field("principal_id", &self.principal_id)
             .field("device_id", &self.device_id)
             .field("push_key", &self.push_key.map(redact_push_key))
             .field("platform", &self.platform)
@@ -206,7 +206,7 @@ impl fmt::Debug for PushDeviceConfig<'_> {
 pub struct RegisterDeviceRequest {
     pub operation_id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub principal_did: Option<String>,
+    pub principal_id: Option<String>,
     pub device_id: String,
     pub push_gateway: String,
     pub push_key: String,
@@ -244,7 +244,7 @@ impl fmt::Debug for RegisterDeviceRequest {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("RegisterDeviceRequest")
             .field("operation_id", &self.operation_id)
-            .field("principal_did", &self.principal_did)
+            .field("principal_id", &self.principal_id)
             .field("device_id", &self.device_id)
             .field("push_gateway", &redact_url(&self.push_gateway))
             .field("push_key", &redact_push_key(&self.push_key))
@@ -294,7 +294,7 @@ pub struct RegisterDeviceResponse {
 pub struct UnregisterDeviceRequest {
     pub operation_id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub principal_did: Option<String>,
+    pub principal_id: Option<String>,
     pub device_id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub registration_id: Option<String>,
@@ -320,7 +320,7 @@ impl fmt::Debug for UnregisterDeviceRequest {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("UnregisterDeviceRequest")
             .field("operation_id", &self.operation_id)
-            .field("principal_did", &self.principal_did)
+            .field("principal_id", &self.principal_id)
             .field("device_id", &self.device_id)
             .field("registration_id", &self.registration_id)
             .field(
@@ -372,7 +372,7 @@ pub struct UnregisterDeviceResponse {
 pub struct PushUnsubscribeRequest {
     pub operation_id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub principal_did: Option<String>,
+    pub principal_id: Option<String>,
     pub device_id: String,
     /// Typed reference to the scope being unsubscribed from
     /// (`cx:circle:...`, `cx:realm:...`, or `cx:flow:...`). The
@@ -426,7 +426,7 @@ impl PushUnsubscribeRequest {
         }
         Ok(Self {
             operation_id: crate::OPERATION_PUSH_UNSUBSCRIBE.to_owned(),
-            principal_did: None,
+            principal_id: None,
             device_id,
             target_id,
             idempotency_key: None,
@@ -434,11 +434,11 @@ impl PushUnsubscribeRequest {
         })
     }
 
-    /// Attach a principal DID. The gateway uses this to scope the
+    /// Attach a principal ID. The gateway uses this to scope the
     /// unsubscribe to a specific actor when a device hosts multiple
     /// principals (e.g. shared family device).
-    pub fn with_principal_did(mut self, principal_did: impl Into<String>) -> Self {
-        self.principal_did = Some(principal_did.into());
+    pub fn with_principal_id(mut self, principal_id: impl Into<String>) -> Self {
+        self.principal_id = Some(principal_id.into());
         self
     }
 
