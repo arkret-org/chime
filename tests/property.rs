@@ -164,11 +164,12 @@ proptest! {
 /// A separate proptest! block can use feature-gated APIs.
 #[cfg(feature = "notify")]
 mod notify_props {
-    use super::*;
     use chime::{
         PushNotification, PushNotificationDevice, PushNotifyPolicyContext, PushNotifyReqBody,
         PushTargetId, WakeupKind,
     };
+
+    use super::*;
 
     proptest! {
         /// A blind-wakeup payload that includes a sensitive key

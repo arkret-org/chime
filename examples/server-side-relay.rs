@@ -9,16 +9,14 @@
 //! Responsibilities demonstrated here:
 //!
 //! 1. Decode the inbound frame into `PushNotifyReqBody`.
-//! 2. Run `assert_payload_safe` in `blind_wakeup_only` mode — relays
-//!    NEVER assume plaintext visibility.
-//! 3. Track replay nonces with `NonceTracker` so a duplicated frame
-//!    cannot be re-fanned out. The relay's nonce window is decoupled
-//!    from any downstream device's window (see `SECURITY.md`). In
-//!    production, persist these nonces in a shared store; the example's
-//!    in-memory tracker is process-local only.
-//! 4. Hand the validated frame to a stand-in "queue" function. In
-//!    production this is the host application's broker client; the
-//!    example just prints to stdout to stay dependency-free.
+//! 2. Run `assert_payload_safe` in `blind_wakeup_only` mode — relays NEVER assume plaintext
+//!    visibility.
+//! 3. Track replay nonces with `NonceTracker` so a duplicated frame cannot be re-fanned out. The
+//!    relay's nonce window is decoupled from any downstream device's window (see `SECURITY.md`). In
+//!    production, persist these nonces in a shared store; the example's in-memory tracker is
+//!    process-local only.
+//! 4. Hand the validated frame to a stand-in "queue" function. In production this is the host
+//!    application's broker client; the example just prints to stdout to stay dependency-free.
 //!
 //! Run with: `cargo run --example server-side-relay --features notify`.
 

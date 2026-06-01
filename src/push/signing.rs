@@ -9,17 +9,14 @@
 //! and soland share a single canonicalization implementation. The
 //! `PushRequestSigningContext` type itself stays in chime because:
 //!
-//! 1. chime's covered-component set differs from floria's notify set —
-//!    it covers `x-contrix-operation-id`, `x-contrix-device-id`,
-//!    `x-contrix-created-at`, `x-contrix-audience` (the device-
-//!    registration flow), not the two service-DID headers floria's
-//!    `/notify` verifier requires.
-//! 2. chime never owned a private key; it only canonicalizes context
-//!    so an external signer (the host application's DID proof or HSM)
-//!    can attach a pre-computed `Signature` header. The SDK's
-//!    `sign_message` helper is therefore not called here — callers
-//!    that have a `SigningKey` should call it directly with the
-//!    canonical message built from chime's `PushRequestSigningContext`.
+//! 1. chime's covered-component set differs from floria's notify set — it covers
+//!    `x-contrix-operation-id`, `x-contrix-device-id`, `x-contrix-created-at`, `x-contrix-audience`
+//!    (the device- registration flow), not the two service-DID headers floria's `/notify` verifier
+//!    requires.
+//! 2. chime never owned a private key; it only canonicalizes context so an external signer (the
+//!    host application's DID proof or HSM) can attach a pre-computed `Signature` header. The SDK's
+//!    `sign_message` helper is therefore not called here — callers that have a `SigningKey` should
+//!    call it directly with the canonical message built from chime's `PushRequestSigningContext`.
 
 use std::collections::HashMap;
 use std::fmt;
@@ -406,17 +403,13 @@ where
 ///
 /// ## Semantics
 ///
-/// - Entries expire after [`NonceTracker::window`] seconds. The
-///   tracker prunes lazily on insert; long-running processes that
-///   never insert do not see growth from this tracker alone.
-/// - The store is in-memory and per-`NonceTracker` instance. Hosts
-///   that want restart-surviving or cross-process coverage MUST layer
-///   Redis, an encrypted local key-value store, or another durable
-///   backend on top — the unit of correctness here is the local SDK
-///   boundary.
-/// - `observe` returns `Err(NonceReplayError::DuplicateNonce)` on
-///   replay so the caller fail-closes rather than silently dropping
-///   the second request.
+/// - Entries expire after [`NonceTracker::window`] seconds. The tracker prunes lazily on insert;
+///   long-running processes that never insert do not see growth from this tracker alone.
+/// - The store is in-memory and per-`NonceTracker` instance. Hosts that want restart-surviving or
+///   cross-process coverage MUST layer Redis, an encrypted local key-value store, or another
+///   durable backend on top — the unit of correctness here is the local SDK boundary.
+/// - `observe` returns `Err(NonceReplayError::DuplicateNonce)` on replay so the caller fail-closes
+///   rather than silently dropping the second request.
 ///
 /// The tracker is intentionally lockless internally (single
 /// `HashMap`); callers that share it across threads should wrap it in
@@ -538,8 +531,9 @@ mod tests {
     //! future SDK bump can't silently change the wire shape without
     //! also tripping chime's CI.
 
-    use super::*;
     use contrix::http_signature::{ContentDigest, ContentDigestAlgorithm, verify_content_digest};
+
+    use super::*;
 
     /// chime's `content_digest_sha256` for a fixed body must be
     /// byte-identical to the SDK's `ContentDigest::compute` output

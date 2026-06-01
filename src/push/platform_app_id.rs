@@ -21,11 +21,10 @@ use super::wire::PushPlatform;
 pub trait PlatformAppIdResolver {
     /// Resolve the wire-form `app_id` for `platform`.
     ///
-    /// - `app_id` is the canonical store / bundle / package identifier
-    ///   the host app already advertises to the gateway.
-    /// - `domestic_app_id` is the optional China-specific identifier
-    ///   used when routing through Bugle's Huawei / Xiaomi / OPPO etc.
-    ///   provider matrix.
+    /// - `app_id` is the canonical store / bundle / package identifier the host app already
+    ///   advertises to the gateway.
+    /// - `domestic_app_id` is the optional China-specific identifier used when routing through
+    ///   Bugle's Huawei / Xiaomi / OPPO etc. provider matrix.
     ///
     /// Returns the resolved id on success or a typed
     /// [`PushRegistrationError`] when the inputs don't satisfy the
@@ -40,12 +39,10 @@ pub trait PlatformAppIdResolver {
 
 /// Default `PlatformAppIdResolver` implementation.
 ///
-/// - `Android` / `Ios` → require `app_id`; ignore `domestic_app_id`
-///   because provider-specific routing belongs to
-///   [`crate::bugle::BugleAppIdResolver`] or a host-supplied resolver.
-/// - `Web` / `Desktop` → fall back to `app_id` when present; treat the
-///   field as required (the gateway needs *some* identifier even for
-///   webpush so it can scope subscriptions per origin).
+/// - `Android` / `Ios` → require `app_id`; ignore `domestic_app_id` because provider-specific
+///   routing belongs to [`crate::bugle::BugleAppIdResolver`] or a host-supplied resolver.
+/// - `Web` / `Desktop` → fall back to `app_id` when present; treat the field as required (the
+///   gateway needs *some* identifier even for webpush so it can scope subscriptions per origin).
 ///
 /// Returns `PushRegistrationError::MissingField("app_id")` whenever no
 /// usable identifier is available.

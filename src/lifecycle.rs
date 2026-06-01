@@ -25,19 +25,15 @@
 //! The hook is split into three sub-steps that match the spec's domain
 //! list above:
 //!
-//! 1. **Drain the local push queue** — any pending wakeups stashed by
-//!    the host app for delivery to the OS must be dropped on the floor.
-//!    The actual queue lives in the host app (chime never sees raw
-//!    notification bodies), so we expose a hook the integrator
-//!    implements.
-//! 2. **Clear the keypackage cache** — drop any keypackage material
-//!    cached for the deactivated principal. After deactivation the
-//!    principal cannot enrol new devices, so the cache is permanently
-//!    invalid.
-//! 3. **Invalidate the device session** — surface the deactivation to
-//!    the integrator's session layer so the next outbound request fails
-//!    closed rather than silently 401-ing in a retry loop. We do this
-//!    by handing the integrator a fresh
+//! 1. **Drain the local push queue** — any pending wakeups stashed by the host app for delivery to
+//!    the OS must be dropped on the floor. The actual queue lives in the host app (chime never sees
+//!    raw notification bodies), so we expose a hook the integrator implements.
+//! 2. **Clear the keypackage cache** — drop any keypackage material cached for the deactivated
+//!    principal. After deactivation the principal cannot enrol new devices, so the cache is
+//!    permanently invalid.
+//! 3. **Invalidate the device session** — surface the deactivation to the integrator's session
+//!    layer so the next outbound request fails closed rather than silently 401-ing in a retry loop.
+//!    We do this by handing the integrator a fresh
 //!    [`DeviceSessionInvalidationReason::AccountDeactivated`] signal.
 //!
 //! The first two steps need host-side wiring (file IO, keychain access,
@@ -54,8 +50,8 @@ use crate::PushPreferencesStore;
 /// When a Contrix push gateway delivers a blind wakeup, the device's
 /// integration code typically needs to:
 ///
-/// 1. Hand control to the host app (iOS BGAppRefreshTask, Android
-///    WorkManager job, Web Push `pushevent`, desktop launcher hook).
+/// 1. Hand control to the host app (iOS BGAppRefreshTask, Android WorkManager job, Web Push
+///    `pushevent`, desktop launcher hook).
 /// 2. Wait for the app to fetch fresh events from sync.
 /// 3. Hand control back to the OS within the platform-imposed budget.
 ///
@@ -383,14 +379,13 @@ impl AccountDeactivationReceipt {
 ///
 /// The order is significant:
 ///
-/// 1. Drain first so we don't fire wakeups against a session we're
-///    about to invalidate.
-/// 2. Keypackage cache next so any concurrent encryption path stops
-///    selecting against a deactivated principal.
-/// 3. Session invalidation last so the integrator can observe the
-///    "session torn down" state and emit any UI / logout-style hook.
-/// 4. PushPreferences clear is best-effort and runs after the three
-///    sink hooks because it's purely chime-owned state.
+/// 1. Drain first so we don't fire wakeups against a session we're about to invalidate.
+/// 2. Keypackage cache next so any concurrent encryption path stops selecting against a deactivated
+///    principal.
+/// 3. Session invalidation last so the integrator can observe the "session torn down" state and
+///    emit any UI / logout-style hook.
+/// 4. PushPreferences clear is best-effort and runs after the three sink hooks because it's purely
+///    chime-owned state.
 ///
 /// On the first error chime stops invoking *subsequent* sink methods
 /// (the receipt records what ran and what didn't) but ALWAYS attempts
@@ -459,8 +454,9 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::cell::Cell;
+
+    use super::*;
 
     #[derive(Default)]
     struct CountingSink {

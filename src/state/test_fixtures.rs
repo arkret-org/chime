@@ -2,12 +2,11 @@
 //!
 //! Compiled only under `cfg(test)`.
 
+use super::model::{PushRegistrationState, build_registration_state};
 use crate::{
     GatewayBinding, PushDeviceConfig, PushGatewayType, PushPreferences, RegisterDeviceResponse,
     build_register_device_request,
 };
-
-use super::model::{PushRegistrationState, build_registration_state};
 
 pub(crate) const TEST_PUSH_GATEWAY: &str = "https://push.example.com/api/v1/push/notify";
 

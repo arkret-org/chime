@@ -14,13 +14,12 @@
 //! Re-snapshotted on `2026-05-26` against floria `6496235` and
 //! contrix-spec head `37ce729`. The fixture mirrors:
 //!
-//! - Phase P2 agent-kind routing (`cx.agent.{pause,resume,deactivate}`
-//!   silent-consume; `cx.agent.{draft.propose,action_request,
-//!   action_approve,action_reject}` drop unless subscribed).
-//! - The seven SDK typed-id prefixes (`agent_session`, `agent_key`,
-//!   `agent_draft`,
-//!   `accountability_grant`, `sidecar_circle`, `backup_series`,
-//!   `recovery_session`). `agent_principal_id` is a DID-as-id.
+//! - Phase P2 agent-kind routing (`cx.agent.{pause,resume,deactivate}` silent-consume;
+//!   `cx.agent.{draft.propose,action_request, action_approve,action_reject}` drop unless
+//!   subscribed).
+//! - The seven SDK typed-id prefixes (`agent_session`, `agent_key`, `agent_draft`,
+//!   `accountability_grant`, `sidecar_circle`, `backup_series`, `recovery_session`).
+//!   `agent_principal_id` is a DID-as-id.
 
 #![cfg(feature = "notify")]
 

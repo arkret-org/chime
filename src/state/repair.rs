@@ -1,5 +1,4 @@
 //! Local registration state repair planning.
-//
 // CH-3 evaluated 2026-05-18: coupling too tight to push-token state for
 // clean SDK extraction; revisit if starid/teabay need similar logic.
 //
@@ -21,12 +20,11 @@
 
 use serde::{Deserialize, Serialize};
 
+use super::model::{PushRegistrationState, build_unregister_request_for_state, hash_push_key};
 use crate::{
     GatewayBinding, PushDeviceConfig, PushPlatform, PushPreferences, PushRegistrationError,
     RegisterDeviceRequest, UnregisterDeviceRequest, build_register_device_request,
 };
-
-use super::model::{PushRegistrationState, build_unregister_request_for_state, hash_push_key};
 
 /// Aggregated repair plan across every binding in
 /// [`PushPreferences::gateways`](crate::PushPreferences::gateways).

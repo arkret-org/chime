@@ -7,12 +7,11 @@
 //! the structure-level checks chime owes its consumer (yougen):
 //!
 //! - `participant_binding.issuer_kid` matches the realm's current
-//!   `cx.realm.media_service.service_id` and
-//!   ties together the call-id / focus-id / actor-id / device-id tuple
-//!   that the caller asked for,
+//!   `cx.realm.media_service.service_id` and ties together the call-id / focus-id / actor-id /
+//!   device-id tuple that the caller asked for,
 //! - the token TTL is within the spec ceiling
-//!   ([`MEDIA_TOKEN_TTL_MAX_SECS`](contrix::MEDIA_TOKEN_TTL_MAX_SECS))
-//!   via the SDK's [`validate_token_ttl`].
+//!   ([`MEDIA_TOKEN_TTL_MAX_SECS`](contrix::MEDIA_TOKEN_TTL_MAX_SECS)) via the SDK's
+//!   [`validate_token_ttl`].
 //!
 //! The companion [`ensure_known_backend`] helper rejects unsupported
 //! media focus backend labels before the host forwards a focus into
@@ -41,15 +40,14 @@
 use std::fmt;
 
 use chrono::{DateTime, Utc};
-
-use super::errors::PushErrorKind;
-
 // Re-export the SDK types so chime consumers can pull the full media
 // token surface through `chime::` without a second `contrix` dep.
 pub use contrix::{
     MediaBackendType, MediaTokenExchangeRequest, MediaTokenResponse, ParticipantBinding,
     call_media_token_exchange,
 };
+
+use super::errors::PushErrorKind;
 
 /// Chime-side error raised when a media-token exchange response fails
 /// CALL-1 / CALL-2 validation.
@@ -372,9 +370,10 @@ fn strip_kid_fragment(kid: &str) -> &str {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use chrono::Duration;
     use contrix::{CallId, DeviceId, Did, RealmId};
+
+    use super::*;
 
     fn realm() -> RealmId {
         RealmId::new("cx:realm:01904100-0000-7000-8000-000000000001".to_owned()).unwrap()

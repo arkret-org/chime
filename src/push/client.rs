@@ -17,14 +17,11 @@ use crate::{GatewayBinding, PushPreferences};
 /// designed so we can extend it to other secrets later).
 ///
 /// Semantics:
-/// - `Clone` is intentionally supported so the surrounding
-///   `ContrixPushClient` can remain `Clone`. Each clone owns its own
-///   zeroed-on-drop allocation.
-/// - `Debug` returns the literal string `"<redacted>"`; the inner
-///   `String` is never formatted.
-/// - `Drop` zeroes the underlying allocation via the `zeroize` crate so
-///   a `ContrixPushClient` going out of scope does not leave the token
-///   sitting in the freed heap region.
+/// - `Clone` is intentionally supported so the surrounding `ContrixPushClient` can remain `Clone`.
+///   Each clone owns its own zeroed-on-drop allocation.
+/// - `Debug` returns the literal string `"<redacted>"`; the inner `String` is never formatted.
+/// - `Drop` zeroes the underlying allocation via the `zeroize` crate so a `ContrixPushClient` going
+///   out of scope does not leave the token sitting in the freed heap region.
 ///
 /// We do NOT implement `Display`, `PartialEq`, or `Serialize` on this
 /// type — callers explicitly call [`Self::expose`] only at the very
@@ -69,14 +66,15 @@ use super::bridge_describe::{
     IntegrationView, PushBridgeDescribeResponse, PushGatewayIntegrationDescribeResponse,
 };
 use super::errors::{PushErrorKind, PushRegistrationError, classify_http_error};
-use super::registration::build_unsubscribe_request;
-use super::registration::{build_register_device_request, build_unregister_device_request};
+use super::registration::{
+    build_register_device_request, build_unregister_device_request, build_unsubscribe_request,
+};
 use super::urls::{redact_url, try_contrix_api_url};
 use super::wire::{
-    ContrixErrorEnvelope, PushDeviceConfig, RegisterDeviceRequest, RegisterDeviceResponse,
-    UnregisterDeviceRequest, UnregisterDeviceResponse,
+    ContrixErrorEnvelope, PushDeviceConfig, PushUnsubscribeRequest, PushUnsubscribeResponse,
+    RegisterDeviceRequest, RegisterDeviceResponse, UnregisterDeviceRequest,
+    UnregisterDeviceResponse,
 };
-use super::wire::{PushUnsubscribeRequest, PushUnsubscribeResponse};
 use super::{
     CONTRIX_REQUEST_ID_HEADER, CONTRIX_SESSION_GRANT_HEADER, PUSH_BRIDGE_DESCRIBE_PATH,
     PUSH_INTEGRATION_DESCRIBE_PATH, PUSH_UNSUBSCRIBE_PATH, REGISTER_DEVICE_PATH,
@@ -412,6 +410,7 @@ impl ContrixPushClient {
     /// #     ..Default::default()
     /// # };
     /// use std::time::Duration;
+    ///
     /// use chime::{ContrixPushClient, PushRetryPolicy};
     ///
     /// let client = ContrixPushClient::new("https://principal.example")
@@ -1108,11 +1107,12 @@ fn header_value(headers: &reqwest::header::HeaderMap, name: &str) -> Option<Stri
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::io::{Read, Write};
     use std::net::TcpListener;
     use std::sync::{Arc, Mutex};
     use std::thread;
+
+    use super::*;
 
     struct MockResponse {
         status: &'static str,

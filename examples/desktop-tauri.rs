@@ -3,12 +3,11 @@
 //! Shows how a desktop host application (Tauri, Electron, native Cocoa
 //! shell, Win32 Toast bridge, …) wires `chime` into its push surface:
 //!
-//! 1. Build a `RegisterDeviceRequest` for the platform push token the
-//!    host shell has just received (here a WebPush endpoint URL, but the
-//!    same call site shape works for FCM / APNs / OEM tokens).
-//! 2. Decode an inbound `cx.push.notify` payload that the local platform
-//!    bridge has handed off, validate it against the blind-wakeup
-//!    policy, and surface the result to the UI layer.
+//! 1. Build a `RegisterDeviceRequest` for the platform push token the host shell has just received
+//!    (here a WebPush endpoint URL, but the same call site shape works for FCM / APNs / OEM
+//!    tokens).
+//! 2. Decode an inbound `cx.push.notify` payload that the local platform bridge has handed off,
+//!    validate it against the blind-wakeup policy, and surface the result to the UI layer.
 //!
 //! The example does NOT perform any network I/O — it is deliberately
 //! `--no-run`-friendly so `cargo check --examples` and
@@ -77,20 +76,17 @@ mod inner {
     /// Processes one inbound `cx.push.notify` payload that the host
     /// shell's platform bridge has just received.
     pub fn process_inbound_notify(raw_payload: &str) -> Result<(), Box<dyn std::error::Error>> {
-        // 1. Deserialise the wire payload into the typed request body.
-        //    `deny_unknown_fields` rejects any forbidden top-level
-        //    extras.
+        // 1. Deserialise the wire payload into the typed request body. `deny_unknown_fields`
+        //    rejects any forbidden top-level extras.
         let request: PushNotifyReqBody = serde_json::from_str(raw_payload)?;
 
-        // 2. Validate against the blind-wakeup privacy policy. Desktop
-        //    shells never appear on the plaintext-visible service DID
-        //    allowlist, so `blind_wakeup_only` is the right context.
+        // 2. Validate against the blind-wakeup privacy policy. Desktop shells never appear on the
+        //    plaintext-visible service DID allowlist, so `blind_wakeup_only` is the right context.
         let policy = PushNotifyPolicyContext::blind_wakeup_only();
         request.assert_payload_safe(&policy)?;
 
-        // 3. The payload is now safe to hand to the UI layer. The
-        //    example just logs the wakeup kind so the file stays
-        //    runnable without a real UI dependency.
+        // 3. The payload is now safe to hand to the UI layer. The example just logs the wakeup kind
+        //    so the file stays runnable without a real UI dependency.
         let kind = request
             .notification
             .wakeup_kind

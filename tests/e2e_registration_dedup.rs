@@ -63,13 +63,12 @@ fn fixture_register_request(idempotency: &str) -> RegisterDeviceRequest {
 async fn duplicate_registration_idempotently_collapses() {
     // PLAN (round 3 fill-in):
     //   1. Spawn floria via `_helpers/floria_spawn::require_floria_or_skip`.
-    //   2. POST `fixture_register_request("dedup-key-001")` and capture
-    //      `registration_id`.
+    //   2. POST `fixture_register_request("dedup-key-001")` and capture `registration_id`.
     //   3. POST the SAME body again with the SAME idempotency_key.
-    //   4. Assert the second response carries the same registration_id
-    //      and `warnings` contains a "duplicate-safe" marker.
-    //   5. List registrations via the admin/describe endpoint and
-    //      assert only ONE row exists for (device_id, push_key).
+    //   4. Assert the second response carries the same registration_id and `warnings` contains a
+    //      "duplicate-safe" marker.
+    //   5. List registrations via the admin/describe endpoint and assert only ONE row exists for
+    //      (device_id, push_key).
     let request = fixture_register_request("dedup-key-001");
     assert_eq!(request.operation_id, OPERATION_PUSH_REGISTER_DEVICE);
     assert_eq!(request.device_id, "did:web:dedup.test#device-phone");

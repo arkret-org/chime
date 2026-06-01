@@ -6,7 +6,8 @@
 
 use std::fmt;
 
-use base64::{Engine as _, engine::general_purpose};
+use base64::Engine as _;
+use base64::engine::general_purpose;
 use contrix::blind_payload_sanitizer::{
     self as sdk_sanitizer, BlindPayloadError, BlindPayloadReasonCode, is_forbidden_payload_key,
 };
@@ -525,13 +526,11 @@ impl PushNotification {
     /// at the push layer for `receiver_actor_id`.
     ///
     /// Semantics:
-    /// - When [`Self::mention_redirect`] is `None`, this is NOT a
-    ///   mention-redirect scenario and the call returns `true` (the
-    ///   normal recipient-set gate elsewhere applies).
-    /// - When `mention_redirect` is `Some`, the receiver's actor ID
-    ///   MUST appear in `mention_redirect_target_actor_ids` to be
-    ///   permitted. **Empty array means nobody is permitted** —
-    ///   fail-closed by construction.
+    /// - When [`Self::mention_redirect`] is `None`, this is NOT a mention-redirect scenario and the
+    ///   call returns `true` (the normal recipient-set gate elsewhere applies).
+    /// - When `mention_redirect` is `Some`, the receiver's actor ID MUST appear in
+    ///   `mention_redirect_target_actor_ids` to be permitted. **Empty array means nobody is
+    ///   permitted** — fail-closed by construction.
     ///
     /// This is the canonical accessor consumers (yougen, floria, host
     /// apps) should call before unwrapping the body. Direct reads of
@@ -587,10 +586,9 @@ impl PushNotification {
     ///
     /// Returns `None` when:
     /// - `policy_access` is absent
-    /// - `access_kind` is NOT `E2EELateRecovery` (any other kind has no
-    ///   banner contract)
-    /// - `late_recovery_original_event_id` is absent (defensive — the
-    ///   SDK validator already rejects this combination)
+    /// - `access_kind` is NOT `E2EELateRecovery` (any other kind has no banner contract)
+    /// - `late_recovery_original_event_id` is absent (defensive — the SDK validator already rejects
+    ///   this combination)
     pub fn late_recovery_event_id(&self) -> Option<&EventId> {
         let payload = self.policy_access.as_ref()?;
         match payload.access_kind {
@@ -1045,9 +1043,8 @@ fn validate_typed_id(
 /// - missing / empty tail,
 /// - any non-alphanumeric byte in the tail (`:` / `-` / `_` / `.` etc.),
 /// - `did:` / `:did` infix anywhere in the value (mapped to
-///   [`PushNotifyPrivacyError::SensitiveField`] so the caller can tell
-///   "leaked DID literal" apart from "bad shape" in its observability
-///   pipeline).
+///   [`PushNotifyPrivacyError::SensitiveField`] so the caller can tell "leaked DID literal" apart
+///   from "bad shape" in its observability pipeline).
 ///
 /// The wire-model validator runs this on the typed `circle_id` field so
 /// member display labels, DID literals, or any other non-opaque content
@@ -1500,13 +1497,11 @@ fn assert_no_legacy_aliases(payload: &Value) -> Result<(), String> {
 ///
 /// ## Behaviour
 ///
-/// * In `debug_assertions` builds (typical for `cargo test` and dev
-///   builds) the function **panics** with the offending field path. We
-///   want loud failures during development — a leaked governance id is
-///   a privacy bug, not a recoverable user-input error.
-/// * In release builds it returns `Err(field_path)` so production
-///   integrations can log and fail closed without taking the process
-///   down. Returning the path (not just a bool) gives operators
+/// * In `debug_assertions` builds (typical for `cargo test` and dev builds) the function **panics**
+///   with the offending field path. We want loud failures during development — a leaked governance
+///   id is a privacy bug, not a recoverable user-input error.
+/// * In release builds it returns `Err(field_path)` so production integrations can log and fail
+///   closed without taking the process down. Returning the path (not just a bool) gives operators
 ///   something to grep for in incident response.
 ///
 /// Returns `Ok(())` when the payload is clean.
@@ -1610,16 +1605,15 @@ mod tests {
 
     #[test]
     fn wakeup_kind_rejects_unknown_values() {
-        for value in ["custom_kind"] {
-            let error = serde_json::from_value::<WakeupKind>(Value::String(value.to_owned()))
-                .expect_err("unknown wakeup kind must fail closed");
-            assert!(
-                error
-                    .to_string()
-                    .contains("message, mention, reaction, call_invite"),
-                "unexpected error for {value}: {error}"
-            );
-        }
+        let value = "custom_kind";
+        let error = serde_json::from_value::<WakeupKind>(Value::String(value.to_owned()))
+            .expect_err("unknown wakeup kind must fail closed");
+        assert!(
+            error
+                .to_string()
+                .contains("message, mention, reaction, call_invite"),
+            "unexpected error for {value}: {error}"
+        );
 
         assert_eq!(
             serde_json::from_value::<WakeupKind>(Value::String("call_invite".to_owned())).unwrap(),

@@ -19,9 +19,8 @@
 //!
 //! ## Features
 //!
-//! - `http` - enables `ContrixPushClient`, a small reqwest-based helper for
-//!   `POST /api/v1/push/register-device` and
-//!   `POST /api/v1/push/unregister-device`.
+//! - `http` - enables `ContrixPushClient`, a small reqwest-based helper for `POST
+//!   /api/v1/push/register-device` and `POST /api/v1/push/unregister-device`.
 
 use std::collections::BTreeSet;
 
@@ -46,10 +45,19 @@ mod notify;
 mod push;
 mod state;
 
-pub use push::{
-    PushRuleEventContext, ShouldNotify, WatchLevel, evaluate_watch_level, push_rule_reason_code,
+pub use bugle::BugleAppIdResolver;
+// Round 4 (B5, spec a77b995) — re-export the SDK round-4 audit surfaces
+// chime consumers (yougen, host apps) need for the late-key-recovery banner
+// without having to depend on `contrix` directly.
+#[cfg(feature = "notify")]
+pub use contrix::{AccessKind, AuditPolicyAccessPayload};
+pub use gateway_binding::GatewayBinding;
+pub use lifecycle::{
+    AccountDeactivationError, AccountDeactivationReceipt, AccountDeactivationSink,
+    BackgroundFetchDriver, BackgroundFetchHint, BackgroundFetchOutcome,
+    ClosureAccountDeactivationSink, DeactivationSource, DeviceSessionInvalidationReason,
+    NoopAccountDeactivationSink, NoopBackgroundFetchDriver, on_account_deactivate,
 };
-
 #[cfg(feature = "notify")]
 pub use notify::{
     AGENT_ACTOR_PRIVATE_KINDS, AGENT_LIFECYCLE_DURABLE_KINDS, AgentEventRouting,
@@ -62,22 +70,6 @@ pub use notify::{
     classify_agent_event_kind, is_legacy_field_alias, is_phase_p2_agent_typed_id,
     render_agent_lifecycle_summary, shared_push_notify_privacy_vectors,
 };
-
-// Round 4 (B5, spec a77b995) — re-export the SDK round-4 audit surfaces
-// chime consumers (yougen, host apps) need for the late-key-recovery banner
-// without having to depend on `contrix` directly.
-#[cfg(feature = "notify")]
-pub use contrix::{AccessKind, AuditPolicyAccessPayload};
-
-pub use lifecycle::{
-    AccountDeactivationError, AccountDeactivationReceipt, AccountDeactivationSink,
-    BackgroundFetchDriver, BackgroundFetchHint, BackgroundFetchOutcome,
-    ClosureAccountDeactivationSink, DeactivationSource, DeviceSessionInvalidationReason,
-    NoopAccountDeactivationSink, NoopBackgroundFetchDriver, on_account_deactivate,
-};
-
-pub use bugle::BugleAppIdResolver;
-pub use gateway_binding::GatewayBinding;
 // R3 (CALL-1 / CALL-2, spec b47ff6ec) — media token exchange surface.
 // Re-exported so chime consumers (yougen) call
 // `chime::call_media_token_exchange` +
@@ -107,16 +99,16 @@ pub use push::{
     redact_push_key, validate_push_gateway_url, validate_webpush_endpoint_allowlist,
     verify_push_key_binding,
 };
-pub use push::{DefaultPlatformAppIdResolver, PlatformAppIdResolver};
+#[cfg(feature = "http")]
+pub use push::{ContrixPushClient, ContrixResponse, PushRetryPolicy};
 pub use push::{
-    MediaBackendType, MediaTokenError, MediaTokenExchangeRequest, MediaTokenResponse,
-    MediaTokenStructuralValidationContext, ParticipantBinding,
-    StructurallyValidatedMediaTokenResponse, call_media_token_exchange, ensure_known_backend,
+    DefaultPlatformAppIdResolver, MediaBackendType, MediaTokenError, MediaTokenExchangeRequest,
+    MediaTokenResponse, MediaTokenStructuralValidationContext, ParticipantBinding,
+    PlatformAppIdResolver, PushRoute, PushRouteCapability, PushRouteError, PushRouteId,
+    PushRouteValidationError, PushRuleEventContext, ServiceDid, ShouldNotify,
+    StructurallyValidatedMediaTokenResponse, WatchLevel, call_media_token_exchange,
+    ensure_known_backend, evaluate_watch_level, push_rule_reason_code,
     structurally_validate_media_token_response,
-};
-pub use push::{
-    PushRoute, PushRouteCapability, PushRouteError, PushRouteId, PushRouteValidationError,
-    ServiceDid,
 };
 pub use state::{
     BridgeContractCache, BridgeContractCacheError, BridgeContractDriftVerdict,
@@ -129,9 +121,6 @@ pub use state::{
     plan_token_rotation, plan_token_rotation_with_strategy, token_moved_to_different_device,
     token_rotation_required,
 };
-
-#[cfg(feature = "http")]
-pub use push::{ContrixPushClient, ContrixResponse, PushRetryPolicy};
 
 // -- Constants ---------------------------------------------------------------
 

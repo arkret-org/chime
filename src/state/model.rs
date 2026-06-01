@@ -7,12 +7,11 @@ use std::time::{Duration, Instant};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
+use super::PUSH_REGISTRATION_STATE_SCHEMA_VERSION;
 use crate::{
     GatewayBinding, PushDeviceConfig, PushPreferences, RegisterDeviceRequest,
     RegisterDeviceResponse, UnregisterDeviceRequest, redact_push_key,
 };
-
-use super::PUSH_REGISTRATION_STATE_SCHEMA_VERSION;
 
 /// Persistable local state for a successful push registration.
 ///
@@ -299,9 +298,8 @@ pub fn token_moved_to_different_device(
 ///
 /// ```rust
 /// use chime::{
-///     GatewayBinding, PushDeviceConfig, PushGatewayType, PushPreferences,
-///     RegisterDeviceResponse, build_register_device_request,
-///     build_registration_state,
+///     GatewayBinding, PushDeviceConfig, PushGatewayType, PushPreferences, RegisterDeviceResponse,
+///     build_register_device_request, build_registration_state,
 /// };
 ///
 /// let config = PushDeviceConfig {

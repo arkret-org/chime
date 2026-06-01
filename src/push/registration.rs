@@ -2,8 +2,6 @@
 
 use sha2::{Digest, Sha256};
 
-use crate::{GatewayBinding, PushPreferences};
-
 use super::errors::PushRegistrationError;
 use super::signing::{PushRequestSigningContext, PushRequestSigningOptions, build_signing_context};
 use super::urls::{
@@ -15,6 +13,7 @@ use super::wire::{
     UnregisterDeviceRequest, compute_push_key_hmac,
 };
 use super::{REGISTER_DEVICE_PATH, UNREGISTER_DEVICE_PATH};
+use crate::{GatewayBinding, PushPreferences};
 
 /// Build the Contrix register-device request body from app configuration,
 /// the target gateway binding, and stored push preferences.
@@ -122,13 +121,12 @@ pub fn build_register_device_request(
 ///     PushGatewayType::Standard,
 ///     "https://push.example.com/api/v1/push/notify",
 /// );
-/// let request = build_unregister_device_request(
-///     &config,
-///     &binding,
-///     &PushPreferences::default(),
-/// )
-/// .unwrap();
-/// assert_eq!(request.registration_id.as_deref(), Some("cx:pushreg:01JS0KE000000000000000000"));
+/// let request =
+///     build_unregister_device_request(&config, &binding, &PushPreferences::default()).unwrap();
+/// assert_eq!(
+///     request.registration_id.as_deref(),
+///     Some("cx:pushreg:01JS0KE000000000000000000")
+/// );
 /// ```
 pub fn build_unregister_device_request(
     config: &PushDeviceConfig<'_>,
@@ -337,14 +335,12 @@ fn non_empty_str(value: &str) -> Option<&str> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::push::CONTRIX_ACTOR_ID_HEADER;
-    use crate::push::CONTRIX_DESTINATION_SERVICE_DID_HEADER;
-    use crate::push::CONTRIX_EXPIRES_AT_HEADER;
-    use crate::push::CONTRIX_ORIGIN_SERVICE_DID_HEADER;
-    use crate::push::CONTRIX_SESSION_GRANT_HEADER;
-    use crate::push::SIGNATURE_HEADER;
-    use crate::push::SIGNATURE_INPUT_HEADER;
     use crate::push::errors::PushErrorKind;
+    use crate::push::{
+        CONTRIX_ACTOR_ID_HEADER, CONTRIX_DESTINATION_SERVICE_DID_HEADER, CONTRIX_EXPIRES_AT_HEADER,
+        CONTRIX_ORIGIN_SERVICE_DID_HEADER, CONTRIX_SESSION_GRANT_HEADER, SIGNATURE_HEADER,
+        SIGNATURE_INPUT_HEADER,
+    };
     use crate::{DEFAULT_BUGLE_PUSH_GATEWAY_URL, PushGatewayType};
 
     fn config<'a>(platform: Option<&'a str>) -> PushDeviceConfig<'a> {

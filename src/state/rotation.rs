@@ -1,5 +1,4 @@
 //! Token rotation planning.
-//
 // CH-3 evaluated 2026-05-18: kept local. See `repair.rs` for the full
 // rationale; rotation here is a 5-line policy
 // (`token_rotation_required` => one bool compare on `push_key_hash`)
@@ -9,13 +8,12 @@
 
 use serde::{Deserialize, Serialize};
 
+use super::model::{PushRegistrationState, token_rotation_required};
 use crate::{
     GatewayBinding, PushDeviceConfig, PushGatewayType, PushPreferences, PushRegistrationError,
     RegisterDeviceRequest, UnregisterDeviceRequest, build_register_device_request,
     build_unregister_device_request,
 };
-
-use super::model::{PushRegistrationState, token_rotation_required};
 
 /// Request plan for replacing a platform push token.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]

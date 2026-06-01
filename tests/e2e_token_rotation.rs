@@ -67,13 +67,11 @@ async fn token_rotation_reclaims_old_registration() {
     // PLAN (round 3 fill-in):
     //   1. Spawn floria via `_helpers/floria_spawn::require_floria_or_skip`.
     //   2. Register the OLD token; capture `registration_id_old`.
-    //   3. Build the NEW registration with
-    //      `previous_token_hash = sha256_hex(old_token)`.
-    //   4. POST the new registration; assert response carries
-    //      `registration_id_new` AND a warning/marker indicating the
-    //      old registration was reclaimed.
-    //   5. List registrations and assert exactly ONE survives
-    //      (the new one) for `device_id = DEVICE_ID`.
+    //   3. Build the NEW registration with `previous_token_hash = sha256_hex(old_token)`.
+    //   4. POST the new registration; assert response carries `registration_id_new` AND a
+    //      warning/marker indicating the old registration was reclaimed.
+    //   5. List registrations and assert exactly ONE survives (the new one) for `device_id =
+    //      DEVICE_ID`.
     let old_token = "fcm:rotation-token-OLD";
     let new_token = "fcm:rotation-token-NEW";
     let binding = fixture_binding();

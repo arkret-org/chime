@@ -109,6 +109,8 @@ pub use bridge_describe::{
     PushBridgeDescribeResponse, PushGatewayIntegrationDependency,
     PushGatewayIntegrationDescribeResponse, PushGatewayIntegrationSurface,
 };
+#[cfg(feature = "http")]
+pub use client::{ContrixPushClient, ContrixResponse, PushRetryPolicy};
 pub use errors::{PushErrorKind, PushRegistrationError};
 pub use media_token::{
     MediaBackendType, MediaTokenError, MediaTokenExchangeRequest, MediaTokenResponse,
@@ -121,6 +123,14 @@ pub use registration::{
     build_register_signing_context_with_options, build_unregister_device_request,
     build_unregister_signing_context, build_unregister_signing_context_with_options,
     build_unsubscribe_request,
+};
+pub use route::{
+    PushRoute, PushRouteCapability, PushRouteError, PushRouteId, PushRouteValidationError,
+    ServiceDid,
+};
+pub use rule_core::{
+    EventContext as PushRuleEventContext, ShouldNotify, WatchLevel, evaluate_watch_level,
+    reason_code as push_rule_reason_code,
 };
 pub use signing::{
     NonceReplayError, NonceTracker, PushRequestSigningContext, PushRequestSigningOptions,
@@ -136,16 +146,4 @@ pub use wire::{
     PushUnsubscribeResponse, RegisterDeviceRequest, RegisterDeviceResponse,
     UnregisterDeviceRequest, UnregisterDeviceResponse, compute_push_key_hmac,
     verify_push_key_binding,
-};
-
-#[cfg(feature = "http")]
-pub use client::{ContrixPushClient, ContrixResponse, PushRetryPolicy};
-
-pub use route::{
-    PushRoute, PushRouteCapability, PushRouteError, PushRouteId, PushRouteValidationError,
-    ServiceDid,
-};
-pub use rule_core::{
-    EventContext as PushRuleEventContext, ShouldNotify, WatchLevel, evaluate_watch_level,
-    reason_code as push_rule_reason_code,
 };

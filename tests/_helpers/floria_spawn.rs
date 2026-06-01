@@ -1,24 +1,18 @@
 //! chime-local floria spawn helper for live-gateway integration tests.
 
-use std::{
-    env,
-    fs::File,
-    io::Write,
-    net::TcpListener as StdTcpListener,
-    path::{Path, PathBuf},
-    process::{Child, Command, Stdio},
-    sync::{
-        Arc,
-        atomic::{AtomicBool, Ordering},
-    },
-    time::{Duration, Instant},
-};
+use std::env;
+use std::fs::File;
+use std::io::Write;
+use std::net::TcpListener as StdTcpListener;
+use std::path::{Path, PathBuf};
+use std::process::{Child, Command, Stdio};
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::{Duration, Instant};
 
-use tokio::{
-    io::{AsyncReadExt, AsyncWriteExt},
-    net::TcpListener as TokioTcpListener,
-    task::JoinHandle,
-};
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::net::TcpListener as TokioTcpListener;
+use tokio::task::JoinHandle;
 
 pub struct SpawnedFloria {
     pub base_url: String,
