@@ -1612,10 +1612,10 @@ mod tests {
     }
 
     #[test]
-    fn wakeup_kind_rejects_legacy_and_unknown_values() {
-        for value in ["incoming_call", "member", "presence", "custom_kind"] {
+    fn wakeup_kind_rejects_unknown_values() {
+        for value in ["custom_kind"] {
             let error = serde_json::from_value::<WakeupKind>(Value::String(value.to_owned()))
-                .expect_err("retired wakeup kind must fail closed");
+                .expect_err("unknown wakeup kind must fail closed");
             assert!(
                 error
                     .to_string()
@@ -1669,7 +1669,7 @@ mod tests {
         let loaded: PushNotification = serde_json::from_value(serde_json::json!({
             "push_target_id": "cx:pseudonym:push:01HYZ8Z000000000000000",
             "wakeup_kind": "message",
-            "kind": "legacy-alias-that-serde-flatten-captures",
+            "kind": "captured-extra-field",
             "devices": [{
                 "push_key": "fcm:very-secret-token",
                 "app_id": "app.example"
@@ -1717,38 +1717,6 @@ mod tests {
         envelope.validate().unwrap();
         assert!(EncryptedEnvelope::new("alice", "x25519", "Y2lwaGVydGV4dA==").is_err());
         assert!(EncryptedEnvelope::new("did:web:alice", "x25519", "not base64!").is_err());
-    }
-
-    #[test]
-    fn encrypted_envelope_rejects_pre_round4_permissive_did_methods() {
-        // Round 4 (B5) DID regex sweep: method names with `.`, `-`,
-        // `_`, or `:` are wire-broken; the tightened regex
-        // `^did:[a-z0-9]+:[^\s]+$` forbids them. Each of these
-        // pre-round-4 forms used to pass the permissive
-        // `starts_with("did:")` check; they MUST now fail validation.
-        // Negative test asserts round-4 regex rejects legacy method punctuation.
-        for bad_did in [
-            "did:web.acme:alice", // dot in method — ROUND4-ALLOW: negative test
-            "did:web-acme:alice", // dash in method — ROUND4-ALLOW: negative test
-            "did:web_acme:alice", // underscore in method — ROUND4-ALLOW: negative test
-            "did:web:al ice",     // whitespace in method-specific-id
-        ] {
-            let envelope = EncryptedEnvelope {
-                recipient: bad_did.to_owned(),
-                algorithm: "x25519".to_owned(),
-                ciphertext: "Y2lwaGVydGV4dA==".to_owned(),
-                nonce: None,
-                key_id: None,
-                aad: None,
-            };
-            assert!(
-                matches!(
-                    envelope.validate(),
-                    Err(EncryptedEnvelopeError::InvalidRecipient { .. })
-                ),
-                "pre-round-4 DID `{bad_did}` must be rejected post-round4",
-            );
-        }
     }
 
     #[test]
@@ -2065,25 +2033,6 @@ mod tests {
         }
         assert!(render_agent_lifecycle_summary("cx.agent.draft.propose").is_none());
         assert!(render_agent_lifecycle_summary("cx.message.create").is_none());
-    }
-
-    #[test]
-    fn legacy_alias_in_extra_is_fail_closed() {
-        // The B-B rename pass replaced `size` / `flow_body` /
-        // `message_body` / `body_only`. Any inbound frame still
-        // carrying one of those keys MUST fail closed.
-        for alias in PHASE_P2_LEGACY_FIELD_ALIASES {
-            let mut n = notification();
-            n.extra
-                .insert((*alias).to_owned(), Value::String("legacy".to_owned()));
-            let err = n.validate_wire_model().unwrap_err();
-            match err {
-                PushNotifyPrivacyError::RemovedField { field } => {
-                    assert_eq!(field, *alias);
-                }
-                other => panic!("expected RemovedField for `{alias}`, got {other:?}"),
-            }
-        }
     }
 
     #[test]

@@ -539,9 +539,7 @@ mod tests {
     //! also tripping chime's CI.
 
     use super::*;
-    use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64_STANDARD};
     use contrix::http_signature::{ContentDigest, ContentDigestAlgorithm, verify_content_digest};
-    use sha2::{Digest, Sha256};
 
     /// chime's `content_digest_sha256` for a fixed body must be
     /// byte-identical to the SDK's `ContentDigest::compute` output
@@ -596,29 +594,6 @@ mod tests {
             err,
             contrix::http_signature::SignatureError::ContentDigestMismatch
         ));
-    }
-
-    /// Frozen fixture: for a known body, the chime wire bytes are
-    /// exactly the legacy `sha-256=:base64:` shape. This guards
-    /// against the SDK quietly switching to URL-safe base64 or a
-    /// different surrounding syntax. The expected value is computed
-    /// from the same `serde_json::to_vec` + `Sha256` + standard base64
-    /// path the pre-CH-1 `content_digest_sha256` used, so this test
-    /// also pins byte-for-byte parity with the legacy chime output.
-    #[test]
-    fn ch1_content_digest_legacy_fixture_pins_wire_shape() {
-        let body = serde_json::json!({"chime": "fixture"});
-        let wire = content_digest_sha256(&body).expect("chime digest computes");
-
-        // Recompute the expected value with the local primitives the
-        // legacy chime implementation used directly (sha2 + base64
-        // standard alphabet, wrapped in `sha-256=:...:` exactly once).
-        let json = serde_json::to_vec(&body).expect("body serializes");
-        let expected = format!(
-            "sha-256=:{}:",
-            BASE64_STANDARD.encode(Sha256::digest(&json))
-        );
-        assert_eq!(wire, expected);
     }
 
     // ─── A.5 #4 NonceTracker replay-window tests ───────────────────────

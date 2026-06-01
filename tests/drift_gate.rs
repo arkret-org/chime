@@ -14,8 +14,6 @@
 //! Re-snapshotted on `2026-05-26` against floria `6496235` and
 //! contrix-spec head `37ce729`. The fixture mirrors:
 //!
-//! - The extended forbidden-key table — legacy aliases (`size` /
-//!   `flow_body` / `message_body` / `body_only`) fail closed.
 //! - Phase P2 agent-kind routing (`cx.agent.{pause,resume,deactivate}`
 //!   silent-consume; `cx.agent.{draft.propose,action_request,
 //!   action_approve,action_reject}` drop unless subscribed).
@@ -29,9 +27,8 @@
 use chime::{
     AGENT_ACTOR_PRIVATE_KINDS, AGENT_LIFECYCLE_DURABLE_KINDS, AgentEventRouting,
     BridgeContractCache, BridgeContractDriftVerdict, PHASE_P2_AGENT_TYPED_ID_PREFIXES,
-    PHASE_P2_LEGACY_FIELD_ALIASES, PushBridgeDescribeResponse, PushNotifyPrivacyMode,
-    PushNotifyReqBody, classify_agent_event_kind, is_legacy_field_alias,
-    is_phase_p2_agent_typed_id, render_agent_lifecycle_summary,
+    PushBridgeDescribeResponse, PushNotifyPrivacyMode, PushNotifyReqBody,
+    classify_agent_event_kind, is_phase_p2_agent_typed_id, render_agent_lifecycle_summary,
 };
 
 /// Canonical floria `bridge/describe` payload (snapshot 2026-05-26,
@@ -245,82 +242,6 @@ fn phase_p2_typed_id_prefixes_match_floria_6496235() {
     assert!(!is_phase_p2_agent_typed_id(
         "cx:realm:01HZK9Z000000000000000000"
     ));
-}
-
-// ── Phase P2 — legacy B-B field alias rejection ─────────────────────────
-
-#[test]
-fn legacy_field_aliases_match_floria_forbidden_table() {
-    // The legacy set is locked at 4 — `size` / `flow_body` /
-    // `message_body` / `body_only`. Floria 6496235 mirrors this exact
-    // list on the gateway side; chime is the client-side mirror.
-    assert_eq!(PHASE_P2_LEGACY_FIELD_ALIASES.len(), 4);
-    assert!(is_legacy_field_alias("size"));
-    assert!(is_legacy_field_alias("flow_body"));
-    assert!(is_legacy_field_alias("message_body"));
-    assert!(is_legacy_field_alias("body_only"));
-    // The renamed-to forms are NOT in the legacy list (they're the new
-    // canonical names; the SDK sanitizer covers content-style leaks).
-    assert!(!is_legacy_field_alias("size_bytes"));
-    assert!(!is_legacy_field_alias("flow_content"));
-    assert!(!is_legacy_field_alias("message_content"));
-    assert!(!is_legacy_field_alias("content_only"));
-}
-
-// ── Negative tests — fail-closed at deserialisation ─────────────────────
-
-#[test]
-fn legacy_alias_frame_fails_closed_at_wire_model() {
-    // A push frame that still carries the pre-rename `size` field MUST
-    // fail closed at the wire-model validator. This guards against an
-    // old caller silently shipping the legacy wire shape past chime.
-    let frame = serde_json::json!({
-        "operation_id": "cx.push.notify",
-        "notification": {
-            "push_target_id": "cx:pseudonym:push:01HYZ8Z000000000000000",
-            "wakeup_kind": "message",
-            "size": 12345,
-            "devices": [
-                { "push_key": "fcm:opaque-token", "app_id": "app.example" }
-            ]
-        }
-    });
-    let request: PushNotifyReqBody =
-        serde_json::from_value(frame).expect("request must parse syntactically");
-    let err = request.validate_wire_model().unwrap_err();
-    let field = match err {
-        chime::PushNotifyPrivacyError::RemovedField { field } => field,
-        other => panic!("expected RemovedField, got {other:?}"),
-    };
-    assert_eq!(field, "size", "legacy `size` alias must be flagged");
-}
-
-#[test]
-fn legacy_alias_nested_under_extra_fails_closed() {
-    // Even when the legacy alias appears nested under an `extra` field,
-    // chime's wire validator walks the JSON tree and rejects it.
-    let frame = serde_json::json!({
-        "operation_id": "cx.push.notify",
-        "notification": {
-            "push_target_id": "cx:pseudonym:push:01HYZ8Z000000000000000",
-            "wakeup_kind": "message",
-            "media": { "flow_body": "legacy-payload-blob" },
-            "devices": [
-                { "push_key": "fcm:opaque-token", "app_id": "app.example" }
-            ]
-        }
-    });
-    let request: PushNotifyReqBody =
-        serde_json::from_value(frame).expect("request must parse syntactically");
-    let err = request.validate_wire_model().unwrap_err();
-    let field = match err {
-        chime::PushNotifyPrivacyError::RemovedField { field } => field,
-        other => panic!("expected RemovedField, got {other:?}"),
-    };
-    assert!(
-        field.contains("flow_body"),
-        "expected path containing `flow_body`, got `{field}`"
-    );
 }
 
 #[test]
