@@ -130,8 +130,9 @@ impl BridgeContractDriftVerdict {
     }
 
     /// Whether the contract identifier changed across the cache boundary
-    /// (e.g. `cx.push.bridge.v1` → `cx.push.bridge.v2`). Major-version drift
-    /// is always a strong signal that downstream state should be invalidated.
+    /// (i.e. the contract string no longer matches the expected
+    /// `cx.push.bridge.v1`). Such a contract change is always a strong signal
+    /// that downstream state should be invalidated.
     pub fn contract_changed(&self) -> bool {
         match self {
             Self::Unchanged => false,
@@ -218,7 +219,7 @@ mod tests {
     fn cache_detects_contract_drift() {
         let cache = BridgeContractCache::from_response(&baseline_response(), None).unwrap();
         let mut fresh = baseline_response();
-        fresh.contract = "cx.push.bridge.v2".to_owned();
+        fresh.contract = "cx.push.bridge.unknown-drift-test".to_owned();
 
         let verdict = cache.evaluate(&fresh).unwrap();
         assert!(verdict.is_drift());
