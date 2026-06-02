@@ -267,82 +267,39 @@ impl PushErrorKind {
     /// Returns `None` when the code is not part of the contract, so callers can
     /// decide between treating it as `HttpStatus` or surfacing the raw code.
     pub fn from_failure_code(code: &str) -> Option<Self> {
-        // Round 4 — pull the three new wire codes from the SDK's
-        // canonical constants so chime's classification stays
-        // byte-aligned with what soland/floria emit.
-        if code == contrix::ERROR_CODE_DELIVERY_BINDING_STALE {
-            return Some(Self::DeliveryBindingStale);
-        }
-        if code == contrix::ERROR_CODE_DELIVERY_BINDING_HANDED_OVER {
-            return Some(Self::DeliveryBindingHandedOver);
-        }
-        if code == contrix::ERROR_CODE_HISTORICAL_ONLY {
-            return Some(Self::HistoricalOnly);
-        }
-        // R3 (spec b47ff6ec) — CXP-0010 media-binding + agent-lifecycle
-        // + handle homograph codes. Sourced from the SDK constants
-        // (in the `contrix::error` module — the R3 codes are not
-        // glob-reexported at the crate root yet) so chime stays
-        // byte-aligned with soland/floria emission.
-        if code == contrix::error::ERROR_CODE_FOCUS_MISMATCH {
-            return Some(Self::FocusMismatch);
-        }
-        if code == contrix::error::ERROR_CODE_UNKNOWN_FOCUS_TYPE {
-            return Some(Self::UnknownFocusType);
-        }
-        if code == contrix::error::ERROR_CODE_TOKEN_ISSUER_UNAUTHORISED {
-            return Some(Self::TokenIssuerUnauthorised);
-        }
-        if code == contrix::error::ERROR_CODE_PARTICIPANT_BINDING_INVALID {
-            return Some(Self::ParticipantBindingInvalid);
-        }
-        if code == contrix::error::ERROR_CODE_PARTICIPANT_IDENTITY_UNRECOGNISED {
-            return Some(Self::ParticipantIdentityUnrecognised);
-        }
-        if code == contrix::error::ERROR_CODE_SESSION_FOCUS_ALREADY_COMMITTED {
-            return Some(Self::SessionFocusAlreadyCommitted);
-        }
-        if code == contrix::error::ERROR_CODE_E2EE_KEY_SOURCE_UNAUTHORISED {
-            return Some(Self::E2eeKeySourceUnauthorised);
-        }
-        if code == contrix::error::ERROR_CODE_RECORDING_ARTIFACT_PIPELINE_BYPASSED {
-            return Some(Self::RecordingArtifactPipelineBypassed);
-        }
-        if code == contrix::error::ERROR_CODE_LEGACY_SINGLE_ENDPOINT_MEDIA_SERVICE {
-            return Some(Self::LegacySingleEndpointMediaService);
-        }
-        if code == contrix::error::ERROR_CODE_FOCUS_UNAVAILABLE_FOR_CLIENT {
-            return Some(Self::FocusUnavailableForClient);
-        }
-        if code == contrix::error::ERROR_CODE_PAIRING_REQUEST_EXPIRED {
-            return Some(Self::PairingRequestExpired);
-        }
-        if code == contrix::error::ERROR_CODE_PROOF_INVALID {
-            return Some(Self::ProofInvalid);
-        }
-        if code == contrix::error::ERROR_CODE_VERIFICATION_METHOD_PRINCIPAL_MISMATCH {
-            return Some(Self::VerificationMethodPrincipalMismatch);
-        }
-        if code == contrix::error::ERROR_CODE_AGENT_PAUSED {
-            return Some(Self::AgentPaused);
-        }
-        if code == contrix::error::ERROR_CODE_AGENT_DEACTIVATED {
-            return Some(Self::AgentDeactivated);
-        }
-        if code == contrix::error::ERROR_CODE_APPROVAL_ALREADY_CONSUMED {
-            return Some(Self::ApprovalAlreadyConsumed);
-        }
-        if code == contrix::error::ERROR_CODE_SIDECAR_CREATE_DENIED {
-            return Some(Self::SidecarCreateDenied);
-        }
-        if code == contrix::error::ERROR_CODE_ACTOR_KIND_REDUCER_MANAGED {
-            return Some(Self::ActorKindReducerManaged);
-        }
-        if code == contrix::error::ERROR_CODE_RECOVERY_WITNESS_REVOKE_LAGGING {
-            return Some(Self::RecoveryWitnessRevokeLagging);
-        }
-        if code == contrix::error::ERROR_CODE_HANDLE_HOMOGRAPH_FORBIDDEN {
-            return Some(Self::HandleHomographForbidden);
+        // Canonical wire codes sourced from the SDK constants so chime's
+        // classification stays byte-aligned with what soland/floria emit.
+        // The early Round-4 codes are glob-reexported at the crate root;
+        // the R3 codes (spec b47ff6ec — CXP-0010 media-binding,
+        // agent-lifecycle, handle homograph) still live under
+        // `contrix::error`. Adding a code is a one-line table entry.
+        const CODE_MAP: &[(&str, PushErrorKind)] = &[
+            (contrix::ERROR_CODE_DELIVERY_BINDING_STALE, PushErrorKind::DeliveryBindingStale),
+            (contrix::ERROR_CODE_DELIVERY_BINDING_HANDED_OVER, PushErrorKind::DeliveryBindingHandedOver),
+            (contrix::ERROR_CODE_HISTORICAL_ONLY, PushErrorKind::HistoricalOnly),
+            (contrix::error::ERROR_CODE_FOCUS_MISMATCH, PushErrorKind::FocusMismatch),
+            (contrix::error::ERROR_CODE_UNKNOWN_FOCUS_TYPE, PushErrorKind::UnknownFocusType),
+            (contrix::error::ERROR_CODE_TOKEN_ISSUER_UNAUTHORISED, PushErrorKind::TokenIssuerUnauthorised),
+            (contrix::error::ERROR_CODE_PARTICIPANT_BINDING_INVALID, PushErrorKind::ParticipantBindingInvalid),
+            (contrix::error::ERROR_CODE_PARTICIPANT_IDENTITY_UNRECOGNISED, PushErrorKind::ParticipantIdentityUnrecognised),
+            (contrix::error::ERROR_CODE_SESSION_FOCUS_ALREADY_COMMITTED, PushErrorKind::SessionFocusAlreadyCommitted),
+            (contrix::error::ERROR_CODE_E2EE_KEY_SOURCE_UNAUTHORISED, PushErrorKind::E2eeKeySourceUnauthorised),
+            (contrix::error::ERROR_CODE_RECORDING_ARTIFACT_PIPELINE_BYPASSED, PushErrorKind::RecordingArtifactPipelineBypassed),
+            (contrix::error::ERROR_CODE_LEGACY_SINGLE_ENDPOINT_MEDIA_SERVICE, PushErrorKind::LegacySingleEndpointMediaService),
+            (contrix::error::ERROR_CODE_FOCUS_UNAVAILABLE_FOR_CLIENT, PushErrorKind::FocusUnavailableForClient),
+            (contrix::error::ERROR_CODE_PAIRING_REQUEST_EXPIRED, PushErrorKind::PairingRequestExpired),
+            (contrix::error::ERROR_CODE_PROOF_INVALID, PushErrorKind::ProofInvalid),
+            (contrix::error::ERROR_CODE_VERIFICATION_METHOD_PRINCIPAL_MISMATCH, PushErrorKind::VerificationMethodPrincipalMismatch),
+            (contrix::error::ERROR_CODE_AGENT_PAUSED, PushErrorKind::AgentPaused),
+            (contrix::error::ERROR_CODE_AGENT_DEACTIVATED, PushErrorKind::AgentDeactivated),
+            (contrix::error::ERROR_CODE_APPROVAL_ALREADY_CONSUMED, PushErrorKind::ApprovalAlreadyConsumed),
+            (contrix::error::ERROR_CODE_SIDECAR_CREATE_DENIED, PushErrorKind::SidecarCreateDenied),
+            (contrix::error::ERROR_CODE_ACTOR_KIND_REDUCER_MANAGED, PushErrorKind::ActorKindReducerManaged),
+            (contrix::error::ERROR_CODE_RECOVERY_WITNESS_REVOKE_LAGGING, PushErrorKind::RecoveryWitnessRevokeLagging),
+            (contrix::error::ERROR_CODE_HANDLE_HOMOGRAPH_FORBIDDEN, PushErrorKind::HandleHomographForbidden),
+        ];
+        if let Some(&(_, kind)) = CODE_MAP.iter().find(|(c, _)| *c == code) {
+            return Some(kind);
         }
         Some(match code {
             "unauthenticated" | "auth_expired" | "soft_logged_out" => Self::Unauthenticated,
