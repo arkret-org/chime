@@ -57,21 +57,21 @@ pub enum PushErrorKind {
     HistoricalOnly,
     // ── R3 (CXP-0010 media binding + agent lifecycle, spec b47ff6ec) ─────
     // The variants below mirror the 20 new error codes added in the SDK
-    // (see `contrix_core::error`). Chime mirrors the media-binding,
+    // (see `cokret_core::error`). Chime mirrors the media-binding,
     // agent-lifecycle, and handle-homograph subsets because those are
     // the codes a push-SDK consumer can plausibly observe — either while
-    // calling `cx.call.media.token_exchange` directly (`Media*`) or
+    // calling `ck.call.media.token_exchange` directly (`Media*`) or
     // while the user's agent/principal pair is in an inactive state
     // (`Agent*`) or while a handle homograph slips through wire-level
     // validation (`HandleHomographForbidden`).
     /// CXP-0010 — focus referenced by client does not match the
-    /// committed `cx.call.state.session_focus`.
+    /// committed `ck.call.state.session_focus`.
     FocusMismatch,
     /// CXP-0010 — media focus backend label not recognised by the SDK.
     /// Receivers MUST fail closed instead of forwarding the focus.
     UnknownFocusType,
     /// CXP-0010 — token issuer DID is not anchored to the current
-    /// `cx.realm.media_service.service_id` epoch.
+    /// `ck.realm.media_service.service_id` epoch.
     TokenIssuerUnauthorised,
     /// CXP-0010 — `participant_binding` signature, tuple, or TTL does
     /// not validate against the realm media-service binding. Chime's
@@ -80,9 +80,9 @@ pub enum PushErrorKind {
     /// responsible for signature failures until the SDK verifier lands.
     ParticipantBindingInvalid,
     /// CXP-0010 — `participant_identity` returned by the focus does not
-    /// match any entry in `cx.call.state.participants[]`.
+    /// match any entry in `ck.call.state.participants[]`.
     ParticipantIdentityUnrecognised,
-    /// CXP-0010 — `cx.call.state.session_focus` is write-once; a
+    /// CXP-0010 — `ck.call.state.session_focus` is write-once; a
     /// concurrent commit attempt collided with the existing value.
     SessionFocusAlreadyCommitted,
     /// CXP-0010 — backend cloud attempted to supply the SFrame key
@@ -91,7 +91,7 @@ pub enum PushErrorKind {
     /// CXP-0010 — recording artifact bypassed the Cokret blob upload
     /// pipeline (e.g. LiveKit Egress direct-to-S3).
     RecordingArtifactPipelineBypassed,
-    /// CXP-0010 — realm's `cx.realm.media_service` is still configured
+    /// CXP-0010 — realm's `ck.realm.media_service` is still configured
     /// as a single-endpoint legacy service; multi-focus binding is
     /// required for the requested operation.
     LegacySingleEndpointMediaService,
@@ -429,7 +429,7 @@ impl PushRegistrationError {
         }
     }
 
-    pub fn contrix_error(&self) -> Option<&CokretErrorEnvelope> {
+    pub fn cokret_error(&self) -> Option<&CokretErrorEnvelope> {
         match self {
             Self::HttpStatus { error, .. } => error.as_deref(),
             _ => None,
@@ -512,7 +512,7 @@ mod tests {
     use crate::push::wire::CokretError;
 
     #[test]
-    fn classifies_contrix_error_codes() {
+    fn classifies_cokret_error_codes() {
         let envelope = CokretErrorEnvelope {
             ok: false,
             error: CokretError {

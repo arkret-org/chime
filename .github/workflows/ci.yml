@@ -19,7 +19,7 @@ jobs:
         features:
           - ""              # default (no features)
           - "http"          # CokretPushClient HTTP helper
-          - "notify"        # cx.push.notify wire types
+          - "notify"        # ck.push.notify wire types
           - "http,notify"   # combined (release surface)
     steps:
       - uses: actions/checkout@v4

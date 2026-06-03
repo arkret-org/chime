@@ -38,7 +38,7 @@ use chime::{
 const BRIDGE_DESCRIBE_FIXTURE: &str = r#"{
     "contract": "cx.push.bridge.v1",
     "version": "1.0.0",
-    "api_base_path": "/api/v1",
+    "api_base_path": "/_cokret/edge/push",
     "spec_version": "cokret-spec@2026-05-26",
     "gateway": {
         "service_did": "did:web:gateway.example",
@@ -47,8 +47,8 @@ const BRIDGE_DESCRIBE_FIXTURE: &str = r#"{
         "auth_modes": ["http-message-signature", "bearer"]
     },
     "notify": {
-        "notify_path": "/api/v1/push/notify",
-        "operation_id": "cx.push.notify",
+        "notify_path": "/_cokret/edge/push/notify",
+        "operation_id": "ck.push.notify",
         "request_id_header": "X-Cokret-Request-Id",
         "idempotency_key_header": "X-Cokret-Idempotency-Key",
         "origin_service_did_header": "X-Cokret-Origin-Service-Did",
@@ -66,11 +66,11 @@ const BRIDGE_DESCRIBE_FIXTURE: &str = r#"{
     },
     "examples": {
         "notify_headers": {
-            "X-Cokret-Operation-Id": "cx.push.notify",
+            "X-Cokret-Operation-Id": "ck.push.notify",
             "X-Cokret-Request-Id": "ck:request:01JS0KE000000000000000000"
         },
         "blind_wakeup_request": {
-            "operation_id": "cx.push.notify",
+            "operation_id": "ck.push.notify",
             "notification": {
                 "push_target_id": "ck:pseudonym:push:01HYZ8Z000000000000000",
                 "wakeup_kind": "message",
@@ -204,7 +204,7 @@ fn agent_actor_private_kinds_classify_as_actor_private() {
 fn agent_event_kind_unknown_falls_through() {
     // Anything outside the two locked-down sets returns None — the
     // host's normal notification surface decides how to handle it.
-    assert!(classify_agent_event_kind("cx.message.send").is_none());
+    assert!(classify_agent_event_kind("ck.message.send").is_none());
     assert!(classify_agent_event_kind("cx.agent.unknown").is_none());
     assert!(classify_agent_event_kind("").is_none());
 }
@@ -252,7 +252,7 @@ fn agent_typed_id_in_event_id_slot_fails_closed() {
     // typed-id appears in a slot where its `actor_kind=Agent` cousin
     // would belong on a non-Agent event.
     let frame = serde_json::json!({
-        "operation_id": "cx.push.notify",
+        "operation_id": "ck.push.notify",
         "notification": {
             "push_target_id": "ck:pseudonym:push:01HYZ8Z000000000000000",
             "wakeup_kind": "message",
@@ -280,7 +280,7 @@ fn agent_typed_id_in_extra_fails_closed() {
     // Any Phase P2 agent typed-id appearing in `extra` (a non-Agent
     // wire context) is a correlation leak and MUST be rejected.
     let frame = serde_json::json!({
-        "operation_id": "cx.push.notify",
+        "operation_id": "ck.push.notify",
         "notification": {
             "push_target_id": "ck:pseudonym:push:01HYZ8Z000000000000000",
             "wakeup_kind": "message",

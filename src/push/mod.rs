@@ -8,7 +8,7 @@
 //! - [`urls`]: URL helpers, validation, redaction
 //! - [`registration`]: request body + signing context builders
 //! - [`client`]: async `CokretPushClient` (feature = "http")
-//! - [`route`]: actor-private `cx.device.push_route` state event wire model
+//! - [`route`]: actor-private `ck.device.push_route` state event wire model
 //! - [`rule_core`]: T4.4 shared client-side push rule evaluator
 
 mod bridge_describe;
@@ -28,67 +28,67 @@ pub use platform_app_id::{DefaultPlatformAppIdResolver, PlatformAppIdResolver};
 
 // -- Path constants ---------------------------------------------------------
 
-/// Cokret HTTP path for `cx.push.register_device`.
-pub const REGISTER_DEVICE_PATH: &str = "/api/v1/push/register-device";
+/// Cokret HTTP path for `ck.push.register_device`.
+pub const REGISTER_DEVICE_PATH: &str = "/_cokret/edge/push/register-device";
 
-/// Cokret HTTP path for `cx.push.unregister_device`.
-pub const UNREGISTER_DEVICE_PATH: &str = "/api/v1/push/unregister-device";
+/// Cokret HTTP path for `ck.push.unregister_device`.
+pub const UNREGISTER_DEVICE_PATH: &str = "/_cokret/edge/push/unregister-device";
 
 /// B.5 #8 — Cokret HTTP path for `cx.push.unsubscribe`. The body is a
 /// [`PushUnsubscribeRequest`]; the URL also accepts an optional
 /// `target_id` query parameter for callers that prefer to encode the
 /// scope outside the JSON envelope (the wire body remains canonical).
-pub const PUSH_UNSUBSCRIBE_PATH: &str = "/api/v1/push/unsubscribe";
+pub const PUSH_UNSUBSCRIBE_PATH: &str = "/_cokret/edge/push/unsubscribe";
 
 /// Cokret HTTP path for discovering the active push gateway bridge contract.
-pub const PUSH_BRIDGE_DESCRIBE_PATH: &str = "/api/v1/push/bridge/describe";
+pub const PUSH_BRIDGE_DESCRIBE_PATH: &str = "/_cokret/edge/push/bridge/describe";
 
 /// Cokret HTTP path for discovering the service-level push gateway integration manifest.
-pub const PUSH_INTEGRATION_DESCRIBE_PATH: &str = "/api/v1/integration/describe";
+pub const PUSH_INTEGRATION_DESCRIBE_PATH: &str = "/_cokret/edge/integration/describe";
 
 // -- Header constants -------------------------------------------------------
 
 /// Header used to correlate Cokret requests across clients and services.
-pub const CONTRIX_REQUEST_ID_HEADER: &str = "X-Cokret-Request-Id";
+pub const COKRET_REQUEST_ID_HEADER: &str = "X-Cokret-Request-Id";
 
 /// RFC 9530 content digest header covered by request signatures.
 pub const CONTENT_DIGEST_HEADER: &str = "Content-Digest";
 
 /// Cokret operation id header covered by request signatures.
-pub const CONTRIX_OPERATION_ID_HEADER: &str = "X-Cokret-Operation-Id";
+pub const COKRET_OPERATION_ID_HEADER: &str = "X-Cokret-Operation-Id";
 
 /// Cokret device id header covered by request signatures.
-pub const CONTRIX_DEVICE_ID_HEADER: &str = "X-Cokret-Device-Id";
+pub const COKRET_DEVICE_ID_HEADER: &str = "X-Cokret-Device-Id";
 
 /// Cokret request creation timestamp header covered by request signatures.
-pub const CONTRIX_CREATED_AT_HEADER: &str = "X-Cokret-Created-At";
+pub const COKRET_CREATED_AT_HEADER: &str = "X-Cokret-Created-At";
 
 /// Cokret request audience header covered by request signatures.
-pub const CONTRIX_AUDIENCE_HEADER: &str = "X-Cokret-Audience";
+pub const COKRET_AUDIENCE_HEADER: &str = "X-Cokret-Audience";
 
 /// Cokret actor ID header covered by request signatures.
-pub const CONTRIX_ACTOR_ID_HEADER: &str = "X-Cokret-Actor-Id";
+pub const COKRET_ACTOR_ID_HEADER: &str = "X-Cokret-Actor-Id";
 
 /// Cokret request expiry timestamp header covered by request signatures.
-pub const CONTRIX_EXPIRES_AT_HEADER: &str = "X-Cokret-Expires-At";
+pub const COKRET_EXPIRES_AT_HEADER: &str = "X-Cokret-Expires-At";
 
 /// Cokret request origin URL header covered by request signatures.
-pub const CONTRIX_ORIGIN_HEADER: &str = "X-Cokret-Origin";
+pub const COKRET_ORIGIN_HEADER: &str = "X-Cokret-Origin";
 
 /// Cokret origin service DID header covered by request signatures.
-pub const CONTRIX_ORIGIN_SERVICE_DID_HEADER: &str = "X-Cokret-Origin-Service-Did";
+pub const COKRET_ORIGIN_SERVICE_DID_HEADER: &str = "X-Cokret-Origin-Service-Did";
 
 /// Cokret destination service DID header covered by request signatures.
-pub const CONTRIX_DESTINATION_SERVICE_DID_HEADER: &str = "X-Cokret-Destination-Service-Did";
+pub const COKRET_DESTINATION_SERVICE_DID_HEADER: &str = "X-Cokret-Destination-Service-Did";
 
 /// Cokret nonce header covered by request signatures.
-pub const CONTRIX_NONCE_HEADER: &str = "X-Cokret-Nonce";
+pub const COKRET_NONCE_HEADER: &str = "X-Cokret-Nonce";
 
 /// Cokret idempotency key metadata header covered by request signatures.
-pub const CONTRIX_IDEMPOTENCY_KEY_HEADER: &str = "X-Cokret-Idempotency-Key";
+pub const COKRET_IDEMPOTENCY_KEY_HEADER: &str = "X-Cokret-Idempotency-Key";
 
 /// Header used to carry an externally supplied coauth/soland session grant.
-pub const CONTRIX_SESSION_GRANT_HEADER: &str = "X-Cokret-Session-Grant";
+pub const COKRET_SESSION_GRANT_HEADER: &str = "X-Cokret-Session-Grant";
 
 /// HTTP Message Signatures input header.
 pub const SIGNATURE_INPUT_HEADER: &str = "Signature-Input";
@@ -137,7 +137,7 @@ pub use signing::{
     content_digest_sha256,
 };
 pub use urls::{
-    contrix_api_url, push_bridge_describe_url, push_gateway_service_base_url,
+    cokret_api_url, push_bridge_describe_url, push_gateway_service_base_url,
     push_integration_describe_url, redact_push_key, validate_push_gateway_url,
     validate_webpush_endpoint_allowlist,
 };

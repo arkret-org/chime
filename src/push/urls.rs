@@ -10,17 +10,18 @@ use super::{PUSH_BRIDGE_DESCRIBE_PATH, PUSH_INTEGRATION_DESCRIBE_PATH};
 
 /// Builds a normalized Cokret API URL.
 ///
-/// `service_base_url` may be either an origin (`https://server.example`) or an
-/// API root (`https://server.example/api/v1`).
-pub fn contrix_api_url(service_base_url: &str, path: &str) -> String {
+/// `service_base_url` may be either an origin (`https://server.example`) or a
+/// negative-space root (`https://server.example/_cokret`). Cokret paths are
+/// absolute under the `/_cokret/` root and carry no version segment.
+pub fn cokret_api_url(service_base_url: &str, path: &str) -> String {
     let base = service_base_url.trim_end_matches('/');
     let path = path.trim_start_matches('/');
-    let path = path.strip_prefix("api/v1/").unwrap_or(path);
+    let path = path.strip_prefix("_cokret/").unwrap_or(path);
 
-    if base.ends_with("/api/v1") {
+    if base.ends_with("/_cokret") {
         format!("{base}/{path}")
     } else {
-        format!("{base}/api/v1/{path}")
+        format!("{base}/_cokret/{path}")
     }
 }
 
@@ -57,12 +58,10 @@ pub fn push_gateway_service_base_url(
 
     let mut path = url.path().trim_end_matches('/').to_owned();
     for suffix in [
-        "/api/v1/push/bridge/describe",
-        "/cokret/push/v1/bridge/describe",
-        "/api/v1/push/notify",
-        "/cokret/push/v1/notify",
-        "/api/v1/push",
-        "/cokret/push/v1",
+        "/_cokret/edge/push/bridge/describe",
+        "/_cokret/edge/push/notify",
+        "/_cokret/edge/push",
+        "/_cokret/edge",
     ] {
         if let Some(prefix) = path.strip_suffix(suffix) {
             path = prefix.to_owned();
@@ -86,7 +85,7 @@ pub fn push_gateway_service_base_url(
 
 /// Derive the active bridge-describe URL from a configured push gateway URL.
 pub fn push_bridge_describe_url(push_gateway_url: &str) -> Result<String, PushRegistrationError> {
-    Ok(contrix_api_url(
+    Ok(cokret_api_url(
         &push_gateway_service_base_url(push_gateway_url)?,
         PUSH_BRIDGE_DESCRIBE_PATH,
     ))
@@ -96,7 +95,7 @@ pub fn push_bridge_describe_url(push_gateway_url: &str) -> Result<String, PushRe
 pub fn push_integration_describe_url(
     push_gateway_url: &str,
 ) -> Result<String, PushRegistrationError> {
-    Ok(contrix_api_url(
+    Ok(cokret_api_url(
         &push_gateway_service_base_url(push_gateway_url)?,
         PUSH_INTEGRATION_DESCRIBE_PATH,
     ))
@@ -235,12 +234,12 @@ pub fn redact_push_key(value: &str) -> String {
     format!("<redacted,len={len}>")
 }
 
-pub(super) fn try_contrix_api_url(
+pub(super) fn try_cokret_api_url(
     service_base_url: &str,
     path: &str,
 ) -> Result<String, PushRegistrationError> {
     validate_service_base_url(service_base_url)?;
-    Ok(contrix_api_url(service_base_url, path))
+    Ok(cokret_api_url(service_base_url, path))
 }
 
 fn validate_service_base_url(value: &str) -> Result<(), PushRegistrationError> {
@@ -443,19 +442,19 @@ mod tests {
     #[test]
     fn url_builder_accepts_origin_or_api_root() {
         assert_eq!(
-            contrix_api_url("https://server.example", REGISTER_DEVICE_PATH),
-            "https://server.example/api/v1/push/register-device"
+            cokret_api_url("https://server.example", REGISTER_DEVICE_PATH),
+            "https://server.example/_cokret/edge/push/register-device"
         );
         assert_eq!(
-            contrix_api_url("https://server.example/api/v1", REGISTER_DEVICE_PATH),
-            "https://server.example/api/v1/push/register-device"
+            cokret_api_url("https://server.example/_cokret", REGISTER_DEVICE_PATH),
+            "https://server.example/_cokret/edge/push/register-device"
         );
     }
 
     #[test]
     fn rejects_query_secret_in_push_gateway_url() {
         let err = validate_push_gateway_url(
-            "https://push.example.com/api/v1/push/notify?access_token=secret",
+            "https://push.example.com/_cokret/edge/push/notify?access_token=secret",
             false,
         )
         .unwrap_err();
@@ -475,14 +474,15 @@ mod tests {
 
     #[test]
     fn rejects_non_loopback_http_push_gateway_url() {
-        let err = validate_push_gateway_url("http://push.example.com/api/v1/push/notify", true)
-            .unwrap_err();
+        let err =
+            validate_push_gateway_url("http://push.example.com/_cokret/edge/push/notify", true)
+                .unwrap_err();
         assert_eq!(err.kind(), PushErrorKind::InvalidPushGatewayUrl);
     }
 
     #[test]
     fn allows_loopback_http_push_gateway_when_enabled() {
-        validate_push_gateway_url("http://127.0.0.1:8080/api/v1/push/notify", true).unwrap();
-        validate_push_gateway_url("http://localhost:8080/api/v1/push/notify", true).unwrap();
+        validate_push_gateway_url("http://127.0.0.1:8080/_cokret/edge/push/notify", true).unwrap();
+        validate_push_gateway_url("http://localhost:8080/_cokret/edge/push/notify", true).unwrap();
     }
 }

@@ -1,5 +1,5 @@
 //! R3 (CALL-1, spec b47ff6ec) — client-side helper for
-//! `cx.call.media.token_exchange` (`POST /rtc/token`).
+//! `ck.call.media.token_exchange` (`POST /rtc/token`).
 //!
 //! This module is intentionally transport-agnostic: it builds the
 //! request body via the SDK's [`call_media_token_exchange`] helper and
@@ -7,7 +7,7 @@
 //! the structure-level checks chime owes its consumer (yougen):
 //!
 //! - `participant_binding.issuer_kid` matches the realm's current
-//!   `cx.realm.media_service.service_id` and ties together the call-id / focus-id / actor-id /
+//!   `ck.realm.media_service.service_id` and ties together the call-id / focus-id / actor-id /
 //!   device-id tuple that the caller asked for,
 //! - the token TTL is within the spec ceiling
 //!   ([`MEDIA_TOKEN_TTL_MAX_SECS`](cokret::MEDIA_TOKEN_TTL_MAX_SECS)) via the SDK's
@@ -60,7 +60,7 @@ use super::errors::PushErrorKind;
 pub enum MediaTokenError {
     /// CALL-2 — `participant_binding.issuer_kid` is not anchored to
     /// the realm's current
-    /// `cx.realm.media_service.service_id`.
+    /// `ck.realm.media_service.service_id`.
     TokenIssuerUnauthorised {
         observed_kid: String,
         expected_service_id: String,
@@ -72,12 +72,12 @@ pub enum MediaTokenError {
     /// state the caller committed to (focus / call / actor / device).
     ParticipantBindingInvalid { reason: String },
     /// CALL-2 — server has not committed a multi-focus
-    /// `cx.realm.media_service` binding yet; the realm is still on the
+    /// `ck.realm.media_service` binding yet; the realm is still on the
     /// single-endpoint legacy contract.
     LegacySingleEndpointMediaService,
     /// CALL-2 — the focus id in `participant_binding` does not match
     /// either the requested focus id or the already-committed
-    /// `cx.call.state.session_focus`.
+    /// `ck.call.state.session_focus`.
     FocusMismatch {
         requested_focus_id: String,
         binding_focus_id: String,
@@ -150,10 +150,10 @@ impl std::error::Error for MediaTokenError {}
 /// anchor dimensions (e.g. epoch number) in R3.1+.
 #[derive(Clone, Debug)]
 pub struct MediaTokenStructuralValidationContext<'a> {
-    /// The current `cx.realm.media_service.service_id` resolved by the
+    /// The current `ck.realm.media_service.service_id` resolved by the
     /// caller (yougen) from realm state at the moment of the exchange.
     pub current_media_service_id: &'a str,
-    /// `cx.call.state.session_focus` committed in the call state — used
+    /// `ck.call.state.session_focus` committed in the call state — used
     /// to fail-closed on `focus_mismatch`. Pass `None` when the call
     /// has no committed focus yet (the SDK does not currently model
     /// "no commit yet" as an error — it accepts the response and lets
@@ -239,7 +239,7 @@ pub fn structurally_validate_media_token_response<'response>(
     ctx: &MediaTokenStructuralValidationContext<'_>,
 ) -> Result<StructurallyValidatedMediaTokenResponse<'response>, MediaTokenError> {
     // ── 1. Anchor: `participant_binding.issuer_kid` MUST resolve to
-    // the realm's current `cx.realm.media_service.service_id`. We
+    // the realm's current `ck.realm.media_service.service_id`. We
     // accept either a plain service id ("did:web:host:media") or a
     // `did#kid` form — the fragment may rotate across epochs so we
     // only require the DID portion to match the anchor. The opaque

@@ -90,7 +90,7 @@ mod tests {
     fn binding_round_trips_through_json_with_defaults_omitted() {
         let binding = GatewayBinding::new(
             PushGatewayType::Standard,
-            "https://push.example.com/api/v1/push/notify",
+            "https://push.example.com/_cokret/edge/push/notify",
         );
         let json = serde_json::to_string(&binding).unwrap();
         // Optional fields skip when None.
@@ -104,7 +104,7 @@ mod tests {
     fn binding_with_overrides_serializes_overrides() {
         let binding = GatewayBinding::new(
             PushGatewayType::Bugle,
-            "https://push.palpo.im/api/v1/push/notify",
+            "https://push.palpo.im/_cokret/edge/push/notify",
         )
         .with_push_key("vendor-token-cn-aaaaaaaaaa")
         .with_app_id("app.example.android.cn");
@@ -121,7 +121,7 @@ mod tests {
         let bad = serde_json::from_str::<GatewayBinding>(
             r#"{
                 "gateway_type": "standard",
-                "push_gateway": "https://x/api/v1/push/notify",
+                "push_gateway": "https://x/_cokret/edge/push/notify",
                 "extra_typo": "oops"
             }"#,
         );
@@ -132,7 +132,7 @@ mod tests {
     fn resolve_app_id_prefers_binding_override() {
         let binding = GatewayBinding::new(
             PushGatewayType::Bugle,
-            "https://push.palpo.im/api/v1/push/notify",
+            "https://push.palpo.im/_cokret/edge/push/notify",
         )
         .with_app_id("app.binding.override");
         assert_eq!(
@@ -149,7 +149,7 @@ mod tests {
     fn resolve_app_id_falls_back_to_gateway_resolution() {
         let binding = GatewayBinding::new(
             PushGatewayType::Bugle,
-            "https://push.palpo.im/api/v1/push/notify",
+            "https://push.palpo.im/_cokret/edge/push/notify",
         );
         assert_eq!(
             binding.resolve_app_id(

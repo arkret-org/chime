@@ -2,7 +2,7 @@
 
 Runnable integration samples that show host applications how to wire
 `chime` into the two halves of the Cokret push surface: outbound
-device registration and inbound `cx.push.notify` handling.
+device registration and inbound `ck.push.notify` handling.
 
 All examples are deliberately dependency-free at runtime — they print
 to stdout rather than calling a real gateway, broker, or UI surface —
@@ -12,7 +12,7 @@ example code can be reviewed in isolation.
 | Example | Audience | Demonstrates |
 |---------|----------|--------------|
 | [`desktop-tauri.rs`](desktop-tauri.rs) | Desktop client integrators (Tauri / Electron / native Cocoa or Win32 shells). | Building a `RegisterDeviceRequest` from a platform push token and validating an inbound blind-wakeup payload via `assert_payload_safe`. |
-| [`server-side-relay.rs`](server-side-relay.rs) | Backend service authors (yougen, on-prem connectors, SRE-owned fan-out proxies). | Decoding inbound `cx.push.notify` frames, asserting they are blind-wakeup safe, and rejecting replays with `NonceTracker` before forwarding to an internal queue. |
+| [`server-side-relay.rs`](server-side-relay.rs) | Backend service authors (yougen, on-prem connectors, SRE-owned fan-out proxies). | Decoding inbound `ck.push.notify` frames, asserting they are blind-wakeup safe, and rejecting replays with `NonceTracker` before forwarding to an internal queue. |
 
 ## Running
 

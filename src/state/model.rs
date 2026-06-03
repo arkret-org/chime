@@ -317,7 +317,7 @@ pub fn token_moved_to_different_device(
 /// };
 /// let binding = GatewayBinding::new(
 ///     PushGatewayType::Standard,
-///     "https://push.example.com/api/v1/push/notify",
+///     "https://push.example.com/_cokret/edge/push/notify",
 /// );
 /// let prefs = PushPreferences {
 ///     enabled: true,
@@ -605,7 +605,7 @@ mod tests {
             enabled: true,
             gateways: vec![crate::GatewayBinding::new(
                 crate::PushGatewayType::Bugle,
-                "https://push.palpo.im/api/v1/push/notify",
+                "https://push.palpo.im/_cokret/edge/push/notify",
             )],
             ..crate::PushPreferences::default()
         };
@@ -666,7 +666,7 @@ mod tests {
             enabled: true,
             gateways: vec![crate::GatewayBinding::new(
                 crate::PushGatewayType::Bugle,
-                "https://push.palpo.im/api/v1/push/notify",
+                "https://push.palpo.im/_cokret/edge/push/notify",
             )],
             ..crate::PushPreferences::default()
         }

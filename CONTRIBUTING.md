@@ -17,7 +17,7 @@ git config core.hooksPath .githooks
 The hook runs `cargo fmt --all -- --check` plus `cargo clippy --no-deps
 -- -D warnings` on staged Rust changes. If `.githooks/pre-commit` is
 missing, copy it from
-[`cokret-rust-sdk`](https://github.com/cokret-dev/cokret-rust-sdk)
+[`cokret-rust-sdk`](https://github.com/cokret/cokret-rust-sdk)
 and adapt to your local toolchain.
 
 ## Development environment
@@ -28,7 +28,7 @@ and adapt to your local toolchain.
 - Editor: any. The repo enforces formatting via `rustfmt`.
 
 ```bash
-git clone https://github.com/cokret-dev/chime
+git clone https://github.com/cokret/chime
 cd chime
 cargo build
 ```

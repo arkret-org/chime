@@ -10,7 +10,7 @@
 //! `PushRequestSigningContext` type itself stays in chime because:
 //!
 //! 1. chime's covered-component set differs from floria's notify set — it covers
-//!    `x-cokret-operation-id`, `x-cokret-device-id`, `x-cokret-created-at`, `x-cokret-audience`
+//!    `x-cokret-operation-id`, `x-cokretice-id`, `x-cokret-created-at`, `x-cokret-audience`
 //!    (the device- registration flow), not the two service-DID headers floria's `/notify` verifier
 //!    requires.
 //! 2. chime never owned a private key; it only canonicalizes context so an external signer (the
@@ -32,14 +32,14 @@ use thiserror::Error;
 
 use super::errors::PushRegistrationError;
 use super::urls::{
-    redact_url, require_optional_owned_non_empty, require_owned_non_empty, try_contrix_api_url,
+    redact_url, require_optional_owned_non_empty, require_owned_non_empty, try_cokret_api_url,
 };
 use super::{
-    CONTENT_DIGEST_HEADER, CONTRIX_ACTOR_ID_HEADER, CONTRIX_AUDIENCE_HEADER,
-    CONTRIX_CREATED_AT_HEADER, CONTRIX_DESTINATION_SERVICE_DID_HEADER, CONTRIX_DEVICE_ID_HEADER,
-    CONTRIX_EXPIRES_AT_HEADER, CONTRIX_IDEMPOTENCY_KEY_HEADER, CONTRIX_NONCE_HEADER,
-    CONTRIX_OPERATION_ID_HEADER, CONTRIX_ORIGIN_HEADER, CONTRIX_ORIGIN_SERVICE_DID_HEADER,
-    CONTRIX_SESSION_GRANT_HEADER, SIGNATURE_HEADER, SIGNATURE_INPUT_HEADER,
+    CONTENT_DIGEST_HEADER, COKRET_ACTOR_ID_HEADER, COKRET_AUDIENCE_HEADER,
+    COKRET_CREATED_AT_HEADER, COKRET_DESTINATION_SERVICE_DID_HEADER, COKRET_DEVICE_ID_HEADER,
+    COKRET_EXPIRES_AT_HEADER, COKRET_IDEMPOTENCY_KEY_HEADER, COKRET_NONCE_HEADER,
+    COKRET_OPERATION_ID_HEADER, COKRET_ORIGIN_HEADER, COKRET_ORIGIN_SERVICE_DID_HEADER,
+    COKRET_SESSION_GRANT_HEADER, SIGNATURE_HEADER, SIGNATURE_INPUT_HEADER,
 };
 
 /// Canonical data that callers can bind into DID proofs or HTTP Message Signatures.
@@ -110,40 +110,40 @@ impl PushRequestSigningContext {
         // small grows as the optional headers are appended below.
         let mut headers: Vec<(&'static str, String)> = Vec::with_capacity(13);
         headers.push((CONTENT_DIGEST_HEADER, self.content_digest.clone()));
-        headers.push((CONTRIX_OPERATION_ID_HEADER, self.operation_id.clone()));
-        headers.push((CONTRIX_DEVICE_ID_HEADER, self.device_id.clone()));
-        headers.push((CONTRIX_CREATED_AT_HEADER, self.created_at.clone()));
-        headers.push((CONTRIX_AUDIENCE_HEADER, self.audience.clone()));
+        headers.push((COKRET_OPERATION_ID_HEADER, self.operation_id.clone()));
+        headers.push((COKRET_DEVICE_ID_HEADER, self.device_id.clone()));
+        headers.push((COKRET_CREATED_AT_HEADER, self.created_at.clone()));
+        headers.push((COKRET_AUDIENCE_HEADER, self.audience.clone()));
 
         if let Some(actor_id) = &self.actor_id {
-            headers.push((CONTRIX_ACTOR_ID_HEADER, actor_id.clone()));
+            headers.push((COKRET_ACTOR_ID_HEADER, actor_id.clone()));
         }
         if let Some(expires_at) = &self.expires_at {
-            headers.push((CONTRIX_EXPIRES_AT_HEADER, expires_at.clone()));
+            headers.push((COKRET_EXPIRES_AT_HEADER, expires_at.clone()));
         }
         if let Some(origin) = &self.origin {
-            headers.push((CONTRIX_ORIGIN_HEADER, origin.clone()));
+            headers.push((COKRET_ORIGIN_HEADER, origin.clone()));
         }
         if let Some(origin_service_did) = &self.origin_service_did {
             headers.push((
-                CONTRIX_ORIGIN_SERVICE_DID_HEADER,
+                COKRET_ORIGIN_SERVICE_DID_HEADER,
                 origin_service_did.clone(),
             ));
         }
         if let Some(destination_service_did) = &self.destination_service_did {
             headers.push((
-                CONTRIX_DESTINATION_SERVICE_DID_HEADER,
+                COKRET_DESTINATION_SERVICE_DID_HEADER,
                 destination_service_did.clone(),
             ));
         }
         if let Some(nonce) = &self.nonce {
-            headers.push((CONTRIX_NONCE_HEADER, nonce.clone()));
+            headers.push((COKRET_NONCE_HEADER, nonce.clone()));
         }
         if let Some(idempotency_key) = &self.idempotency_key {
-            headers.push((CONTRIX_IDEMPOTENCY_KEY_HEADER, idempotency_key.clone()));
+            headers.push((COKRET_IDEMPOTENCY_KEY_HEADER, idempotency_key.clone()));
         }
         if let Some(session_grant) = &self.session_grant {
-            headers.push((CONTRIX_SESSION_GRANT_HEADER, session_grant.clone()));
+            headers.push((COKRET_SESSION_GRANT_HEADER, session_grant.clone()));
         }
 
         headers
@@ -160,7 +160,7 @@ impl PushRequestSigningContext {
         components.push(Component::TargetUri);
         components.push(Component::Header("content-digest".to_owned()));
         components.push(Component::Header("x-cokret-operation-id".to_owned()));
-        components.push(Component::Header("x-cokret-device-id".to_owned()));
+        components.push(Component::Header("x-cokretice-id".to_owned()));
         components.push(Component::Header("x-cokret-created-at".to_owned()));
         components.push(Component::Header("x-cokret-audience".to_owned()));
 
@@ -369,7 +369,7 @@ where
         operation_id: operation_id.to_owned(),
         method: "POST".to_owned(),
         path: path.to_owned(),
-        target_uri: try_contrix_api_url(service_base_url, path)?,
+        target_uri: try_cokret_api_url(service_base_url, path)?,
         content_digest: content_digest_sha256(body)?,
         device_id: device_id.to_owned(),
         created_at,
@@ -468,7 +468,7 @@ impl NonceTracker {
     /// `Err(NonceReplayError::DuplicateNonce)` if the same pair has
     /// already been recorded within the active window.
     ///
-    /// Use the value of [`crate::CONTRIX_NONCE_HEADER`] for `nonce`.
+    /// Use the value of [`crate::COKRET_NONCE_HEADER`] for `nonce`.
     pub fn observe(&mut self, device_id: &str, nonce: &str) -> Result<(), NonceReplayError> {
         self.observe_at(device_id, nonce, SystemTime::now())
     }
@@ -542,7 +542,7 @@ mod tests {
     #[test]
     fn ch1_content_digest_matches_sdk_byte_for_byte() {
         let body = serde_json::json!({
-            "operation_id": "cx.push.register_device",
+            "operation_id": "ck.push.register_device",
             "device_id": "ck:device:01HYZ8Z000000000000000",
         });
         let chime_value = content_digest_sha256(&body).expect("chime digest computes");

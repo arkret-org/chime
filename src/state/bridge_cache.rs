@@ -163,7 +163,7 @@ mod tests {
         PushBridgeDescribeResponse {
             contract: "cx.push.bridge.v1".to_owned(),
             version: "1.0.0".to_owned(),
-            api_base_path: "/api/v1".to_owned(),
+            api_base_path: "/_cokret/edge/push".to_owned(),
             ..Default::default()
         }
     }

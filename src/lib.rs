@@ -20,7 +20,7 @@
 //! ## Features
 //!
 //! - `http` - enables `CokretPushClient`, a small reqwest-based helper for `POST
-//!   /api/v1/push/register-device` and `POST /api/v1/push/unregister-device`.
+//!   /_cokret/edge/push/register-device` and `POST /_cokret/edge/push/unregister-device`.
 
 use std::collections::BTreeSet;
 
@@ -77,11 +77,11 @@ pub use notify::{
 // `cokret` directly. The validation marker is structure-only; hosts must
 // perform Ed25519 signature verification before SFrame keying.
 pub use push::{
-    CONTENT_DIGEST_HEADER, CONTRIX_ACTOR_ID_HEADER, CONTRIX_AUDIENCE_HEADER,
-    CONTRIX_CREATED_AT_HEADER, CONTRIX_DESTINATION_SERVICE_DID_HEADER, CONTRIX_DEVICE_ID_HEADER,
-    CONTRIX_EXPIRES_AT_HEADER, CONTRIX_IDEMPOTENCY_KEY_HEADER, CONTRIX_NONCE_HEADER,
-    CONTRIX_OPERATION_ID_HEADER, CONTRIX_ORIGIN_HEADER, CONTRIX_ORIGIN_SERVICE_DID_HEADER,
-    CONTRIX_REQUEST_ID_HEADER, CONTRIX_SESSION_GRANT_HEADER, CokretError, CokretErrorEnvelope,
+    CONTENT_DIGEST_HEADER, COKRET_ACTOR_ID_HEADER, COKRET_AUDIENCE_HEADER,
+    COKRET_CREATED_AT_HEADER, COKRET_DESTINATION_SERVICE_DID_HEADER, COKRET_DEVICE_ID_HEADER,
+    COKRET_EXPIRES_AT_HEADER, COKRET_IDEMPOTENCY_KEY_HEADER, COKRET_NONCE_HEADER,
+    COKRET_OPERATION_ID_HEADER, COKRET_ORIGIN_HEADER, COKRET_ORIGIN_SERVICE_DID_HEADER,
+    COKRET_REQUEST_ID_HEADER, COKRET_SESSION_GRANT_HEADER, CokretError, CokretErrorEnvelope,
     EXPECTED_SPEC_VERSION, IntegrationView, NonceReplayError, NonceTracker,
     PUSH_BRIDGE_DESCRIBE_PATH, PUSH_INTEGRATION_DESCRIBE_PATH, PUSH_UNSUBSCRIBE_PATH,
     PushBridgeDescribeGatewayDescriptor, PushBridgeDescribeNotifyDescriptor,
@@ -94,7 +94,7 @@ pub use push::{
     UnregisterDeviceResponse, build_register_device_request, build_register_signing_context,
     build_register_signing_context_with_options, build_unregister_device_request,
     build_unregister_signing_context, build_unregister_signing_context_with_options,
-    build_unsubscribe_request, compute_push_key_hmac, content_digest_sha256, contrix_api_url,
+    build_unsubscribe_request, compute_push_key_hmac, content_digest_sha256, cokret_api_url,
     push_bridge_describe_url, push_gateway_service_base_url, push_integration_describe_url,
     redact_push_key, validate_push_gateway_url, validate_webpush_endpoint_allowlist,
     verify_push_key_binding,
@@ -125,13 +125,13 @@ pub use state::{
 // -- Constants ---------------------------------------------------------------
 
 /// Canonical Cokret operation id for push device registration.
-pub const OPERATION_PUSH_REGISTER_DEVICE: &str = "cx.push.register_device";
+pub const OPERATION_PUSH_REGISTER_DEVICE: &str = "ck.push.register_device";
 
 /// Canonical Cokret operation id for push device unregistration.
-pub const OPERATION_PUSH_UNREGISTER_DEVICE: &str = "cx.push.unregister_device";
+pub const OPERATION_PUSH_UNREGISTER_DEVICE: &str = "ck.push.unregister_device";
 
 /// Canonical Cokret operation id for push wakeup delivery.
-pub const OPERATION_PUSH_NOTIFY: &str = "cx.push.notify";
+pub const OPERATION_PUSH_NOTIFY: &str = "ck.push.notify";
 
 /// B.5 #8 — Canonical Cokret operation id for the push unsubscribe
 /// call. Sent as the `operation_id` field on
@@ -142,10 +142,10 @@ pub const OPERATION_PUSH_UNSUBSCRIBE: &str = "cx.push.unsubscribe";
 ///
 /// Cokret does not define a single global push gateway. Consumers should set
 /// this from service discovery or application configuration before registering.
-pub const DEFAULT_CONTRIX_PUSH_GATEWAY_URL: &str = "";
+pub const DEFAULT_COKRET_PUSH_GATEWAY_URL: &str = "";
 
 /// Default Bugle push gateway URL using the Cokret push notify binding.
-pub const DEFAULT_BUGLE_PUSH_GATEWAY_URL: &str = "https://push.palpo.im/api/v1/push/notify";
+pub const DEFAULT_BUGLE_PUSH_GATEWAY_URL: &str = "https://push.palpo.im/_cokret/edge/push/notify";
 
 // -- PushGatewayType ---------------------------------------------------------
 
@@ -173,9 +173,9 @@ impl PushGatewayType {
     /// Default push gateway URL for this type.
     pub fn default_url(&self) -> &'static str {
         match self {
-            Self::Standard => DEFAULT_CONTRIX_PUSH_GATEWAY_URL,
+            Self::Standard => DEFAULT_COKRET_PUSH_GATEWAY_URL,
             Self::Bugle => DEFAULT_BUGLE_PUSH_GATEWAY_URL,
-            Self::Custom => DEFAULT_CONTRIX_PUSH_GATEWAY_URL,
+            Self::Custom => DEFAULT_COKRET_PUSH_GATEWAY_URL,
         }
     }
 
@@ -373,7 +373,7 @@ mod tests {
             webpush_endpoint_allowlist: vec!["https://fcm.googleapis.com".to_owned()],
             gateways: vec![GatewayBinding::new(
                 PushGatewayType::Bugle,
-                "https://example.com/api/v1/push/notify",
+                "https://example.com/_cokret/edge/push/notify",
             )],
             ..Default::default()
         };
@@ -408,11 +408,11 @@ mod tests {
             gateways: vec![
                 GatewayBinding::new(
                     PushGatewayType::Standard,
-                    "https://push-a.example.com/api/v1/push/notify",
+                    "https://push-a.example.com/_cokret/edge/push/notify",
                 ),
                 GatewayBinding::new(
                     PushGatewayType::Bugle,
-                    "https://push.palpo.im/api/v1/push/notify",
+                    "https://push.palpo.im/_cokret/edge/push/notify",
                 )
                 .with_push_key("vendor-token-cn-aaaaaaaaaa"),
             ],

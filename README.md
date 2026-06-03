@@ -44,7 +44,7 @@ Spec rounds 2+3 (2026-05-20) added the `lifecycle::on_account_deactivate`
 host integration hook (T07 — 4-step local push cleanup) and the
 `ROUND_R2_R3_SENSITIVE_FIELDS` defense-in-depth list that mirrors floria's
 blind-wakeup forbidden-field surface. Ephemeral kinds (`cx.presence`,
-`cx.typing`, `cx.receipt.read`, `cx.call.signal`) are confirmed not
+`cx.typing`, `ck.receipt.read`, `ck.call.signal`) are confirmed not
 consumed by chime. See [`CHANGELOG.md`](CHANGELOG.md) `[Unreleased]` and
 [`../cokret-spec/CHANGELOG.md`](../cokret-spec/CHANGELOG.md) for the
 normative source.
@@ -84,8 +84,8 @@ hosts that need the standalone resolver trait can use
 | Feature | Description |
 | --- | --- |
 | _(default)_ | Core types, JSON serialization helpers, and Cokret register/unregister request builders. No network dependencies. |
-| `http` | Adds `CokretPushClient`, a small `reqwest` helper for `POST /api/v1/push/register-device` and `POST /api/v1/push/unregister-device`. |
-| `notify` | Adds server/gateway-side `cx.push.notify` wire types and blind-wakeup privacy validation. |
+| `http` | Adds `CokretPushClient`, a small `reqwest` helper for `POST /_cokret/edge/push/register-device` and `POST /_cokret/edge/push/unregister-device`. |
+| `notify` | Adds server/gateway-side `ck.push.notify` wire types and blind-wakeup privacy validation. |
 
 > **Production deployments MUST enable the `notify` feature.** Without it,
 > the blind-wakeup / plaintext-visible privacy validators
@@ -161,7 +161,7 @@ let prefs = PushPreferences {
     gateways: vec![
         GatewayBinding::new(
             PushGatewayType::Bugle,
-            "https://push.palpo.im/api/v1/push/notify",
+            "https://push.palpo.im/_cokret/edge/push/notify",
         )
         .with_app_id("app.example.android.cn"),
     ],
@@ -205,7 +205,7 @@ let config = PushDeviceConfig {
 
 let binding = GatewayBinding::new(
     PushGatewayType::Standard,
-    "https://push.example.com/api/v1/push/notify",
+    "https://push.example.com/_cokret/edge/push/notify",
 );
 let prefs = PushPreferences {
     enabled: true,
@@ -306,7 +306,7 @@ assert!(msg.contains("title"), "error should name the leaking field: {msg}");
 # };
 # let binding = GatewayBinding::new(
 #     PushGatewayType::Standard,
-#     "https://push.example.com/api/v1/push/notify",
+#     "https://push.example.com/_cokret/edge/push/notify",
 # );
 # let prefs = PushPreferences {
 #     enabled: true,
@@ -365,7 +365,7 @@ Production notes:
 # };
 # let binding = GatewayBinding::new(
 #     PushGatewayType::Standard,
-#     "https://push.example.com/api/v1/push/notify",
+#     "https://push.example.com/_cokret/edge/push/notify",
 # );
 # let prefs = PushPreferences {
 #     enabled: true,
@@ -430,7 +430,7 @@ After a successful register, `merge_registration_state()` drops stale logical du
 # };
 # let binding = GatewayBinding::new(
 #     PushGatewayType::Standard,
-#     "https://push.example.com/api/v1/push/notify",
+#     "https://push.example.com/_cokret/edge/push/notify",
 # );
 # let prefs = PushPreferences {
 #     enabled: true,
@@ -521,7 +521,7 @@ into a Cokret Principal Server / Sync Service deployment.
 `chime` emits `tracing` events with the target prefix `chime`:
 
 ```text
-INFO  chime::push::client  Cokret push device registered  platform=android gateway="Cokret Standard" operation_id=cx.push.register_device request_id=ck:request:01JS0KE000000000000000000
+INFO  chime::push::client  Cokret push device registered  platform=android gateway="Cokret Standard" operation_id=ck.push.register_device request_id=ck:request:01JS0KE000000000000000000
 ```
 
 Subscribe with any `tracing-subscriber` layer; Sentry / OpenTelemetry
@@ -543,9 +543,9 @@ The crate maps to the Cokret v1 push HTTP binding:
 
 | Operation ID | HTTP Binding | Request builder |
 | --- | --- | --- |
-| `cx.push.register_device` | `POST /api/v1/push/register-device` | `build_register_device_request()` |
-| `cx.push.unregister_device` | `POST /api/v1/push/unregister-device` | `build_unregister_device_request()` |
-| `cx.push.notify` | `POST /api/v1/push/notify` | Gateway/server-side operation, not a client registration call. |
+| `ck.push.register_device` | `POST /_cokret/edge/push/register-device` | `build_register_device_request()` |
+| `ck.push.unregister_device` | `POST /_cokret/edge/push/unregister-device` | `build_unregister_device_request()` |
+| `ck.push.notify` | `POST /_cokret/edge/push/notify` | Gateway/server-side operation, not a client registration call. |
 
 Register/unregister bodies carry the canonical operation id, optional `principal_id`, `device_id`, app id, gateway URL, idempotency key, request id, and caller-supplied proof. Responses expose the accepted gateway, token hash/preview, expiry or refresh hints, warnings, and request id when the service returns them.
 
@@ -589,5 +589,5 @@ Licensed under Apache 2.0. See [LICENSE](LICENSE).
 
 <!-- circle-rollout milestone pointer -->
 > **Active milestone tracking** (local-only, gitignored): see
-> `_chime_todos.md` in the parent `cokret-dev/` directory for the
+> `_chime_todos.md` in the parent `cokret/` directory for the
 > circle-rollout (CXP-0007) work item list and per-stage checkpoints.

@@ -2,7 +2,7 @@
 //!
 //! Models the slice of code a backend service (yougen, an SRE-owned
 //! fan-out proxy, an on-prem connector) runs when it receives a
-//! `cx.push.notify` frame from floria and wants to forward it onto an
+//! `ck.push.notify` frame from floria and wants to forward it onto an
 //! internal queue (Kafka topic, Redis stream, MQ exchange, …) for
 //! per-device delivery.
 //!
@@ -58,7 +58,7 @@ mod inner {
                 "did:web:floria-shard-a.example",
                 "nonce-aaaaaaaaaaaa",
                 r#"{
-                    "operation_id": "cx.push.notify",
+                    "operation_id": "ck.push.notify",
                     "destination_service_did": "did:web:yougen.example",
                     "notification": {
                         "wakeup_kind": "message",
@@ -71,7 +71,7 @@ mod inner {
                 "did:web:floria-shard-a.example",
                 "nonce-aaaaaaaaaaaa",
                 r#"{
-                    "operation_id": "cx.push.notify",
+                    "operation_id": "ck.push.notify",
                     "destination_service_did": "did:web:yougen.example",
                     "notification": {
                         "wakeup_kind": "message",

@@ -86,7 +86,7 @@ project follows [SemVer](https://semver.org/) once it reaches `1.0`.
   env var it still prints a clearly-labelled `[warn]` skip so local
   developers without a sibling floria checkout keep getting a green
   run. A new `live-integration` CI job checks out
-  `cokret-dev/floria`, builds the binary, and exercises the tests
+  `cokret/floria`, builds the binary, and exercises the tests
   with `CHIME_INTEGRATION_REQUIRED=1`.
 
 ### Security

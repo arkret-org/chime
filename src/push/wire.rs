@@ -1,4 +1,4 @@
-//! Wire DTOs for `cx.push.register_device` / `cx.push.unregister_device`.
+//! Wire DTOs for `ck.push.register_device` / `ck.push.unregister_device`.
 //!
 //! ## Stability
 //!
@@ -196,7 +196,7 @@ impl fmt::Debug for PushDeviceConfig<'_> {
     }
 }
 
-/// Request body for `POST /api/v1/push/register-device`.
+/// Request body for `POST /_cokret/edge/push/register-device`.
 ///
 /// Stability: 1.0-stable + `#[non_exhaustive]`. Build via
 /// `RegisterDeviceRequest { ..Default::default() }` from external crates so
@@ -260,7 +260,7 @@ impl fmt::Debug for RegisterDeviceRequest {
     }
 }
 
-/// Response body for `POST /api/v1/push/register-device`.
+/// Response body for `POST /_cokret/edge/push/register-device`.
 ///
 /// Stability: 1.0-stable. New optional fields may be added in a minor release.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -285,7 +285,7 @@ pub struct RegisterDeviceResponse {
     pub request_id: Option<String>,
 }
 
-/// Request body for `POST /api/v1/push/unregister-device`.
+/// Request body for `POST /_cokret/edge/push/unregister-device`.
 ///
 /// Stability: 1.0-stable + `#[non_exhaustive]`. Build via
 /// `UnregisterDeviceRequest { ..Default::default() }` from external crates.
@@ -338,7 +338,7 @@ impl fmt::Debug for UnregisterDeviceRequest {
     }
 }
 
-/// Response body for `POST /api/v1/push/unregister-device`.
+/// Response body for `POST /_cokret/edge/push/unregister-device`.
 ///
 /// Stability: 1.0-stable. New optional fields may be added in a minor release.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -353,7 +353,7 @@ pub struct UnregisterDeviceResponse {
     pub request_id: Option<String>,
 }
 
-/// B.5 #8 — request body for `POST /api/v1/push/unsubscribe`.
+/// B.5 #8 — request body for `POST /_cokret/edge/push/unsubscribe`.
 ///
 /// Mutes a Circle / Realm / Flow at the gateway so chime does NOT have
 /// to receive (and silently drop) wakeups for it. The previous design
@@ -455,7 +455,7 @@ impl PushUnsubscribeRequest {
     }
 }
 
-/// Response body for `POST /api/v1/push/unsubscribe`.
+/// Response body for `POST /_cokret/edge/push/unsubscribe`.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[non_exhaustive]
 pub struct PushUnsubscribeResponse {
@@ -604,7 +604,7 @@ mod tests {
         let register: RegisterDeviceResponse = serde_json::from_value(serde_json::json!({
             "ok": true,
             "registration_id": "reg-1",
-            "accepted_gateway": "https://push.example.com/api/v1/push/notify",
+            "accepted_gateway": "https://push.example.com/_cokret/edge/push/notify",
             "push_key_hash": "sha256:abc",
             "push_key_preview": "fcm:<redacted,len=17>",
             "expires_at": "2026-05-02T00:00:00Z",
@@ -617,7 +617,7 @@ mod tests {
         assert!(register.ok);
         assert_eq!(
             register.accepted_gateway.as_deref(),
-            Some("https://push.example.com/api/v1/push/notify")
+            Some("https://push.example.com/_cokret/edge/push/notify")
         );
         assert_eq!(register.push_key_hash.as_deref(), Some("sha256:abc"));
         assert_eq!(

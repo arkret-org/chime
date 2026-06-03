@@ -1,7 +1,7 @@
-//! Actor-private `cx.device.push_route` state event wire model.
+//! Actor-private `ck.device.push_route` state event wire model.
 //!
 //! Spec: `cokret-spec/spec/v1/zh/crypto-media/device-lifecycle.md` §5a.2
-//! and the registry entry for `cx.device.push_route` introduced in
+//! and the registry entry for `ck.device.push_route` introduced in
 //! commit 0a5ab85 (2026-05-19), which made the cell_subject a composite
 //! `(recipient_service_did, principal_id, device_id, push_route)`. The
 //! prior wire shape only carried `(principal, device, route)`; the
@@ -57,7 +57,7 @@ impl<'de> Deserialize<'de> for PushRouteId {
 }
 
 /// Service DID of a recipient Principal Server, used as the first
-/// component of the `cx.device.push_route` composite cell_subject
+/// component of the `ck.device.push_route` composite cell_subject
 /// `(recipient_service_did, principal_id, device_id, push_route)`.
 ///
 /// This is a non-empty `String` newtype rather than a free-form
@@ -227,7 +227,7 @@ impl PushRoute {
     /// and typed as [`ServiceDid`]. The previous signature
     /// `active(route, push_target_id, push_gateway_did)` allowed
     /// construction of active routes with `recipient_service_did:
-    /// None`, which violated the `cx.device.push_route` cell_subject
+    /// None`, which violated the `ck.device.push_route` cell_subject
     /// contract `(recipient_service_did, principal_id, device_id,
     /// push_route)`. Callers that genuinely need a placeholder before
     /// service discovery has run should use

@@ -60,7 +60,7 @@ proptest! {
         };
         let binding = GatewayBinding::new(
             gateway,
-            "https://push.example.com/api/v1/push/notify",
+            "https://push.example.com/_cokret/edge/push/notify",
         );
         let config = PushDeviceConfig {
             principal_id: Some("did:web:alice.example"),
@@ -117,7 +117,7 @@ proptest! {
         };
         let binding = GatewayBinding::new(
             PushGatewayType::Standard,
-            "https://push.example.com/api/v1/push/notify",
+            "https://push.example.com/_cokret/edge/push/notify",
         );
         let config = PushDeviceConfig {
             principal_id: Some("did:web:bob.example"),

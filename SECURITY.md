@@ -18,17 +18,17 @@ Do **not** open a public GitHub issue for security-sensitive bug reports.
 Use one of the following private channels:
 
 1. **GitHub Security Advisories** — preferred. Open a draft advisory at
-   <https://github.com/cokret-dev/chime/security/advisories/new>. We
+   <https://github.com/cokret/chime/security/advisories/new>. We
    acknowledge new advisories within 5 working days.
 2. **Direct contact** — if you cannot use GitHub Security Advisories,
    email the maintainers via the address listed under
-   <https://github.com/cokret-dev>.
+   <https://github.com/cokret>.
 
 When you report, please include:
 
 - a description of the issue and its impact in the Cokret push surface
   (`register-device`, `unregister-device`, `bridge/describe`,
-  `cx.push.notify` validators, or local `PushRegistrationStore` state);
+  `ck.push.notify` validators, or local `PushRegistrationStore` state);
 - a minimal reproduction (test fixture, JSON payload, request flow);
 - whether the issue is exploitable through the public crate API, requires
   a malicious server response, or requires local code change;
@@ -42,7 +42,7 @@ When you report, please include:
   output, or error messages.
 - DIDs (`did:*`) MUST NOT appear inside `notification.extra`,
   `push_hint`, or any token-shaped wire field.
-- `cx.push.notify` payloads default to E2EE blind wakeup; only services
+- `ck.push.notify` payloads default to E2EE blind wakeup; only services
   on the explicit `plaintext_visible_services` allowlist may receive
   identifying metadata.
 
@@ -91,7 +91,7 @@ it as a security report and use the private channels above.
 ## Inbound push frame handling
 
 `chime` ships the wire-shape, privacy, and replay validators for inbound
-`cx.push.notify` frames, but it deliberately stops short of cryptographic
+`ck.push.notify` frames, but it deliberately stops short of cryptographic
 authentication of the frame itself. The host application owns the
 remaining pieces.
 
@@ -143,7 +143,7 @@ MUST treat the absence as algorithm-dependent rather than as a default
 
 ### Stale-timestamp frame handling
 
-Inbound frames carry a `CONTRIX_CREATED_AT_HEADER`. The host MUST
+Inbound frames carry a `COKRET_CREATED_AT_HEADER`. The host MUST
 enforce a freshness window on that header:
 
 - **Recommended window: 5 minutes** (matches the default
@@ -170,7 +170,7 @@ different invariants and SHOULD NOT share state:
 - **Inbound (gateway → chime relay).** The window protects against an
   attacker (or a buggy upstream) re-injecting an old frame to fan it
   out twice. The window MUST be at least as long as the host's
-  `CONTRIX_CREATED_AT_HEADER` freshness window plus the host's broker
+  `COKRET_CREATED_AT_HEADER` freshness window plus the host's broker
   retry budget; **5 minutes is the recommended floor**. A short
   inbound window opens a re-fanout vector — when in doubt, lean long.
 

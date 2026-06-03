@@ -8,7 +8,7 @@ use crate::{
     build_register_device_request,
 };
 
-pub(crate) const TEST_PUSH_GATEWAY: &str = "https://push.example.com/api/v1/push/notify";
+pub(crate) const TEST_PUSH_GATEWAY: &str = "https://push.example.com/_cokret/edge/push/notify";
 
 pub(crate) fn prefs() -> PushPreferences {
     PushPreferences {

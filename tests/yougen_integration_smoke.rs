@@ -13,7 +13,7 @@ use chime::{
     build_register_device_request,
 };
 
-const PUSH_GATEWAY: &str = "https://push.example.com/api/v1/push/notify";
+const PUSH_GATEWAY: &str = "https://push.example.com/_cokret/edge/push/notify";
 
 #[test]
 fn yougen_style_fcm_and_apns_tokens_build_chime_register_requests() {

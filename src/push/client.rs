@@ -69,14 +69,14 @@ use super::errors::{PushErrorKind, PushRegistrationError, classify_http_error};
 use super::registration::{
     build_register_device_request, build_unregister_device_request, build_unsubscribe_request,
 };
-use super::urls::{redact_url, try_contrix_api_url};
+use super::urls::{redact_url, try_cokret_api_url};
 use super::wire::{
     CokretErrorEnvelope, PushDeviceConfig, PushUnsubscribeRequest, PushUnsubscribeResponse,
     RegisterDeviceRequest, RegisterDeviceResponse, UnregisterDeviceRequest,
     UnregisterDeviceResponse,
 };
 use super::{
-    CONTRIX_REQUEST_ID_HEADER, CONTRIX_SESSION_GRANT_HEADER, PUSH_BRIDGE_DESCRIBE_PATH,
+    COKRET_REQUEST_ID_HEADER, COKRET_SESSION_GRANT_HEADER, PUSH_BRIDGE_DESCRIBE_PATH,
     PUSH_INTEGRATION_DESCRIBE_PATH, PUSH_UNSUBSCRIBE_PATH, REGISTER_DEVICE_PATH,
     RETRY_AFTER_HEADER, SDK_USER_AGENT, UNREGISTER_DEVICE_PATH,
 };
@@ -275,7 +275,7 @@ impl CokretPushClient {
         self,
         session_grant: impl AsRef<str>,
     ) -> Result<Self, PushRegistrationError> {
-        self.with_header(CONTRIX_SESSION_GRANT_HEADER, session_grant)
+        self.with_header(COKRET_SESSION_GRANT_HEADER, session_grant)
     }
 
     /// Override the `register-device` path. Use this when the active
@@ -403,7 +403,7 @@ impl CokretPushClient {
     /// # };
     /// # let binding = GatewayBinding::new(
     /// #     PushGatewayType::Standard,
-    /// #     "https://push.example.com/api/v1/push/notify",
+    /// #     "https://push.example.com/_cokret/edge/push/notify",
     /// # );
     /// # let prefs = PushPreferences {
     /// #     enabled: true,
@@ -837,7 +837,7 @@ impl CokretPushClient {
         T: Serialize + ?Sized,
         R: for<'de> Deserialize<'de>,
     {
-        let url = try_contrix_api_url(&self.service_base_url, path)?;
+        let url = try_cokret_api_url(&self.service_base_url, path)?;
         let mut request = self
             .http
             .post(url)
@@ -863,10 +863,10 @@ impl CokretPushClient {
         if let Some(request_id) = request_id {
             let request_id = reqwest::header::HeaderValue::from_str(request_id).map_err(|_| {
                 PushRegistrationError::InvalidHeader {
-                    name: CONTRIX_REQUEST_ID_HEADER.to_owned(),
+                    name: COKRET_REQUEST_ID_HEADER.to_owned(),
                 }
             })?;
-            request = request.header(CONTRIX_REQUEST_ID_HEADER, request_id);
+            request = request.header(COKRET_REQUEST_ID_HEADER, request_id);
         }
 
         for (name, value) in &self.headers {
@@ -877,7 +877,7 @@ impl CokretPushClient {
         let status = response.status();
         let headers = response.headers().clone();
         let retry_after = header_value(&headers, RETRY_AFTER_HEADER);
-        let request_id = header_value(&headers, CONTRIX_REQUEST_ID_HEADER);
+        let request_id = header_value(&headers, COKRET_REQUEST_ID_HEADER);
         let body = response.text().await?;
 
         if !status.is_success() {
@@ -909,7 +909,7 @@ impl CokretPushClient {
     where
         R: for<'de> Deserialize<'de>,
     {
-        let url = try_contrix_api_url(&self.service_base_url, path)?;
+        let url = try_cokret_api_url(&self.service_base_url, path)?;
         let mut request = self
             .http
             .get(url)
@@ -930,10 +930,10 @@ impl CokretPushClient {
         if let Some(request_id) = self.default_request_id.as_deref() {
             let request_id = reqwest::header::HeaderValue::from_str(request_id).map_err(|_| {
                 PushRegistrationError::InvalidHeader {
-                    name: CONTRIX_REQUEST_ID_HEADER.to_owned(),
+                    name: COKRET_REQUEST_ID_HEADER.to_owned(),
                 }
             })?;
-            request = request.header(CONTRIX_REQUEST_ID_HEADER, request_id);
+            request = request.header(COKRET_REQUEST_ID_HEADER, request_id);
         }
 
         for (name, value) in &self.headers {
@@ -944,7 +944,7 @@ impl CokretPushClient {
         let status = response.status();
         let headers = response.headers().clone();
         let retry_after = header_value(&headers, RETRY_AFTER_HEADER);
-        let request_id = header_value(&headers, CONTRIX_REQUEST_ID_HEADER);
+        let request_id = header_value(&headers, COKRET_REQUEST_ID_HEADER);
         let body = response.text().await?;
 
         if !status.is_success() {
@@ -970,7 +970,7 @@ impl CokretPushClient {
     }
 
     fn assert_session_grant_if_required(&self) -> Result<(), PushRegistrationError> {
-        if self.require_session_grant && !self.has_header(CONTRIX_SESSION_GRANT_HEADER) {
+        if self.require_session_grant && !self.has_header(COKRET_SESSION_GRANT_HEADER) {
             return Err(PushRegistrationError::MissingField("session_grant"));
         }
         Ok(())
@@ -1182,7 +1182,7 @@ mod tests {
     fn binding() -> crate::GatewayBinding {
         crate::GatewayBinding::new(
             crate::PushGatewayType::Standard,
-            "https://push.example.com/api/v1/push/notify",
+            "https://push.example.com/_cokret/edge/push/notify",
         )
     }
 
@@ -1201,7 +1201,7 @@ mod tests {
     async fn register_success_exposes_response_context_and_headers() {
         let (base_url, requests) = spawn_mock_server(vec![MockResponse {
             status: "200 OK",
-            headers: vec![(CONTRIX_REQUEST_ID_HEADER, "ck:request:server")],
+            headers: vec![(COKRET_REQUEST_ID_HEADER, "ck:request:server")],
             body: r#"{"ok":true,"registration_id":"reg-1","expires_at":"2026-04-29T00:00:00Z"}"#,
         }]);
 
@@ -1222,7 +1222,7 @@ mod tests {
         assert_eq!(response.request_id.as_deref(), Some("ck:request:server"));
 
         let request = requests.lock().unwrap().join("\n");
-        assert!(request.contains("POST /api/v1/push/register-device HTTP/1.1"));
+        assert!(request.contains("POST /_cokret/edge/push/register-device HTTP/1.1"));
         assert!(request.contains("authorization: Bearer session-secret"));
         assert!(request.contains("idempotency-key: idem-1"));
         assert!(request.contains("x-cokret-request-id: ck:request:test"));
@@ -1271,7 +1271,7 @@ mod tests {
 
         assert!(response.ok);
         let request = requests.lock().unwrap().join("\n");
-        assert!(request.contains("POST /api/v1/push/unregister-device HTTP/1.1"));
+        assert!(request.contains("POST /_cokret/edge/push/unregister-device HTTP/1.1"));
         assert!(request.contains("\"registration_id\":\"ck:pushreg:01JS0KE000000000000000000\""));
     }
 
@@ -1279,7 +1279,7 @@ mod tests {
     async fn unregister_not_found_is_idempotent_success() {
         let (base_url, _) = spawn_mock_server(vec![MockResponse {
             status: "404 Not Found",
-            headers: vec![(CONTRIX_REQUEST_ID_HEADER, "ck:request:not-found")],
+            headers: vec![(COKRET_REQUEST_ID_HEADER, "ck:request:not-found")],
             body: r#"{"ok":false,"error":{"code":"not_found","message":"missing"}}"#,
         }]);
 
@@ -1641,11 +1641,11 @@ mod tests {
             gateways: vec![
                 crate::GatewayBinding::new(
                     crate::PushGatewayType::Standard,
-                    "https://push.example.com/api/v1/push/notify",
+                    "https://push.example.com/_cokret/edge/push/notify",
                 ),
                 crate::GatewayBinding::new(
                     crate::PushGatewayType::Bugle,
-                    "https://push.palpo.im/api/v1/push/notify",
+                    "https://push.palpo.im/_cokret/edge/push/notify",
                 )
                 .with_push_key("vendor-token-cn-aaaaaaaaaa")
                 .with_app_id("app.example.android.cn"),
