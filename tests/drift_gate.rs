@@ -12,7 +12,7 @@
 //! ## Snapshot
 //!
 //! Re-snapshotted on `2026-05-26` against floria `6496235` and
-//! contrix-spec head `37ce729`. The fixture mirrors:
+//! cokret-spec head `37ce729`. The fixture mirrors:
 //!
 //! - Phase P2 agent-kind routing (`cx.agent.{pause,resume,deactivate}` silent-consume;
 //!   `cx.agent.{draft.propose,action_request, action_approve,action_reject}` drop unless
@@ -39,7 +39,7 @@ const BRIDGE_DESCRIBE_FIXTURE: &str = r#"{
     "contract": "cx.push.bridge.v1",
     "version": "1.0.0",
     "api_base_path": "/api/v1",
-    "spec_version": "contrix-spec@2026-05-26",
+    "spec_version": "cokret-spec@2026-05-26",
     "gateway": {
         "service_did": "did:web:gateway.example",
         "supported_profiles": ["fcm", "apns", "webpush"],
@@ -49,10 +49,10 @@ const BRIDGE_DESCRIBE_FIXTURE: &str = r#"{
     "notify": {
         "notify_path": "/api/v1/push/notify",
         "operation_id": "cx.push.notify",
-        "request_id_header": "X-Contrix-Request-Id",
-        "idempotency_key_header": "X-Contrix-Idempotency-Key",
-        "origin_service_did_header": "X-Contrix-Origin-Service-Did",
-        "destination_service_did_header": "X-Contrix-Destination-Service-Did",
+        "request_id_header": "X-Cokret-Request-Id",
+        "idempotency_key_header": "X-Cokret-Idempotency-Key",
+        "origin_service_did_header": "X-Cokret-Origin-Service-Did",
+        "destination_service_did_header": "X-Cokret-Destination-Service-Did",
         "max_request_size_bytes": 16384,
         "dedup_backend": "redis",
         "dedup_ttl_seconds": 300,
@@ -66,18 +66,18 @@ const BRIDGE_DESCRIBE_FIXTURE: &str = r#"{
     },
     "examples": {
         "notify_headers": {
-            "X-Contrix-Operation-Id": "cx.push.notify",
-            "X-Contrix-Request-Id": "cx:request:01JS0KE000000000000000000"
+            "X-Cokret-Operation-Id": "cx.push.notify",
+            "X-Cokret-Request-Id": "ck:request:01JS0KE000000000000000000"
         },
         "blind_wakeup_request": {
             "operation_id": "cx.push.notify",
             "notification": {
-                "push_target_id": "cx:pseudonym:push:01HYZ8Z000000000000000",
+                "push_target_id": "ck:pseudonym:push:01HYZ8Z000000000000000",
                 "wakeup_kind": "message",
                 "push_hint": "new_message",
                 "counts": { "unread": 1 },
-                "circle_id": "cx:circle:01HZK9Z000000000000000000",
-                "effective_scope": "cx:circle:01HZK9Z000000000000000000",
+                "circle_id": "ck:circle:01HZK9Z000000000000000000",
+                "effective_scope": "ck:circle:01HZK9Z000000000000000000",
                 "devices": [
                     {
                         "push_key": "fcm:opaque-token",
@@ -101,7 +101,7 @@ fn bridge_describe_fixture_round_trips_into_chime_dto() {
     assert_eq!(response.version, "1.0.0");
     assert_eq!(
         response.spec_version.as_deref(),
-        Some("contrix-spec@2026-05-26"),
+        Some("cokret-spec@2026-05-26"),
         "fixture must pin to the current spec head"
     );
     assert!(response.gateway.supports_profile("fcm"));
@@ -219,34 +219,34 @@ fn phase_p2_typed_id_prefixes_match_floria_6496235() {
     assert_eq!(PHASE_P2_AGENT_TYPED_ID_PREFIXES.len(), 7);
     for prefix in PHASE_P2_AGENT_TYPED_ID_PREFIXES {
         assert!(
-            prefix.starts_with("cx:"),
+            prefix.starts_with("ck:"),
             "prefix `{prefix}` must be a typed-id"
         );
         assert!(prefix.ends_with(':'), "prefix `{prefix}` must end with `:`");
     }
     // Spot-check a known typed-id value passes the recognizer.
     assert!(is_phase_p2_agent_typed_id(
-        "cx:agent_session:01HZK9Z000000000000000000"
+        "ck:agent_session:01HZK9Z000000000000000000"
     ));
     assert!(is_phase_p2_agent_typed_id(
-        "cx:accountability_grant:01HZK9Z000000000000000000"
+        "ck:accountability_grant:01HZK9Z000000000000000000"
     ));
     assert!(is_phase_p2_agent_typed_id(
-        "cx:sidecar_circle:01HZK9Z000000000000000000"
+        "ck:sidecar_circle:01HZK9Z000000000000000000"
     ));
     // Non-agent typed ids are NOT recognized.
     assert!(!is_phase_p2_agent_typed_id(
-        "cx:circle:01HZK9Z000000000000000000"
+        "ck:circle:01HZK9Z000000000000000000"
     ));
     assert!(!is_phase_p2_agent_typed_id(
-        "cx:realm:01HZK9Z000000000000000000"
+        "ck:realm:01HZK9Z000000000000000000"
     ));
 }
 
 #[test]
 fn agent_typed_id_in_event_id_slot_fails_closed() {
-    // An agent typed-id (`cx:agent_session:...`) MUST NOT appear in
-    // the wakeup's `event_id` slot — that slot is pinned to `cx:event:`.
+    // An agent typed-id (`ck:agent_session:...`) MUST NOT appear in
+    // the wakeup's `event_id` slot — that slot is pinned to `ck:event:`.
     // chime's `validate_typed_id` already enforces the prefix, so this
     // exercises the same fail-closed rule from the wire side: the
     // typed-id appears in a slot where its `actor_kind=Agent` cousin
@@ -254,9 +254,9 @@ fn agent_typed_id_in_event_id_slot_fails_closed() {
     let frame = serde_json::json!({
         "operation_id": "cx.push.notify",
         "notification": {
-            "push_target_id": "cx:pseudonym:push:01HYZ8Z000000000000000",
+            "push_target_id": "ck:pseudonym:push:01HYZ8Z000000000000000",
             "wakeup_kind": "message",
-            "event_id": "cx:agent_session:01HZK9Z000000000000000000",
+            "event_id": "ck:agent_session:01HZK9Z000000000000000000",
             "devices": [
                 { "push_key": "fcm:opaque-token", "app_id": "app.example" }
             ]
@@ -282,9 +282,9 @@ fn agent_typed_id_in_extra_fails_closed() {
     let frame = serde_json::json!({
         "operation_id": "cx.push.notify",
         "notification": {
-            "push_target_id": "cx:pseudonym:push:01HYZ8Z000000000000000",
+            "push_target_id": "ck:pseudonym:push:01HYZ8Z000000000000000",
             "wakeup_kind": "message",
-            "agent_link": "cx:sidecar_circle:01HZK9Z000000000000000000",
+            "agent_link": "ck:sidecar_circle:01HZK9Z000000000000000000",
             "devices": [
                 { "push_key": "fcm:opaque-token", "app_id": "app.example" }
             ]

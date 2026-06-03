@@ -1,6 +1,6 @@
 # chime 中文文档
 
-当前 chime 审计协议目标：`contrix-spec @ c2848a4`。历史
+当前 chime 审计协议目标：`cokret-spec @ c2848a4`。历史
 `CHANGELOG.md` 中的旧 SHA 只表示当轮同步记录，不是当前完成门槛。
 
 面向 yougen / host app 的常用文档：

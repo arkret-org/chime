@@ -5,7 +5,7 @@
 - 生产构建启用 `--features http,notify`。
 - `bridge_describe().spec_version` 必须匹配
   `chime::EXPECTED_SPEC_VERSION`。
-- 当前 chime 审计目标是 `contrix-spec @ cced4b8`；升级协议头前需要重新跑
+- 当前 chime 审计目标是 `cokret-spec @ cced4b8`；升级协议头前需要重新跑
   drift gate 和集成 smoke test。
 
 ## push payload 安全

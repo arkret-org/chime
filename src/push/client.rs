@@ -1,4 +1,4 @@
-//! Async HTTP client for the Contrix push register/unregister/describe endpoints.
+//! Async HTTP client for the Cokret push register/unregister/describe endpoints.
 //!
 //! Available only when the `http` feature is enabled.
 
@@ -17,10 +17,10 @@ use crate::{GatewayBinding, PushPreferences};
 /// designed so we can extend it to other secrets later).
 ///
 /// Semantics:
-/// - `Clone` is intentionally supported so the surrounding `ContrixPushClient` can remain `Clone`.
+/// - `Clone` is intentionally supported so the surrounding `CokretPushClient` can remain `Clone`.
 ///   Each clone owns its own zeroed-on-drop allocation.
 /// - `Debug` returns the literal string `"<redacted>"`; the inner `String` is never formatted.
-/// - `Drop` zeroes the underlying allocation via the `zeroize` crate so a `ContrixPushClient` going
+/// - `Drop` zeroes the underlying allocation via the `zeroize` crate so a `CokretPushClient` going
 ///   out of scope does not leave the token sitting in the freed heap region.
 ///
 /// We do NOT implement `Display`, `PartialEq`, or `Serialize` on this
@@ -43,7 +43,7 @@ impl SecretString {
 
 impl Clone for SecretString {
     fn clone(&self) -> Self {
-        // Allocate a fresh String so each `ContrixPushClient` clone gets
+        // Allocate a fresh String so each `CokretPushClient` clone gets
         // its own zeroed-on-drop buffer.
         Self(self.0.clone())
     }
@@ -71,7 +71,7 @@ use super::registration::{
 };
 use super::urls::{redact_url, try_contrix_api_url};
 use super::wire::{
-    ContrixErrorEnvelope, PushDeviceConfig, PushUnsubscribeRequest, PushUnsubscribeResponse,
+    CokretErrorEnvelope, PushDeviceConfig, PushUnsubscribeRequest, PushUnsubscribeResponse,
     RegisterDeviceRequest, RegisterDeviceResponse, UnregisterDeviceRequest,
     UnregisterDeviceResponse,
 };
@@ -81,17 +81,17 @@ use super::{
     RETRY_AFTER_HEADER, SDK_USER_AGENT, UNREGISTER_DEVICE_PATH,
 };
 
-/// HTTP response body plus Contrix response metadata.
+/// HTTP response body plus Cokret response metadata.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct ContrixResponse<T> {
+pub struct CokretResponse<T> {
     pub body: T,
     pub request_id: Option<String>,
     pub retry_after: Option<String>,
 }
 
-impl<T> ContrixResponse<T> {
-    pub fn map_body<U>(self, f: impl FnOnce(T) -> U) -> ContrixResponse<U> {
-        ContrixResponse {
+impl<T> CokretResponse<T> {
+    pub fn map_body<U>(self, f: impl FnOnce(T) -> U) -> CokretResponse<U> {
+        CokretResponse {
             body: f(self.body),
             request_id: self.request_id,
             retry_after: self.retry_after,
@@ -99,7 +99,7 @@ impl<T> ContrixResponse<T> {
     }
 }
 
-/// Retry configuration for `ContrixPushClient`.
+/// Retry configuration for `CokretPushClient`.
 ///
 /// Stability: `1.0`-stable. Stays `Copy` + `const`-constructible so
 /// callers can stash it in static config. The `disabled_kinds_mask`
@@ -165,7 +165,7 @@ impl Default for PushRetryPolicy {
 }
 
 #[derive(Clone)]
-pub struct ContrixPushClient {
+pub struct CokretPushClient {
     http: reqwest::Client,
     service_base_url: String,
     // A.5 #2 — bearer token is held in a zeroize-on-drop wrapper so
@@ -188,14 +188,14 @@ pub struct ContrixPushClient {
     unregister_device_path: Option<String>,
 }
 
-impl fmt::Debug for ContrixPushClient {
+impl fmt::Debug for CokretPushClient {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         // A.5 #2 — `SecretString::Debug` already prints `<redacted>`,
         // so handing the `Option<SecretString>` straight to
         // `debug_struct` cannot leak the token. The explicit cast to
         // `Option<&SecretString>` makes that contract grep-able.
         let bearer: Option<&SecretString> = self.bearer_token.as_ref();
-        f.debug_struct("ContrixPushClient")
+        f.debug_struct("CokretPushClient")
             .field("service_base_url", &redact_url(&self.service_base_url))
             .field("bearer_token", &bearer)
             .field("timeout", &self.timeout)
@@ -209,7 +209,7 @@ impl fmt::Debug for ContrixPushClient {
     }
 }
 
-impl ContrixPushClient {
+impl CokretPushClient {
     pub fn new(service_base_url: impl Into<String>) -> Self {
         Self {
             http: reqwest::Client::new(),
@@ -311,7 +311,7 @@ impl ContrixPushClient {
     /// **Default is `true`.** When required, the client fail-closes with
     /// [`PushRegistrationError::MissingField`] (with field
     /// `"session_grant"`) before sending any request unless an
-    /// `X-Contrix-Session-Grant` header has been attached via
+    /// `X-Cokret-Session-Grant` header has been attached via
     /// [`with_session_grant`](Self::with_session_grant) or
     /// [`with_header`](Self::with_header).
     ///
@@ -355,7 +355,7 @@ impl ContrixPushClient {
     /// Discover the active push gateway bridge contract and return response metadata.
     pub async fn bridge_describe_with_context(
         &self,
-    ) -> Result<ContrixResponse<PushBridgeDescribeResponse>, PushRegistrationError> {
+    ) -> Result<CokretResponse<PushBridgeDescribeResponse>, PushRegistrationError> {
         self.get_json(PUSH_BRIDGE_DESCRIBE_PATH).await
     }
 
@@ -369,7 +369,7 @@ impl ContrixPushClient {
     /// Discover the service-level push gateway integration manifest and return response metadata.
     pub async fn integration_describe_with_context(
         &self,
-    ) -> Result<ContrixResponse<PushGatewayIntegrationDescribeResponse>, PushRegistrationError>
+    ) -> Result<CokretResponse<PushGatewayIntegrationDescribeResponse>, PushRegistrationError>
     {
         self.get_json(PUSH_INTEGRATION_DESCRIBE_PATH).await
     }
@@ -384,7 +384,7 @@ impl ContrixPushClient {
         Ok(IntegrationView::new(manifest, bridge))
     }
 
-    /// Register a push-capable device with a Contrix service against
+    /// Register a push-capable device with a Cokret service against
     /// a specific gateway binding.
     ///
     /// When `prefs.enabled` is false, this method performs an idempotent
@@ -411,9 +411,9 @@ impl ContrixPushClient {
     /// # };
     /// use std::time::Duration;
     ///
-    /// use chime::{ContrixPushClient, PushRetryPolicy};
+    /// use chime::{CokretPushClient, PushRetryPolicy};
     ///
-    /// let client = ContrixPushClient::new("https://principal.example")
+    /// let client = CokretPushClient::new("https://principal.example")
     ///     .with_bearer_token("session-token")
     ///     .with_timeout(Duration::from_secs(10))
     ///     .with_retry_policy(PushRetryPolicy::conservative());
@@ -443,7 +443,7 @@ impl ContrixPushClient {
         config: &PushDeviceConfig<'_>,
         binding: &GatewayBinding,
         prefs: &PushPreferences,
-    ) -> Result<ContrixResponse<RegisterDeviceResponse>, PushRegistrationError> {
+    ) -> Result<CokretResponse<RegisterDeviceResponse>, PushRegistrationError> {
         self.assert_session_grant_if_required()?;
         if !prefs.enabled {
             let response = self
@@ -477,7 +477,7 @@ impl ContrixPushClient {
             gateway = binding.gateway_type.display_name(),
             operation_id = crate::OPERATION_PUSH_REGISTER_DEVICE,
             request_id = response.request_id.as_deref(),
-            "Contrix push device registered"
+            "Cokret push device registered"
         );
 
         Ok(response)
@@ -496,7 +496,7 @@ impl ContrixPushClient {
         body: &RegisterDeviceRequest,
         idempotency_key: Option<&str>,
         request_id: Option<&str>,
-    ) -> Result<ContrixResponse<RegisterDeviceResponse>, PushRegistrationError> {
+    ) -> Result<CokretResponse<RegisterDeviceResponse>, PushRegistrationError> {
         self.assert_session_grant_if_required()?;
         let response = self
             .post_json(
@@ -511,7 +511,7 @@ impl ContrixPushClient {
             platform = body.platform.as_deref().unwrap_or("unspecified"),
             operation_id = crate::OPERATION_PUSH_REGISTER_DEVICE,
             request_id = response.request_id.as_deref(),
-            "Contrix push device registered (prebuilt body)"
+            "Cokret push device registered (prebuilt body)"
         );
 
         Ok(response)
@@ -525,7 +525,7 @@ impl ContrixPushClient {
         body: &UnregisterDeviceRequest,
         idempotency_key: Option<&str>,
         request_id: Option<&str>,
-    ) -> Result<ContrixResponse<UnregisterDeviceResponse>, PushRegistrationError> {
+    ) -> Result<CokretResponse<UnregisterDeviceResponse>, PushRegistrationError> {
         self.assert_session_grant_if_required()?;
         let response = match self
             .post_json(
@@ -537,7 +537,7 @@ impl ContrixPushClient {
             .await
         {
             Ok(response) => response,
-            Err(error) if error.kind() == PushErrorKind::NotFound => ContrixResponse {
+            Err(error) if error.kind() == PushErrorKind::NotFound => CokretResponse {
                 body: UnregisterDeviceResponse {
                     ok: true,
                     already_removed: true,
@@ -579,7 +579,7 @@ impl ContrixPushClient {
         &self,
         config: &PushDeviceConfig<'_>,
         target_id: &str,
-    ) -> Result<ContrixResponse<PushUnsubscribeResponse>, PushRegistrationError> {
+    ) -> Result<CokretResponse<PushUnsubscribeResponse>, PushRegistrationError> {
         self.assert_session_grant_if_required()?;
         let body = build_unsubscribe_request(config, target_id)?;
         let path = format!(
@@ -594,7 +594,7 @@ impl ContrixPushClient {
             target_id = target_id,
             operation_id = crate::OPERATION_PUSH_UNSUBSCRIBE,
             request_id = response.request_id.as_deref(),
-            "Contrix push device unsubscribed from scope",
+            "Cokret push device unsubscribed from scope",
         );
 
         Ok(response)
@@ -605,7 +605,7 @@ impl ContrixPushClient {
     pub async fn unsubscribe_with_request(
         &self,
         body: &PushUnsubscribeRequest,
-    ) -> Result<ContrixResponse<PushUnsubscribeResponse>, PushRegistrationError> {
+    ) -> Result<CokretResponse<PushUnsubscribeResponse>, PushRegistrationError> {
         self.assert_session_grant_if_required()?;
         let path = format!(
             "{PUSH_UNSUBSCRIBE_PATH}?target_id={}",
@@ -620,7 +620,7 @@ impl ContrixPushClient {
         .await
     }
 
-    /// Unregister a push-capable device from a Contrix service against
+    /// Unregister a push-capable device from a Cokret service against
     /// a specific gateway binding.
     pub async fn unregister_device(
         &self,
@@ -640,7 +640,7 @@ impl ContrixPushClient {
         config: &PushDeviceConfig<'_>,
         binding: &GatewayBinding,
         prefs: &PushPreferences,
-    ) -> Result<ContrixResponse<UnregisterDeviceResponse>, PushRegistrationError> {
+    ) -> Result<CokretResponse<UnregisterDeviceResponse>, PushRegistrationError> {
         self.assert_session_grant_if_required()?;
         let body = build_unregister_device_request(config, binding, prefs)?;
         let response = match self
@@ -653,7 +653,7 @@ impl ContrixPushClient {
             .await
         {
             Ok(response) => response,
-            Err(error) if error.kind() == PushErrorKind::NotFound => ContrixResponse {
+            Err(error) if error.kind() == PushErrorKind::NotFound => CokretResponse {
                 body: UnregisterDeviceResponse {
                     ok: true,
                     already_removed: true,
@@ -670,7 +670,7 @@ impl ContrixPushClient {
             platform = config.platform.unwrap_or("unspecified"),
             operation_id = crate::OPERATION_PUSH_UNREGISTER_DEVICE,
             request_id = response.request_id.as_deref(),
-            "Contrix push device unregistered"
+            "Cokret push device unregistered"
         );
 
         Ok(response)
@@ -760,7 +760,7 @@ impl ContrixPushClient {
         body: &T,
         idempotency_key: Option<&str>,
         request_id: Option<&str>,
-    ) -> Result<ContrixResponse<R>, PushRegistrationError>
+    ) -> Result<CokretResponse<R>, PushRegistrationError>
     where
         T: Serialize + ?Sized,
         R: for<'de> Deserialize<'de>,
@@ -797,7 +797,7 @@ impl ContrixPushClient {
         }
     }
 
-    async fn get_json<R>(&self, path: &str) -> Result<ContrixResponse<R>, PushRegistrationError>
+    async fn get_json<R>(&self, path: &str) -> Result<CokretResponse<R>, PushRegistrationError>
     where
         R: for<'de> Deserialize<'de>,
     {
@@ -832,7 +832,7 @@ impl ContrixPushClient {
         body: &T,
         idempotency_key: Option<&str>,
         request_id: Option<&str>,
-    ) -> Result<ContrixResponse<R>, PushRegistrationError>
+    ) -> Result<CokretResponse<R>, PushRegistrationError>
     where
         T: Serialize + ?Sized,
         R: for<'de> Deserialize<'de>,
@@ -881,7 +881,7 @@ impl ContrixPushClient {
         let body = response.text().await?;
 
         if !status.is_success() {
-            let error = serde_json::from_str::<ContrixErrorEnvelope>(&body)
+            let error = serde_json::from_str::<CokretErrorEnvelope>(&body)
                 .ok()
                 .map(Box::new);
             let kind = classify_http_error(status.as_u16(), error.as_deref());
@@ -895,7 +895,7 @@ impl ContrixPushClient {
             });
         }
 
-        Ok(ContrixResponse {
+        Ok(CokretResponse {
             body: serde_json::from_str(&body)?,
             request_id,
             retry_after,
@@ -905,7 +905,7 @@ impl ContrixPushClient {
     async fn get_json_once<R>(
         &self,
         path: &str,
-    ) -> Result<ContrixResponse<R>, PushRegistrationError>
+    ) -> Result<CokretResponse<R>, PushRegistrationError>
     where
         R: for<'de> Deserialize<'de>,
     {
@@ -948,7 +948,7 @@ impl ContrixPushClient {
         let body = response.text().await?;
 
         if !status.is_success() {
-            let error = serde_json::from_str::<ContrixErrorEnvelope>(&body)
+            let error = serde_json::from_str::<CokretErrorEnvelope>(&body)
                 .ok()
                 .map(Box::new);
             let kind = classify_http_error(status.as_u16(), error.as_deref());
@@ -962,7 +962,7 @@ impl ContrixPushClient {
             });
         }
 
-        Ok(ContrixResponse {
+        Ok(CokretResponse {
             body: serde_json::from_str(&body)?,
             request_id,
             retry_after,
@@ -1078,7 +1078,7 @@ fn generate_idempotency_key() -> String {
 
 /// Percent-encode a value for use as a URL query parameter.
 ///
-/// Minimal implementation — the typed `cx:scope:opaque` strings chime
+/// Minimal implementation — the typed `ck:scope:opaque` strings chime
 /// builds for unsubscribe only need `:` and a small punctuation set
 /// encoded. We avoid pulling in `percent-encoding` just for this one
 /// call site.
@@ -1164,10 +1164,10 @@ mod tests {
             platform: Some("android"),
             app_id: Some("app.example.android"),
             domestic_app_id: None,
-            registration_id: Some("cx:pushreg:01JS0KE000000000000000000"),
+            registration_id: Some("ck:pushreg:01JS0KE000000000000000000"),
             display_name: Some("Alice Phone"),
             idempotency_key: Some("idem-1"),
-            request_id: Some("cx:request:test"),
+            request_id: Some("ck:request:test"),
             proof: None,
         }
     }
@@ -1190,9 +1190,9 @@ mod tests {
     ///
     /// Mirrors production usage where every register/unregister call is
     /// expected to carry a soland session grant. Tests that specifically
-    /// exercise the "missing grant" path use raw `ContrixPushClient::new`.
-    fn client(base_url: impl Into<String>) -> ContrixPushClient {
-        ContrixPushClient::new(base_url)
+    /// exercise the "missing grant" path use raw `CokretPushClient::new`.
+    fn client(base_url: impl Into<String>) -> CokretPushClient {
+        CokretPushClient::new(base_url)
             .with_session_grant("test-session-grant")
             .expect("test session grant header is valid")
     }
@@ -1201,7 +1201,7 @@ mod tests {
     async fn register_success_exposes_response_context_and_headers() {
         let (base_url, requests) = spawn_mock_server(vec![MockResponse {
             status: "200 OK",
-            headers: vec![(CONTRIX_REQUEST_ID_HEADER, "cx:request:server")],
+            headers: vec![(CONTRIX_REQUEST_ID_HEADER, "ck:request:server")],
             body: r#"{"ok":true,"registration_id":"reg-1","expires_at":"2026-04-29T00:00:00Z"}"#,
         }]);
 
@@ -1219,13 +1219,13 @@ mod tests {
 
         assert!(response.body.ok);
         assert_eq!(response.body.registration_id.as_deref(), Some("reg-1"));
-        assert_eq!(response.request_id.as_deref(), Some("cx:request:server"));
+        assert_eq!(response.request_id.as_deref(), Some("ck:request:server"));
 
         let request = requests.lock().unwrap().join("\n");
         assert!(request.contains("POST /api/v1/push/register-device HTTP/1.1"));
         assert!(request.contains("authorization: Bearer session-secret"));
         assert!(request.contains("idempotency-key: idem-1"));
-        assert!(request.contains("x-contrix-request-id: cx:request:test"));
+        assert!(request.contains("x-cokret-request-id: ck:request:test"));
         assert!(request.contains("user-agent: test-agent"));
         assert!(request.contains("\"idempotency_key\":\"idem-1\""));
     }
@@ -1241,9 +1241,9 @@ mod tests {
         config.idempotency_key = None;
         config.request_id = None;
 
-        ContrixPushClient::new(base_url)
+        CokretPushClient::new(base_url)
             .with_default_idempotency_key("client-idem")
-            .with_default_request_id("cx:request:client")
+            .with_default_request_id("ck:request:client")
             .with_session_grant("coauth-grant-secret")
             .unwrap()
             .register_device(&config, &binding(), &prefs())
@@ -1252,8 +1252,8 @@ mod tests {
 
         let request = requests.lock().unwrap().join("\n");
         assert!(request.contains("idempotency-key: client-idem"));
-        assert!(request.contains("x-contrix-request-id: cx:request:client"));
-        assert!(request.contains("x-contrix-session-grant: coauth-grant-secret"));
+        assert!(request.contains("x-cokret-request-id: ck:request:client"));
+        assert!(request.contains("x-cokret-session-grant: coauth-grant-secret"));
     }
 
     #[tokio::test]
@@ -1272,14 +1272,14 @@ mod tests {
         assert!(response.ok);
         let request = requests.lock().unwrap().join("\n");
         assert!(request.contains("POST /api/v1/push/unregister-device HTTP/1.1"));
-        assert!(request.contains("\"registration_id\":\"cx:pushreg:01JS0KE000000000000000000\""));
+        assert!(request.contains("\"registration_id\":\"ck:pushreg:01JS0KE000000000000000000\""));
     }
 
     #[tokio::test]
     async fn unregister_not_found_is_idempotent_success() {
         let (base_url, _) = spawn_mock_server(vec![MockResponse {
             status: "404 Not Found",
-            headers: vec![(CONTRIX_REQUEST_ID_HEADER, "cx:request:not-found")],
+            headers: vec![(CONTRIX_REQUEST_ID_HEADER, "ck:request:not-found")],
             body: r#"{"ok":false,"error":{"code":"not_found","message":"missing"}}"#,
         }]);
 
@@ -1289,7 +1289,7 @@ mod tests {
             .unwrap();
 
         assert!(response.body.ok);
-        assert_eq!(response.request_id.as_deref(), Some("cx:request:not-found"));
+        assert_eq!(response.request_id.as_deref(), Some("ck:request:not-found"));
     }
 
     #[tokio::test]
@@ -1319,7 +1319,7 @@ mod tests {
 
         for (status, code, expected) in cases {
             let body = format!(
-                r#"{{"ok":false,"error":{{"code":"{code}","message":"x"}},"request_id":"cx:request:error"}}"#
+                r#"{{"ok":false,"error":{{"code":"{code}","message":"x"}},"request_id":"ck:request:error"}}"#
             );
             let (base_url, _) = spawn_mock_server(vec![MockResponse {
                 status,
@@ -1333,7 +1333,7 @@ mod tests {
                 .unwrap_err();
 
             assert_eq!(err.kind(), expected);
-            assert_eq!(err.request_id(), Some("cx:request:error"));
+            assert_eq!(err.request_id(), Some("ck:request:error"));
         }
     }
 
@@ -1426,7 +1426,7 @@ mod tests {
     async fn default_register_rejects_without_session_grant() {
         // Default `require_session_grant = true` ⇒ no mock server needed:
         // the call fails fast before any request is sent.
-        let err = ContrixPushClient::new("https://principal.example")
+        let err = CokretPushClient::new("https://principal.example")
             .register_device(&config(), &binding(), &prefs())
             .await
             .unwrap_err();
@@ -1442,7 +1442,7 @@ mod tests {
             body: r#"{"ok":true,"registration_id":"reg-1"}"#,
         }]);
 
-        let response = ContrixPushClient::new(base_url)
+        let response = CokretPushClient::new(base_url)
             .with_session_grant("coauth-grant-secret")
             .unwrap()
             .register_device(&config(), &binding(), &prefs())
@@ -1451,12 +1451,12 @@ mod tests {
 
         assert!(response.ok);
         let raw = requests.lock().unwrap().join("\n");
-        assert!(raw.contains("x-contrix-session-grant: coauth-grant-secret"));
+        assert!(raw.contains("x-cokret-session-grant: coauth-grant-secret"));
     }
 
     #[tokio::test]
     async fn default_unregister_rejects_without_session_grant() {
-        let err = ContrixPushClient::new("https://principal.example")
+        let err = CokretPushClient::new("https://principal.example")
             .unregister_device(&config(), &binding(), &prefs())
             .await
             .unwrap_err();
@@ -1472,7 +1472,7 @@ mod tests {
             body: r#"{"ok":true}"#,
         }]);
 
-        let response = ContrixPushClient::new(base_url)
+        let response = CokretPushClient::new(base_url)
             .with_required_session_grant(false)
             .register_device(&config(), &binding(), &prefs())
             .await
@@ -1683,7 +1683,7 @@ mod tests {
         assert!(results.is_empty());
     }
 
-    /// A.5 #2 — formatting a [`ContrixPushClient`] through `{:?}` MUST
+    /// A.5 #2 — formatting a [`CokretPushClient`] through `{:?}` MUST
     /// NOT leak the bearer token. We assert the redaction marker is
     /// present and the secret is absent in both the option-empty and
     /// option-present arms so a future refactor that drops the
@@ -1692,13 +1692,13 @@ mod tests {
     fn bearer_token_is_redacted_in_debug_output() {
         let secret = "super-secret-session-bearer-do-not-log";
 
-        let no_token = ContrixPushClient::new("https://principal.example");
+        let no_token = CokretPushClient::new("https://principal.example");
         let no_token_debug = format!("{no_token:?}");
         assert!(no_token_debug.contains("bearer_token: None"));
         assert!(!no_token_debug.contains(secret));
 
         let with_token =
-            ContrixPushClient::new("https://principal.example").with_bearer_token(secret);
+            CokretPushClient::new("https://principal.example").with_bearer_token(secret);
         let debug = format!("{with_token:?}");
         assert!(
             !debug.contains(secret),

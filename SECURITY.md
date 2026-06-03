@@ -18,15 +18,15 @@ Do **not** open a public GitHub issue for security-sensitive bug reports.
 Use one of the following private channels:
 
 1. **GitHub Security Advisories** — preferred. Open a draft advisory at
-   <https://github.com/contrix-dev/chime/security/advisories/new>. We
+   <https://github.com/cokret-dev/chime/security/advisories/new>. We
    acknowledge new advisories within 5 working days.
 2. **Direct contact** — if you cannot use GitHub Security Advisories,
    email the maintainers via the address listed under
-   <https://github.com/contrix-dev>.
+   <https://github.com/cokret-dev>.
 
 When you report, please include:
 
-- a description of the issue and its impact in the Contrix push surface
+- a description of the issue and its impact in the Cokret push surface
   (`register-device`, `unregister-device`, `bridge/describe`,
   `cx.push.notify` validators, or local `PushRegistrationStore` state);
 - a minimal reproduction (test fixture, JSON payload, request flow);
@@ -54,11 +54,11 @@ top of the generic blind-wakeup rules above:
 
 - `PushNotification.circle_id` MAY travel on the blind-wakeup wire as
   an opaque typed-id reference, but its value MUST start with the
-  literal `cx:circle:` prefix and MUST NOT contain a `did:` literal
+  literal `ck:circle:` prefix and MUST NOT contain a `did:` literal
   anywhere in its tail. Untyped or DID-bearing values are rejected by
   `validate_wire_model` / `validate_blind_wakeup`.
-- `PushNotification.effective_scope` MUST be either a `cx:circle:` or
-  `cx:realm:` typed reference; any other prefix is wire-broken.
+- `PushNotification.effective_scope` MUST be either a `ck:circle:` or
+  `ck:realm:` typed reference; any other prefix is wire-broken.
 - The display label (`circle_name` / `circle_display_name`) and any
   membership listing (`circle_members` / `circle_member_dids` /
   `circle_member_actor_ids`) are never allowed on the wakeup wire,
@@ -72,7 +72,7 @@ it as a security report and use the private channels above.
 ## What is in scope
 
 - The local `chime` package artifact (`http` and `notify` features included).
-- Default `ContrixPushClient` HTTPS / TLS / retry / idempotency
+- Default `CokretPushClient` HTTPS / TLS / retry / idempotency
   behaviour.
 - Default `validate_blind_wakeup` /
   `validate_plaintext_visible_service` / `assert_payload_safe`
@@ -80,7 +80,7 @@ it as a security report and use the private channels above.
 
 ## What is out of scope
 
-- Vulnerabilities in upstream Contrix services (Sync Service, Principal
+- Vulnerabilities in upstream Cokret services (Sync Service, Principal
   Server, soland, floria, …) — please report those to the respective
   service maintainers.
 - Vulnerabilities in third-party crates listed in `Cargo.toml`. Report

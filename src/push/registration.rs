@@ -15,7 +15,7 @@ use super::wire::{
 use super::{REGISTER_DEVICE_PATH, UNREGISTER_DEVICE_PATH};
 use crate::{GatewayBinding, PushPreferences};
 
-/// Build the Contrix register-device request body from app configuration,
+/// Build the Cokret register-device request body from app configuration,
 /// the target gateway binding, and stored push preferences.
 ///
 /// The `binding`'s `push_key` and `app_id` overrides take priority over
@@ -95,7 +95,7 @@ pub fn build_register_device_request(
     })
 }
 
-/// Build the Contrix unregister-device request body from app configuration,
+/// Build the Cokret unregister-device request body from app configuration,
 /// the target gateway binding, and stored push preferences.
 ///
 /// ```rust
@@ -111,7 +111,7 @@ pub fn build_register_device_request(
 ///     platform: Some("android"),
 ///     app_id: Some("app.example.android"),
 ///     domestic_app_id: None,
-///     registration_id: Some("cx:pushreg:01JS0KE000000000000000000"),
+///     registration_id: Some("ck:pushreg:01JS0KE000000000000000000"),
 ///     display_name: None,
 ///     idempotency_key: Some("unregister-phone-v1"),
 ///     request_id: None,
@@ -125,7 +125,7 @@ pub fn build_register_device_request(
 ///     build_unregister_device_request(&config, &binding, &PushPreferences::default()).unwrap();
 /// assert_eq!(
 ///     request.registration_id.as_deref(),
-///     Some("cx:pushreg:01JS0KE000000000000000000")
+///     Some("ck:pushreg:01JS0KE000000000000000000")
 /// );
 /// ```
 pub fn build_unregister_device_request(
@@ -179,7 +179,7 @@ pub fn build_unregister_device_request(
 /// shape mirrors the other `build_*_request` helpers in this module.
 ///
 /// `target_id` MUST be a typed reference of the form
-/// `cx:{scope}:{opaque}` where `{scope}` is `circle`, `realm`, or
+/// `ck:{scope}:{opaque}` where `{scope}` is `circle`, `realm`, or
 /// `flow`. Other prefixes fail with
 /// [`PushRegistrationError::MissingField`].
 pub fn build_unsubscribe_request(
@@ -189,11 +189,11 @@ pub fn build_unsubscribe_request(
     require_non_empty("device_id", config.device_id)?;
     require_non_empty("target_id", target_id)?;
 
-    let mut request = if target_id.starts_with("cx:circle:") {
+    let mut request = if target_id.starts_with("ck:circle:") {
         PushUnsubscribeRequest::for_circle(config.device_id, target_id)?
-    } else if target_id.starts_with("cx:realm:") {
+    } else if target_id.starts_with("ck:realm:") {
         PushUnsubscribeRequest::for_realm(config.device_id, target_id)?
-    } else if target_id.starts_with("cx:flow:") {
+    } else if target_id.starts_with("ck:flow:") {
         PushUnsubscribeRequest::for_flow(config.device_id, target_id)?
     } else {
         return Err(PushRegistrationError::MissingField("target_id"));
@@ -351,10 +351,10 @@ mod tests {
             platform,
             app_id: Some("app.example.android"),
             domestic_app_id: Some("app.example.android.cn"),
-            registration_id: Some("cx:pushreg:01JS0KE000000000000000000"),
+            registration_id: Some("ck:pushreg:01JS0KE000000000000000000"),
             display_name: Some("Alice Phone"),
             idempotency_key: Some("idem-1"),
-            request_id: Some("cx:request:01JS0KE000000000000000000"),
+            request_id: Some("ck:request:01JS0KE000000000000000000"),
             proof: None,
         }
     }
@@ -391,7 +391,7 @@ mod tests {
         assert_eq!(request.idempotency_key.as_deref(), Some("idem-1"));
         assert_eq!(
             request.request_id.as_deref(),
-            Some("cx:request:01JS0KE000000000000000000")
+            Some("ck:request:01JS0KE000000000000000000")
         );
     }
 
@@ -419,7 +419,7 @@ mod tests {
         assert_eq!(request.device_id, "did:web:alice.example#device-phone");
         assert_eq!(
             request.registration_id.as_deref(),
-            Some("cx:pushreg:01JS0KE000000000000000000")
+            Some("ck:pushreg:01JS0KE000000000000000000")
         );
         assert_eq!(request.push_key.as_deref(), Some("fcm:very-secret-token"));
         assert!(
@@ -436,7 +436,7 @@ mod tests {
         assert_eq!(request.idempotency_key.as_deref(), Some("idem-1"));
         assert_eq!(
             request.request_id.as_deref(),
-            Some("cx:request:01JS0KE000000000000000000")
+            Some("ck:request:01JS0KE000000000000000000")
         );
     }
 
@@ -628,11 +628,11 @@ mod tests {
         )));
 
         let signature_input = context.http_message_signature_input("sig1").unwrap();
-        assert!(signature_input.contains("\"x-contrix-actor-id\""));
-        assert!(signature_input.contains("\"x-contrix-expires-at\""));
-        assert!(signature_input.contains("\"x-contrix-origin-service-did\""));
-        assert!(signature_input.contains("\"x-contrix-destination-service-did\""));
-        assert!(signature_input.contains("\"x-contrix-session-grant\""));
+        assert!(signature_input.contains("\"x-cokret-actor-id\""));
+        assert!(signature_input.contains("\"x-cokret-expires-at\""));
+        assert!(signature_input.contains("\"x-cokret-origin-service-did\""));
+        assert!(signature_input.contains("\"x-cokret-destination-service-did\""));
+        assert!(signature_input.contains("\"x-cokret-session-grant\""));
 
         let debug = format!("{context:?}");
         assert!(debug.contains("session_grant"));

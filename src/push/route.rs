@@ -1,6 +1,6 @@
 //! Actor-private `cx.device.push_route` state event wire model.
 //!
-//! Spec: `contrix-spec/spec/v1/zh/crypto-media/device-lifecycle.md` §5a.2
+//! Spec: `cokret-spec/spec/v1/zh/crypto-media/device-lifecycle.md` §5a.2
 //! and the registry entry for `cx.device.push_route` introduced in
 //! commit 0a5ab85 (2026-05-19), which made the cell_subject a composite
 //! `(recipient_service_did, principal_id, device_id, push_route)`. The
@@ -443,7 +443,7 @@ mod tests {
     #[test]
     #[cfg(feature = "notify")]
     fn active_route_requires_service_did_target_id_and_gateway_did() {
-        let pseudo = PushTargetId::new("cx:pseudonym:push:01HYZ8Z000000000000000").unwrap();
+        let pseudo = PushTargetId::new("ck:pseudonym:push:01HYZ8Z000000000000000").unwrap();
         let service_did = ServiceDid::new("did:web:principal.example").unwrap();
         let route = PushRoute::active(
             service_did,
@@ -490,7 +490,7 @@ mod tests {
         // T4.1 negative test: the stub helper exists specifically so
         // tests can assert that an unbound route can't escape
         // `validate()`.
-        let pseudo = PushTargetId::new("cx:pseudonym:push:01HYZ8Z000000000000000").unwrap();
+        let pseudo = PushTargetId::new("ck:pseudonym:push:01HYZ8Z000000000000000").unwrap();
         let route = PushRoute::stub_unauthenticated(
             PushRouteId::new("apns_main").unwrap(),
             pseudo,
@@ -541,7 +541,7 @@ mod tests {
     #[test]
     #[cfg(feature = "notify")]
     fn revoke_helper_preserves_cell_subject_identity() {
-        let pseudo = PushTargetId::new("cx:pseudonym:push:01HYZ8Z000000000000000").unwrap();
+        let pseudo = PushTargetId::new("ck:pseudonym:push:01HYZ8Z000000000000000").unwrap();
         let service_did = ServiceDid::new("did:web:principal.example").unwrap();
         let route_id = PushRouteId::new("apns_main").unwrap();
         let active = PushRoute::active(service_did, route_id, pseudo, "did:web:gateway.example");
@@ -562,7 +562,7 @@ mod tests {
     fn revoke_helper_refuses_unauthenticated_stub() {
         // The cell_subject preservation guarantee would be a lie if
         // we let a stub revoke itself into the default ("") cell.
-        let pseudo = PushTargetId::new("cx:pseudonym:push:01HYZ8Z000000000000000").unwrap();
+        let pseudo = PushTargetId::new("ck:pseudonym:push:01HYZ8Z000000000000000").unwrap();
         let stub = PushRoute::stub_unauthenticated(
             PushRouteId::new("apns_main").unwrap(),
             pseudo,
@@ -575,7 +575,7 @@ mod tests {
     #[test]
     #[cfg(feature = "notify")]
     fn route_round_trips_through_json_with_capabilities() {
-        let pseudo = PushTargetId::new("cx:pseudonym:push:01HYZ8Z000000000000000").unwrap();
+        let pseudo = PushTargetId::new("ck:pseudonym:push:01HYZ8Z000000000000000").unwrap();
         let service_did = ServiceDid::new("did:web:principal.example").unwrap();
         let mut route = PushRoute::active(
             service_did,
@@ -598,7 +598,7 @@ mod tests {
     #[test]
     #[cfg(feature = "notify")]
     fn call_invite_routes_advertise_voip_capability() {
-        let pseudo = PushTargetId::new("cx:pseudonym:push:01HYZ8Z000000000000000").unwrap();
+        let pseudo = PushTargetId::new("ck:pseudonym:push:01HYZ8Z000000000000000").unwrap();
         let service_did = ServiceDid::new("did:web:principal.example").unwrap();
         let mut route = PushRoute::active(
             service_did,

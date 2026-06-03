@@ -2,24 +2,24 @@
 
 //! # chime
 //!
-//! Contrix push notification gateway types, preferences, and device
+//! Cokret push notification gateway types, preferences, and device
 //! registration helpers.
 //!
-//! This crate provides the shared data types and logic used by Contrix
-//! clients to register push-capable devices with a Contrix Principal Server,
+//! This crate provides the shared data types and logic used by Cokret
+//! clients to register push-capable devices with a Cokret Principal Server,
 //! Sync Service, or delegated Push Gateway.
 //!
 //! ## Gateway support
 //!
 //! | Gateway | Description |
 //! |---------|-------------|
-//! | **Standard** | Contrix Push Gateway using platform adapters such as FCM, APNs, Web Push, or desktop notification bridges. |
-//! | **Bugle** | Contrix Push Gateway with domestic Chinese Android OEM provider support through JPush, Huawei, Xiaomi, OPPO, vivo, HONOR, and HarmonyOS routes. |
+//! | **Standard** | Cokret Push Gateway using platform adapters such as FCM, APNs, Web Push, or desktop notification bridges. |
+//! | **Bugle** | Cokret Push Gateway with domestic Chinese Android OEM provider support through JPush, Huawei, Xiaomi, OPPO, vivo, HONOR, and HarmonyOS routes. |
 //! | **Custom** | User-provided gateway URL. |
 //!
 //! ## Features
 //!
-//! - `http` - enables `ContrixPushClient`, a small reqwest-based helper for `POST
+//! - `http` - enables `CokretPushClient`, a small reqwest-based helper for `POST
 //!   /api/v1/push/register-device` and `POST /api/v1/push/unregister-device`.
 
 use std::collections::BTreeSet;
@@ -48,9 +48,9 @@ mod state;
 pub use bugle::BugleAppIdResolver;
 // Round 4 (B5, spec a77b995) — re-export the SDK round-4 audit surfaces
 // chime consumers (yougen, host apps) need for the late-key-recovery banner
-// without having to depend on `contrix` directly.
+// without having to depend on `cokret` directly.
 #[cfg(feature = "notify")]
-pub use contrix::{AccessKind, AuditPolicyAccessPayload};
+pub use cokret::{AccessKind, AuditPolicyAccessPayload};
 pub use gateway_binding::GatewayBinding;
 pub use lifecycle::{
     AccountDeactivationError, AccountDeactivationReceipt, AccountDeactivationSink,
@@ -74,14 +74,14 @@ pub use notify::{
 // Re-exported so chime consumers (yougen) call
 // `chime::call_media_token_exchange` +
 // `chime::structurally_validate_media_token_response` without depending on
-// `contrix` directly. The validation marker is structure-only; hosts must
+// `cokret` directly. The validation marker is structure-only; hosts must
 // perform Ed25519 signature verification before SFrame keying.
 pub use push::{
     CONTENT_DIGEST_HEADER, CONTRIX_ACTOR_ID_HEADER, CONTRIX_AUDIENCE_HEADER,
     CONTRIX_CREATED_AT_HEADER, CONTRIX_DESTINATION_SERVICE_DID_HEADER, CONTRIX_DEVICE_ID_HEADER,
     CONTRIX_EXPIRES_AT_HEADER, CONTRIX_IDEMPOTENCY_KEY_HEADER, CONTRIX_NONCE_HEADER,
     CONTRIX_OPERATION_ID_HEADER, CONTRIX_ORIGIN_HEADER, CONTRIX_ORIGIN_SERVICE_DID_HEADER,
-    CONTRIX_REQUEST_ID_HEADER, CONTRIX_SESSION_GRANT_HEADER, ContrixError, ContrixErrorEnvelope,
+    CONTRIX_REQUEST_ID_HEADER, CONTRIX_SESSION_GRANT_HEADER, CokretError, CokretErrorEnvelope,
     EXPECTED_SPEC_VERSION, IntegrationView, NonceReplayError, NonceTracker,
     PUSH_BRIDGE_DESCRIBE_PATH, PUSH_INTEGRATION_DESCRIBE_PATH, PUSH_UNSUBSCRIBE_PATH,
     PushBridgeDescribeGatewayDescriptor, PushBridgeDescribeNotifyDescriptor,
@@ -100,7 +100,7 @@ pub use push::{
     verify_push_key_binding,
 };
 #[cfg(feature = "http")]
-pub use push::{ContrixPushClient, ContrixResponse, PushRetryPolicy};
+pub use push::{CokretPushClient, CokretResponse, PushRetryPolicy};
 pub use push::{
     DefaultPlatformAppIdResolver, MediaBackendType, MediaTokenError, MediaTokenExchangeRequest,
     MediaTokenResponse, MediaTokenStructuralValidationContext, ParticipantBinding,
@@ -124,39 +124,39 @@ pub use state::{
 
 // -- Constants ---------------------------------------------------------------
 
-/// Canonical Contrix operation id for push device registration.
+/// Canonical Cokret operation id for push device registration.
 pub const OPERATION_PUSH_REGISTER_DEVICE: &str = "cx.push.register_device";
 
-/// Canonical Contrix operation id for push device unregistration.
+/// Canonical Cokret operation id for push device unregistration.
 pub const OPERATION_PUSH_UNREGISTER_DEVICE: &str = "cx.push.unregister_device";
 
-/// Canonical Contrix operation id for push wakeup delivery.
+/// Canonical Cokret operation id for push wakeup delivery.
 pub const OPERATION_PUSH_NOTIFY: &str = "cx.push.notify";
 
-/// B.5 #8 — Canonical Contrix operation id for the push unsubscribe
+/// B.5 #8 — Canonical Cokret operation id for the push unsubscribe
 /// call. Sent as the `operation_id` field on
 /// [`PushUnsubscribeRequest`].
 pub const OPERATION_PUSH_UNSUBSCRIBE: &str = "cx.push.unsubscribe";
 
-/// Default standard Contrix push gateway URL.
+/// Default standard Cokret push gateway URL.
 ///
-/// Contrix does not define a single global push gateway. Consumers should set
+/// Cokret does not define a single global push gateway. Consumers should set
 /// this from service discovery or application configuration before registering.
 pub const DEFAULT_CONTRIX_PUSH_GATEWAY_URL: &str = "";
 
-/// Default Bugle push gateway URL using the Contrix push notify binding.
+/// Default Bugle push gateway URL using the Cokret push notify binding.
 pub const DEFAULT_BUGLE_PUSH_GATEWAY_URL: &str = "https://push.palpo.im/api/v1/push/notify";
 
 // -- PushGatewayType ---------------------------------------------------------
 
-/// Which downstream push gateway to ask the Contrix service to use.
+/// Which downstream push gateway to ask the Cokret service to use.
 ///
 /// Stability: `1.0`-stable. New variants are additive; renaming or
 /// removing a variant requires a major SemVer bump.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum PushGatewayType {
-    /// Standard Contrix push gateway using FCM, APNs, Web Push, or desktop
+    /// Standard Cokret push gateway using FCM, APNs, Web Push, or desktop
     /// notification adapters.
     #[default]
     Standard,
@@ -182,7 +182,7 @@ impl PushGatewayType {
     /// Human-readable display name.
     pub fn display_name(&self) -> &'static str {
         match self {
-            Self::Standard => "Contrix Standard",
+            Self::Standard => "Cokret Standard",
             Self::Bugle => "Bugle (China domestic)",
             Self::Custom => "Custom",
         }
@@ -192,7 +192,7 @@ impl PushGatewayType {
     pub fn description(&self) -> &'static str {
         match self {
             Self::Standard => {
-                "Standard Contrix push via platform adapters such as FCM, APNs, Web Push, or desktop bridges."
+                "Standard Cokret push via platform adapters such as FCM, APNs, Web Push, or desktop bridges."
             }
             Self::Bugle => {
                 "Domestic push for mainland China via JPush, Huawei, Xiaomi, OPPO, vivo, and HONOR providers."
@@ -221,7 +221,7 @@ impl PushGatewayType {
 
 // -- PushPreferences ---------------------------------------------------------
 
-/// Persisted Contrix push notification preferences.
+/// Persisted Cokret push notification preferences.
 ///
 /// Serializable to JSON. The file path and persistence strategy are left to
 /// the consumer application — see [`PushPreferencesStore`] for a minimal
@@ -241,7 +241,7 @@ pub struct PushPreferences {
     pub allow_insecure_loopback_push_gateway: bool,
     /// Whether a sender-provided, body-free `push_hint` may be used.
     ///
-    /// Contrix push hints are blind wakeup metadata. They must not contain
+    /// Cokret push hints are blind wakeup metadata. They must not contain
     /// plaintext message bodies for E2EE Spaces.
     pub allow_push_hint: bool,
     /// Optional allowlist for WebPush endpoint origins.
@@ -257,11 +257,11 @@ pub struct PushPreferences {
     /// Each binding carries its own gateway type, URL, and optional
     /// per-binding `push_key` / `app_id` overrides. Every binding is
     /// exercised independently — see
-    /// `ContrixPushClient::register_device_all` (under the `http`
+    /// `CokretPushClient::register_device_all` (under the `http`
     /// feature) for the multi-gateway register helper.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub gateways: Vec<GatewayBinding>,
-    /// CXP-0007 (Circle primitive) — set of `cx:circle:` ids the user
+    /// CXP-0007 (Circle primitive) — set of `ck:circle:` ids the user
     /// has muted on this device. Wakeups whose `circle_id` is in this
     /// set MUST NOT raise a UI surface; wire-level delivery is
     /// unchanged so floria can still account for the receipt.
@@ -270,7 +270,7 @@ pub struct PushPreferences {
     /// (essential for diff-based prefs sync).
     #[serde(default, skip_serializing_if = "BTreeSet::is_empty")]
     pub muted_circle_ids: BTreeSet<String>,
-    /// Set of `cx:realm:` ids the user has muted on this device. Same
+    /// Set of `ck:realm:` ids the user has muted on this device. Same
     /// semantics as [`Self::muted_circle_ids`], scoped to the Realm
     /// (legacy Realm-scoped wakeups + any Circle-less Realm wakeups).
     #[serde(default, skip_serializing_if = "BTreeSet::is_empty")]
@@ -448,13 +448,13 @@ mod tests {
         };
         prefs
             .muted_circle_ids
-            .insert("cx:circle:01HZK9Z000000000000000001".to_owned());
+            .insert("ck:circle:01HZK9Z000000000000000001".to_owned());
         prefs
             .muted_circle_ids
-            .insert("cx:circle:01HZK9Z000000000000000002".to_owned());
+            .insert("ck:circle:01HZK9Z000000000000000002".to_owned());
         prefs
             .muted_realm_ids
-            .insert("cx:realm:01HZK9Z000000000000000003".to_owned());
+            .insert("ck:realm:01HZK9Z000000000000000003".to_owned());
 
         let json = to_json(&prefs).unwrap();
         assert!(json.contains("muted_circle_ids"));

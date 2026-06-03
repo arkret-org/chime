@@ -61,7 +61,7 @@ The header would be generated via `cbindgen` from a separate
 `chime-ffi` crate so the core crate stays free of `extern "C"`
 attributes.
 
-### 2. WASM npm package (`@contrix/chime`)
+### 2. WASM npm package (`@cokret/chime`)
 
 **Status:** future work.
 **Audience:** browser-side web hosts and Electron renderers that need
@@ -72,7 +72,7 @@ Rust process.
 
 ```ts
 import { buildRegisterDeviceRequest, assertPayloadSafe,
-         PushGatewayType, PushNotifyPolicyMode } from "@contrix/chime";
+         PushGatewayType, PushNotifyPolicyMode } from "@cokret/chime";
 
 const request = buildRegisterDeviceRequest({
     config: { deviceId: "did:web:alice.example#web", /* … */ },
@@ -87,7 +87,7 @@ Build path: `wasm-pack build --target bundler` on a `chime-wasm`
 crate that re-exports the same validators via `wasm-bindgen`. The
 package would publish both `bundler` and `nodejs` targets.
 
-### 3. JNI binding (`im.contrix.chime`) — Android / JVM
+### 3. JNI binding (`im.cokret.chime`) — Android / JVM
 
 **Status:** future work.
 **Audience:** Android host applications that need to validate inbound
@@ -97,7 +97,7 @@ handing the result to Kotlin/Java UI code.
 **Shape (illustrative, not stable):**
 
 ```kotlin
-package im.contrix.chime
+package im.cokret.chime
 
 object Chime {
     @JvmStatic

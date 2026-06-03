@@ -8,7 +8,7 @@ use url::Url;
 use super::errors::PushRegistrationError;
 use super::{PUSH_BRIDGE_DESCRIBE_PATH, PUSH_INTEGRATION_DESCRIBE_PATH};
 
-/// Builds a normalized Contrix API URL.
+/// Builds a normalized Cokret API URL.
 ///
 /// `service_base_url` may be either an origin (`https://server.example`) or an
 /// API root (`https://server.example/api/v1`).
@@ -58,11 +58,11 @@ pub fn push_gateway_service_base_url(
     let mut path = url.path().trim_end_matches('/').to_owned();
     for suffix in [
         "/api/v1/push/bridge/describe",
-        "/contrix/push/v1/bridge/describe",
+        "/cokret/push/v1/bridge/describe",
         "/api/v1/push/notify",
-        "/contrix/push/v1/notify",
+        "/cokret/push/v1/notify",
         "/api/v1/push",
-        "/contrix/push/v1",
+        "/cokret/push/v1",
     ] {
         if let Some(prefix) = path.strip_suffix(suffix) {
             path = prefix.to_owned();
@@ -102,7 +102,7 @@ pub fn push_integration_describe_url(
     ))
 }
 
-/// Validate a Contrix push gateway endpoint.
+/// Validate a Cokret push gateway endpoint.
 ///
 /// Production gateway URLs must be HTTPS. Plain HTTP is accepted only for
 /// loopback hosts when `allow_insecure_loopback` is true.

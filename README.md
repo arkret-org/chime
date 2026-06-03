@@ -1,18 +1,18 @@
 # chime
 
-> **Spec target**: [contrix-spec @ c2848a4](../contrix-spec) (R3.4 sync 2026-05-31)
+> **Spec target**: [cokret-spec @ c2848a4](../cokret-spec) (R3.4 sync 2026-05-31)
 
 [![coverage](https://img.shields.io/badge/coverage-local%20tarpaulin-informational)](docs/production-checklist.md#local-verification)
 
 > **Stability:** local `1.0.0` freeze candidate. Breaking public API changes
 > now require a major-version bump. Response wire types
-> (`RegisterDeviceResponse`, `UnregisterDeviceResponse`, `ContrixErrorEnvelope`)
+> (`RegisterDeviceResponse`, `UnregisterDeviceResponse`, `CokretErrorEnvelope`)
 > carry `#[non_exhaustive]` so server-driven field additions do not break
 > downstream consumers.
 
-Contrix push notification gateway types, preferences, and device registration helpers.
+Cokret push notification gateway types, preferences, and device registration helpers.
 
-**chime** provides shared data types and request-building logic for Contrix clients that need to register push-capable devices with a Principal Server, Sync Service, or delegated Push Gateway.
+**chime** provides shared data types and request-building logic for Cokret clients that need to register push-capable devices with a Principal Server, Sync Service, or delegated Push Gateway.
 
 ## Realm vs Space
 
@@ -23,7 +23,7 @@ Following the Phase 1–4 terminology inversion, `chime` aligns push routes with
 
 ## Round R4 (protocol review closures)
 
-Spec round 4 (`contrix-spec` range `2a4d39b..a77b995`, 8 commits) adds
+Spec round 4 (`cokret-spec` range `2a4d39b..a77b995`, 8 commits) adds
 two client-SDK shape changes. See [`CHANGELOG.md`](CHANGELOG.md)
 `[Unreleased]` and [`../_todos.md`](../_todos.md) for the canonical
 wire-breaking list.
@@ -46,7 +46,7 @@ host integration hook (T07 — 4-step local push cleanup) and the
 blind-wakeup forbidden-field surface. Ephemeral kinds (`cx.presence`,
 `cx.typing`, `cx.receipt.read`, `cx.call.signal`) are confirmed not
 consumed by chime. See [`CHANGELOG.md`](CHANGELOG.md) `[Unreleased]` and
-[`../contrix-spec/CHANGELOG.md`](../contrix-spec/CHANGELOG.md) for the
+[`../cokret-spec/CHANGELOG.md`](../cokret-spec/CHANGELOG.md) for the
 normative source.
 
 ## Cross-project task tracking
@@ -54,7 +54,7 @@ normative source.
 Per-project task lists are consolidated upstream — see
 [`../_todos.md`](../_todos.md) for the active cross-project task plan.
 The current audited protocol pin for this crate is
-`contrix-spec @ c2848a4`; older SHAs in `CHANGELOG.md` are historical
+`cokret-spec @ c2848a4`; older SHAs in `CHANGELOG.md` are historical
 round entries, not the active completion gate.
 
 ## Chinese docs
@@ -68,8 +68,8 @@ round entries, not the active completion gate.
 
 | Gateway | Description |
 | --- | --- |
-| **Standard** | Contrix Push Gateway using platform adapters such as FCM, APNs, Web Push, or desktop notification bridges. |
-| **Bugle** | Contrix Push Gateway with domestic Chinese Android OEM provider support through JPush, Huawei, Xiaomi, OPPO, vivo, HONOR, and HarmonyOS routes. |
+| **Standard** | Cokret Push Gateway using platform adapters such as FCM, APNs, Web Push, or desktop notification bridges. |
+| **Bugle** | Cokret Push Gateway with domestic Chinese Android OEM provider support through JPush, Huawei, Xiaomi, OPPO, vivo, HONOR, and HarmonyOS routes. |
 | **Custom** | User-provided gateway URL for self-hosted or third-party gateways. |
 
 Bugle host integrations still own provider SDK setup and token
@@ -83,8 +83,8 @@ hosts that need the standalone resolver trait can use
 
 | Feature | Description |
 | --- | --- |
-| _(default)_ | Core types, JSON serialization helpers, and Contrix register/unregister request builders. No network dependencies. |
-| `http` | Adds `ContrixPushClient`, a small `reqwest` helper for `POST /api/v1/push/register-device` and `POST /api/v1/push/unregister-device`. |
+| _(default)_ | Core types, JSON serialization helpers, and Cokret register/unregister request builders. No network dependencies. |
+| `http` | Adds `CokretPushClient`, a small `reqwest` helper for `POST /api/v1/push/register-device` and `POST /api/v1/push/unregister-device`. |
 | `notify` | Adds server/gateway-side `cx.push.notify` wire types and blind-wakeup privacy validation. |
 
 > **Production deployments MUST enable the `notify` feature.** Without it,
@@ -106,15 +106,15 @@ hosts that need the standalone resolver trait can use
 
 ## CXP-0007 Circle subscriptions
 
-[CXP-0007 Circle primitive](../contrix-spec/specs/protocol/circle.md)
+[CXP-0007 Circle primitive](../cokret-spec/specs/protocol/circle.md)
 introduces an encrypted sub-boundary inside a Realm. chime exposes the
 client-side surface so a wakeup can carry the Circle context end-to-end:
 
 - **Receiving a Circle-scoped wakeup.** `PushNotification.circle_id`
-  carries the typed `cx:circle:` reference of the Circle the wakeup
+  carries the typed `ck:circle:` reference of the Circle the wakeup
   was authored against (when applicable). `PushNotification.effective_scope`
   mirrors the event envelope's `effective_scope` field
-  (`cx:circle:...` or `cx:realm:...`) so the client can correlate the
+  (`ck:circle:...` or `ck:realm:...`) so the client can correlate the
   wakeup with the security boundary without an extra round-trip.
   Both fields are validated by `validate_wire_model`; the Circle
   metadata privacy validator in `validate_blind_wakeup` additionally
@@ -140,7 +140,7 @@ Add to your `Cargo.toml`:
 ```toml
 [dependencies]
 chime = "1.0.0"
-# or with Contrix HTTP registration and gateway notify wire types:
+# or with Cokret HTTP registration and gateway notify wire types:
 # chime = { version = "1.0.0", features = ["http"] }
 # chime = { version = "1.0.0", features = ["http", "notify"] }
 ```
@@ -181,7 +181,7 @@ let loaded = chime::from_json(&json).unwrap();
 assert_eq!(loaded.gateways[0].gateway_type, PushGatewayType::Bugle);
 ```
 
-### Build a Contrix registration body
+### Build a Cokret registration body
 
 ```rust
 use chime::{
@@ -199,7 +199,7 @@ let config = PushDeviceConfig {
     registration_id: None,
     display_name: Some("Alice Phone"),
     idempotency_key: Some("device-phone-register-v1"),
-    request_id: Some("cx:request:01JS0KE000000000000000000"),
+    request_id: Some("ck:request:01JS0KE000000000000000000"),
     proof: None,
 };
 
@@ -234,7 +234,7 @@ use chime::{
 // fields cannot break downstream constructors. Build through
 // `new_blind_wakeup` plus field-update from the returned value.
 let mut notification = PushNotification::new_blind_wakeup(
-    PushTargetId::new("cx:pseudonym:push:01HYZ8Z000000000000000")?,
+    PushTargetId::new("ck:pseudonym:push:01HYZ8Z000000000000000")?,
     WakeupKind::Message,
 );
 notification.devices = vec![PushNotificationDevice {
@@ -256,7 +256,7 @@ request.assert_payload_safe(&PushNotifyPolicyContext::blind_wakeup_only())?;
 // otherwise looks innocent. This is the exact path that protects
 // against an integrator accidentally bypassing the SDK sanitizer.
 let mut leaky = PushNotification::new_blind_wakeup(
-    PushTargetId::new("cx:pseudonym:push:01HYZ8Z000000000000001")?,
+    PushTargetId::new("ck:pseudonym:push:01HYZ8Z000000000000001")?,
     WakeupKind::Message,
 );
 leaky.devices = vec![PushNotificationDevice {
@@ -312,13 +312,13 @@ assert!(msg.contains("title"), "error should name the leaking field: {msg}");
 #     enabled: true,
 #     ..Default::default()
 # };
-use chime::ContrixPushClient;
+use chime::CokretPushClient;
 
-let client = ContrixPushClient::new("https://principal.example")
+let client = CokretPushClient::new("https://principal.example")
     .with_bearer_token("session-token")
     .with_timeout(std::time::Duration::from_secs(10))
     .with_retry_policy(chime::PushRetryPolicy::conservative())
-    .with_default_request_id("cx:request:01JS0KE000000000000000000");
+    .with_default_request_id("ck:request:01JS0KE000000000000000000");
 
 let response = client
     .register_device_with_context(&config, &binding, &prefs)
@@ -330,7 +330,7 @@ assert!(response.body.ok);
 
 > Live coverage of this flow lives in `tests/live_floria_integration.rs`,
 > which spawns a real `floria` push gateway on a loopback port and exercises
-> the discovery + notify side of the same `ContrixPushClient`.
+> the discovery + notify side of the same `CokretPushClient`.
 
 Production notes:
 
@@ -345,7 +345,7 @@ Production notes:
 - Each binding's `push_gateway` must be HTTPS unless `allow_insecure_loopback_push_gateway` is enabled for localhost development.
 - WebPush registrations can set `webpush_endpoint_allowlist` to restrict accepted endpoint origins or host patterns before a browser endpoint is sent to the service.
 - `push_key` is redacted in debug output and logs; callers should still store it as a secret.
-- `ContrixPushClient` retries only safe idempotent requests: register calls need an idempotency key, while unregister is treated as idempotent. `Retry-After` is honored before exponential backoff plus bounded jitter.
+- `CokretPushClient` retries only safe idempotent requests: register calls need an idempotency key, while unregister is treated as idempotent. `Retry-After` is honored before exponential backoff plus bounded jitter.
 - `allow_push_hint` only permits body-free wakeup hints. It does not permit plaintext message bodies for E2EE Spaces.
 
 ### Request signing helpers
@@ -405,7 +405,7 @@ let headers = context.http_message_signature_headers("sig1", &signature)?;
 # }
 ```
 
-`proof_body` is caller-signed and passed back through `PushDeviceConfig::proof`. The returned HTTP signature headers include `Content-Digest`, Contrix device/audience/actor/expiry/origin/destination metadata, nonce/idempotency context, `Signature-Input`, and `Signature`; attach them with your HTTP stack or `ContrixPushClient::with_header`. `chime` can carry an externally supplied coauth/soland grant, but it never owns private keys or mints grants.
+`proof_body` is caller-signed and passed back through `PushDeviceConfig::proof`. The returned HTTP signature headers include `Content-Digest`, Cokret device/audience/actor/expiry/origin/destination metadata, nonce/idempotency context, `Signature-Input`, and `Signature`; attach them with your HTTP stack or `CokretPushClient::with_header`. `chime` can carry an externally supplied coauth/soland grant, but it never owns private keys or mints grants.
 
 ### Local registration state
 
@@ -449,7 +449,7 @@ let plan = plan_token_rotation_with_strategy(
 )?;
 
 if let Some(register_new) = plan.register_new {
-    // Send with ContrixPushClient or your own HTTP stack, then persist success.
+    // Send with CokretPushClient or your own HTTP stack, then persist success.
     let _ = register_new;
 }
 if let Some(unregister_old) = plan.unregister_old {
@@ -464,8 +464,8 @@ if let Some(unregister_old) = plan.unregister_old {
 
 `chime` is a library, not a service — it has no daemon, no config file
 of its own, and no environment variables it reads. Operational concerns
-live entirely in the host application that wires `ContrixPushClient`
-into a Contrix Principal Server / Sync Service deployment.
+live entirely in the host application that wires `CokretPushClient`
+into a Cokret Principal Server / Sync Service deployment.
 
 ### Build profile
 
@@ -489,9 +489,9 @@ into a Contrix Principal Server / Sync Service deployment.
 - **Auth in headers, not URLs.** Session tokens, bearer tokens, API
   keys, and HTTP message signatures must travel in headers. Putting
   them in a binding's `push_gateway` query string is rejected.
-- **Session grant fail-closed.** `ContrixPushClient::new(...)` defaults
+- **Session grant fail-closed.** `CokretPushClient::new(...)` defaults
   to `with_required_session_grant(true)`. Always attach
-  `X-Contrix-Session-Grant` via `with_session_grant("...")` (or
+  `X-Cokret-Session-Grant` via `with_session_grant("...")` (or
   `with_header(...)`) before calling register/unregister. Dev sandboxes
   that need to skip this can flip the flag.
 - **Idempotency.** If you do not provide an idempotency key, the
@@ -521,7 +521,7 @@ into a Contrix Principal Server / Sync Service deployment.
 `chime` emits `tracing` events with the target prefix `chime`:
 
 ```text
-INFO  chime::push::client  Contrix push device registered  platform=android gateway="Contrix Standard" operation_id=cx.push.register_device request_id=cx:request:01JS0KE000000000000000000
+INFO  chime::push::client  Cokret push device registered  platform=android gateway="Cokret Standard" operation_id=cx.push.register_device request_id=ck:request:01JS0KE000000000000000000
 ```
 
 Subscribe with any `tracing-subscriber` layer; Sentry / OpenTelemetry
@@ -531,7 +531,7 @@ exporters work without further glue.
 
 | Symptom | Likely cause |
 | ------- | ------------ |
-| `MissingField("session_grant")` returned before any HTTP request | `with_required_session_grant(true)` is on but no `X-Contrix-Session-Grant` header is attached. |
+| `MissingField("session_grant")` returned before any HTTP request | `with_required_session_grant(true)` is on but no `X-Cokret-Session-Grant` header is attached. |
 | `InvalidPushGatewayUrl { reason: "scheme must be https" }` | HTTP push gateway URL in production. Allow loopback only if you're testing locally. |
 | `WebPushEndpointNotAllowed` | The browser-issued endpoint origin is not in `webpush_endpoint_allowlist`. Add the origin or host pattern. |
 | `Gone` (HTTP 410) | The push token was retired. Drop the local registration and let the device generate a new token before re-registering. |
@@ -539,7 +539,7 @@ exporters work without further glue.
 
 ## Protocol Mapping
 
-The crate maps to the Contrix v1 push HTTP binding:
+The crate maps to the Cokret v1 push HTTP binding:
 
 | Operation ID | HTTP Binding | Request builder |
 | --- | --- | --- |
@@ -558,18 +558,18 @@ With the `notify` feature, `PushNotifyRequest::validate_wire_model()` and `PushN
 ## Architecture
 
 ```text
-Contrix Client
+Cokret Client
         |
         v
    +---------+     PushPreferences { gateways: Vec<GatewayBinding> }
    |  chime  | --> GatewayBinding { gateway_type, push_gateway, push_key, app_id }
    +----+----+     build_register_device_request(config, binding, prefs)
-        |          ContrixPushClient (optional)
+        |          CokretPushClient (optional)
         v
 Principal Server / Sync Service
         |
         v
-Contrix Push Gateway
+Cokret Push Gateway
         |
         +-- FCM / APNs / Web Push / Desktop
         +-- Bugle domestic providers:
@@ -589,5 +589,5 @@ Licensed under Apache 2.0. See [LICENSE](LICENSE).
 
 <!-- circle-rollout milestone pointer -->
 > **Active milestone tracking** (local-only, gitignored): see
-> `_chime_todos.md` in the parent `contrix-dev/` directory for the
+> `_chime_todos.md` in the parent `cokret-dev/` directory for the
 > circle-rollout (CXP-0007) work item list and per-stage checkpoints.

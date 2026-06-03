@@ -6,7 +6,7 @@ use std::time::{Duration, SystemTime};
 use thiserror::Error;
 
 use super::urls::{redact_url, redact_webpush_endpoint};
-use super::wire::ContrixErrorEnvelope;
+use super::wire::CokretErrorEnvelope;
 
 /// Stable high-level category for push registration failures.
 ///
@@ -88,7 +88,7 @@ pub enum PushErrorKind {
     /// CXP-0010 — backend cloud attempted to supply the SFrame key
     /// material; MLS-Exporter is the only authorised source.
     E2eeKeySourceUnauthorised,
-    /// CXP-0010 — recording artifact bypassed the Contrix blob upload
+    /// CXP-0010 — recording artifact bypassed the Cokret blob upload
     /// pipeline (e.g. LiveKit Egress direct-to-S3).
     RecordingArtifactPipelineBypassed,
     /// CXP-0010 — realm's `cx.realm.media_service` is still configured
@@ -262,7 +262,7 @@ impl PushErrorKind {
         )
     }
 
-    /// Map a Contrix `bridge/describe.failure_codes` string to a stable kind.
+    /// Map a Cokret `bridge/describe.failure_codes` string to a stable kind.
     ///
     /// Returns `None` when the code is not part of the contract, so callers can
     /// decide between treating it as `HttpStatus` or surfacing the raw code.
@@ -272,31 +272,31 @@ impl PushErrorKind {
         // The early Round-4 codes are glob-reexported at the crate root;
         // the R3 codes (spec b47ff6ec — CXP-0010 media-binding,
         // agent-lifecycle, handle homograph) still live under
-        // `contrix::error`. Adding a code is a one-line table entry.
+        // `cokret::error`. Adding a code is a one-line table entry.
         const CODE_MAP: &[(&str, PushErrorKind)] = &[
-            (contrix::ERROR_CODE_DELIVERY_BINDING_STALE, PushErrorKind::DeliveryBindingStale),
-            (contrix::ERROR_CODE_DELIVERY_BINDING_HANDED_OVER, PushErrorKind::DeliveryBindingHandedOver),
-            (contrix::ERROR_CODE_HISTORICAL_ONLY, PushErrorKind::HistoricalOnly),
-            (contrix::error::ERROR_CODE_FOCUS_MISMATCH, PushErrorKind::FocusMismatch),
-            (contrix::error::ERROR_CODE_UNKNOWN_FOCUS_TYPE, PushErrorKind::UnknownFocusType),
-            (contrix::error::ERROR_CODE_TOKEN_ISSUER_UNAUTHORISED, PushErrorKind::TokenIssuerUnauthorised),
-            (contrix::error::ERROR_CODE_PARTICIPANT_BINDING_INVALID, PushErrorKind::ParticipantBindingInvalid),
-            (contrix::error::ERROR_CODE_PARTICIPANT_IDENTITY_UNRECOGNISED, PushErrorKind::ParticipantIdentityUnrecognised),
-            (contrix::error::ERROR_CODE_SESSION_FOCUS_ALREADY_COMMITTED, PushErrorKind::SessionFocusAlreadyCommitted),
-            (contrix::error::ERROR_CODE_E2EE_KEY_SOURCE_UNAUTHORISED, PushErrorKind::E2eeKeySourceUnauthorised),
-            (contrix::error::ERROR_CODE_RECORDING_ARTIFACT_PIPELINE_BYPASSED, PushErrorKind::RecordingArtifactPipelineBypassed),
-            (contrix::error::ERROR_CODE_LEGACY_SINGLE_ENDPOINT_MEDIA_SERVICE, PushErrorKind::LegacySingleEndpointMediaService),
-            (contrix::error::ERROR_CODE_FOCUS_UNAVAILABLE_FOR_CLIENT, PushErrorKind::FocusUnavailableForClient),
-            (contrix::error::ERROR_CODE_PAIRING_REQUEST_EXPIRED, PushErrorKind::PairingRequestExpired),
-            (contrix::error::ERROR_CODE_PROOF_INVALID, PushErrorKind::ProofInvalid),
-            (contrix::error::ERROR_CODE_VERIFICATION_METHOD_PRINCIPAL_MISMATCH, PushErrorKind::VerificationMethodPrincipalMismatch),
-            (contrix::error::ERROR_CODE_AGENT_PAUSED, PushErrorKind::AgentPaused),
-            (contrix::error::ERROR_CODE_AGENT_DEACTIVATED, PushErrorKind::AgentDeactivated),
-            (contrix::error::ERROR_CODE_APPROVAL_ALREADY_CONSUMED, PushErrorKind::ApprovalAlreadyConsumed),
-            (contrix::error::ERROR_CODE_SIDECAR_CREATE_DENIED, PushErrorKind::SidecarCreateDenied),
-            (contrix::error::ERROR_CODE_ACTOR_KIND_REDUCER_MANAGED, PushErrorKind::ActorKindReducerManaged),
-            (contrix::error::ERROR_CODE_RECOVERY_WITNESS_REVOKE_LAGGING, PushErrorKind::RecoveryWitnessRevokeLagging),
-            (contrix::error::ERROR_CODE_HANDLE_HOMOGRAPH_FORBIDDEN, PushErrorKind::HandleHomographForbidden),
+            (cokret::ERROR_CODE_DELIVERY_BINDING_STALE, PushErrorKind::DeliveryBindingStale),
+            (cokret::ERROR_CODE_DELIVERY_BINDING_HANDED_OVER, PushErrorKind::DeliveryBindingHandedOver),
+            (cokret::ERROR_CODE_HISTORICAL_ONLY, PushErrorKind::HistoricalOnly),
+            (cokret::error::ERROR_CODE_FOCUS_MISMATCH, PushErrorKind::FocusMismatch),
+            (cokret::error::ERROR_CODE_UNKNOWN_FOCUS_TYPE, PushErrorKind::UnknownFocusType),
+            (cokret::error::ERROR_CODE_TOKEN_ISSUER_UNAUTHORISED, PushErrorKind::TokenIssuerUnauthorised),
+            (cokret::error::ERROR_CODE_PARTICIPANT_BINDING_INVALID, PushErrorKind::ParticipantBindingInvalid),
+            (cokret::error::ERROR_CODE_PARTICIPANT_IDENTITY_UNRECOGNISED, PushErrorKind::ParticipantIdentityUnrecognised),
+            (cokret::error::ERROR_CODE_SESSION_FOCUS_ALREADY_COMMITTED, PushErrorKind::SessionFocusAlreadyCommitted),
+            (cokret::error::ERROR_CODE_E2EE_KEY_SOURCE_UNAUTHORISED, PushErrorKind::E2eeKeySourceUnauthorised),
+            (cokret::error::ERROR_CODE_RECORDING_ARTIFACT_PIPELINE_BYPASSED, PushErrorKind::RecordingArtifactPipelineBypassed),
+            (cokret::error::ERROR_CODE_LEGACY_SINGLE_ENDPOINT_MEDIA_SERVICE, PushErrorKind::LegacySingleEndpointMediaService),
+            (cokret::error::ERROR_CODE_FOCUS_UNAVAILABLE_FOR_CLIENT, PushErrorKind::FocusUnavailableForClient),
+            (cokret::error::ERROR_CODE_PAIRING_REQUEST_EXPIRED, PushErrorKind::PairingRequestExpired),
+            (cokret::error::ERROR_CODE_PROOF_INVALID, PushErrorKind::ProofInvalid),
+            (cokret::error::ERROR_CODE_VERIFICATION_METHOD_PRINCIPAL_MISMATCH, PushErrorKind::VerificationMethodPrincipalMismatch),
+            (cokret::error::ERROR_CODE_AGENT_PAUSED, PushErrorKind::AgentPaused),
+            (cokret::error::ERROR_CODE_AGENT_DEACTIVATED, PushErrorKind::AgentDeactivated),
+            (cokret::error::ERROR_CODE_APPROVAL_ALREADY_CONSUMED, PushErrorKind::ApprovalAlreadyConsumed),
+            (cokret::error::ERROR_CODE_SIDECAR_CREATE_DENIED, PushErrorKind::SidecarCreateDenied),
+            (cokret::error::ERROR_CODE_ACTOR_KIND_REDUCER_MANAGED, PushErrorKind::ActorKindReducerManaged),
+            (cokret::error::ERROR_CODE_RECOVERY_WITNESS_REVOKE_LAGGING, PushErrorKind::RecoveryWitnessRevokeLagging),
+            (cokret::error::ERROR_CODE_HANDLE_HOMOGRAPH_FORBIDDEN, PushErrorKind::HandleHomographForbidden),
         ];
         if let Some(&(_, kind)) = CODE_MAP.iter().find(|(c, _)| *c == code) {
             return Some(kind);
@@ -319,7 +319,7 @@ impl PushErrorKind {
 
 #[derive(Error)]
 pub enum PushRegistrationError {
-    #[error("missing required Contrix push field: {0}")]
+    #[error("missing required Cokret push field: {0}")]
     MissingField(&'static str),
     #[error("unsupported push platform: {0}")]
     InvalidPlatform(String),
@@ -333,11 +333,11 @@ pub enum PushRegistrationError {
     ForbiddenPushGatewayQueryParam { param: String },
     #[error("invalid HTTP header `{name}`")]
     InvalidHeader { name: String },
-    #[error("Contrix service returned HTTP {status}")]
+    #[error("Cokret service returned HTTP {status}")]
     HttpStatus {
         status: u16,
         kind: PushErrorKind,
-        error: Option<Box<ContrixErrorEnvelope>>,
+        error: Option<Box<CokretErrorEnvelope>>,
         body: String,
         retry_after: Option<String>,
         request_id: Option<String>,
@@ -429,7 +429,7 @@ impl PushRegistrationError {
         }
     }
 
-    pub fn contrix_error(&self) -> Option<&ContrixErrorEnvelope> {
+    pub fn contrix_error(&self) -> Option<&CokretErrorEnvelope> {
         match self {
             Self::HttpStatus { error, .. } => error.as_deref(),
             _ => None,
@@ -475,7 +475,7 @@ impl PushRegistrationError {
 #[cfg(any(test, feature = "http"))]
 pub(super) fn classify_http_error(
     status: u16,
-    error: Option<&ContrixErrorEnvelope>,
+    error: Option<&CokretErrorEnvelope>,
 ) -> PushErrorKind {
     if let Some(code) = error.map(|envelope| envelope.error.code.as_str())
         && let Some(kind) = PushErrorKind::from_failure_code(code)
@@ -509,19 +509,19 @@ pub(super) fn parse_retry_after(value: &str) -> Option<Duration> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::push::wire::ContrixError;
+    use crate::push::wire::CokretError;
 
     #[test]
     fn classifies_contrix_error_codes() {
-        let envelope = ContrixErrorEnvelope {
+        let envelope = CokretErrorEnvelope {
             ok: false,
-            error: ContrixError {
+            error: CokretError {
                 code: "capability_denied".to_owned(),
                 message: "denied".to_owned(),
                 retry_after_ms: None,
                 details: None,
             },
-            request_id: Some("cx:request:test".to_owned()),
+            request_id: Some("ck:request:test".to_owned()),
         };
 
         assert_eq!(
@@ -553,15 +553,15 @@ mod tests {
         // B5: chime must recognise the three round-4 wire codes that
         // floria/soland forward so consumers can branch on them.
         assert_eq!(
-            PushErrorKind::from_failure_code(contrix::ERROR_CODE_DELIVERY_BINDING_STALE),
+            PushErrorKind::from_failure_code(cokret::ERROR_CODE_DELIVERY_BINDING_STALE),
             Some(PushErrorKind::DeliveryBindingStale)
         );
         assert_eq!(
-            PushErrorKind::from_failure_code(contrix::ERROR_CODE_DELIVERY_BINDING_HANDED_OVER),
+            PushErrorKind::from_failure_code(cokret::ERROR_CODE_DELIVERY_BINDING_HANDED_OVER),
             Some(PushErrorKind::DeliveryBindingHandedOver)
         );
         assert_eq!(
-            PushErrorKind::from_failure_code(contrix::ERROR_CODE_HISTORICAL_ONLY),
+            PushErrorKind::from_failure_code(cokret::ERROR_CODE_HISTORICAL_ONLY),
             Some(PushErrorKind::HistoricalOnly)
         );
     }
@@ -587,10 +587,10 @@ mod tests {
     #[test]
     fn round4_codes_classify_against_409_and_200_statuses() {
         // Spec status mapping: stale/handed_over → 409, historical_only → 200.
-        let envelope = ContrixErrorEnvelope {
+        let envelope = CokretErrorEnvelope {
             ok: false,
-            error: ContrixError {
-                code: contrix::ERROR_CODE_DELIVERY_BINDING_STALE.to_owned(),
+            error: CokretError {
+                code: cokret::ERROR_CODE_DELIVERY_BINDING_STALE.to_owned(),
                 message: "stale".to_owned(),
                 retry_after_ms: None,
                 details: None,
@@ -602,10 +602,10 @@ mod tests {
             PushErrorKind::DeliveryBindingStale
         );
 
-        let envelope = ContrixErrorEnvelope {
+        let envelope = CokretErrorEnvelope {
             ok: false,
-            error: ContrixError {
-                code: contrix::ERROR_CODE_HISTORICAL_ONLY.to_owned(),
+            error: CokretError {
+                code: cokret::ERROR_CODE_HISTORICAL_ONLY.to_owned(),
                 message: "diagnostic".to_owned(),
                 retry_after_ms: None,
                 details: None,

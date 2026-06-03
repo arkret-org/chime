@@ -1,13 +1,13 @@
-//! Contrix push device registration request types and HTTP helper.
+//! Cokret push device registration request types and HTTP helper.
 //!
 //! This module is split into:
-//! - [`wire`]: register/unregister request/response DTOs + `ContrixError`
+//! - [`wire`]: register/unregister request/response DTOs + `CokretError`
 //! - [`bridge_describe`]: `bridge/describe` + `integration/describe` DTOs
 //! - [`errors`]: `PushErrorKind` + `PushRegistrationError` + HTTP classification
 //! - [`signing`]: signing context + options + content digest helpers
 //! - [`urls`]: URL helpers, validation, redaction
 //! - [`registration`]: request body + signing context builders
-//! - [`client`]: async `ContrixPushClient` (feature = "http")
+//! - [`client`]: async `CokretPushClient` (feature = "http")
 //! - [`route`]: actor-private `cx.device.push_route` state event wire model
 //! - [`rule_core`]: T4.4 shared client-side push rule evaluator
 
@@ -28,67 +28,67 @@ pub use platform_app_id::{DefaultPlatformAppIdResolver, PlatformAppIdResolver};
 
 // -- Path constants ---------------------------------------------------------
 
-/// Contrix HTTP path for `cx.push.register_device`.
+/// Cokret HTTP path for `cx.push.register_device`.
 pub const REGISTER_DEVICE_PATH: &str = "/api/v1/push/register-device";
 
-/// Contrix HTTP path for `cx.push.unregister_device`.
+/// Cokret HTTP path for `cx.push.unregister_device`.
 pub const UNREGISTER_DEVICE_PATH: &str = "/api/v1/push/unregister-device";
 
-/// B.5 #8 — Contrix HTTP path for `cx.push.unsubscribe`. The body is a
+/// B.5 #8 — Cokret HTTP path for `cx.push.unsubscribe`. The body is a
 /// [`PushUnsubscribeRequest`]; the URL also accepts an optional
 /// `target_id` query parameter for callers that prefer to encode the
 /// scope outside the JSON envelope (the wire body remains canonical).
 pub const PUSH_UNSUBSCRIBE_PATH: &str = "/api/v1/push/unsubscribe";
 
-/// Contrix HTTP path for discovering the active push gateway bridge contract.
+/// Cokret HTTP path for discovering the active push gateway bridge contract.
 pub const PUSH_BRIDGE_DESCRIBE_PATH: &str = "/api/v1/push/bridge/describe";
 
-/// Contrix HTTP path for discovering the service-level push gateway integration manifest.
+/// Cokret HTTP path for discovering the service-level push gateway integration manifest.
 pub const PUSH_INTEGRATION_DESCRIBE_PATH: &str = "/api/v1/integration/describe";
 
 // -- Header constants -------------------------------------------------------
 
-/// Header used to correlate Contrix requests across clients and services.
-pub const CONTRIX_REQUEST_ID_HEADER: &str = "X-Contrix-Request-Id";
+/// Header used to correlate Cokret requests across clients and services.
+pub const CONTRIX_REQUEST_ID_HEADER: &str = "X-Cokret-Request-Id";
 
 /// RFC 9530 content digest header covered by request signatures.
 pub const CONTENT_DIGEST_HEADER: &str = "Content-Digest";
 
-/// Contrix operation id header covered by request signatures.
-pub const CONTRIX_OPERATION_ID_HEADER: &str = "X-Contrix-Operation-Id";
+/// Cokret operation id header covered by request signatures.
+pub const CONTRIX_OPERATION_ID_HEADER: &str = "X-Cokret-Operation-Id";
 
-/// Contrix device id header covered by request signatures.
-pub const CONTRIX_DEVICE_ID_HEADER: &str = "X-Contrix-Device-Id";
+/// Cokret device id header covered by request signatures.
+pub const CONTRIX_DEVICE_ID_HEADER: &str = "X-Cokret-Device-Id";
 
-/// Contrix request creation timestamp header covered by request signatures.
-pub const CONTRIX_CREATED_AT_HEADER: &str = "X-Contrix-Created-At";
+/// Cokret request creation timestamp header covered by request signatures.
+pub const CONTRIX_CREATED_AT_HEADER: &str = "X-Cokret-Created-At";
 
-/// Contrix request audience header covered by request signatures.
-pub const CONTRIX_AUDIENCE_HEADER: &str = "X-Contrix-Audience";
+/// Cokret request audience header covered by request signatures.
+pub const CONTRIX_AUDIENCE_HEADER: &str = "X-Cokret-Audience";
 
-/// Contrix actor ID header covered by request signatures.
-pub const CONTRIX_ACTOR_ID_HEADER: &str = "X-Contrix-Actor-Id";
+/// Cokret actor ID header covered by request signatures.
+pub const CONTRIX_ACTOR_ID_HEADER: &str = "X-Cokret-Actor-Id";
 
-/// Contrix request expiry timestamp header covered by request signatures.
-pub const CONTRIX_EXPIRES_AT_HEADER: &str = "X-Contrix-Expires-At";
+/// Cokret request expiry timestamp header covered by request signatures.
+pub const CONTRIX_EXPIRES_AT_HEADER: &str = "X-Cokret-Expires-At";
 
-/// Contrix request origin URL header covered by request signatures.
-pub const CONTRIX_ORIGIN_HEADER: &str = "X-Contrix-Origin";
+/// Cokret request origin URL header covered by request signatures.
+pub const CONTRIX_ORIGIN_HEADER: &str = "X-Cokret-Origin";
 
-/// Contrix origin service DID header covered by request signatures.
-pub const CONTRIX_ORIGIN_SERVICE_DID_HEADER: &str = "X-Contrix-Origin-Service-Did";
+/// Cokret origin service DID header covered by request signatures.
+pub const CONTRIX_ORIGIN_SERVICE_DID_HEADER: &str = "X-Cokret-Origin-Service-Did";
 
-/// Contrix destination service DID header covered by request signatures.
-pub const CONTRIX_DESTINATION_SERVICE_DID_HEADER: &str = "X-Contrix-Destination-Service-Did";
+/// Cokret destination service DID header covered by request signatures.
+pub const CONTRIX_DESTINATION_SERVICE_DID_HEADER: &str = "X-Cokret-Destination-Service-Did";
 
-/// Contrix nonce header covered by request signatures.
-pub const CONTRIX_NONCE_HEADER: &str = "X-Contrix-Nonce";
+/// Cokret nonce header covered by request signatures.
+pub const CONTRIX_NONCE_HEADER: &str = "X-Cokret-Nonce";
 
-/// Contrix idempotency key metadata header covered by request signatures.
-pub const CONTRIX_IDEMPOTENCY_KEY_HEADER: &str = "X-Contrix-Idempotency-Key";
+/// Cokret idempotency key metadata header covered by request signatures.
+pub const CONTRIX_IDEMPOTENCY_KEY_HEADER: &str = "X-Cokret-Idempotency-Key";
 
 /// Header used to carry an externally supplied coauth/soland session grant.
-pub const CONTRIX_SESSION_GRANT_HEADER: &str = "X-Contrix-Session-Grant";
+pub const CONTRIX_SESSION_GRANT_HEADER: &str = "X-Cokret-Session-Grant";
 
 /// HTTP Message Signatures input header.
 pub const SIGNATURE_INPUT_HEADER: &str = "Signature-Input";
@@ -110,7 +110,7 @@ pub use bridge_describe::{
     PushGatewayIntegrationDescribeResponse, PushGatewayIntegrationSurface,
 };
 #[cfg(feature = "http")]
-pub use client::{ContrixPushClient, ContrixResponse, PushRetryPolicy};
+pub use client::{CokretPushClient, CokretResponse, PushRetryPolicy};
 pub use errors::{PushErrorKind, PushRegistrationError};
 pub use media_token::{
     MediaBackendType, MediaTokenError, MediaTokenExchangeRequest, MediaTokenResponse,
@@ -142,7 +142,7 @@ pub use urls::{
     validate_webpush_endpoint_allowlist,
 };
 pub use wire::{
-    ContrixError, ContrixErrorEnvelope, PushDeviceConfig, PushPlatform, PushUnsubscribeRequest,
+    CokretError, CokretErrorEnvelope, PushDeviceConfig, PushPlatform, PushUnsubscribeRequest,
     PushUnsubscribeResponse, RegisterDeviceRequest, RegisterDeviceResponse,
     UnregisterDeviceRequest, UnregisterDeviceResponse, compute_push_key_hmac,
     verify_push_key_binding,

@@ -12,7 +12,7 @@
 use std::time::Duration;
 
 use chime::{
-    ContrixPushClient, PushNotifyResBody, PushRetryPolicy, push_bridge_describe_url,
+    CokretPushClient, PushNotifyResBody, PushRetryPolicy, push_bridge_describe_url,
     push_integration_describe_url,
 };
 use serde_json::{Value, json};
@@ -25,8 +25,8 @@ use floria_spawn::{SpawnedFloria, require_floria_or_skip};
 const APP_ID: &str = "chime.live.placeholder";
 const ORIGIN_DID: &str = "did:web:chime.live.test";
 
-fn client_for(handle: &SpawnedFloria) -> ContrixPushClient {
-    ContrixPushClient::new(handle.base_url.clone())
+fn client_for(handle: &SpawnedFloria) -> CokretPushClient {
+    CokretPushClient::new(handle.base_url.clone())
         .with_required_session_grant(false)
         .with_timeout(Duration::from_secs(5))
         .with_retry_policy(PushRetryPolicy::conservative())
@@ -38,11 +38,11 @@ fn notify_payload(idempotency_key: &str) -> Value {
         "idempotency_key": idempotency_key,
         "origin_service_did": ORIGIN_DID,
         "notification": {
-            "event_id": "cx:event:01JS0EV000000000000000000",
-            "message_id": "cx:message:01JS0MSG0000000000000000",
-            "flow_id": "cx:flow:01JS0FLOW000000000000000",
-            "realm_id": "cx:realm:01JS0SP000000000000000000",
-            "push_target_id": "cx:pseudonym:push:01HYZ8Z000000000000000",
+            "event_id": "ck:event:01JS0EV000000000000000000",
+            "message_id": "ck:message:01JS0MSG0000000000000000",
+            "flow_id": "ck:flow:01JS0FLOW000000000000000",
+            "realm_id": "ck:realm:01JS0SP000000000000000000",
+            "push_target_id": "ck:pseudonym:push:01HYZ8Z000000000000000",
             "wakeup_kind": "message",
             "push_hint": "new_message",
             "devices": [{

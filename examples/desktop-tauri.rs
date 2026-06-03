@@ -27,13 +27,13 @@ mod inner {
         PushNotifyReqBody, PushPreferences, build_register_device_request,
     };
 
-    /// Registers the desktop shell's WebPush endpoint with a Contrix push
+    /// Registers the desktop shell's WebPush endpoint with a Cokret push
     /// gateway. The host owns the actual HTTP call; `chime` only builds
     /// the validated request body.
     pub fn register_desktop_device() -> Result<(), Box<dyn std::error::Error>> {
         // Tauri-style: the host shell has subscribed to a browser
         // WebPush endpoint and now needs to hand the resulting token
-        // to Contrix.
+        // to Cokret.
         let config = PushDeviceConfig {
             principal_id: Some("did:web:alice.example"),
             device_id: "did:web:alice.example#tauri-desktop",
@@ -42,7 +42,7 @@ mod inner {
             // browser engine.
             push_key: Some("webpush:https://fcm.googleapis.com/wp/AAA-fake-endpoint-aaaaaaaa"),
             platform: Some("desktop"),
-            app_id: Some("im.contrix.desktop"),
+            app_id: Some("im.cokret.desktop"),
             domestic_app_id: None,
             registration_id: None,
             display_name: Some("Alice — Tauri Desktop"),
@@ -109,8 +109,8 @@ mod inner {
             "destination_service_did": "did:web:desktop.example",
             "notification": {
                 "wakeup_kind": "message",
-                "push_target_id": "cx:pseudonym:push:abcdefghijklmnopqrstuv",
-                "event_id": "cx:event:01JS0KE000000000000000001"
+                "push_target_id": "ck:pseudonym:push:abcdefghijklmnopqrstuv",
+                "event_id": "ck:event:01JS0KE000000000000000001"
             }
         }"#;
         process_inbound_notify(raw_payload)?;

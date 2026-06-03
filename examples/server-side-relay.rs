@@ -62,8 +62,8 @@ mod inner {
                     "destination_service_did": "did:web:yougen.example",
                     "notification": {
                         "wakeup_kind": "message",
-                        "push_target_id": "cx:pseudonym:push:abcdefghijklmnopqrstuv",
-                        "event_id": "cx:event:01JS0KE000000000000000001"
+                        "push_target_id": "ck:pseudonym:push:abcdefghijklmnopqrstuv",
+                        "event_id": "ck:event:01JS0KE000000000000000001"
                     }
                 }"#,
             ),
@@ -75,8 +75,8 @@ mod inner {
                     "destination_service_did": "did:web:yougen.example",
                     "notification": {
                         "wakeup_kind": "message",
-                        "push_target_id": "cx:pseudonym:push:abcdefghijklmnopqrstuv",
-                        "event_id": "cx:event:01JS0KE000000000000000001"
+                        "push_target_id": "ck:pseudonym:push:abcdefghijklmnopqrstuv",
+                        "event_id": "ck:event:01JS0KE000000000000000001"
                     }
                 }"#,
             ),

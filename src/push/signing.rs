@@ -5,12 +5,12 @@
 //! Wire-level primitives (RFC 9530 `Content-Digest` computation, the
 //! base64 alphabet used for the `Signature` value, the covered-component
 //! lookup keys) are now sourced from
-//! [`contrix::http_signature`](contrix::http_signature) so chime, floria
+//! [`cokret::http_signature`](cokret::http_signature) so chime, floria
 //! and soland share a single canonicalization implementation. The
 //! `PushRequestSigningContext` type itself stays in chime because:
 //!
 //! 1. chime's covered-component set differs from floria's notify set — it covers
-//!    `x-contrix-operation-id`, `x-contrix-device-id`, `x-contrix-created-at`, `x-contrix-audience`
+//!    `x-cokret-operation-id`, `x-cokret-device-id`, `x-cokret-created-at`, `x-cokret-audience`
 //!    (the device- registration flow), not the two service-DID headers floria's `/notify` verifier
 //!    requires.
 //! 2. chime never owned a private key; it only canonicalizes context so an external signer (the
@@ -22,7 +22,7 @@ use std::collections::HashMap;
 use std::fmt;
 use std::time::{Duration, SystemTime, SystemTimeError};
 
-use contrix::http_signature::{
+use cokret::http_signature::{
     Component, ContentDigest, ContentDigestAlgorithm, format_signature_header,
     format_signature_input_component_list,
 };
@@ -159,36 +159,36 @@ impl PushRequestSigningContext {
         components.push(Component::Method);
         components.push(Component::TargetUri);
         components.push(Component::Header("content-digest".to_owned()));
-        components.push(Component::Header("x-contrix-operation-id".to_owned()));
-        components.push(Component::Header("x-contrix-device-id".to_owned()));
-        components.push(Component::Header("x-contrix-created-at".to_owned()));
-        components.push(Component::Header("x-contrix-audience".to_owned()));
+        components.push(Component::Header("x-cokret-operation-id".to_owned()));
+        components.push(Component::Header("x-cokret-device-id".to_owned()));
+        components.push(Component::Header("x-cokret-created-at".to_owned()));
+        components.push(Component::Header("x-cokret-audience".to_owned()));
 
         if self.actor_id.is_some() {
-            components.push(Component::Header("x-contrix-actor-id".to_owned()));
+            components.push(Component::Header("x-cokret-actor-id".to_owned()));
         }
         if self.expires_at.is_some() {
-            components.push(Component::Header("x-contrix-expires-at".to_owned()));
+            components.push(Component::Header("x-cokret-expires-at".to_owned()));
         }
         if self.origin.is_some() {
-            components.push(Component::Header("x-contrix-origin".to_owned()));
+            components.push(Component::Header("x-cokret-origin".to_owned()));
         }
         if self.origin_service_did.is_some() {
-            components.push(Component::Header("x-contrix-origin-service-did".to_owned()));
+            components.push(Component::Header("x-cokret-origin-service-did".to_owned()));
         }
         if self.destination_service_did.is_some() {
             components.push(Component::Header(
-                "x-contrix-destination-service-did".to_owned(),
+                "x-cokret-destination-service-did".to_owned(),
             ));
         }
         if self.nonce.is_some() {
-            components.push(Component::Header("x-contrix-nonce".to_owned()));
+            components.push(Component::Header("x-cokret-nonce".to_owned()));
         }
         if self.idempotency_key.is_some() {
-            components.push(Component::Header("x-contrix-idempotency-key".to_owned()));
+            components.push(Component::Header("x-cokret-idempotency-key".to_owned()));
         }
         if self.session_grant.is_some() {
-            components.push(Component::Header("x-contrix-session-grant".to_owned()));
+            components.push(Component::Header("x-cokret-session-grant".to_owned()));
         }
 
         format_signature_input_component_list(label, &components).map_err(|_| {
@@ -325,7 +325,7 @@ impl PushRequestSigningOptions {
 ///
 /// ## CH-1 wire shape
 ///
-/// The output is produced by [`contrix::http_signature::ContentDigest::compute`]
+/// The output is produced by [`cokret::http_signature::ContentDigest::compute`]
 /// with [`ContentDigestAlgorithm::Sha256`]. That guarantees byte-equivalent
 /// wire output (same `sha-256=:BASE64STANDARD_32B:` form, same base64
 /// alphabet) with floria's verifier and soland's fanout signer, which
@@ -388,7 +388,7 @@ where
 /// A.5 #4 — per-`(device_id, nonce)` replay-window tracker.
 ///
 /// The chime push device registration / unregistration flow stamps a
-/// random `X-Contrix-Nonce` value on every signed request so floria's
+/// random `X-Cokret-Nonce` value on every signed request so floria's
 /// verifier can reject replays. The signed transcript would otherwise
 /// stay valid forever, which means an attacker who recorded one
 /// `register-device` request can resubmit it from any vantage point
@@ -525,13 +525,13 @@ impl NonceTracker {
 mod tests {
     //! CH-1 wire-equivalence tests for the SDK-routed `content_digest_sha256`.
     //!
-    //! The whole point of routing through `contrix::http_signature::ContentDigest`
+    //! The whole point of routing through `cokret::http_signature::ContentDigest`
     //! is that chime, floria's verifier, and soland's fanout signer all
     //! agree on the wire bytes. These tests pin that agreement so a
     //! future SDK bump can't silently change the wire shape without
     //! also tripping chime's CI.
 
-    use contrix::http_signature::{ContentDigest, ContentDigestAlgorithm, verify_content_digest};
+    use cokret::http_signature::{ContentDigest, ContentDigestAlgorithm, verify_content_digest};
 
     use super::*;
 
@@ -543,7 +543,7 @@ mod tests {
     fn ch1_content_digest_matches_sdk_byte_for_byte() {
         let body = serde_json::json!({
             "operation_id": "cx.push.register_device",
-            "device_id": "cx:device:01HYZ8Z000000000000000",
+            "device_id": "ck:device:01HYZ8Z000000000000000",
         });
         let chime_value = content_digest_sha256(&body).expect("chime digest computes");
 
@@ -586,7 +586,7 @@ mod tests {
         let err = verify_content_digest(&parsed, b"different body").unwrap_err();
         assert!(matches!(
             err,
-            contrix::http_signature::SignatureError::ContentDigestMismatch
+            cokret::http_signature::SignatureError::ContentDigestMismatch
         ));
     }
 

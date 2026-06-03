@@ -4,28 +4,28 @@ All notable changes to `chime` are documented here. The format is based
 on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this
 project follows [SemVer](https://semver.org/) once it reaches `1.0`.
 
-## R3.4 — Spec sync 2026-05-31 (contrix-spec @ c2848a4)
+## R3.4 — Spec sync 2026-05-31 (cokret-spec @ c2848a4)
 
-- Synced protocol-facing names and fixtures to `c2848a4`: event envelope schema naming, `_ids` grant constraints, accountability principal vocabulary, `cx:rtc_participant:` media participants, agent session start fields, and key-backup signature algorithm naming where applicable.
-
-> No version tag, no crates.io / Docker Hub / npm publish — git commit only.
-
-## R3.3 — Spec sync 2026-05-28 (contrix-spec @ cced4b8)
-
-- R3.3 spec sync — pin to contrix-spec @ cced4b8 (CXP-0011 shareable object addressing / `cx.directory.resolve_target`: N/A for this service; object-address resolution belongs to the Directory Service).
+- Synced protocol-facing names and fixtures to `c2848a4`: event envelope schema naming, `_ids` grant constraints, accountability principal vocabulary, `ck:rtc_participant:` media participants, agent session start fields, and key-backup signature algorithm naming where applicable.
 
 > No version tag, no crates.io / Docker Hub / npm publish — git commit only.
-## R3.2 — Spec sync 2026-05-28 (contrix-spec @ b56cab1)
+
+## R3.3 — Spec sync 2026-05-28 (cokret-spec @ cced4b8)
+
+- R3.3 spec sync — pin to cokret-spec @ cced4b8 (CXP-0011 shareable object addressing / `cx.directory.resolve_target`: N/A for this service; object-address resolution belongs to the Directory Service).
+
+> No version tag, no crates.io / Docker Hub / npm publish — git commit only.
+## R3.2 — Spec sync 2026-05-28 (cokret-spec @ b56cab1)
 
 - Audited for mention-reference decode types: none present (push SDK uses DID actor routing lists + push-rule booleans). No wire change required for the §3.8 mention shape v2; `drift_gate` green.
-- Synced to contrix-spec @ b56cab1.
+- Synced to cokret-spec @ b56cab1.
 
 > No version tag, no crates.io / Docker Hub / npm publish — git commit only.
-## R3 — Spec sync 2026-05-27 (contrix-spec @ b47ff6ec)
+## R3 — Spec sync 2026-05-27 (cokret-spec @ b47ff6ec)
 
 - CALL-1: `push::media_token` wraps the SDK `call_media_token_exchange` request builder and exposes `structurally_validate_media_token_response` + `MediaTokenStructuralValidationContext` for the anchor / TTL / participant-binding tuple check. The successful return type is `StructurallyValidatedMediaTokenResponse`, explicitly not cryptographic verification; host applications must verify `service_signature` and `participant_binding.sig` before SFrame keying until SDK signature verification lands.
 - CALL-2: token responses are rejected with typed `MediaTokenError` variants for `unknown_focus_type`, `token_issuer_unauthorised`, `participant_binding_invalid`, `focus_mismatch`, `legacy_single_endpoint_media_service`; classified by `PushErrorKind::is_media_token_rejection`.
-- ERR-1: 20 new R3 error codes mirrored from contrix-rust-sdk into `PushErrorKind` (media-binding + agent-lifecycle + recovery + handle homograph); `from_failure_code` matches via `contrix::error::ERROR_CODE_*` constants.
+- ERR-1: 20 new R3 error codes mirrored from cokret-rust-sdk into `PushErrorKind` (media-binding + agent-lifecycle + recovery + handle homograph); `from_failure_code` matches via `cokret::error::ERROR_CODE_*` constants.
 - Telemetry / UI helpers added: `is_media_token_rejection`, `is_media_binding_code`, `is_agent_lifecycle_code` for branching error UX.
 
 > No version tag, no crates.io / Docker Hub / npm publish — git commit only.
@@ -40,7 +40,7 @@ project follows [SemVer](https://semver.org/) once it reaches `1.0`.
 - **Chinese documentation** under `zh/` covers integration, error
   codes, and production checks for yougen-facing SDK consumers.
 - **`PushNotification.circle_id` and `PushNotification.effective_scope`**
-  expose the typed `cx:circle:` / `cx:realm:` security boundary that an
+  expose the typed `ck:circle:` / `ck:realm:` security boundary that an
   event was authored against. `validate_wire_model` rejects untyped
   values and `validate_blind_wakeup` enforces the Circle metadata
   privacy invariant (no `did:` literal smuggled in `circle_id`, no
@@ -86,7 +86,7 @@ project follows [SemVer](https://semver.org/) once it reaches `1.0`.
   env var it still prints a clearly-labelled `[warn]` skip so local
   developers without a sibling floria checkout keep getting a green
   run. A new `live-integration` CI job checks out
-  `contrix-dev/floria`, builds the binary, and exercises the tests
+  `cokret-dev/floria`, builds the binary, and exercises the tests
   with `CHIME_INTEGRATION_REQUIRED=1`.
 
 ### Security
@@ -131,7 +131,7 @@ project follows [SemVer](https://semver.org/) once it reaches `1.0`.
 - Local package verification no longer contains publish, tag, or GitHub release
   actions.
 
-### Round R4 — protocol review closures (2026-05-20, contrix-spec `2a4d39b..a77b995`)
+### Round R4 — protocol review closures (2026-05-20, cokret-spec `2a4d39b..a77b995`)
 
 Client-side push SDK alignment with the round-4 wire shapes. See
 [`_chime_todos.md`](./_chime_todos.md) for the workstream context.
@@ -194,7 +194,7 @@ Client-side push SDK alignment with the round-4 wire shapes. See
 ### Notes
 
 - CH-3 (2026-05-18): evaluated extracting `state::repair` and
-  `state::rotation` to `contrix-sdk` for reuse by starid/teabay.
+  `state::rotation` to `cokret-sdk` for reuse by starid/teabay.
   Skipped: every plan function is parameterised over push-specific
   types (`PushRegistrationState`, `PushDeviceConfig`,
   `PushPreferences`, `RegisterDeviceRequest`,
@@ -220,7 +220,7 @@ Client-side push SDK alignment with the round-4 wire shapes. See
   opt-in). `PushPreferences::effective_gateways()`
   returns either the explicit list or a synthesized single binding
   from the singular `push_gateway` / `gateway_type` fields.
-  `ContrixPushClient::register_device_all` exercises every binding
+  `CokretPushClient::register_device_all` exercises every binding
   independently and returns one `Result` per binding so partial
   failures stay visible.
 - `PushRetryPolicy::with_disabled_kinds(&[PushErrorKind::…])` and
@@ -237,20 +237,20 @@ Client-side push SDK alignment with the round-4 wire shapes. See
   examples can no longer drift away from the API.
 - Spec-aligned `PushTargetId` newtype and `WakeupKind` enum on
   `PushNotification`. Validates the per-(principal, device, push_route)
-  pairwise pseudonym shape (`cx:pseudonym:push:<base64url>` or raw
+  pairwise pseudonym shape (`ck:pseudonym:push:<base64url>` or raw
   base64url, ≥ 22 chars, rejects DIDs / device-id / token material).
   `PushNotifyRequest::validate_blind_wakeup_strict` enforces both fields
-  per `contrix-spec` §5.1.
+  per `cokret-spec` §5.1.
 - `PushRoute` typed wrapper (`route`, `push_target_id`,
   `push_gateway_did`, `encryption_key`, `capabilities`, `revoked`,
   `metadata`) with active/revoked state machine and `PushRouteId` /
   `PushRouteCapability` newtypes. Models the `cx.device.push_route`
   actor-private state event without owning private keys.
 - `tests/pseudonym_unlinkability.rs` integration tests locking that the
-  SDK never accepts a DID / device id / push token / contrix typed-id
+  SDK never accepts a DID / device id / push token / cokret typed-id
   prefix as a `PushTargetId`, and that distinct routes keep distinct
   pseudonyms across serde round-trips.
-- `ContrixPushClient::rotate_token(existing, config, prefs, strategy)`:
+- `CokretPushClient::rotate_token(existing, config, prefs, strategy)`:
   high-level wrapper around `plan_token_rotation_with_strategy` +
   register/unregister.
 - `PushPreferencesStore` trait (load / save / clear) so host apps can
@@ -284,7 +284,7 @@ Client-side push SDK alignment with the round-4 wire shapes. See
   `build_unregister_device_request`,
   `plan_registration_repair`, `plan_token_rotation` /
   `plan_token_rotation_with_strategy`, and
-  `ContrixPushClient::register_device` /
+  `CokretPushClient::register_device` /
   `unregister_device` / `rotate_token` now take an explicit
   `&GatewayBinding`. `plan_multi_gateway_repair` iterates
   `prefs.gateways` directly and surfaces every persisted state as an
@@ -295,7 +295,7 @@ Client-side push SDK alignment with the round-4 wire shapes. See
 - `PushNotification.validate_wire_model` now requires `wakeup_kind` on
   the current notify wire model.
 - `typos.toml` cleaned up — removed copy-pasted entries unrelated to
-  this crate; added Contrix project vocabulary.
+  this crate; added Cokret project vocabulary.
 - README quick-start no longer references the non-existent
   `chime::try_from_json` helper; only `from_json` is the strict parser.
 
@@ -327,15 +327,15 @@ Historical planning notes retained from the pre-1.0 task list.
 
 ### HTTP client (`http` feature)
 
-- `ContrixPushClient` with `register_device`, `unregister_device`,
+- `CokretPushClient` with `register_device`, `unregister_device`,
   `bridge_describe`, `integration_describe`, `integration_view`.
-- Default fail-closed on missing `X-Contrix-Session-Grant` header
+- Default fail-closed on missing `X-Cokret-Session-Grant` header
   (toggle with `with_required_session_grant(false)` for dev sandboxes).
 - Auto-generated idempotency keys for register/unregister so retries
   are always safe.
 - `PushRetryPolicy` with `Retry-After` honoring, exponential backoff,
   and bounded jitter.
-- `PushErrorKind::from_failure_code` mapping Contrix
+- `PushErrorKind::from_failure_code` mapping Cokret
   `bridge/describe.failure_codes` strings.
 
 ### Local state

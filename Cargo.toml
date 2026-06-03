@@ -4,12 +4,12 @@ version = "1.0.0"
 edition = "2024"
 rust-version = "1.89"
 license = "Apache-2.0"
-repository = "https://github.com/contrix-dev/chime"
-homepage = "https://github.com/contrix-dev/chime"
+repository = "https://github.com/cokret-dev/chime"
+homepage = "https://github.com/cokret-dev/chime"
 documentation = "https://docs.rs/chime"
 readme = "README.md"
-description = "Contrix push notification gateway types and device registration helpers, with support for domestic Chinese Android OEM providers through Bugle."
-keywords = ["contrix", "push", "notification", "fcm", "apns"]
+description = "Cokret push notification gateway types and device registration helpers, with support for domestic Chinese Android OEM providers through Bugle."
+keywords = ["cokret", "push", "notification", "fcm", "apns"]
 categories = ["api-bindings", "network-programming", "web-programming"]
 exclude = [
     "_todos.md",
@@ -35,7 +35,7 @@ chrono = { version = "0.4", default-features = false, features = ["serde", "cloc
 # to what floria's verifier and soland's fanout signer emit. The SDK is
 # brought in with `default-features = false` + only the `full-surface`
 # gate so chime doesn't pick up unrelated runtimes (client/mls/etc.).
-contrix = { version = "1.0.0", path = "../contrix-rust-sdk/crates/sdk", default-features = false, features = ["full-surface"] }
+cokret = { version = "1.0.0", path = "../cokret-rust-sdk/crates/sdk", default-features = false, features = ["full-surface"] }
 httpdate = "1"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
@@ -69,14 +69,14 @@ zeroize = { version = "1", features = ["derive"], optional = true }
 
 [features]
 default = []
-## Enable Contrix HTTP push device registration via reqwest.
+## Enable Cokret HTTP push device registration via reqwest.
 ##
 ## On native targets this enables reqwest with rustls-tls + a tokio
 ## time driver. On wasm32 it enables reqwest's fetch backend and
 ## gloo-timers (browser `setTimeout`) for the retry backoff.
 ##
 ## A.5 #2 — also pulls in `zeroize` so bearer tokens stored on
-## `ContrixPushClient` zero their heap allocation on drop. The
+## `CokretPushClient` zero their heap allocation on drop. The
 ## dependency is feature-gated because the bearer-token surface only
 ## exists when the `http` client is compiled.
 http = ["dep:reqwest", "dep:tokio", "dep:gloo-timers", "dep:zeroize"]

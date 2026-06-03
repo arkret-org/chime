@@ -10,7 +10,7 @@
 //!   `cx.realm.media_service.service_id` and ties together the call-id / focus-id / actor-id /
 //!   device-id tuple that the caller asked for,
 //! - the token TTL is within the spec ceiling
-//!   ([`MEDIA_TOKEN_TTL_MAX_SECS`](contrix::MEDIA_TOKEN_TTL_MAX_SECS)) via the SDK's
+//!   ([`MEDIA_TOKEN_TTL_MAX_SECS`](cokret::MEDIA_TOKEN_TTL_MAX_SECS)) via the SDK's
 //!   [`validate_token_ttl`].
 //!
 //! The companion [`ensure_known_backend`] helper rejects unsupported
@@ -21,7 +21,7 @@
 //! whose [`MediaTokenError::kind`] aligns one-to-one with the CXP-0010
 //! variants surfaced through [`PushErrorKind`] (CALL-2). HTTP transport
 //! is the caller's responsibility — the rationale is that chime's
-//! `ContrixPushClient` is push-registration scoped and may live on
+//! `CokretPushClient` is push-registration scoped and may live on
 //! wasm32 without a tokio runtime, while the RTC token exchange is
 //! typically driven by the in-app call surface (yougen).
 //!
@@ -41,8 +41,8 @@ use std::fmt;
 
 use chrono::{DateTime, Utc};
 // Re-export the SDK types so chime consumers can pull the full media
-// token surface through `chime::` without a second `contrix` dep.
-pub use contrix::{
+// token surface through `chime::` without a second `cokret` dep.
+pub use cokret::{
     MediaBackendType, MediaTokenExchangeRequest, MediaTokenResponse, ParticipantBinding,
     call_media_token_exchange,
 };
@@ -163,16 +163,16 @@ pub struct MediaTokenStructuralValidationContext<'a> {
     pub requested_focus_id: &'a str,
     /// Realm id the request was built with — must match
     /// `participant_binding.realm_id`.
-    pub realm_id: &'a contrix::RealmId,
+    pub realm_id: &'a cokret::RealmId,
     /// Call id the request was built with — must match
     /// `participant_binding.call_id`.
-    pub call_id: &'a contrix::CallId,
+    pub call_id: &'a cokret::CallId,
     /// Actor ID the request was built with — must match
     /// `participant_binding.actor_id`.
-    pub actor_id: &'a contrix::Did,
+    pub actor_id: &'a cokret::Did,
     /// Device id the request was built with — must match
     /// `participant_binding.device_id`.
-    pub device_id: &'a contrix::DeviceId,
+    pub device_id: &'a cokret::DeviceId,
     /// Wall-clock used for TTL validation (typically `Utc::now()` at
     /// the call site; injected for determinism in tests).
     pub now: DateTime<Utc>,
@@ -322,7 +322,7 @@ pub fn structurally_validate_media_token_response<'response>(
 
     // ── 4. TTL within the spec ceiling. The SDK helper enforces
     // `0 < remaining <= MEDIA_TOKEN_TTL_MAX_SECS`.
-    if let Err(err) = contrix::validate_token_ttl(ctx.now, response.expires_at) {
+    if let Err(err) = cokret::validate_token_ttl(ctx.now, response.expires_at) {
         return Err(MediaTokenError::ParticipantBindingInvalid {
             reason: format!("{err}"),
         });
@@ -353,7 +353,7 @@ pub fn structurally_validate_media_token_response<'response>(
 /// label. Surfaces as CALL-2 [`MediaTokenError::UnknownFocusType`].
 ///
 /// Wraps the SDK's [`MediaBackendType::ensure_known`] so chime
-/// consumers can perform the check without depending on `contrix`
+/// consumers can perform the check without depending on `cokret`
 /// directly.
 pub fn ensure_known_backend(backend: &MediaBackendType) -> Result<(), MediaTokenError> {
     backend
@@ -371,28 +371,28 @@ fn strip_kid_fragment(kid: &str) -> &str {
 #[cfg(test)]
 mod tests {
     use chrono::Duration;
-    use contrix::{CallId, DeviceId, Did, RealmId};
+    use cokret::{CallId, DeviceId, Did, RealmId};
 
     use super::*;
 
     fn realm() -> RealmId {
-        RealmId::new("cx:realm:01904100-0000-7000-8000-000000000001".to_owned()).unwrap()
+        RealmId::new("ck:realm:01904100-0000-7000-8000-000000000001".to_owned()).unwrap()
     }
     fn call() -> CallId {
-        CallId::new("cx:call:01904100-0000-7000-8000-000000000002".to_owned()).unwrap()
+        CallId::new("ck:call:01904100-0000-7000-8000-000000000002".to_owned()).unwrap()
     }
     fn actor() -> Did {
         Did::new("did:web:alice.example".to_owned()).unwrap()
     }
     fn device() -> DeviceId {
-        DeviceId::new("cx:device:01904100-0000-7000-8000-000000000004".to_owned()).unwrap()
+        DeviceId::new("ck:device:01904100-0000-7000-8000-000000000004".to_owned()).unwrap()
     }
 
     fn good_response(now: DateTime<Utc>) -> MediaTokenResponse {
         let expires_at = now + Duration::seconds(300);
         MediaTokenResponse {
             backend_token: "livekit-jwt-token".to_owned(),
-            participant_identity: "cx:rtc_participant:01904100-0000-7000-8000-000000000003"
+            participant_identity: "ck:rtc_participant:01904100-0000-7000-8000-000000000003"
                 .to_owned(),
             participant_binding: ParticipantBinding {
                 scheme: ParticipantBinding::SCHEME.to_owned(),
@@ -400,10 +400,10 @@ mod tests {
                 issuer_kid: "did:web:media.example:media#kid-1".to_owned(),
                 realm_id: realm(),
                 call_id: call(),
-                focus_id: "cx:focus:01".to_owned(),
+                focus_id: "ck:focus:01".to_owned(),
                 actor_id: actor(),
                 device_id: device(),
-                participant_identity: "cx:rtc_participant:01904100-0000-7000-8000-000000000003"
+                participant_identity: "ck:rtc_participant:01904100-0000-7000-8000-000000000003"
                     .to_owned(),
                 expires_at,
             },
@@ -422,8 +422,8 @@ mod tests {
     ) -> MediaTokenStructuralValidationContext<'a> {
         MediaTokenStructuralValidationContext {
             current_media_service_id: "did:web:media.example:media",
-            committed_session_focus: Some("cx:focus:01"),
-            requested_focus_id: "cx:focus:01",
+            committed_session_focus: Some("ck:focus:01"),
+            requested_focus_id: "ck:focus:01",
             realm_id,
             call_id,
             actor_id,
@@ -476,7 +476,7 @@ mod tests {
         let actor_id = actor();
         let device_id = device();
         let mut ctx = good_ctx(now, &realm_id, &call_id, &actor_id, &device_id);
-        ctx.requested_focus_id = "cx:focus:02";
+        ctx.requested_focus_id = "ck:focus:02";
         let err = structurally_validate_media_token_response(&response, &ctx).unwrap_err();
         assert_eq!(err.kind(), PushErrorKind::FocusMismatch);
         assert!(matches!(
@@ -485,7 +485,7 @@ mod tests {
                 requested_focus_id,
                 binding_focus_id,
                 committed_focus_id: None,
-            } if requested_focus_id == "cx:focus:02" && binding_focus_id == "cx:focus:01"
+            } if requested_focus_id == "ck:focus:02" && binding_focus_id == "ck:focus:01"
         ));
     }
 
@@ -498,7 +498,7 @@ mod tests {
         let actor_id = actor();
         let device_id = device();
         let mut ctx = good_ctx(now, &realm_id, &call_id, &actor_id, &device_id);
-        ctx.committed_session_focus = Some("cx:focus:committed-other");
+        ctx.committed_session_focus = Some("ck:focus:committed-other");
         let err = structurally_validate_media_token_response(&response, &ctx).unwrap_err();
         assert!(matches!(
             err,
@@ -506,9 +506,9 @@ mod tests {
                 requested_focus_id,
                 binding_focus_id,
                 committed_focus_id: Some(committed_focus_id),
-            } if requested_focus_id == "cx:focus:01"
-                && binding_focus_id == "cx:focus:01"
-                && committed_focus_id == "cx:focus:committed-other"
+            } if requested_focus_id == "ck:focus:01"
+                && binding_focus_id == "ck:focus:01"
+                && committed_focus_id == "ck:focus:committed-other"
         ));
     }
 
@@ -517,7 +517,7 @@ mod tests {
         let now = Utc::now();
         let mut response = good_response(now);
         response.participant_binding.device_id =
-            DeviceId::new("cx:device:01904100-0000-7000-8000-000000000099".to_owned()).unwrap();
+            DeviceId::new("ck:device:01904100-0000-7000-8000-000000000099".to_owned()).unwrap();
         let realm_id = realm();
         let call_id = call();
         let actor_id = actor();
@@ -564,16 +564,16 @@ mod tests {
         let err = ensure_known_backend(&MediaBackendType::Unknown).unwrap_err();
         assert_eq!(err.kind(), PushErrorKind::UnknownFocusType);
         assert!(ensure_known_backend(&MediaBackendType::Livekit).is_ok());
-        assert!(ensure_known_backend(&MediaBackendType::ContrixNative).is_ok());
+        assert!(ensure_known_backend(&MediaBackendType::CokretNative).is_ok());
     }
 
     #[test]
     fn helper_builds_request_with_provided_focus_id() {
         // CALL-1: chime exposes the SDK request-builder so consumers
-        // don't need their own `contrix` dep.
+        // don't need their own `cokret` dep.
         let req =
-            call_media_token_exchange(realm(), call(), actor(), device(), "cx:focus:01".to_owned());
-        assert_eq!(req.focus_id, "cx:focus:01");
+            call_media_token_exchange(realm(), call(), actor(), device(), "ck:focus:01".to_owned());
+        assert_eq!(req.focus_id, "ck:focus:01");
         assert_eq!(req.realm_id, realm());
     }
 

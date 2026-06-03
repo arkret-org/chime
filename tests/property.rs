@@ -209,7 +209,7 @@ mod notify_props {
             }))
             .unwrap();
             let mut notification = PushNotification::new_blind_wakeup(
-                PushTargetId::new("cx:pseudonym:push:01HYZ8Z000000000000000").unwrap(),
+                PushTargetId::new("ck:pseudonym:push:01HYZ8Z000000000000000").unwrap(),
                 WakeupKind::Message,
             );
             notification.devices = vec![device];
@@ -233,7 +233,7 @@ mod notify_props {
             // 22..=64 char base64url tokens are accepted.
             token in "[A-Za-z0-9_\\-]{22,64}",
         ) {
-            let typed = format!("cx:pseudonym:push:{token}");
+            let typed = format!("ck:pseudonym:push:{token}");
             let id = PushTargetId::new(&typed).unwrap();
             let json = serde_json::to_string(&id).unwrap();
             let back: PushTargetId = serde_json::from_str(&json).unwrap();

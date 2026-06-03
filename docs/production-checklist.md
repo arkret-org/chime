@@ -49,7 +49,7 @@ that signs them on the wire.
 The SLA for keeping that link tight:
 
 - **Re-snapshot ≤ 7 days after every spec-round release.** A spec round
-  is published the moment `contrix-spec` advances its head SHA, even if
+  is published the moment `cokret-spec` advances its head SHA, even if
   no chime-visible field has obviously moved. Re-snapshotting means:
   1. point `tests/drift_gate.rs::BRIDGE_DESCRIBE_FIXTURE` at the latest
      floria `bridge/describe` output for the new spec head;

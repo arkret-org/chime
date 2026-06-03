@@ -56,7 +56,7 @@ yougen's smoke-test harness MUST:
    common cause of "registrations succeed but notifications never
    arrive" bugs and is cheap to catch up-front.
 
-The crate-level audited spec target is `contrix-spec @ cced4b8`; older
+The crate-level audited spec target is `cokret-spec @ cced4b8`; older
 SHAs in changelog history are retained only as round-by-round audit
 records.
 

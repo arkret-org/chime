@@ -1,7 +1,7 @@
 # chime examples
 
 Runnable integration samples that show host applications how to wire
-`chime` into the two halves of the Contrix push surface: outbound
+`chime` into the two halves of the Cokret push surface: outbound
 device registration and inbound `cx.push.notify` handling.
 
 All examples are deliberately dependency-free at runtime — they print
@@ -27,7 +27,7 @@ cargo run --example server-side-relay --features notify
 
 - **Live HTTP I/O.** The desktop example builds the request body and
   hands it back to the caller; the actual `POST` is the host
-  application's responsibility (typically via `ContrixPushClient` under
+  application's responsibility (typically via `CokretPushClient` under
   the `http` feature).
 - **Inbound signature verification.** chime does not verify push frame
   signatures — see `SECURITY.md` for why and where the host must do it.

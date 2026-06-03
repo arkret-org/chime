@@ -120,7 +120,7 @@ fn make_request() -> PushNotifyReqBody {
     }))
     .unwrap();
     let mut notification = PushNotification::new_blind_wakeup(
-        PushTargetId::new("cx:pseudonym:push:01HYZ8Z000000000000000").unwrap(),
+        PushTargetId::new("ck:pseudonym:push:01HYZ8Z000000000000000").unwrap(),
         WakeupKind::Message,
     );
     notification.devices = vec![device];

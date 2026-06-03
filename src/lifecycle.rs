@@ -47,7 +47,7 @@ use crate::PushPreferencesStore;
 
 /// B.5 #9 — host-supplied driver for the background-fetch wakeup path.
 ///
-/// When a Contrix push gateway delivers a blind wakeup, the device's
+/// When a Cokret push gateway delivers a blind wakeup, the device's
 /// integration code typically needs to:
 ///
 /// 1. Hand control to the host app (iOS BGAppRefreshTask, Android WorkManager job, Web Push
@@ -95,7 +95,7 @@ pub trait BackgroundFetchDriver: Send + Sync {
 #[derive(Clone, Copy, Debug)]
 #[non_exhaustive]
 pub struct BackgroundFetchHint<'a> {
-    /// Opaque push target id (`cx:pseudonym:push:...`). Always present.
+    /// Opaque push target id (`ck:pseudonym:push:...`). Always present.
     pub push_target_id: &'a str,
     /// Wakeup kind (`message`, `mention`, `reaction`, `call_invite`).
     pub wakeup_kind: &'a str,
@@ -348,7 +348,7 @@ pub struct AccountDeactivationReceipt {
     pub keypackage_cache_cleared: bool,
     pub session_invalidated: bool,
     pub push_preferences_cleared: bool,
-    /// CXP-0007 — `cx:circle:` ids whose chime-side subscription /
+    /// CXP-0007 — `ck:circle:` ids whose chime-side subscription /
     /// mute state was torn down as part of this deactivation. Empty
     /// when no Circle-scoped state existed for this principal.
     pub circle_bindings_cleared: Vec<String>,
@@ -647,13 +647,13 @@ mod tests {
         };
         seeded
             .muted_circle_ids
-            .insert("cx:circle:01HZK9Z000000000000000001".to_owned());
+            .insert("ck:circle:01HZK9Z000000000000000001".to_owned());
         seeded
             .muted_circle_ids
-            .insert("cx:circle:01HZK9Z000000000000000002".to_owned());
+            .insert("ck:circle:01HZK9Z000000000000000002".to_owned());
         seeded
             .muted_realm_ids
-            .insert("cx:realm:01HZK9Z000000000000000099".to_owned());
+            .insert("ck:realm:01HZK9Z000000000000000099".to_owned());
         prefs.save_push_preferences(&seeded).unwrap();
 
         let receipt =

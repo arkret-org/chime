@@ -1,6 +1,6 @@
 //! Optional `cx.push.notify` wire model for Push Gateway implementations.
 //!
-//! This module models the Contrix notify request/response payload and keeps
+//! This module models the Cokret notify request/response payload and keeps
 //! blind-wakeup validation conservative. It does not implement APNs, FCM, Web
 //! Push, or OEM provider delivery.
 
@@ -8,14 +8,14 @@ use std::fmt;
 
 use base64::Engine as _;
 use base64::engine::general_purpose;
-use contrix::blind_payload_sanitizer::{
+use cokret::blind_payload_sanitizer::{
     self as sdk_sanitizer, BlindPayloadError, BlindPayloadReasonCode, is_forbidden_payload_key,
 };
 // Round 4 (B5, spec a77b995) — pull typed audit surfaces from the SDK so
 // chime stays byte-aligned with what soland/floria emit. The
 // mention-redirect routing wrapper is local to chime until the SDK grows a
 // stable public type for that exact wire object.
-use contrix::{AccessKind, AuditPolicyAccessPayload, Did, EventId};
+use cokret::{AccessKind, AuditPolicyAccessPayload, Did, EventId};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use thiserror::Error;
@@ -273,7 +273,7 @@ pub struct PushNotification {
     /// so this typed wire field is validated separately below.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub realm_id: Option<String>,
-    /// CXP-0007 (Circle primitive) — typed `cx:circle:` identifier of
+    /// CXP-0007 (Circle primitive) — typed `ck:circle:` identifier of
     /// the Circle (intra-Realm encrypted sub-boundary) the wakeup is
     /// scoped to, when applicable. `None` for legacy Realm-scoped
     /// wakeups.
@@ -294,7 +294,7 @@ pub struct PushNotification {
     /// with the security boundary the event was authored against
     /// without having to round-trip back to floria.
     ///
-    /// Shape: typed reference string (`cx:circle:...` or `cx:realm:...`).
+    /// Shape: typed reference string (`ck:circle:...` or `ck:realm:...`).
     /// Validated by [`PushNotification::validate_wire_model`].
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub effective_scope: Option<String>,
@@ -334,7 +334,7 @@ pub struct PushNotification {
     /// is diagnostic context — push layer never decrypts on the
     /// strength of this field alone. The SDK validates the
     /// `(access_kind, late_recovery_original_event_id)` pairing via
-    /// [`contrix::AuditPolicyAccessPayload::validate_minimal`].
+    /// [`cokret::AuditPolicyAccessPayload::validate_minimal`].
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub policy_access: Option<AuditPolicyAccessPayload>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -378,8 +378,8 @@ impl PushNotification {
             });
         }
 
-        validate_typed_id("event_id", self.event_id.as_deref(), "cx:event:")?;
-        validate_typed_id("realm_id", self.realm_id.as_deref(), "cx:realm:")?;
+        validate_typed_id("event_id", self.event_id.as_deref(), "ck:event:")?;
+        validate_typed_id("realm_id", self.realm_id.as_deref(), "ck:realm:")?;
         // CXP-0007 — Circle primitive typed-shape validation. We don't
         // require either to be present (legacy Realm-scoped wakeups
         // still set realm_id only), but when present they MUST be the
@@ -389,7 +389,7 @@ impl PushNotification {
         // A.5 #1 — `circle_id` is the canonical opaque routing token in
         // blind-wakeup mode. Tighten its shape from the generic
         // `validate_typed_id` (which only checks the prefix) to a strict
-        // regex equivalent of `^cx:circle:[a-z0-9]+$` so member-name /
+        // regex equivalent of `^ck:circle:[a-z0-9]+$` so member-name /
         // display-label exfiltration via the tail is rejected at the
         // wire layer.
         validate_circle_id_opaque(self.circle_id.as_deref())?;
@@ -472,7 +472,7 @@ impl PushNotification {
         // the wakeup MUST NOT leak Circle membership/display fields.
         // The strict opaque validator in `validate_wire_model` already
         // rejects any `did:`/`:did` substring in the tail (it enforces
-        // `^cx:circle:[a-z0-9]+$`), so we keep the belt-and-braces
+        // `^ck:circle:[a-z0-9]+$`), so we keep the belt-and-braces
         // SensitiveField mapping here for callers that bypass the
         // wire-model validator and call `validate_blind_wakeup` directly.
         if let Some(circle_id) = self.circle_id.as_deref()
@@ -500,7 +500,7 @@ impl PushNotification {
         // wire-model fields we already validate above; the wire-model
         // owns its own allow-list and the SDK sanitizer owns the rule
         // that says "no forbidden field anywhere in the tree, no
-        // sensitive did:/cx: literal anywhere".
+        // sensitive did:/ck: literal anywhere".
         run_sdk_sanitizer_over_extra(&self.extra)?;
 
         Ok(())
@@ -816,7 +816,7 @@ impl From<BlindPayloadError> for PushNotifyPrivacyError {
 }
 
 /// T1.1 — feed the `extra` map of a [`PushNotification`] through the SDK
-/// sanitizer so the rule "no forbidden field anywhere, no `did:` / `cx:`
+/// sanitizer so the rule "no forbidden field anywhere, no `did:` / `ck:`
 /// literal anywhere" stays unified across chime/floria.
 ///
 /// We wrap the extras under a `notification` envelope so the SDK
@@ -830,7 +830,7 @@ fn run_sdk_sanitizer_over_extra(extra: &Map<String, Value>) -> Result<(), PushNo
     // keys + literals, ignore wrapper's own allow-list" branch.
     let envelope = serde_json::json!({
         "notification": {
-            "push_target_id": "cx:pseudonym:push:0000000000000000000000",
+            "push_target_id": "ck:pseudonym:push:0000000000000000000000",
             "wakeup_kind": "message",
         },
     });
@@ -904,7 +904,7 @@ pub fn shared_push_notify_privacy_vectors() -> Vec<PushNotifyPrivacyVector> {
             payload: serde_json::json!({
                 "operation_id": crate::OPERATION_PUSH_NOTIFY,
                 "notification": {
-                    "push_target_id": "cx:pseudonym:push:01HYZ8Z000000000000000",
+                    "push_target_id": "ck:pseudonym:push:01HYZ8Z000000000000000",
                     "wakeup_kind": "message",
                     "push_hint": "new_message",
                     "counts": { "unread": 1 },
@@ -919,7 +919,7 @@ pub fn shared_push_notify_privacy_vectors() -> Vec<PushNotifyPrivacyVector> {
             mode: PushNotifyPrivacyMode::E2eeBlindWakeup,
             payload: serde_json::json!({
                 "notification": {
-                    "push_target_id": "cx:pseudonym:push:01HYZ8Z000000000000000",
+                    "push_target_id": "ck:pseudonym:push:01HYZ8Z000000000000000",
                     "wakeup_kind": "message",
                     "title": "Secret",
                     "devices": [{ "push_key": "fcm:opaque-token", "app_id": "app.example" }]
@@ -972,9 +972,9 @@ fn validate_push_target_id(value: &str) -> Result<(), PushNotifyPrivacyError> {
         });
     }
 
-    let token = if let Some(token) = trimmed.strip_prefix("cx:pseudonym:push:") {
+    let token = if let Some(token) = trimmed.strip_prefix("ck:pseudonym:push:") {
         token
-    } else if trimmed.starts_with("cx:") || trimmed.contains(':') {
+    } else if trimmed.starts_with("ck:") || trimmed.contains(':') {
         return Err(PushNotifyPrivacyError::InvalidFieldValue {
             field: "push_target_id".to_owned(),
         });
@@ -1035,9 +1035,9 @@ fn validate_typed_id(
 /// A.5 #1 — strict shape validator for `circle_id`.
 ///
 /// Enforces the canonical opaque routing-token regex
-/// `^cx:circle:[a-z0-9]+$` (case-insensitive ASCII alphanumerics in the
-/// tail — chime allows both lowercase `cx:circle:abc123` and ULID-style
-/// uppercase `cx:circle:01HZK9Z...` because both are emitted today by
+/// `^ck:circle:[a-z0-9]+$` (case-insensitive ASCII alphanumerics in the
+/// tail — chime allows both lowercase `ck:circle:abc123` and ULID-style
+/// uppercase `ck:circle:01HZK9Z...` because both are emitted today by
 /// floria). The validator rejects:
 ///
 /// - missing / empty tail,
@@ -1059,7 +1059,7 @@ fn validate_circle_id_opaque(value: Option<&str>) -> Result<(), PushNotifyPrivac
             field: "circle_id".to_owned(),
         });
     }
-    // Reject `:did` infix (e.g. `cx:circle:did:web:alice...`) as a
+    // Reject `:did` infix (e.g. `ck:circle:did:web:alice...`) as a
     // sensitive field rather than a shape violation so the caller can
     // tell the difference between "bad shape" and "leaked DID literal"
     // in its observability pipeline.
@@ -1068,7 +1068,7 @@ fn validate_circle_id_opaque(value: Option<&str>) -> Result<(), PushNotifyPrivac
             field: "circle_id".to_owned(),
         });
     }
-    let Some(tail) = value.strip_prefix("cx:circle:") else {
+    let Some(tail) = value.strip_prefix("ck:circle:") else {
         return Err(PushNotifyPrivacyError::InvalidFieldValue {
             field: "circle_id".to_owned(),
         });
@@ -1082,15 +1082,15 @@ fn validate_circle_id_opaque(value: Option<&str>) -> Result<(), PushNotifyPrivac
 }
 
 /// CXP-0007 — `effective_scope` is a typed reference that floria stamps on
-/// `cx.event.*` envelopes. The only two legal prefixes are `cx:circle:`
-/// (intra-Realm encrypted sub-boundary) and `cx:realm:` (legacy
+/// `cx.event.*` envelopes. The only two legal prefixes are `ck:circle:`
+/// (intra-Realm encrypted sub-boundary) and `ck:realm:` (legacy
 /// Realm-scoped). Anything else is wire-broken.
 fn validate_effective_scope(value: Option<&str>) -> Result<(), PushNotifyPrivacyError> {
     let Some(value) = value else {
         return Ok(());
     };
     if value.trim().is_empty()
-        || !(value.starts_with("cx:circle:") || value.starts_with("cx:realm:"))
+        || !(value.starts_with("ck:circle:") || value.starts_with("ck:realm:"))
     {
         return Err(PushNotifyPrivacyError::InvalidFieldValue {
             field: "effective_scope".to_owned(),
@@ -1110,10 +1110,10 @@ fn validate_active_reference_extension(
     }
 
     match key {
-        "flow_id" => validate_extra_typed_string(key, value, "cx:flow:"),
-        "message_id" => validate_extra_typed_string(key, value, "cx:message:"),
+        "flow_id" => validate_extra_typed_string(key, value, "ck:flow:"),
+        "message_id" => validate_extra_typed_string(key, value, "ck:message:"),
         "notification_projection_id" => {
-            validate_extra_typed_string(key, value, "cx:notification_projection:")
+            validate_extra_typed_string(key, value, "ck:notification_projection:")
         }
         _ => Ok(()),
     }
@@ -1340,15 +1340,15 @@ pub const AGENT_ACTOR_PRIVATE_KINDS: &[&str] = &[
 /// reject inbound payloads that route an agent/sidecar/backup/recovery
 /// typed id into a slot reserved for a *different* typed-id prefix
 /// (e.g. an `agent_session` id smuggled into a wakeup's `event_id`
-/// slot). `agent_principal_id` is a DID-as-id, not a `cx:*` typed id.
+/// slot). `agent_principal_id` is a DID-as-id, not a `ck:*` typed id.
 pub const PHASE_P2_AGENT_TYPED_ID_PREFIXES: &[&str] = &[
-    "cx:agent_session:",
-    "cx:agent_key:",
-    "cx:agent_draft:",
-    "cx:accountability_grant:",
-    "cx:sidecar_circle:",
-    "cx:backup_series:",
-    "cx:recovery_session:",
+    "ck:agent_session:",
+    "ck:agent_key:",
+    "ck:agent_draft:",
+    "ck:accountability_grant:",
+    "ck:sidecar_circle:",
+    "ck:backup_series:",
+    "ck:recovery_session:",
 ];
 
 /// Classification of an inbound `event_kind` against chime's Phase P2
@@ -1580,11 +1580,11 @@ mod tests {
         // does not require touching every test fixture.
         PushNotification {
             push_target_id: Some(
-                PushTargetId::new("cx:pseudonym:push:01HYZ8Z000000000000000").unwrap(),
+                PushTargetId::new("ck:pseudonym:push:01HYZ8Z000000000000000").unwrap(),
             ),
             wakeup_kind: Some(WakeupKind::Message),
-            event_id: Some("cx:event:01JS0EV000000000000000000".to_owned()),
-            realm_id: Some("cx:realm:01JS0SP000000000000000000".to_owned()),
+            event_id: Some("ck:event:01JS0EV000000000000000000".to_owned()),
+            realm_id: Some("ck:realm:01JS0SP000000000000000000".to_owned()),
             push_hint: Some(PushHint::new("new_message").unwrap()),
             counts: Some(serde_json::json!({ "unread": 1 })),
             devices: vec![device()],
@@ -1658,7 +1658,7 @@ mod tests {
     #[test]
     fn deserialized_extra_fields_require_runtime_validation() {
         let loaded: PushNotification = serde_json::from_value(serde_json::json!({
-            "push_target_id": "cx:pseudonym:push:01HYZ8Z000000000000000",
+            "push_target_id": "ck:pseudonym:push:01HYZ8Z000000000000000",
             "wakeup_kind": "message",
             "kind": "captured-extra-field",
             "devices": [{
@@ -1688,10 +1688,10 @@ mod tests {
 
     #[test]
     fn push_target_id_accepts_typed_and_raw_tokens() {
-        PushTargetId::new("cx:pseudonym:push:01HYZ8Z000000000000000").unwrap();
+        PushTargetId::new("ck:pseudonym:push:01HYZ8Z000000000000000").unwrap();
         PushTargetId::new("01HYZ8Z000000000000000").unwrap();
 
-        assert!(PushTargetId::new("cx:device:01HYZ8Z000000000000000").is_err());
+        assert!(PushTargetId::new("ck:device:01HYZ8Z000000000000000").is_err());
         assert!(PushTargetId::new("did:web:alice.example").is_err());
     }
 
@@ -1730,7 +1730,7 @@ mod tests {
     #[test]
     fn assert_no_sensitive_fields_accepts_clean_payload() {
         let payload = serde_json::json!({
-            "push_target_id": "cx:pseudonym:push:01HYZ8Z000000000000000",
+            "push_target_id": "ck:pseudonym:push:01HYZ8Z000000000000000",
             "wakeup_kind": "message",
             "counts": {"unread": 1},
         });
@@ -1741,7 +1741,7 @@ mod tests {
     fn assert_no_sensitive_fields_rejects_round23_governance_fields() {
         for field in ROUND_R2_R3_SENSITIVE_FIELDS {
             let payload = serde_json::json!({
-                "push_target_id": "cx:pseudonym:push:01HYZ8Z000000000000000",
+                "push_target_id": "ck:pseudonym:push:01HYZ8Z000000000000000",
                 "wakeup_kind": "message",
                 *field: "leaked-value",
             });
@@ -1766,10 +1766,10 @@ mod tests {
     #[test]
     fn assert_no_sensitive_fields_walks_nested_objects() {
         let payload = serde_json::json!({
-            "push_target_id": "cx:pseudonym:push:01HYZ8Z000000000000000",
+            "push_target_id": "ck:pseudonym:push:01HYZ8Z000000000000000",
             "metadata": {
                 "deep": {
-                    "appeal_id": "cx:appeal:01ABC"
+                    "appeal_id": "ck:appeal:01ABC"
                 }
             }
         });
@@ -1786,7 +1786,7 @@ mod tests {
         let payload = serde_json::json!({
             "items": [
                 {"ok": 1},
-                {"trust_domain": "cx:trust_domain:example.net"}
+                {"trust_domain": "ck:trust_domain:example.net"}
             ]
         });
         let outcome = std::panic::catch_unwind(|| assert_no_sensitive_fields(&payload));
@@ -1870,11 +1870,11 @@ mod tests {
         // Parse the SDK shape via JSON so chime doesn't need to depend
         // on `chrono` directly to construct timestamps in tests.
         let payload: AuditPolicyAccessPayload = serde_json::from_value(serde_json::json!({
-            "realm_id": "cx:realm:01904100-0000-7000-8000-000000000001",
+            "realm_id": "ck:realm:01904100-0000-7000-8000-000000000001",
             "actor": "did:web:alice.example",
             "access_kind": "e2_e_e_late_recovery",
             "late_recovery_original_event_id":
-                "cx:event:01904100-0000-7000-8000-000000000002",
+                "ck:event:01904100-0000-7000-8000-000000000002",
             "observed_at": "2026-05-20T00:00:00Z",
         }))
         .unwrap();
@@ -1882,7 +1882,7 @@ mod tests {
         payload.validate_minimal().unwrap();
 
         let expected_event_id =
-            EventId::new("cx:event:01904100-0000-7000-8000-000000000002").unwrap();
+            EventId::new("ck:event:01904100-0000-7000-8000-000000000002").unwrap();
         let mut notification = notification();
         notification.policy_access = Some(payload);
         assert_eq!(
@@ -1894,7 +1894,7 @@ mod tests {
     #[test]
     fn late_recovery_event_id_is_none_for_other_access_kinds() {
         let payload: AuditPolicyAccessPayload = serde_json::from_value(serde_json::json!({
-            "realm_id": "cx:realm:01904100-0000-7000-8000-000000000001",
+            "realm_id": "ck:realm:01904100-0000-7000-8000-000000000001",
             "actor": "did:web:alice.example",
             "access_kind": "audit",
             "observed_at": "2026-05-20T00:00:00Z",
@@ -1916,8 +1916,8 @@ mod tests {
     #[test]
     fn circle_id_and_effective_scope_round_trip_through_json() {
         let mut n = notification();
-        n.circle_id = Some("cx:circle:01HZK9Z000000000000000000".to_owned());
-        n.effective_scope = Some("cx:circle:01HZK9Z000000000000000000".to_owned());
+        n.circle_id = Some("ck:circle:01HZK9Z000000000000000000".to_owned());
+        n.effective_scope = Some("ck:circle:01HZK9Z000000000000000000".to_owned());
         let json = serde_json::to_string(&n).unwrap();
         assert!(json.contains("circle_id"));
         assert!(json.contains("effective_scope"));
@@ -1944,16 +1944,16 @@ mod tests {
     #[test]
     fn effective_scope_accepts_circle_or_realm_prefix() {
         let mut n = notification();
-        n.effective_scope = Some("cx:realm:01HZK9Z000000000000000000".to_owned());
+        n.effective_scope = Some("ck:realm:01HZK9Z000000000000000000".to_owned());
         n.validate_wire_model().unwrap();
-        n.effective_scope = Some("cx:circle:01HZK9Z000000000000000000".to_owned());
+        n.effective_scope = Some("ck:circle:01HZK9Z000000000000000000".to_owned());
         n.validate_wire_model().unwrap();
     }
 
     #[test]
     fn effective_scope_rejects_other_prefixes() {
         let mut n = notification();
-        n.effective_scope = Some("cx:flow:01HZK9Z000000000000000000".to_owned());
+        n.effective_scope = Some("ck:flow:01HZK9Z000000000000000000".to_owned());
         assert!(matches!(
             n.validate_wire_model().unwrap_err(),
             PushNotifyPrivacyError::InvalidFieldValue { field } if field == "effective_scope"
@@ -1966,8 +1966,8 @@ mod tests {
         // Force-bypass the typed-id check at construction by skipping
         // PushTargetId's constructor; the wire-model validator is what
         // we want to exercise here. We set a value that satisfies the
-        // `cx:circle:` prefix but smuggles a did: literal in the tail.
-        n.circle_id = Some("cx:circle:did:web:alice.example".to_owned());
+        // `ck:circle:` prefix but smuggles a did: literal in the tail.
+        n.circle_id = Some("ck:circle:did:web:alice.example".to_owned());
         let err = n.validate_blind_wakeup().unwrap_err();
         assert!(matches!(
             err,
@@ -2070,7 +2070,7 @@ mod tests {
                 "field `{field}` must be in ROUND_R2_R3_SENSITIVE_FIELDS"
             );
             let payload = serde_json::json!({
-                "push_target_id": "cx:pseudonym:push:01HYZ8Z000000000000000",
+                "push_target_id": "ck:pseudonym:push:01HYZ8Z000000000000000",
                 "wakeup_kind": "message",
                 field: "leaked-value",
             });

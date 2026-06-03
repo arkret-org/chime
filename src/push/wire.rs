@@ -103,7 +103,7 @@ fn hmac_sha256(key: &[u8], message: &[u8]) -> [u8; 32] {
     outer.finalize().into()
 }
 
-/// Supported Contrix push platform values.
+/// Supported Cokret push platform values.
 ///
 /// Stability: `1.0`-stable. New variants are additive; renaming or
 /// removing a variant requires a major SemVer bump.
@@ -149,9 +149,9 @@ impl TryFrom<&str> for PushPlatform {
 /// major SemVer bump.
 #[derive(Clone, Copy)]
 pub struct PushDeviceConfig<'a> {
-    /// Contrix principal ID that owns this device registration.
+    /// Cokret principal ID that owns this device registration.
     pub principal_id: Option<&'a str>,
-    /// Contrix device id, usually a DID fragment such as
+    /// Cokret device id, usually a DID fragment such as
     /// `did:web:alice.example#device-phone`.
     pub device_id: &'a str,
     /// Platform push token, e.g. `fcm:...`, `apns:...`, `webpush:...`.
@@ -169,7 +169,7 @@ pub struct PushDeviceConfig<'a> {
     /// Idempotency key sent both as request metadata and, for services that
     /// persist it, as an optional request body field.
     pub idempotency_key: Option<&'a str>,
-    /// Request id sent as `X-Contrix-Request-Id`.
+    /// Request id sent as `X-Cokret-Request-Id`.
     pub request_id: Option<&'a str>,
     /// Optional caller-supplied DID proof or canonical proof body.
     ///
@@ -375,7 +375,7 @@ pub struct PushUnsubscribeRequest {
     pub principal_id: Option<String>,
     pub device_id: String,
     /// Typed reference to the scope being unsubscribed from
-    /// (`cx:circle:...`, `cx:realm:...`, or `cx:flow:...`). The
+    /// (`ck:circle:...`, `ck:realm:...`, or `ck:flow:...`). The
     /// gateway echoes this back in the `target_id` of the response and
     /// matches it against the registration set when picking who to
     /// remove.
@@ -392,7 +392,7 @@ impl PushUnsubscribeRequest {
         device_id: impl Into<String>,
         circle_id: impl Into<String>,
     ) -> Result<Self, PushRegistrationError> {
-        Self::new(device_id, "cx:circle:", circle_id)
+        Self::new(device_id, "ck:circle:", circle_id)
     }
 
     /// Construct an unsubscribe request for a Realm.
@@ -400,7 +400,7 @@ impl PushUnsubscribeRequest {
         device_id: impl Into<String>,
         realm_id: impl Into<String>,
     ) -> Result<Self, PushRegistrationError> {
-        Self::new(device_id, "cx:realm:", realm_id)
+        Self::new(device_id, "ck:realm:", realm_id)
     }
 
     /// Construct an unsubscribe request for a Flow.
@@ -408,7 +408,7 @@ impl PushUnsubscribeRequest {
         device_id: impl Into<String>,
         flow_id: impl Into<String>,
     ) -> Result<Self, PushRegistrationError> {
-        Self::new(device_id, "cx:flow:", flow_id)
+        Self::new(device_id, "ck:flow:", flow_id)
     }
 
     fn new(
@@ -468,12 +468,12 @@ pub struct PushUnsubscribeResponse {
     pub request_id: Option<String>,
 }
 
-/// Contrix standard error object.
+/// Cokret standard error object.
 ///
 /// Stability: 1.0-stable + `#[non_exhaustive]`. Server-controlled shape.
 #[derive(Clone, Default, PartialEq, Serialize, Deserialize)]
 #[non_exhaustive]
-pub struct ContrixError {
+pub struct CokretError {
     pub code: String,
     pub message: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -482,9 +482,9 @@ pub struct ContrixError {
     pub details: Option<Value>,
 }
 
-impl fmt::Debug for ContrixError {
+impl fmt::Debug for CokretError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("ContrixError")
+        f.debug_struct("CokretError")
             .field("code", &self.code)
             .field("message", &"<redacted>")
             .field("retry_after_ms", &self.retry_after_ms)
@@ -493,22 +493,22 @@ impl fmt::Debug for ContrixError {
     }
 }
 
-/// Contrix standard error envelope.
+/// Cokret standard error envelope.
 ///
 /// Stability: 1.0-stable. Server-controlled response shape, so additional
 /// fields may appear in a minor release.
 #[derive(Clone, PartialEq, Serialize, Deserialize)]
 #[non_exhaustive]
-pub struct ContrixErrorEnvelope {
+pub struct CokretErrorEnvelope {
     pub ok: bool,
-    pub error: ContrixError,
+    pub error: CokretError,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub request_id: Option<String>,
 }
 
-impl fmt::Debug for ContrixErrorEnvelope {
+impl fmt::Debug for CokretErrorEnvelope {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("ContrixErrorEnvelope")
+        f.debug_struct("CokretErrorEnvelope")
             .field("ok", &self.ok)
             .field("error", &self.error)
             .field("request_id", &self.request_id)
@@ -610,7 +610,7 @@ mod tests {
             "expires_at": "2026-05-02T00:00:00Z",
             "refresh_hint": "rotate_before_expiry",
             "warnings": ["duplicate-safe"],
-            "request_id": "cx:request:123"
+            "request_id": "ck:request:123"
         }))
         .unwrap();
 
@@ -629,19 +629,19 @@ mod tests {
             Some("rotate_before_expiry")
         );
         assert_eq!(register.warnings, vec!["duplicate-safe"]);
-        assert_eq!(register.request_id.as_deref(), Some("cx:request:123"));
+        assert_eq!(register.request_id.as_deref(), Some("ck:request:123"));
 
         let unregister: UnregisterDeviceResponse = serde_json::from_value(serde_json::json!({
             "ok": true,
             "already_removed": true,
             "removed_registration_id": "reg-1",
-            "request_id": "cx:request:456"
+            "request_id": "ck:request:456"
         }))
         .unwrap();
 
         assert!(unregister.ok);
         assert!(unregister.already_removed);
         assert_eq!(unregister.removed_registration_id.as_deref(), Some("reg-1"));
-        assert_eq!(unregister.request_id.as_deref(), Some("cx:request:456"));
+        assert_eq!(unregister.request_id.as_deref(), Some("ck:request:456"));
     }
 }

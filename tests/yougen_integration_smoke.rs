@@ -21,12 +21,12 @@ fn yougen_style_fcm_and_apns_tokens_build_chime_register_requests() {
         (
             "android",
             "fcm:real-local-fcm-token-0123456789abcdef",
-            "dev.contrix.yougen.android",
+            "dev.cokret.yougen.android",
         ),
         (
             "ios",
             "apns:0123456789abcdef0123456789abcdef0123456789abcdef",
-            "dev.contrix.yougen.ios",
+            "dev.cokret.yougen.ios",
         ),
     ] {
         let request = yougen_register_request(platform, token, app_id);
@@ -51,9 +51,9 @@ async fn chime_client_requires_session_grant_before_yougen_can_register() {
     let request = yougen_register_request(
         "android",
         "fcm:real-local-fcm-token-for-grant-check",
-        "dev.contrix.yougen.android",
+        "dev.cokret.yougen.android",
     );
-    let error = chime::ContrixPushClient::new("https://principal.example")
+    let error = chime::CokretPushClient::new("https://principal.example")
         .register_device_with_request(&request, None, None)
         .await
         .expect_err("default chime registration must fail closed without a session grant");
@@ -95,7 +95,7 @@ fn sibling_yougen_wires_real_token_sources_into_chime_registration() {
 
     for needle in [
         "use chime::",
-        "ContrixPushClient",
+        "CokretPushClient",
         "build_register_device_request",
         "ensure_production_register_request",
         "with_session_grant",
@@ -134,7 +134,7 @@ fn yougen_register_request(
         registration_id: None,
         display_name: Some("yougen smoke device"),
         idempotency_key: Some("chime-yougen-smoke"),
-        request_id: Some("cx:request:yougen-smoke"),
+        request_id: Some("ck:request:yougen-smoke"),
         proof: None,
     };
 
