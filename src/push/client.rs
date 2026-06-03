@@ -369,8 +369,7 @@ impl CokretPushClient {
     /// Discover the service-level push gateway integration manifest and return response metadata.
     pub async fn integration_describe_with_context(
         &self,
-    ) -> Result<CokretResponse<PushGatewayIntegrationDescribeResponse>, PushRegistrationError>
-    {
+    ) -> Result<CokretResponse<PushGatewayIntegrationDescribeResponse>, PushRegistrationError> {
         self.get_json(PUSH_INTEGRATION_DESCRIBE_PATH).await
     }
 
@@ -902,10 +901,7 @@ impl CokretPushClient {
         })
     }
 
-    async fn get_json_once<R>(
-        &self,
-        path: &str,
-    ) -> Result<CokretResponse<R>, PushRegistrationError>
+    async fn get_json_once<R>(&self, path: &str) -> Result<CokretResponse<R>, PushRegistrationError>
     where
         R: for<'de> Deserialize<'de>,
     {

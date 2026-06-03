@@ -1204,6 +1204,17 @@ fn is_sensitive_payload_key(key: &str) -> bool {
         return true;
     }
 
+    // A blind wakeup is the strictest privacy mode: anything that is
+    // never allowed even on a plaintext-visible service DID (encrypted
+    // carriers such as `encrypted_payload` / `encrypted_metadata`, raw
+    // `metadata` / `fields`, `track` / `track_name`, call-setup, …) is
+    // a fortiori forbidden here. spec push-notifications.md §6.2:
+    // "Sync Service MUST NOT 在推送中包含 `encrypted_content` /
+    // `encrypted_metadata` / `encrypted_payload` 的任何部分".
+    if is_never_allowed_payload_key(key) {
+        return true;
+    }
+
     matches!(
         key,
         // Local policy extension: SDK blocks `space_name` / `flow_name` /
@@ -1212,14 +1223,13 @@ fn is_sensitive_payload_key(key: &str) -> bool {
         // generic `*_name` rule.
         "realm_name"
             | "sender_actor_display_name"
-            // CXP-0007 — Circle display / membership surfaces. The typed
-            // `circle_id` may travel; the human-readable label and any
-            // member listing must not.
+            // CXP-0007 — Circle display label. The typed `circle_id` may
+            // travel; the human-readable label must not. Circle membership
+            // surfaces (`circle_members` / `circle_member_dids` /
+            // `circle_member_actor_ids`) are covered by the shared
+            // `is_never_allowed_payload_key` set above.
             | "circle_name"
             | "circle_display_name"
-            | "circle_members"
-            | "circle_member_dids"
-            | "circle_member_actor_ids"
     )
 }
 

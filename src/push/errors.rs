@@ -274,29 +274,98 @@ impl PushErrorKind {
         // agent-lifecycle, handle homograph) still live under
         // `cokret::error`. Adding a code is a one-line table entry.
         const CODE_MAP: &[(&str, PushErrorKind)] = &[
-            (cokret::ERROR_CODE_DELIVERY_BINDING_STALE, PushErrorKind::DeliveryBindingStale),
-            (cokret::ERROR_CODE_DELIVERY_BINDING_HANDED_OVER, PushErrorKind::DeliveryBindingHandedOver),
-            (cokret::ERROR_CODE_HISTORICAL_ONLY, PushErrorKind::HistoricalOnly),
-            (cokret::error::ERROR_CODE_FOCUS_MISMATCH, PushErrorKind::FocusMismatch),
-            (cokret::error::ERROR_CODE_UNKNOWN_FOCUS_TYPE, PushErrorKind::UnknownFocusType),
-            (cokret::error::ERROR_CODE_TOKEN_ISSUER_UNAUTHORISED, PushErrorKind::TokenIssuerUnauthorised),
-            (cokret::error::ERROR_CODE_PARTICIPANT_BINDING_INVALID, PushErrorKind::ParticipantBindingInvalid),
-            (cokret::error::ERROR_CODE_PARTICIPANT_IDENTITY_UNRECOGNISED, PushErrorKind::ParticipantIdentityUnrecognised),
-            (cokret::error::ERROR_CODE_SESSION_FOCUS_ALREADY_COMMITTED, PushErrorKind::SessionFocusAlreadyCommitted),
-            (cokret::error::ERROR_CODE_E2EE_KEY_SOURCE_UNAUTHORISED, PushErrorKind::E2eeKeySourceUnauthorised),
-            (cokret::error::ERROR_CODE_RECORDING_ARTIFACT_PIPELINE_BYPASSED, PushErrorKind::RecordingArtifactPipelineBypassed),
-            (cokret::error::ERROR_CODE_LEGACY_SINGLE_ENDPOINT_MEDIA_SERVICE, PushErrorKind::LegacySingleEndpointMediaService),
-            (cokret::error::ERROR_CODE_FOCUS_UNAVAILABLE_FOR_CLIENT, PushErrorKind::FocusUnavailableForClient),
-            (cokret::error::ERROR_CODE_PAIRING_REQUEST_EXPIRED, PushErrorKind::PairingRequestExpired),
-            (cokret::error::ERROR_CODE_PROOF_INVALID, PushErrorKind::ProofInvalid),
-            (cokret::error::ERROR_CODE_VERIFICATION_METHOD_PRINCIPAL_MISMATCH, PushErrorKind::VerificationMethodPrincipalMismatch),
-            (cokret::error::ERROR_CODE_AGENT_PAUSED, PushErrorKind::AgentPaused),
-            (cokret::error::ERROR_CODE_AGENT_DEACTIVATED, PushErrorKind::AgentDeactivated),
-            (cokret::error::ERROR_CODE_APPROVAL_ALREADY_CONSUMED, PushErrorKind::ApprovalAlreadyConsumed),
-            (cokret::error::ERROR_CODE_SIDECAR_CREATE_DENIED, PushErrorKind::SidecarCreateDenied),
-            (cokret::error::ERROR_CODE_ACTOR_KIND_REDUCER_MANAGED, PushErrorKind::ActorKindReducerManaged),
-            (cokret::error::ERROR_CODE_RECOVERY_WITNESS_REVOKE_LAGGING, PushErrorKind::RecoveryWitnessRevokeLagging),
-            (cokret::error::ERROR_CODE_HANDLE_HOMOGRAPH_FORBIDDEN, PushErrorKind::HandleHomographForbidden),
+            (
+                cokret::ERROR_CODE_DELIVERY_BINDING_STALE,
+                PushErrorKind::DeliveryBindingStale,
+            ),
+            (
+                cokret::ERROR_CODE_DELIVERY_BINDING_HANDED_OVER,
+                PushErrorKind::DeliveryBindingHandedOver,
+            ),
+            (
+                cokret::ERROR_CODE_HISTORICAL_ONLY,
+                PushErrorKind::HistoricalOnly,
+            ),
+            (
+                cokret::error::ERROR_CODE_FOCUS_MISMATCH,
+                PushErrorKind::FocusMismatch,
+            ),
+            (
+                cokret::error::ERROR_CODE_UNKNOWN_FOCUS_TYPE,
+                PushErrorKind::UnknownFocusType,
+            ),
+            (
+                cokret::error::ERROR_CODE_TOKEN_ISSUER_UNAUTHORISED,
+                PushErrorKind::TokenIssuerUnauthorised,
+            ),
+            (
+                cokret::error::ERROR_CODE_PARTICIPANT_BINDING_INVALID,
+                PushErrorKind::ParticipantBindingInvalid,
+            ),
+            (
+                cokret::error::ERROR_CODE_PARTICIPANT_IDENTITY_UNRECOGNISED,
+                PushErrorKind::ParticipantIdentityUnrecognised,
+            ),
+            (
+                cokret::error::ERROR_CODE_SESSION_FOCUS_ALREADY_COMMITTED,
+                PushErrorKind::SessionFocusAlreadyCommitted,
+            ),
+            (
+                cokret::error::ERROR_CODE_E2EE_KEY_SOURCE_UNAUTHORISED,
+                PushErrorKind::E2eeKeySourceUnauthorised,
+            ),
+            (
+                cokret::error::ERROR_CODE_RECORDING_ARTIFACT_PIPELINE_BYPASSED,
+                PushErrorKind::RecordingArtifactPipelineBypassed,
+            ),
+            (
+                cokret::error::ERROR_CODE_LEGACY_SINGLE_ENDPOINT_MEDIA_SERVICE,
+                PushErrorKind::LegacySingleEndpointMediaService,
+            ),
+            (
+                cokret::error::ERROR_CODE_FOCUS_UNAVAILABLE_FOR_CLIENT,
+                PushErrorKind::FocusUnavailableForClient,
+            ),
+            (
+                cokret::error::ERROR_CODE_PAIRING_REQUEST_EXPIRED,
+                PushErrorKind::PairingRequestExpired,
+            ),
+            (
+                cokret::error::ERROR_CODE_PROOF_INVALID,
+                PushErrorKind::ProofInvalid,
+            ),
+            (
+                cokret::error::ERROR_CODE_VERIFICATION_METHOD_PRINCIPAL_MISMATCH,
+                PushErrorKind::VerificationMethodPrincipalMismatch,
+            ),
+            (
+                cokret::error::ERROR_CODE_AGENT_PAUSED,
+                PushErrorKind::AgentPaused,
+            ),
+            (
+                cokret::error::ERROR_CODE_AGENT_DEACTIVATED,
+                PushErrorKind::AgentDeactivated,
+            ),
+            (
+                cokret::error::ERROR_CODE_APPROVAL_ALREADY_CONSUMED,
+                PushErrorKind::ApprovalAlreadyConsumed,
+            ),
+            (
+                cokret::error::ERROR_CODE_SIDECAR_CREATE_DENIED,
+                PushErrorKind::SidecarCreateDenied,
+            ),
+            (
+                cokret::error::ERROR_CODE_ACTOR_KIND_REDUCER_MANAGED,
+                PushErrorKind::ActorKindReducerManaged,
+            ),
+            (
+                cokret::error::ERROR_CODE_RECOVERY_WITNESS_REVOKE_LAGGING,
+                PushErrorKind::RecoveryWitnessRevokeLagging,
+            ),
+            (
+                cokret::error::ERROR_CODE_HANDLE_HOMOGRAPH_FORBIDDEN,
+                PushErrorKind::HandleHomographForbidden,
+            ),
         ];
         if let Some(&(_, kind)) = CODE_MAP.iter().find(|(c, _)| *c == code) {
             return Some(kind);

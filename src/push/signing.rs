@@ -10,8 +10,8 @@
 //! `PushRequestSigningContext` type itself stays in chime because:
 //!
 //! 1. chime's covered-component set differs from floria's notify set — it covers
-//!    `x-cokret-operation-id`, `x-cokretice-id`, `x-cokret-created-at`, `x-cokret-audience`
-//!    (the device- registration flow), not the two service-DID headers floria's `/notify` verifier
+//!    `x-cokret-operation-id`, `x-cokretice-id`, `x-cokret-created-at`, `x-cokret-audience` (the
+//!    device- registration flow), not the two service-DID headers floria's `/notify` verifier
 //!    requires.
 //! 2. chime never owned a private key; it only canonicalizes context so an external signer (the
 //!    host application's DID proof or HSM) can attach a pre-computed `Signature` header. The SDK's
@@ -35,11 +35,11 @@ use super::urls::{
     redact_url, require_optional_owned_non_empty, require_owned_non_empty, try_cokret_api_url,
 };
 use super::{
-    CONTENT_DIGEST_HEADER, COKRET_ACTOR_ID_HEADER, COKRET_AUDIENCE_HEADER,
-    COKRET_CREATED_AT_HEADER, COKRET_DESTINATION_SERVICE_DID_HEADER, COKRET_DEVICE_ID_HEADER,
-    COKRET_EXPIRES_AT_HEADER, COKRET_IDEMPOTENCY_KEY_HEADER, COKRET_NONCE_HEADER,
-    COKRET_OPERATION_ID_HEADER, COKRET_ORIGIN_HEADER, COKRET_ORIGIN_SERVICE_DID_HEADER,
-    COKRET_SESSION_GRANT_HEADER, SIGNATURE_HEADER, SIGNATURE_INPUT_HEADER,
+    COKRET_ACTOR_ID_HEADER, COKRET_AUDIENCE_HEADER, COKRET_CREATED_AT_HEADER,
+    COKRET_DESTINATION_SERVICE_DID_HEADER, COKRET_DEVICE_ID_HEADER, COKRET_EXPIRES_AT_HEADER,
+    COKRET_IDEMPOTENCY_KEY_HEADER, COKRET_NONCE_HEADER, COKRET_OPERATION_ID_HEADER,
+    COKRET_ORIGIN_HEADER, COKRET_ORIGIN_SERVICE_DID_HEADER, COKRET_SESSION_GRANT_HEADER,
+    CONTENT_DIGEST_HEADER, SIGNATURE_HEADER, SIGNATURE_INPUT_HEADER,
 };
 
 /// Canonical data that callers can bind into DID proofs or HTTP Message Signatures.
@@ -125,10 +125,7 @@ impl PushRequestSigningContext {
             headers.push((COKRET_ORIGIN_HEADER, origin.clone()));
         }
         if let Some(origin_service_did) = &self.origin_service_did {
-            headers.push((
-                COKRET_ORIGIN_SERVICE_DID_HEADER,
-                origin_service_did.clone(),
-            ));
+            headers.push((COKRET_ORIGIN_SERVICE_DID_HEADER, origin_service_did.clone()));
         }
         if let Some(destination_service_did) = &self.destination_service_did {
             headers.push((
