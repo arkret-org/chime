@@ -136,7 +136,7 @@ pub const OPERATION_PUSH_NOTIFY: &str = "ck.push.notify";
 /// B.5 #8 — Canonical Cokret operation id for the push unsubscribe
 /// call. Sent as the `operation_id` field on
 /// [`PushUnsubscribeRequest`].
-pub const OPERATION_PUSH_UNSUBSCRIBE: &str = "cx.push.unsubscribe";
+pub const OPERATION_PUSH_UNSUBSCRIBE: &str = "ck.push.unsubscribe";
 
 /// Default standard Cokret push gateway URL.
 ///

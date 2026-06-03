@@ -67,7 +67,7 @@ async fn bridge_describe_round_trips_against_live_floria() {
         .await
         .expect("bridge_describe deserializes against live floria");
 
-    assert_eq!(response.contract, "cx.push.bridge.describe");
+    assert_eq!(response.contract, "ck.push.bridge.describe");
     assert_eq!(response.notify.notify_path, "/_cokret/edge/push/notify");
     assert_eq!(response.notify.operation_id, chime::OPERATION_PUSH_NOTIFY);
     assert!(

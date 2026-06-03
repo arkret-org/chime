@@ -34,7 +34,7 @@ pub const REGISTER_DEVICE_PATH: &str = "/_cokret/edge/push/register-device";
 /// Cokret HTTP path for `ck.push.unregister_device`.
 pub const UNREGISTER_DEVICE_PATH: &str = "/_cokret/edge/push/unregister-device";
 
-/// B.5 #8 — Cokret HTTP path for `cx.push.unsubscribe`. The body is a
+/// B.5 #8 — Cokret HTTP path for `ck.push.unsubscribe`. The body is a
 /// [`PushUnsubscribeRequest`]; the URL also accepts an optional
 /// `target_id` query parameter for callers that prefer to encode the
 /// scope outside the JSON envelope (the wire body remains canonical).

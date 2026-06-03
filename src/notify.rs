@@ -290,7 +290,7 @@ pub struct PushNotification {
     pub circle_id: Option<String>,
     /// CXP-0007 (Circle primitive) — mirror of the event envelope's
     /// `effective_scope` field that floria stamps on the originating
-    /// `cx.event.*` envelope. Lets the client side correlate a wakeup
+    /// `ck.event.*` envelope. Lets the client side correlate a wakeup
     /// with the security boundary the event was authored against
     /// without having to round-trip back to floria.
     ///
@@ -328,7 +328,7 @@ pub struct PushNotification {
     /// ```
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub mention_redirect: Option<MentionRedirectRouting>,
-    /// Round 4 (B5) — typed `cx.audit.policy_access` payload surfaced to
+    /// Round 4 (B5) — typed `ck.audit.policy_access` payload surfaced to
     /// consumers (e.g. yougen) so the late-key-recovery banner can read
     /// `late_recovery_original_event_id` directly off the wakeup. This
     /// is diagnostic context — push layer never decrypts on the
@@ -580,7 +580,7 @@ impl PushNotification {
     }
 
     /// Round 4 (B5) — when the wakeup is a late-key-recovery audit
-    /// surface (`cx.audit.policy_access.access_kind = e2ee_late_recovery`),
+    /// surface (`ck.audit.policy_access.access_kind = e2ee_late_recovery`),
     /// return the `late_recovery_original_event_id` so the consumer can
     /// render a "the system recovered an old key for event X" banner.
     ///
@@ -1082,7 +1082,7 @@ fn validate_circle_id_opaque(value: Option<&str>) -> Result<(), PushNotifyPrivac
 }
 
 /// CXP-0007 — `effective_scope` is a typed reference that floria stamps on
-/// `cx.event.*` envelopes. The only two legal prefixes are `ck:circle:`
+/// `ck.event.*` envelopes. The only two legal prefixes are `ck:circle:`
 /// (intra-Realm encrypted sub-boundary) and `ck:realm:` (legacy
 /// Realm-scoped). Anything else is wire-broken.
 fn validate_effective_scope(value: Option<&str>) -> Result<(), PushNotifyPrivacyError> {
@@ -1355,11 +1355,11 @@ pub const PHASE_P2_AGENT_TYPED_ID_PREFIXES: &[&str] = &[
 /// agent-routing table. Returned by [`classify_agent_event_kind`].
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum AgentEventRouting {
-    /// Durable lifecycle (`cx.agent.{pause,resume,deactivate}`). The
+    /// Durable lifecycle (`ck.agent.{pause,resume,deactivate}`). The
     /// host MAY render a minimal summary to a control-plane UI, but
     /// MUST NOT carry any payload onto an end-user surface.
     DurableLifecycle,
-    /// Actor-private (`cx.agent.{draft.propose,action_request,
+    /// Actor-private (`ck.agent.{draft.propose,action_request,
     /// action_approve,action_reject}`). MUST go through the
     /// blind-wakeup sanitizer; any plaintext payload is rejected
     /// unless the destination service DID is explicitly whitelisted.

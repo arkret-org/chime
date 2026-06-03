@@ -14,7 +14,7 @@
 //! chime owns the **client-side** push surface — the device push queue,
 //! the per-device keypackage cache it consults before signing wakeups,
 //! and the local device session that lets the client speak to floria.
-//! Floria reaches us either by emitting a `cx.principal.deactivate`
+//! Floria reaches us either by emitting a `ck.principal.deactivate`
 //! event on the device's normal sync stream (in-band) or by sending a
 //! dedicated push wakeup whose `wakeup_kind` is a closed v1 token
 //! signalling deactivation. Either path funnels into [`on_account_deactivate`] —
@@ -185,7 +185,7 @@ pub enum DeactivationSource {
     /// shape on the device).
     FloriaPush,
     /// The device's sync stream surfaced an in-band
-    /// `cx.principal.deactivate` event.
+    /// `ck.principal.deactivate` event.
     InBandSync,
 }
 
@@ -368,7 +368,7 @@ impl AccountDeactivationReceipt {
 }
 
 /// Client integrator entrypoint — call this on receiving a
-/// `cx.principal.deactivate` signal (either via floria push or in-band
+/// `ck.principal.deactivate` signal (either via floria push or in-band
 /// sync) for the principal currently bound to this device.
 ///
 /// Drives the three §7.1 sub-steps in a fixed order: drain queue →

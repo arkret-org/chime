@@ -43,8 +43,8 @@ wire-breaking list.
 Spec rounds 2+3 (2026-05-20) added the `lifecycle::on_account_deactivate`
 host integration hook (T07 — 4-step local push cleanup) and the
 `ROUND_R2_R3_SENSITIVE_FIELDS` defense-in-depth list that mirrors floria's
-blind-wakeup forbidden-field surface. Ephemeral kinds (`cx.presence`,
-`cx.typing`, `ck.receipt.read`, `ck.call.signal`) are confirmed not
+blind-wakeup forbidden-field surface. Ephemeral kinds (`ck.presence`,
+`ck.typing`, `ck.receipt.read`, `ck.call.signal`) are confirmed not
 consumed by chime. See [`CHANGELOG.md`](CHANGELOG.md) `[Unreleased]` and
 [`../cokret-spec/CHANGELOG.md`](../cokret-spec/CHANGELOG.md) for the
 normative source.

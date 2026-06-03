@@ -14,8 +14,8 @@
 //! Re-snapshotted on `2026-05-26` against floria `6496235` and
 //! cokret-spec head `37ce729`. The fixture mirrors:
 //!
-//! - Phase P2 agent-kind routing (`cx.agent.{pause,resume,deactivate}` silent-consume;
-//!   `cx.agent.{draft.propose,action_request, action_approve,action_reject}` drop unless
+//! - Phase P2 agent-kind routing (`ck.agent.{pause,resume,deactivate}` silent-consume;
+//!   `ck.agent.{draft.propose,action_request, action_approve,action_reject}` drop unless
 //!   subscribed).
 //! - The seven SDK typed-id prefixes (`agent_session`, `agent_key`, `agent_draft`,
 //!   `accountability_grant`, `sidecar_circle`, `backup_series`, `recovery_session`).
@@ -36,7 +36,7 @@ use chime::{
 /// Update *deliberately* when floria's bridge contract advances; never
 /// silently. The accompanying assertions encode the SDK's expectations.
 const BRIDGE_DESCRIBE_FIXTURE: &str = r#"{
-    "contract": "cx.push.bridge.v1",
+    "contract": "ck.push.bridge.v1",
     "version": "1.0.0",
     "api_base_path": "/_cokret/edge/push",
     "spec_version": "cokret-spec@2026-05-26",
@@ -97,7 +97,7 @@ fn bridge_describe_fixture_round_trips_into_chime_dto() {
     let response: PushBridgeDescribeResponse =
         serde_json::from_str(BRIDGE_DESCRIBE_FIXTURE).expect("fixture must parse");
 
-    assert_eq!(response.contract, "cx.push.bridge.v1");
+    assert_eq!(response.contract, "ck.push.bridge.v1");
     assert_eq!(response.version, "1.0.0");
     assert_eq!(
         response.spec_version.as_deref(),

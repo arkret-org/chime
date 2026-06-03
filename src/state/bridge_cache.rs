@@ -48,7 +48,7 @@ pub enum CacheError {
 pub struct BridgeContractCache {
     /// Hex-encoded SHA-256 of the canonical JSON of the cached response.
     pub digest: String,
-    /// Contract identifier from the cached response (e.g. `"cx.push.bridge.v1"`).
+    /// Contract identifier from the cached response (e.g. `"ck.push.bridge.v1"`).
     pub contract: String,
     /// Version string from the cached response.
     pub version: String,
@@ -131,7 +131,7 @@ impl BridgeContractDriftVerdict {
 
     /// Whether the contract identifier changed across the cache boundary
     /// (i.e. the contract string no longer matches the expected
-    /// `cx.push.bridge.v1`). Such a contract change is always a strong signal
+    /// `ck.push.bridge.v1`). Such a contract change is always a strong signal
     /// that downstream state should be invalidated.
     pub fn contract_changed(&self) -> bool {
         match self {
@@ -161,7 +161,7 @@ mod tests {
 
     fn baseline_response() -> PushBridgeDescribeResponse {
         PushBridgeDescribeResponse {
-            contract: "cx.push.bridge.v1".to_owned(),
+            contract: "ck.push.bridge.v1".to_owned(),
             version: "1.0.0".to_owned(),
             api_base_path: "/_cokret/edge/push".to_owned(),
             ..Default::default()
@@ -219,7 +219,7 @@ mod tests {
     fn cache_detects_contract_drift() {
         let cache = BridgeContractCache::from_response(&baseline_response(), None).unwrap();
         let mut fresh = baseline_response();
-        fresh.contract = "cx.push.bridge.unknown-drift-test".to_owned();
+        fresh.contract = "ck.push.bridge.unknown-drift-test".to_owned();
 
         let verdict = cache.evaluate(&fresh).unwrap();
         assert!(verdict.is_drift());
