@@ -348,11 +348,11 @@ pub struct AccountDeactivationReceipt {
     pub keypackage_cache_cleared: bool,
     pub session_invalidated: bool,
     pub push_preferences_cleared: bool,
-    /// CXP-0007 — `ck:circle:` ids whose chime-side subscription /
+    /// CKP-0007 — `ck:circle:` ids whose chime-side subscription /
     /// mute state was torn down as part of this deactivation. Empty
     /// when no Circle-scoped state existed for this principal.
     pub circle_bindings_cleared: Vec<String>,
-    /// CXP-0007 — same as [`Self::circle_bindings_cleared`] but for the
+    /// CKP-0007 — same as [`Self::circle_bindings_cleared`] but for the
     /// Realm-scoped mute list (legacy + Circle-less Realm wakeups).
     pub realm_bindings_cleared: Vec<String>,
 }
@@ -419,7 +419,7 @@ where
     receipt.session_invalidated = true;
 
     if let Some(store) = preferences_store {
-        // CXP-0007 — before wiping the persisted preferences, snapshot
+        // CKP-0007 — before wiping the persisted preferences, snapshot
         // the circle-scoped and realm-scoped subscription / mute state
         // so the receipt can report which bindings were torn down
         // (the receipt is what host apps wire into telemetry; an
@@ -507,7 +507,7 @@ mod tests {
     #[derive(Default)]
     struct InMemoryPrefs {
         cleared: Cell<u32>,
-        // CXP-0007 — optional pre-loaded preferences so a test can
+        // CKP-0007 — optional pre-loaded preferences so a test can
         // assert the deactivation hook snapshots circle/realm mute
         // state before wiping.
         stored: std::cell::RefCell<Option<crate::PushPreferences>>,
@@ -634,7 +634,7 @@ mod tests {
 
     #[test]
     fn on_account_deactivate_snapshots_and_clears_circle_scoped_bindings() {
-        // CXP-0007 — deactivation MUST tear down circle-scoped state.
+        // CKP-0007 — deactivation MUST tear down circle-scoped state.
         // The wholesale `clear_push_preferences` already drops them on
         // disk; this test pins the receipt contract so host-side
         // telemetry can see which circle / realm bindings were live at

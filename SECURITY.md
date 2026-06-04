@@ -46,7 +46,7 @@ When you report, please include:
   on the explicit `plaintext_visible_services` allowlist may receive
   identifying metadata.
 
-### CXP-0007 Circle metadata invariants
+### CKP-0007 Circle metadata invariants
 
 The Circle primitive introduces an encrypted sub-boundary inside a
 Realm. chime's wakeup wire MUST preserve the following invariants on

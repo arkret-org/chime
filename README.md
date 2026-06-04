@@ -104,9 +104,9 @@ hosts that need the standalone resolver trait can use
 > `validate_blind_wakeup`, or `validate_wire_model` before the host reads
 > fields or shows UI.
 
-## CXP-0007 Circle subscriptions
+## CKP-0007 Circle subscriptions
 
-[CXP-0007 Circle primitive](../cokret-spec/specs/protocol/circle.md)
+[CKP-0007 Circle primitive](../cokret-spec/specs/protocol/circle.md)
 introduces an encrypted sub-boundary inside a Realm. chime exposes the
 client-side surface so a wakeup can carry the Circle context end-to-end:
 
@@ -590,4 +590,4 @@ Licensed under Apache 2.0. See [LICENSE](LICENSE).
 <!-- circle-rollout milestone pointer -->
 > **Active milestone tracking** (local-only, gitignored): see
 > `_chime_todos.md` in the parent `cokret/` directory for the
-> circle-rollout (CXP-0007) work item list and per-stage checkpoints.
+> circle-rollout (CKP-0007) work item list and per-stage checkpoints.

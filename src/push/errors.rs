@@ -55,7 +55,7 @@ pub enum PushErrorKind {
     /// MUST NOT trigger another push fanout from a `historical_only`
     /// response.
     HistoricalOnly,
-    // ── R3 (CXP-0010 media binding + agent lifecycle, spec b47ff6ec) ─────
+    // ── R3 (CKP-0010 media binding + agent lifecycle, spec b47ff6ec) ─────
     // The variants below mirror the 20 new error codes added in the SDK
     // (see `cokret_core::error`). Chime mirrors the media-binding,
     // agent-lifecycle, and handle-homograph subsets because those are
@@ -64,38 +64,38 @@ pub enum PushErrorKind {
     // while the user's agent/principal pair is in an inactive state
     // (`Agent*`) or while a handle homograph slips through wire-level
     // validation (`HandleHomographForbidden`).
-    /// CXP-0010 — focus referenced by client does not match the
+    /// CKP-0010 — focus referenced by client does not match the
     /// committed `ck.call.state.session_focus`.
     FocusMismatch,
-    /// CXP-0010 — media focus backend label not recognised by the SDK.
+    /// CKP-0010 — media focus backend label not recognised by the SDK.
     /// Receivers MUST fail closed instead of forwarding the focus.
     UnknownFocusType,
-    /// CXP-0010 — token issuer DID is not anchored to the current
+    /// CKP-0010 — token issuer DID is not anchored to the current
     /// `ck.realm.media_service.service_id` epoch.
     TokenIssuerUnauthorised,
-    /// CXP-0010 — `participant_binding` signature, tuple, or TTL does
+    /// CKP-0010 — `participant_binding` signature, tuple, or TTL does
     /// not validate against the realm media-service binding. Chime's
     /// current structure-only media-token helper emits this for tuple
     /// and TTL failures; host-side Ed25519 verification remains
     /// responsible for signature failures until the SDK verifier lands.
     ParticipantBindingInvalid,
-    /// CXP-0010 — `participant_identity` returned by the focus does not
+    /// CKP-0010 — `participant_identity` returned by the focus does not
     /// match any entry in `ck.call.state.participants[]`.
     ParticipantIdentityUnrecognised,
-    /// CXP-0010 — `ck.call.state.session_focus` is write-once; a
+    /// CKP-0010 — `ck.call.state.session_focus` is write-once; a
     /// concurrent commit attempt collided with the existing value.
     SessionFocusAlreadyCommitted,
-    /// CXP-0010 — backend cloud attempted to supply the SFrame key
+    /// CKP-0010 — backend cloud attempted to supply the SFrame key
     /// material; MLS-Exporter is the only authorised source.
     E2eeKeySourceUnauthorised,
-    /// CXP-0010 — recording artifact bypassed the Cokret blob upload
+    /// CKP-0010 — recording artifact bypassed the Cokret blob upload
     /// pipeline (e.g. LiveKit Egress direct-to-S3).
     RecordingArtifactPipelineBypassed,
-    /// CXP-0010 — realm's `ck.realm.media_service` is still configured
+    /// CKP-0010 — realm's `ck.realm.media_service` is still configured
     /// as a single-endpoint legacy service; multi-focus binding is
     /// required for the requested operation.
     LegacySingleEndpointMediaService,
-    /// CXP-0010 — chosen focus is unavailable to this client (e.g. the
+    /// CKP-0010 — chosen focus is unavailable to this client (e.g. the
     /// focus has been retired or the client is on an unsupported
     /// platform); callers MUST surface this rather than silently
     /// downgrading the media path.
@@ -189,7 +189,7 @@ impl PushErrorKind {
         }
     }
 
-    /// R3 (CALL-2) — the five CXP-0010 codes the chime SDK guarantees
+    /// R3 (CALL-2) — the five CKP-0010 codes the chime SDK guarantees
     /// will be surfaced as typed `PushErrorKind` variants when the
     /// underlying transport returns a media-token error. Consumers can
     /// use this helper to branch the call UI without listing every
@@ -205,7 +205,7 @@ impl PushErrorKind {
         )
     }
 
-    /// R3 — full set of CXP-0010 media-binding error codes (the
+    /// R3 — full set of CKP-0010 media-binding error codes (the
     /// rejection subset above plus the additional codes that may be
     /// raised by the server but are not flagged in CALL-2). Useful for
     /// telemetry that wants to label the wider media-binding bucket.
@@ -270,7 +270,7 @@ impl PushErrorKind {
         // Canonical wire codes sourced from the SDK constants so chime's
         // classification stays byte-aligned with what soland/floria emit.
         // The early Round-4 codes are glob-reexported at the crate root;
-        // the R3 codes (spec b47ff6ec — CXP-0010 media-binding,
+        // the R3 codes (spec b47ff6ec — CKP-0010 media-binding,
         // agent-lifecycle, handle homograph) still live under
         // `cokret::error`. Adding a code is a one-line table entry.
         const CODE_MAP: &[(&str, PushErrorKind)] = &[

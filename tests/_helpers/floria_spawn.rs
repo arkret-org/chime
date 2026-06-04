@@ -46,7 +46,7 @@ impl Drop for SpawnedFloria {
     }
 }
 
-/// CXP-0007 P2D.3 — gate that turns the historical "silent skip when
+/// CKP-0007 P2D.3 — gate that turns the historical "silent skip when
 /// FLORIA_BIN is missing" behaviour into a fail-fast in CI.
 ///
 /// Returns `Some(SpawnedFloria)` when a floria binary is available and

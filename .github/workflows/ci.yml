@@ -112,7 +112,7 @@ jobs:
       - name: Check MSRV (all features)
         run: cargo check --all-features
 
-  # CXP-0007 P2D.4 — wasm32-unknown-unknown coverage. chime advertises
+  # CKP-0007 P2D.4 — wasm32-unknown-unknown coverage. chime advertises
   # first-class wasm32 support (Cargo.toml splits per-target
   # dependencies for reqwest/gloo-timers); without this job a wasm-only
   # regression — e.g. a tokio API call leaking into the http feature
@@ -167,7 +167,7 @@ jobs:
       - name: cargo publish --dry-run
         run: cargo publish --dry-run --allow-dirty --all-features
 
-  # CXP-0007 P2D.3 — exercise the live floria integration test with
+  # CKP-0007 P2D.3 — exercise the live floria integration test with
   # CHIME_INTEGRATION_REQUIRED=1 so a missing floria binary fails the
   # CI run instead of silently green-skipping.
   live-integration:

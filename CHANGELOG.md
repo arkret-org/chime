@@ -12,7 +12,7 @@ project follows [SemVer](https://semver.org/) once it reaches `1.0`.
 
 ## R3.3 — Spec sync 2026-05-28 (cokret-spec @ cced4b8)
 
-- R3.3 spec sync — pin to cokret-spec @ cced4b8 (CXP-0011 shareable object addressing / `cx.directory.resolve_target`: N/A for this service; object-address resolution belongs to the Directory Service).
+- R3.3 spec sync — pin to cokret-spec @ cced4b8 (CKP-0011 shareable object addressing / `cx.directory.resolve_target`: N/A for this service; object-address resolution belongs to the Directory Service).
 
 > No version tag, no crates.io / Docker Hub / npm publish — git commit only.
 ## R3.2 — Spec sync 2026-05-28 (cokret-spec @ b56cab1)
@@ -32,7 +32,7 @@ project follows [SemVer](https://semver.org/) once it reaches `1.0`.
 
 ## [Unreleased]
 
-### Added — CXP-0007 (Circle primitive) client-side surface
+### Added — CKP-0007 (Circle primitive) client-side surface
 
 - **`chime::bugle::BugleAppIdResolver`** provides the minimal
   domestic-Android app-id resolution path: Android prefers

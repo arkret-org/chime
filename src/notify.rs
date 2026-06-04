@@ -273,7 +273,7 @@ pub struct PushNotification {
     /// so this typed wire field is validated separately below.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub realm_id: Option<String>,
-    /// CXP-0007 (Circle primitive) — typed `ck:circle:` identifier of
+    /// CKP-0007 (Circle primitive) — typed `ck:circle:` identifier of
     /// the Circle (intra-Realm encrypted sub-boundary) the wakeup is
     /// scoped to, when applicable. `None` for legacy Realm-scoped
     /// wakeups.
@@ -288,7 +288,7 @@ pub struct PushNotification {
     /// via [`PushNotifyPolicyContext::plaintext_visible_services`].
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub circle_id: Option<String>,
-    /// CXP-0007 (Circle primitive) — mirror of the event envelope's
+    /// CKP-0007 (Circle primitive) — mirror of the event envelope's
     /// `effective_scope` field that floria stamps on the originating
     /// `ck.event.*` envelope. Lets the client side correlate a wakeup
     /// with the security boundary the event was authored against
@@ -380,7 +380,7 @@ impl PushNotification {
 
         validate_typed_id("event_id", self.event_id.as_deref(), "ck:event:")?;
         validate_typed_id("realm_id", self.realm_id.as_deref(), "ck:realm:")?;
-        // CXP-0007 — Circle primitive typed-shape validation. We don't
+        // CKP-0007 — Circle primitive typed-shape validation. We don't
         // require either to be present (legacy Realm-scoped wakeups
         // still set realm_id only), but when present they MUST be the
         // canonical typed-id shape so floria/yougen don't have to
@@ -467,7 +467,7 @@ impl PushNotification {
                 field: "realm_name".to_owned(),
             });
         }
-        // CXP-0007 Circle metadata privacy invariant: even in blind
+        // CKP-0007 Circle metadata privacy invariant: even in blind
         // mode where `circle_id` may travel as opaque routing metadata,
         // the wakeup MUST NOT leak Circle membership/display fields.
         // The strict opaque validator in `validate_wire_model` already
@@ -1081,7 +1081,7 @@ fn validate_circle_id_opaque(value: Option<&str>) -> Result<(), PushNotifyPrivac
     Ok(())
 }
 
-/// CXP-0007 — `effective_scope` is a typed reference that floria stamps on
+/// CKP-0007 — `effective_scope` is a typed reference that floria stamps on
 /// `ck.event.*` envelopes. The only two legal prefixes are `ck:circle:`
 /// (intra-Realm encrypted sub-boundary) and `ck:realm:` (legacy
 /// Realm-scoped). Anything else is wire-broken.
@@ -1223,7 +1223,7 @@ fn is_sensitive_payload_key(key: &str) -> bool {
         // generic `*_name` rule.
         "realm_name"
             | "sender_actor_display_name"
-            // CXP-0007 — Circle display label. The typed `circle_id` may
+            // CKP-0007 — Circle display label. The typed `circle_id` may
             // travel; the human-readable label must not. Circle membership
             // surfaces (`circle_members` / `circle_member_dids` /
             // `circle_member_actor_ids`) are covered by the shared
@@ -1251,7 +1251,7 @@ fn is_never_allowed_payload_key(key: &str) -> bool {
             | "ice"
             | "turn"
             | "call_setup"
-            // CXP-0007 — Circle membership surfaces are never allowed
+            // CKP-0007 — Circle membership surfaces are never allowed
             // on any wakeup wire even for plaintext-visible service DIDs.
             | "circle_members"
             | "circle_member_dids"
@@ -1303,7 +1303,7 @@ pub const ROUND_R2_R3_SENSITIVE_FIELDS: &[&str] = &[
     "tombstone_event_id",
     "successor_realm_id",
     "erasure_receipt_id",
-    // Phase P2 (spec 37ce729, CXP-0008 / CXP-0009) — Personal Agent /
+    // Phase P2 (spec 37ce729, CKP-0008 / CKP-0009) — Personal Agent /
     // Sidecar governance identifiers. None of these may appear on a push
     // wakeup wire: they identify the controller↔agent binding state and
     // the action-approval transcript. Leaking either correlates a user
@@ -1320,7 +1320,7 @@ pub const ROUND_R2_R3_SENSITIVE_FIELDS: &[&str] = &[
     "approval_nonce",
 ];
 
-/// Phase P2 (spec 37ce729, CXP-0008 / CXP-0009) — durable Personal Agent
+/// Phase P2 (spec 37ce729, CKP-0008 / CKP-0009) — durable Personal Agent
 /// lifecycle event kinds that floria silently consumes upstream
 /// (`AGENT_LIFECYCLE_SILENT_KINDS` in floria 6496235). chime mirrors the
 /// list so client-side notification recognizers can render a *minimal*
@@ -1921,7 +1921,7 @@ mod tests {
         assert!(notification.late_recovery_event_id().is_none());
     }
 
-    // ── CXP-0007 (Circle primitive) — circle_id / effective_scope ────────
+    // ── CKP-0007 (Circle primitive) — circle_id / effective_scope ────────
 
     #[test]
     fn circle_id_and_effective_scope_round_trip_through_json() {

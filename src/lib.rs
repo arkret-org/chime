@@ -261,7 +261,7 @@ pub struct PushPreferences {
     /// feature) for the multi-gateway register helper.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub gateways: Vec<GatewayBinding>,
-    /// CXP-0007 (Circle primitive) — set of `ck:circle:` ids the user
+    /// CKP-0007 (Circle primitive) — set of `ck:circle:` ids the user
     /// has muted on this device. Wakeups whose `circle_id` is in this
     /// set MUST NOT raise a UI surface; wire-level delivery is
     /// unchanged so floria can still account for the receipt.

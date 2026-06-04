@@ -15,7 +15,7 @@ chime 将网关/协议失败归一到 `PushErrorKind`。调用方应优先按 ki
 | `DuplicateConflict` | 幂等冲突；确认 idempotency key 后再决定是否重发。 |
 | `Gone` | push token 或 registration 已失效，丢弃本地状态并重新注册。 |
 
-## media token / CXP-0010
+## media token / CKP-0010
 
 `is_media_token_rejection()` 覆盖 yougen call UI 最常见的五类失败：
 

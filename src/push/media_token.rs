@@ -18,7 +18,7 @@
 //! the wire layer.
 //!
 //! When validation fails this helper returns a typed [`MediaTokenError`]
-//! whose [`MediaTokenError::kind`] aligns one-to-one with the CXP-0010
+//! whose [`MediaTokenError::kind`] aligns one-to-one with the CKP-0010
 //! variants surfaced through [`PushErrorKind`] (CALL-2). HTTP transport
 //! is the caller's responsibility — the rationale is that chime's
 //! `CokretPushClient` is push-registration scoped and may live on
@@ -52,7 +52,7 @@ use super::errors::PushErrorKind;
 /// Chime-side error raised when a media-token exchange response fails
 /// CALL-1 / CALL-2 validation.
 ///
-/// Each variant maps to a CXP-0010 error code on the wire; the
+/// Each variant maps to a CKP-0010 error code on the wire; the
 /// [`Self::kind`] accessor returns the matching [`PushErrorKind`] so
 /// host applications can branch on a single classifier surface.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -224,7 +224,7 @@ impl<'a> StructurallyValidatedMediaTokenResponse<'a> {
 /// On success, returns a [`StructurallyValidatedMediaTokenResponse`]
 /// marker around the borrowed response. On failure, returns a typed
 /// [`MediaTokenError`] whose
-/// [`MediaTokenError::kind`] matches one of the five CXP-0010
+/// [`MediaTokenError::kind`] matches one of the five CKP-0010
 /// rejection codes the chime SDK guarantees to surface (CALL-2).
 ///
 /// This helper structurally validates the binding tuple, TTL, and
