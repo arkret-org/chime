@@ -405,17 +405,16 @@ impl PushNotification {
             device.validate_wire_model()?;
         }
         for (key, value) in &self.extra {
-            // Phase P2 (spec 37ce729) — legacy B-B field-naming aliases
+            // Phase P2 (spec 37ce729) — removed B-B field-naming aliases
             // fail closed at the wire layer. floria 6496235 mirrors the
-            // same reject set on the gateway side; chime is the
-            // client-side mirror so a legacy-pinned producer can't
-            // sneak the old wire shape past us.
+            // same reject set on the gateway side; chime is the client-side
+            // mirror.
             if is_legacy_field_alias(key) {
                 return Err(PushNotifyPrivacyError::RemovedField {
                     field: key.to_owned(),
                 });
             }
-            // Reject nested legacy aliases too (e.g. `media.size`).
+            // Reject nested removed aliases too (e.g. `media.size`).
             if let Err(path) = assert_no_legacy_aliases(value) {
                 return Err(PushNotifyPrivacyError::RemovedField {
                     field: format!("{key}.{path}"),

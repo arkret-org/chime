@@ -71,17 +71,8 @@ fn arb_sensitive_key() -> impl Strategy<Value = &'static str> {
 fn arb_safe_extra_key() -> impl Strategy<Value = String> {
     "[a-z][a-z0-9_]{0,24}".prop_filter("avoid known sensitive keys", |key| {
         !SENSITIVE_KEYS.contains(&key.as_str())
-            && !matches!(
-                key.as_str(),
-                "event_id"
-                    | "message_id"
-                    | "flow_id"
-                    | "realm_id"
-                    | "space_id"
-                    | "place_id"
-                    | "schema_id"
-                    | "kind"
-            )
+            && !key.ends_with("_id")
+            && !matches!(key.as_str(), "schema_id" | "kind")
     })
 }
 

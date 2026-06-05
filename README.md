@@ -16,7 +16,7 @@ Cokret push notification gateway types, preferences, and device registration hel
 
 ## Realm vs Space
 
-Following the Phase 1–4 terminology inversion, `chime` aligns push routes with the new vocabulary:
+`chime` aligns push routes with the current Realm / Space vocabulary:
 
 - **Realm:** security boundary — membership, capability, E2EE, and federation are governed at this level. Push permission and per-realm mute apply here.
 - **Space:** navigation container — board, list, section, or calendar bucket. Lives inside a Realm and inherits its security context.

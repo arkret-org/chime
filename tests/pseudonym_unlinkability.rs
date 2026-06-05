@@ -26,7 +26,7 @@ fn target_id_rejects_principal_or_device_identifiers() {
         "did:web:alice.example#device-phone",
         // cokret typed ids
         "ck:device:01HYZ8Z000000000000000",
-        "ck:space:01HYZ8Z000000000000000",
+        "ck:realm:01HYZ8Z000000000000000",
         "ck:space:01HYZ8Z000000000000000",
     ];
     for value in identifiers {
