@@ -125,13 +125,13 @@ pub use state::{
 // -- Constants ---------------------------------------------------------------
 
 /// Canonical Cokret operation id for push device registration.
-pub const OPERATION_PUSH_REGISTER_DEVICE: &str = "ck.push.register_device";
+pub const OPERATION_PUSH_REGISTER_DEVICE: &str = "ck.edge.push.register_device";
 
 /// Canonical Cokret operation id for push device unregistration.
-pub const OPERATION_PUSH_UNREGISTER_DEVICE: &str = "ck.push.unregister_device";
+pub const OPERATION_PUSH_UNREGISTER_DEVICE: &str = "ck.edge.push.unregister_device";
 
 /// Canonical Cokret operation id for push wakeup delivery.
-pub const OPERATION_PUSH_NOTIFY: &str = "ck.push.notify";
+pub const OPERATION_PUSH_NOTIFY: &str = "ck.edge.push.notify";
 
 /// B.5 #8 — Canonical Cokret operation id for the push unsubscribe
 /// call. Sent as the `operation_id` field on

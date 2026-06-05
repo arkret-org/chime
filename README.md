@@ -85,7 +85,7 @@ hosts that need the standalone resolver trait can use
 | --- | --- |
 | _(default)_ | Core types, JSON serialization helpers, and Cokret register/unregister request builders. No network dependencies. |
 | `http` | Adds `CokretPushClient`, a small `reqwest` helper for `POST /_cokret/edge/push/register-device` and `POST /_cokret/edge/push/unregister-device`. |
-| `notify` | Adds server/gateway-side `ck.push.notify` wire types and blind-wakeup privacy validation. |
+| `notify` | Adds server/gateway-side `ck.edge.push.notify` wire types and blind-wakeup privacy validation. |
 
 > **Production deployments MUST enable the `notify` feature.** Without it,
 > the blind-wakeup / plaintext-visible privacy validators
@@ -521,7 +521,7 @@ into a Cokret Principal Server / Sync Service deployment.
 `chime` emits `tracing` events with the target prefix `chime`:
 
 ```text
-INFO  chime::push::client  Cokret push device registered  platform=android gateway="Cokret Standard" operation_id=ck.push.register_device request_id=ck:request:01JS0KE000000000000000000
+INFO  chime::push::client  Cokret push device registered  platform=android gateway="Cokret Standard" operation_id=ck.edge.push.register_device request_id=ck:request:01JS0KE000000000000000000
 ```
 
 Subscribe with any `tracing-subscriber` layer; Sentry / OpenTelemetry
@@ -543,9 +543,9 @@ The crate maps to the Cokret v1 push HTTP binding:
 
 | Operation ID | HTTP Binding | Request builder |
 | --- | --- | --- |
-| `ck.push.register_device` | `POST /_cokret/edge/push/register-device` | `build_register_device_request()` |
-| `ck.push.unregister_device` | `POST /_cokret/edge/push/unregister-device` | `build_unregister_device_request()` |
-| `ck.push.notify` | `POST /_cokret/edge/push/notify` | Gateway/server-side operation, not a client registration call. |
+| `ck.edge.push.register_device` | `POST /_cokret/edge/push/register-device` | `build_register_device_request()` |
+| `ck.edge.push.unregister_device` | `POST /_cokret/edge/push/unregister-device` | `build_unregister_device_request()` |
+| `ck.edge.push.notify` | `POST /_cokret/edge/push/notify` | Gateway/server-side operation, not a client registration call. |
 
 Register/unregister bodies carry the canonical operation id, optional `principal_id`, `device_id`, app id, gateway URL, idempotency key, request id, and caller-supplied proof. Responses expose the accepted gateway, token hash/preview, expiry or refresh hints, warnings, and request id when the service returns them.
 

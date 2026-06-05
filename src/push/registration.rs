@@ -211,7 +211,7 @@ pub fn build_unsubscribe_request(
     Ok(request)
 }
 
-/// Build the signing context for `ck.push.register_device`.
+/// Build the signing context for `ck.edge.push.register_device`.
 ///
 /// ```rust
 /// use chime::{
@@ -264,7 +264,7 @@ pub fn build_register_signing_context(
     )
 }
 
-/// Build the signing context for `ck.push.register_device` with actor and
+/// Build the signing context for `ck.edge.push.register_device` with actor and
 /// expiry metadata.
 pub fn build_register_signing_context_with_options(
     service_base_url: &str,
@@ -281,7 +281,7 @@ pub fn build_register_signing_context_with_options(
     )
 }
 
-/// Build the signing context for `ck.push.unregister_device`.
+/// Build the signing context for `ck.edge.push.unregister_device`.
 pub fn build_unregister_signing_context(
     service_base_url: &str,
     request: &UnregisterDeviceRequest,
@@ -295,7 +295,7 @@ pub fn build_unregister_signing_context(
     )
 }
 
-/// Build the signing context for `ck.push.unregister_device` with actor and
+/// Build the signing context for `ck.edge.push.unregister_device` with actor and
 /// expiry metadata.
 pub fn build_unregister_signing_context_with_options(
     service_base_url: &str,

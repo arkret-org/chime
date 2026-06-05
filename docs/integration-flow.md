@@ -16,8 +16,8 @@ Companions:
 |---|---|
 | **yougen** | Client SDK running inside the host app on the device. Owns the platform-native push token, the device identity, and the rendering of incoming notifications. |
 | **chime** | In-process contract validator, runs both in the host app (alongside yougen) and on the server (alongside floria). Enforces nonce-replay protection, payload privacy, and the bridge contract. |
-| **floria** | Server-side push gateway. Talks to APNS / FCM / OEM providers. Speaks `ck.push.notify` to soland on one side and the provider-native push API on the other. |
-| **soland** | Upstream event store (not pictured below in the call-path; appears only as the producer of `ck.push.notify`). |
+| **floria** | Server-side push gateway. Talks to APNS / FCM / OEM providers. Speaks `ck.edge.push.notify` to soland on one side and the provider-native push API on the other. |
+| **soland** | Upstream event store (not pictured below in the call-path; appears only as the producer of `ck.edge.push.notify`). |
 
 ## End-to-end sequence: device registration
 
@@ -87,7 +87,7 @@ Notes:
 soland                  floria (server)         chime (server)    provider (APNS/FCM)    chime (device)        yougen (device)
    │                        │                       │                    │                       │                    │
    │ (1) emit               │                       │                    │                       │                    │
-   │  ck.push.notify        │                       │                    │                       │                    │
+   │  ck.edge.push.notify        │                       │                    │                       │                    │
    │───────────────────────►│                       │                    │                       │                    │
    │                        │                       │                    │                       │                    │
    │                        │ (2) chime validates   │                    │                       │                    │
@@ -127,7 +127,7 @@ soland                  floria (server)         chime (server)    provider (APNS
 soland                  floria (server)         chime (server)    provider             chime (device)        yougen (device)
    │                        │                       │                    │                       │                    │
    │ (1) emit               │                       │                    │                       │                    │
-   │  ck.push.notify        │                       │                    │                       │                    │
+   │  ck.edge.push.notify        │                       │                    │                       │                    │
    │  wakeup_kind=blind     │                       │                    │                       │                    │
    │───────────────────────►│                       │                    │                       │                    │
    │                        │                       │                    │                       │                    │

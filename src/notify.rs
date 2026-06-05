@@ -1,4 +1,4 @@
-//! Optional `ck.push.notify` wire model for Push Gateway implementations.
+//! Optional `ck.edge.push.notify` wire model for Push Gateway implementations.
 //!
 //! This module models the Cokret notify request/response payload and keeps
 //! blind-wakeup validation conservative. It does not implement APNs, FCM, Web
@@ -250,7 +250,7 @@ impl<'de> Deserialize<'de> for WakeupKind {
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[non_exhaustive]
-/// Wire notification descriptor for `ck.push.notify`.
+/// Wire notification descriptor for `ck.edge.push.notify`.
 ///
 /// This type intentionally carries unknown JSON fields in [`Self::extra`]
 /// because `#[serde(flatten)]` cannot be combined with
@@ -1329,7 +1329,7 @@ pub const ROUND_R2_R3_SENSITIVE_FIELDS: &[&str] = &[
 /// behaviour for any caller that doesn't explicitly opt in is to drop
 /// the wakeup — these kinds never raise an end-user notification.
 pub const AGENT_LIFECYCLE_DURABLE_KINDS: &[&str] =
-    &["ck.agent.pause", "ck.agent.resume", "ck.agent.deactivate"];
+    &["ck.self.agent.pause", "ck.self.agent.resume", "ck.self.agent.deactivate"];
 
 /// Phase P2 — actor-private Personal Agent event kinds. These never
 /// reach end-user devices by default: they're controller-private state
@@ -1408,8 +1408,8 @@ pub fn is_phase_p2_agent_typed_id(value: &str) -> bool {
 /// reaching into the wire payload.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct AgentLifecycleSummary {
-    /// The matched event kind literal (`ck.agent.pause` /
-    /// `ck.agent.resume` / `ck.agent.deactivate`). Stable wire string.
+    /// The matched event kind literal (`ck.self.agent.pause` /
+    /// `ck.self.agent.resume` / `ck.self.agent.deactivate`). Stable wire string.
     pub event_kind: &'static str,
     /// Localisation key for the human-readable summary, e.g.
     /// `l10n_key:agent.lifecycle.pause`. Hosts SHOULD render this
@@ -1424,9 +1424,9 @@ pub struct AgentLifecycleSummary {
 /// is PII-free by construction — no actor, no payload, no grant id.
 pub fn render_agent_lifecycle_summary(event_kind: &str) -> Option<AgentLifecycleSummary> {
     let (kind, l10n_key) = match event_kind {
-        "ck.agent.pause" => ("ck.agent.pause", "l10n_key:agent.lifecycle.pause"),
-        "ck.agent.resume" => ("ck.agent.resume", "l10n_key:agent.lifecycle.resume"),
-        "ck.agent.deactivate" => ("ck.agent.deactivate", "l10n_key:agent.lifecycle.deactivate"),
+        "ck.self.agent.pause" => ("ck.self.agent.pause", "l10n_key:agent.lifecycle.pause"),
+        "ck.self.agent.resume" => ("ck.self.agent.resume", "l10n_key:agent.lifecycle.resume"),
+        "ck.self.agent.deactivate" => ("ck.self.agent.deactivate", "l10n_key:agent.lifecycle.deactivate"),
         _ => return None,
     };
     Some(AgentLifecycleSummary {
@@ -1713,7 +1713,7 @@ mod tests {
                 .with_nonce("bm9uY2VfYWJj")
                 .unwrap()
                 .with_key_id("kid-1")
-                .with_aad("ck.push.notify");
+                .with_aad("ck.edge.push.notify");
 
         envelope.validate().unwrap();
         assert!(EncryptedEnvelope::new("alice", "x25519", "Y2lwaGVydGV4dA==").is_err());
@@ -2021,9 +2021,9 @@ mod tests {
         // payload, or grant identifier. The host MUST be able to
         // surface the summary to a control-plane UI without leaking PII.
         for (kind, expected_suffix) in [
-            ("ck.agent.pause", "pause"),
-            ("ck.agent.resume", "resume"),
-            ("ck.agent.deactivate", "deactivate"),
+            ("ck.self.agent.pause", "pause"),
+            ("ck.self.agent.resume", "resume"),
+            ("ck.self.agent.deactivate", "deactivate"),
         ] {
             let summary = render_agent_lifecycle_summary(kind).expect("renders");
             assert_eq!(summary.event_kind, kind);

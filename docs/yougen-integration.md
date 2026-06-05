@@ -82,7 +82,7 @@ releases.
   cellular) appear twice in the user's tray.
 - `chime::call_media_token_exchange(...)` plus
   `chime::structurally_validate_media_token_response(&response, &ctx)`
-  — builds and structure-checks a `ck.call.media.token_exchange`
+  — builds and structure-checks a `ck.self.call.media.token_exchange`
   response. The validation context type is
   `MediaTokenStructuralValidationContext`, and success returns
   `StructurallyValidatedMediaTokenResponse`. This marker means only

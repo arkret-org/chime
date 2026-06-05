@@ -1,5 +1,5 @@
 //! R3 (CALL-1, spec b47ff6ec) — client-side helper for
-//! `ck.call.media.token_exchange` (`POST /rtc/token`).
+//! `ck.self.call.media.token_exchange` (`POST /rtc/token`).
 //!
 //! This module is intentionally transport-agnostic: it builds the
 //! request body via the SDK's [`call_media_token_exchange`] helper and

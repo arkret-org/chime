@@ -539,7 +539,7 @@ mod tests {
     #[test]
     fn ch1_content_digest_matches_sdk_byte_for_byte() {
         let body = serde_json::json!({
-            "operation_id": "ck.push.register_device",
+            "operation_id": "ck.edge.push.register_device",
             "device_id": "ck:device:01HYZ8Z000000000000000",
         });
         let chime_value = content_digest_sha256(&body).expect("chime digest computes");

@@ -28,10 +28,10 @@ pub use platform_app_id::{DefaultPlatformAppIdResolver, PlatformAppIdResolver};
 
 // -- Path constants ---------------------------------------------------------
 
-/// Cokret HTTP path for `ck.push.register_device`.
+/// Cokret HTTP path for `ck.edge.push.register_device`.
 pub const REGISTER_DEVICE_PATH: &str = "/_cokret/edge/push/register-device";
 
-/// Cokret HTTP path for `ck.push.unregister_device`.
+/// Cokret HTTP path for `ck.edge.push.unregister_device`.
 pub const UNREGISTER_DEVICE_PATH: &str = "/_cokret/edge/push/unregister-device";
 
 /// B.5 #8 — Cokret HTTP path for `ck.push.unsubscribe`. The body is a

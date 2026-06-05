@@ -1,4 +1,4 @@
-//! Wire DTOs for `ck.push.register_device` / `ck.push.unregister_device`.
+//! Wire DTOs for `ck.edge.push.register_device` / `ck.edge.push.unregister_device`.
 //!
 //! ## Stability
 //!
