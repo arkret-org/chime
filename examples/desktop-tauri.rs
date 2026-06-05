@@ -6,8 +6,8 @@
 //! 1. Build a `RegisterDeviceRequest` for the platform push token the host shell has just received
 //!    (here a WebPush endpoint URL, but the same call site shape works for FCM / APNs / OEM
 //!    tokens).
-//! 2. Decode an inbound `ck.edge.push.notify` payload that the local platform bridge has handed off,
-//!    validate it against the blind-wakeup policy, and surface the result to the UI layer.
+//! 2. Decode an inbound `ck.edge.push.notify` payload that the local platform bridge has handed
+//!    off, validate it against the blind-wakeup policy, and surface the result to the UI layer.
 //!
 //! The example does NOT perform any network I/O — it is deliberately
 //! `--no-run`-friendly so `cargo check --examples` and

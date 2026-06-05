@@ -1058,14 +1058,14 @@ fn generate_idempotency_key() -> String {
         .map(|duration| duration.as_nanos())
         .unwrap_or(0);
     let mut hasher = Sha256::new();
-    hasher.update(b"cx-idempotency-v1");
+    hasher.update(b"ck-idempotency-v1");
     hasher.update(nanos.to_le_bytes());
     hasher.update(counter.to_le_bytes());
     let digest = hasher.finalize();
 
     use std::fmt::Write as _;
-    let mut output = String::with_capacity("cx-sdk-".len() + 32);
-    output.push_str("cx-sdk-");
+    let mut output = String::with_capacity("ck-sdk-".len() + 32);
+    output.push_str("ck-sdk-");
     for byte in &digest[..16] {
         let _ = write!(output, "{byte:02x}");
     }
@@ -1525,7 +1525,7 @@ mod tests {
         let first = key_of(&recorded[0]).expect("first request carries idempotency key");
         let second = key_of(&recorded[1]).expect("retry carries idempotency key");
         assert_eq!(first, second, "retry must reuse the same key");
-        assert!(first.starts_with("cx-sdk-"));
+        assert!(first.starts_with("ck-sdk-"));
     }
 
     #[tokio::test]

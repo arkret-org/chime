@@ -1328,8 +1328,11 @@ pub const ROUND_R2_R3_SENSITIVE_FIELDS: &[&str] = &[
 /// chooses to surface these events to a control plane UI. The default
 /// behaviour for any caller that doesn't explicitly opt in is to drop
 /// the wakeup — these kinds never raise an end-user notification.
-pub const AGENT_LIFECYCLE_DURABLE_KINDS: &[&str] =
-    &["ck.self.agent.pause", "ck.self.agent.resume", "ck.self.agent.deactivate"];
+pub const AGENT_LIFECYCLE_DURABLE_KINDS: &[&str] = &[
+    "ck.self.agent.pause",
+    "ck.self.agent.resume",
+    "ck.self.agent.deactivate",
+];
 
 /// Phase P2 — actor-private Personal Agent event kinds. These never
 /// reach end-user devices by default: they're controller-private state
@@ -1426,7 +1429,10 @@ pub fn render_agent_lifecycle_summary(event_kind: &str) -> Option<AgentLifecycle
     let (kind, l10n_key) = match event_kind {
         "ck.self.agent.pause" => ("ck.self.agent.pause", "l10n_key:agent.lifecycle.pause"),
         "ck.self.agent.resume" => ("ck.self.agent.resume", "l10n_key:agent.lifecycle.resume"),
-        "ck.self.agent.deactivate" => ("ck.self.agent.deactivate", "l10n_key:agent.lifecycle.deactivate"),
+        "ck.self.agent.deactivate" => (
+            "ck.self.agent.deactivate",
+            "l10n_key:agent.lifecycle.deactivate",
+        ),
         _ => return None,
     };
     Some(AgentLifecycleSummary {
