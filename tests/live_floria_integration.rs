@@ -12,7 +12,7 @@
 use std::time::Duration;
 
 use chime::{
-    CokretPushClient, PushNotifyResBody, PushRetryPolicy, push_bridge_describe_url,
+    CokretPushClient, PushNotifyOutcome, PushRetryPolicy, push_bridge_describe_url,
     push_integration_describe_url,
 };
 use serde_json::{Value, json};
@@ -147,8 +147,8 @@ async fn push_notify_delivery_receipt_round_trips_into_chime_wire_types() {
         .text()
         .await
         .expect("notify response body is readable");
-    let parsed: PushNotifyResBody = serde_json::from_str(&raw)
-        .unwrap_or_else(|err| panic!("chime PushNotifyResBody failed to decode {raw}: {err}"));
+    let parsed: PushNotifyOutcome = serde_json::from_str(&raw)
+        .unwrap_or_else(|err| panic!("chime PushNotifyOutcome failed to decode {raw}: {err}"));
     assert!(
         parsed
             .request_id
@@ -183,8 +183,8 @@ async fn repeated_notify_advances_floria_request_id() {
         .text()
         .await
         .expect("first notify body readable");
-    let first: PushNotifyResBody =
-        serde_json::from_str(&first_raw).expect("first PushNotifyResBody decodes");
+    let first: PushNotifyOutcome =
+        serde_json::from_str(&first_raw).expect("first PushNotifyOutcome decodes");
 
     let second_raw = http
         .post(floria.url("/_cokret/edge/push/notify"))
@@ -195,8 +195,8 @@ async fn repeated_notify_advances_floria_request_id() {
         .text()
         .await
         .expect("second notify body readable");
-    let second: PushNotifyResBody =
-        serde_json::from_str(&second_raw).expect("second PushNotifyResBody decodes");
+    let second: PushNotifyOutcome =
+        serde_json::from_str(&second_raw).expect("second PushNotifyOutcome decodes");
 
     assert!(
         first.request_id.is_some() && second.request_id.is_some(),

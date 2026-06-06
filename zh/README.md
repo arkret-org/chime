@@ -12,7 +12,7 @@
 最重要的边界：
 
 - push wakeup 反序列化后必须调用
-  `PushNotifyReqBody::assert_payload_safe` 或对应 validator。
+  `PushNotifyRequestBody::assert_payload_safe` 或对应 validator。
 - media token 的
   `structurally_validate_media_token_response` 只做结构校验，不做
   Ed25519 验签；SFrame keying 前必须由 host 验证

@@ -115,7 +115,7 @@ Host applications MUST:
 
 - verify the `Signature` / `Signature-Input` headers (RFC 9421) against
   their configured set of accepted signer DIDs BEFORE handing the
-  decoded body to `PushNotifyReqBody::assert_payload_safe`;
+  decoded body to `PushNotifyRequestBody::assert_payload_safe`;
 - treat a signature failure as `403` and drop the frame silently — do
   not retry, do not surface to UI, do not log the body;
 - include the verifier's accepted `kid` set in their monitoring so

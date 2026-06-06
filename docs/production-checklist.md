@@ -7,7 +7,7 @@ platform receivers and call into chime for validation and wire-shape handling.
 ## Required Host Wiring
 
 - Route every decoded `ck.edge.push.notify` request through
-  `PushNotifyReqBody::assert_payload_safe` before showing UI.
+  `PushNotifyRequestBody::assert_payload_safe` before showing UI.
 - Use `PushNotifyPolicyContext::blind_wakeup_only` unless the destination
   service DID is explicitly authorized to see plaintext.
 - Wire account deactivation into `on_account_deactivate` with either a concrete

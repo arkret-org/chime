@@ -165,7 +165,7 @@ proptest! {
 #[cfg(feature = "notify")]
 mod notify_props {
     use chime::{
-        PushNotification, PushNotificationDevice, PushNotifyPolicyContext, PushNotifyReqBody,
+        PushNotification, PushNotificationDevice, PushNotifyPolicyContext, PushNotifyRequestBody,
         PushTargetId, WakeupKind,
     };
 
@@ -215,7 +215,7 @@ mod notify_props {
             notification.devices = vec![device];
             notification.extra.insert(sensitive_key.to_owned(), value);
 
-            let request = PushNotifyReqBody {
+            let request = PushNotifyRequestBody {
                 notification,
                 ..Default::default()
             };

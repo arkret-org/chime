@@ -6,7 +6,7 @@
 //! re-align before merging.
 //!
 //! The fixture also contains an embedded `blind_wakeup_request` example
-//! that is parsed back through `PushNotifyReqBody` + `validate_blind_wakeup`,
+//! that is parsed back through `PushNotifyRequestBody` + `validate_blind_wakeup`,
 //! catching drift in the privacy contract end-to-end.
 //!
 //! ## Snapshot
@@ -26,7 +26,7 @@
 use chime::{
     AGENT_ACTOR_PRIVATE_KINDS, AGENT_LIFECYCLE_DURABLE_KINDS, AgentEventRouting,
     BridgeContractCache, BridgeContractDriftVerdict, PHASE_P2_AGENT_TYPED_ID_PREFIXES,
-    PushBridgeDescribeResponse, PushNotifyPrivacyMode, PushNotifyReqBody,
+    PushBridgeDescribeResponse, PushNotifyPrivacyMode, PushNotifyRequestBody,
     classify_agent_event_kind, is_phase_p2_agent_typed_id, render_agent_lifecycle_summary,
 };
 
@@ -128,7 +128,7 @@ fn bridge_describe_fixture_blind_wakeup_example_validates() {
         "fixture must carry a blind-wakeup example"
     );
 
-    let request: PushNotifyReqBody =
+    let request: PushNotifyRequestBody =
         serde_json::from_value(example).expect("blind-wakeup example must parse as a request");
 
     request
@@ -262,7 +262,7 @@ fn agent_typed_id_in_event_id_slot_fails_closed() {
             ]
         }
     });
-    let request: PushNotifyReqBody =
+    let request: PushNotifyRequestBody =
         serde_json::from_value(frame).expect("request must parse syntactically");
     let err = request.validate_wire_model().unwrap_err();
     let field = match err {
@@ -290,7 +290,7 @@ fn agent_typed_id_in_extra_fails_closed() {
             ]
         }
     });
-    let request: PushNotifyReqBody =
+    let request: PushNotifyRequestBody =
         serde_json::from_value(frame).expect("request must parse syntactically");
     let err = request.validate_wire_model().unwrap_err();
     let field = match err {

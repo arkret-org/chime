@@ -20,7 +20,7 @@ Bugle 说明：host 仍负责华为/小米/OPPO/vivo/HONOR/HarmonyOS/JPush SDK
 `PushNotification.extra` 使用 `#[serde(flatten)]`，serde 会把未知字段放进
 `extra`，不会在反序列化时拒绝。因此：
 
-1. 反序列化 `PushNotifyReqBody`。
+1. 反序列化 `PushNotifyRequestBody`。
 2. 立即调用 `assert_payload_safe(&PushNotifyPolicyContext::blind_wakeup_only())`
    或更具体的 `validate_blind_wakeup` / `validate_wire_model`。
 3. 只有 validator 通过后，才可以读字段、入队、唤醒 UI 或调度后台同步。

@@ -65,7 +65,7 @@ pub use notify::{
     PHASE_P2_AGENT_TYPED_ID_PREFIXES, PHASE_P2_LEGACY_FIELD_ALIASES, ProviderRetryHint,
     PushDeliveryReceipt, PushHint, PushNotification, PushNotificationDedup, PushNotificationDevice,
     PushNotifyPolicyContext, PushNotifyPrivacyError, PushNotifyPrivacyMode,
-    PushNotifyPrivacyVector, PushNotifyReqBody, PushNotifyResBody, PushTargetId,
+    PushNotifyPrivacyVector, PushNotifyRequestBody, PushNotifyOutcome, PushTargetId,
     ROUND_R2_R3_SENSITIVE_FIELDS, RejectedPushToken, WakeupKind, assert_no_sensitive_fields,
     classify_agent_event_kind, is_legacy_field_alias, is_phase_p2_agent_typed_id,
     render_agent_lifecycle_summary, shared_push_notify_privacy_vectors,

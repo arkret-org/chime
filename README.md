@@ -89,7 +89,7 @@ hosts that need the standalone resolver trait can use
 
 > **Production deployments MUST enable the `notify` feature.** Without it,
 > the blind-wakeup / plaintext-visible privacy validators
-> (`PushNotifyReqBody::assert_payload_safe`,
+> (`PushNotifyRequestBody::assert_payload_safe`,
 > `PushNotification::validate_blind_wakeup`) and the Circle / governance
 > metadata leak checks (`assert_no_sensitive_fields`,
 > `ROUND_R2_R3_SENSITIVE_FIELDS`) are not compiled in — a wakeup that
@@ -98,7 +98,7 @@ hosts that need the standalone resolver trait can use
 > integration that touches real floria / yougen / soland traffic must
 > compile with `--features http,notify`.
 >
-> Deserializing `PushNotifyReqBody` or `PushNotification` is not enough:
+> Deserializing `PushNotifyRequestBody` or `PushNotification` is not enough:
 > `PushNotification.extra` uses `#[serde(flatten)]`, so unknown fields
 > are captured and must be rejected by `assert_payload_safe`,
 > `validate_blind_wakeup`, or `validate_wire_model` before the host reads
@@ -224,7 +224,7 @@ receiver. The validator accepts only opaque routing metadata by default.
 ```rust
 # #[cfg(feature = "notify")]
 use chime::{
-    PushNotification, PushNotificationDevice, PushNotifyPolicyContext, PushNotifyReqBody,
+    PushNotification, PushNotificationDevice, PushNotifyPolicyContext, PushNotifyRequestBody,
     PushTargetId, WakeupKind,
 };
 
@@ -244,7 +244,7 @@ notification.devices = vec![PushNotificationDevice {
     push_key_hash: None,
     platform: None,
 }];
-let request = PushNotifyReqBody {
+let request = PushNotifyRequestBody {
     notification,
     ..Default::default()
 };
@@ -270,7 +270,7 @@ leaky.extra.insert(
     "title".to_owned(),
     serde_json::Value::String("Secret".to_owned()),
 );
-let leaky_request = PushNotifyReqBody {
+let leaky_request = PushNotifyRequestBody {
     notification: leaky,
     ..Default::default()
 };
@@ -512,7 +512,7 @@ into a Cokret Principal Server / Sync Service deployment.
   tracing fields, and you should mirror that in your own code.
 - **Privacy gate.** When you build the `notify` feature into a
   gateway, validate every outbound payload through
-  `PushNotifyReqBody::assert_payload_safe(&policy)`. Empty
+  `PushNotifyRequestBody::assert_payload_safe(&policy)`. Empty
   `PushNotifyPolicyContext` means every notification is treated as
   blind wakeup, which is the safest default.
 
@@ -551,7 +551,7 @@ Register/unregister bodies carry the canonical operation id, optional `principal
 
 Push notifications are derived wakeups, not canonical truth. For E2EE Realms, push gateways should receive only minimized metadata such as `push_target_id`, `wakeup_kind`, counts, priority/TTL/collapse hints, and optional body-free `push_hint`.
 
-With the `notify` feature, `PushNotifyRequest::validate_wire_model()` and `PushNotifyRequest::validate_blind_wakeup()` enforce that boundary. Entity facets and view-renderer output are routing or context hints only when the application has explicitly authorized that use; do not serialize facet-derived title, body, display name, or space name into provider payloads. The validator rejects removed aliases such as `schema_id` and `kind`, provider payload wrappers, title/body/preview fields, and facet/view-renderer extension keys before gateway delivery.
+With the `notify` feature, `PushNotifyRequestBody::validate_wire_model()` and `PushNotifyRequestBody::validate_blind_wakeup()` enforce that boundary. Entity facets and view-renderer output are routing or context hints only when the application has explicitly authorized that use; do not serialize facet-derived title, body, display name, or space name into provider payloads. The validator rejects removed aliases such as `schema_id` and `kind`, provider payload wrappers, title/body/preview fields, and facet/view-renderer extension keys before gateway delivery.
 
 `shared_push_notify_privacy_vectors()` exposes the E2EE invalid cases and the explicit plaintext-visible service allow case so gateway implementations such as `floria` can run the same vectors.
 

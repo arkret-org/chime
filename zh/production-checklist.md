@@ -10,7 +10,7 @@
 
 ## push payload 安全
 
-- 任意 `PushNotifyReqBody` / `PushNotification` 反序列化后，必须立即调用
+- 任意 `PushNotifyRequestBody` / `PushNotification` 反序列化后，必须立即调用
   `assert_payload_safe`、`validate_blind_wakeup` 或 `validate_wire_model`。
 - 默认使用 `PushNotifyPolicyContext::blind_wakeup_only()`。
 - 不要把 title、body、sender display name、space/realm display name 或

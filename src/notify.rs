@@ -25,7 +25,7 @@ use crate::redact_push_key;
 /// Request body for `POST /_cokret/edge/push/notify`.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct PushNotifyReqBody {
+pub struct PushNotifyRequestBody {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub operation_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -45,7 +45,7 @@ pub struct PushNotifyReqBody {
     pub notification: PushNotification,
 }
 
-impl PushNotifyReqBody {
+impl PushNotifyRequestBody {
     pub fn validate_wire_model(&self) -> Result<(), PushNotifyPrivacyError> {
         if let Some(operation_id) = self.operation_id.as_deref()
             && operation_id != crate::OPERATION_PUSH_NOTIFY
@@ -265,9 +265,9 @@ impl<'de> Deserialize<'de> for WakeupKind {
 /// because `#[serde(flatten)]` cannot be combined with
 /// `deny_unknown_fields`. Deserialization alone is therefore not a
 /// safety boundary: callers that parse JSON into `PushNotification`
-/// or [`PushNotifyReqBody`] MUST immediately run
-/// [`PushNotifyReqBody::assert_payload_safe`],
-/// [`PushNotifyReqBody::validate_blind_wakeup`], or
+/// or [`PushNotifyRequestBody`] MUST immediately run
+/// [`PushNotifyRequestBody::assert_payload_safe`],
+/// [`PushNotifyRequestBody::validate_blind_wakeup`], or
 /// [`Self::validate_wire_model`] before reading fields or showing UI.
 pub struct PushNotification {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -639,7 +639,7 @@ impl PushNotificationDevice {
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
-pub struct PushNotifyResBody {
+pub struct PushNotifyOutcome {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub request_id: Option<String>,
     #[serde(default)]
@@ -1488,7 +1488,7 @@ pub fn is_legacy_field_alias(key: &str) -> bool {
 
 /// Recursively walk a JSON value and return `Err(field_path)` if any
 /// nested key matches a legacy B-B field-naming alias. Used by chime's
-/// wire validators (`PushNotifyReqBody::validate_wire_model`) and by
+/// wire validators (`PushNotifyRequestBody::validate_wire_model`) and by
 /// the drift-gate to ensure no caller can smuggle a renamed-from name
 /// past us.
 fn assert_no_legacy_aliases(payload: &Value) -> Result<(), String> {
@@ -1732,7 +1732,7 @@ mod tests {
 
     #[test]
     fn notify_request_validates_fixture_shape() {
-        let request = PushNotifyReqBody {
+        let request = PushNotifyRequestBody {
             operation_id: Some(crate::OPERATION_PUSH_NOTIFY.to_owned()),
             notification: notification(),
             ..Default::default()
