@@ -97,7 +97,8 @@ pub trait BackgroundFetchDriver: Send + Sync {
 pub struct BackgroundFetchHint<'a> {
     /// Opaque push target id (`ck:pseudonym:push:...`). Always present.
     pub push_target_id: &'a str,
-    /// Wakeup kind (`message`, `mention`, `reaction`, `call_invite`).
+    /// Wakeup kind (`message`, `mention`, `reaction`, `call_invite`,
+    /// `reminder`, `scheduled_send`, `expiry_invalidation`).
     pub wakeup_kind: &'a str,
     /// Optional Circle scope, when the originating wakeup carried one.
     pub circle_id: Option<&'a str>,

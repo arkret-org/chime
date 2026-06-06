@@ -206,6 +206,9 @@ pub enum WakeupKind {
     Mention,
     Reaction,
     CallInvite,
+    Reminder,
+    ScheduledSend,
+    ExpiryInvalidation,
 }
 
 impl WakeupKind {
@@ -215,6 +218,9 @@ impl WakeupKind {
             Self::Mention => "mention",
             Self::Reaction => "reaction",
             Self::CallInvite => "call_invite",
+            Self::Reminder => "reminder",
+            Self::ScheduledSend => "scheduled_send",
+            Self::ExpiryInvalidation => "expiry_invalidation",
         }
     }
 }
@@ -239,9 +245,12 @@ impl<'de> Deserialize<'de> for WakeupKind {
             "mention" => Self::Mention,
             "reaction" => Self::Reaction,
             "call_invite" => Self::CallInvite,
+            "reminder" => Self::Reminder,
+            "scheduled_send" => Self::ScheduledSend,
+            "expiry_invalidation" => Self::ExpiryInvalidation,
             _ => {
                 return Err(serde::de::Error::custom(
-                    "wakeup_kind must be one of message, mention, reaction, call_invite",
+                    "wakeup_kind must be one of message, mention, reaction, call_invite, reminder, scheduled_send, expiry_invalidation",
                 ));
             }
         })
@@ -1317,6 +1326,23 @@ pub const ROUND_R2_R3_SENSITIVE_FIELDS: &[&str] = &[
     "proposed_action",
     "action_payload_digest",
     "approval_nonce",
+    // Personal productivity / private search state. These are either
+    // holder-private account-data plaintext or encrypted search-index
+    // internals and must never be mirrored into provider-visible push
+    // payloads.
+    "target_ref",
+    "target_key",
+    "collection_title",
+    "collection_key",
+    "reminder_note",
+    "note",
+    "message_payload",
+    "message_payload_digest",
+    "draft_slot",
+    "origin_device_id",
+    "realm_key",
+    "blind_tokens",
+    "shard_key",
 ];
 
 /// Phase P2 (spec 37ce729, CKP-0008 / CKP-0009) — durable Personal Agent
@@ -1626,13 +1652,27 @@ mod tests {
         assert!(
             error
                 .to_string()
-                .contains("message, mention, reaction, call_invite"),
+                .contains("message, mention, reaction, call_invite, reminder, scheduled_send, expiry_invalidation"),
             "unexpected error for {value}: {error}"
         );
 
         assert_eq!(
             serde_json::from_value::<WakeupKind>(Value::String("call_invite".to_owned())).unwrap(),
             WakeupKind::CallInvite
+        );
+        assert_eq!(
+            serde_json::from_value::<WakeupKind>(Value::String("reminder".to_owned())).unwrap(),
+            WakeupKind::Reminder
+        );
+        assert_eq!(
+            serde_json::from_value::<WakeupKind>(Value::String("scheduled_send".to_owned()))
+                .unwrap(),
+            WakeupKind::ScheduledSend
+        );
+        assert_eq!(
+            serde_json::from_value::<WakeupKind>(Value::String("expiry_invalidation".to_owned()))
+                .unwrap(),
+            WakeupKind::ExpiryInvalidation
         );
     }
 
@@ -2099,6 +2139,44 @@ mod tests {
                 Err(_) => {
                     // debug_assert! triggered — also a pass.
                 }
+            }
+        }
+    }
+
+    #[test]
+    fn round23_sensitive_fields_cover_private_productivity_and_search_set() {
+        for field in [
+            "target_ref",
+            "target_key",
+            "collection_title",
+            "collection_key",
+            "reminder_note",
+            "note",
+            "message_payload",
+            "message_payload_digest",
+            "draft_slot",
+            "origin_device_id",
+            "realm_key",
+            "blind_tokens",
+            "shard_key",
+        ] {
+            assert!(
+                ROUND_R2_R3_SENSITIVE_FIELDS.contains(&field),
+                "field `{field}` must be in ROUND_R2_R3_SENSITIVE_FIELDS"
+            );
+            let payload = serde_json::json!({
+                "push_target_id": "ck:pseudonym:push:01HYZ8Z000000000000000",
+                "wakeup_kind": "reminder",
+                field: "leaked-value",
+            });
+            let outcome = std::panic::catch_unwind(|| assert_no_sensitive_fields(&payload));
+            match outcome {
+                Ok(Ok(())) => panic!("private field `{field}` slipped through"),
+                Ok(Err(path)) => assert!(
+                    path.contains(field),
+                    "returned path `{path}` should mention `{field}`"
+                ),
+                Err(_) => {}
             }
         }
     }
