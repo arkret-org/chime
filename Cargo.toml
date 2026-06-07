@@ -1,6 +1,6 @@
-[package]
+﻿[package]
 name = "chime"
-version = "1.0.0"
+version = "0.3.0"
 edition = "2024"
 rust-version = "1.89"
 license = "Apache-2.0"
@@ -35,7 +35,7 @@ chrono = { version = "0.4", default-features = false, features = ["serde", "cloc
 # to what floria's verifier and soland's fanout signer emit. The SDK is
 # brought in with `default-features = false` + only the `full-surface`
 # gate so chime doesn't pick up unrelated runtimes (client/mls/etc.).
-cokret = { version = "1.0.0", path = "../cokret-rust-sdk/crates/sdk", default-features = false, features = ["full-surface"] }
+cokret = { version = "0.3.0", path = "../cokret-rust-sdk/crates/sdk", default-features = false, features = ["full-surface"] }
 httpdate = "1"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
