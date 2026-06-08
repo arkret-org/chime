@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use thiserror::Error;
 
-use crate::PushBridgeDescribeResponse;
+use crate::PushBridgeDescribeOutcome;
 
 /// A.5 #3 — error surface for `BridgeContractCache` construction / drift
 /// evaluation.
@@ -26,7 +26,7 @@ use crate::PushBridgeDescribeResponse;
 /// every digest computation MUST succeed, and the only way the
 /// underlying `serde_json::to_vec` can fail in practice is a struct
 /// containing a non-string map key or a `f64` NaN, neither of which the
-/// `PushBridgeDescribeResponse` schema allows. Surfacing the error
+/// `PushBridgeDescribeOutcome` schema allows. Surfacing the error
 /// nonetheless guards against future schema additions.
 #[derive(Debug, Error)]
 pub enum CacheError {
@@ -65,7 +65,7 @@ impl BridgeContractCache {
     /// silently building a cache entry whose digest is over an empty
     /// byte slice.
     pub fn from_response(
-        response: &PushBridgeDescribeResponse,
+        response: &PushBridgeDescribeOutcome,
         observed_at: Option<&str>,
     ) -> Result<Self, CacheError> {
         Ok(Self {
@@ -84,7 +84,7 @@ impl BridgeContractCache {
     /// empty-input digest.
     pub fn evaluate(
         &self,
-        fresh: &PushBridgeDescribeResponse,
+        fresh: &PushBridgeDescribeOutcome,
     ) -> Result<BridgeContractDriftVerdict, CacheError> {
         let fresh_digest = compute_digest(fresh)?;
         Ok(if self.digest == fresh_digest {
@@ -145,7 +145,7 @@ impl BridgeContractDriftVerdict {
     }
 }
 
-fn compute_digest(response: &PushBridgeDescribeResponse) -> Result<String, CacheError> {
+fn compute_digest(response: &PushBridgeDescribeOutcome) -> Result<String, CacheError> {
     let json = serde_json::to_vec(response)?;
     let digest = Sha256::digest(&json);
     let mut output = String::with_capacity(digest.len() * 2);
@@ -159,8 +159,8 @@ fn compute_digest(response: &PushBridgeDescribeResponse) -> Result<String, Cache
 mod tests {
     use super::*;
 
-    fn baseline_response() -> PushBridgeDescribeResponse {
-        PushBridgeDescribeResponse {
+    fn baseline_response() -> PushBridgeDescribeOutcome {
+        PushBridgeDescribeOutcome {
             contract: "ck.push.bridge.v1".to_owned(),
             version: "1.0.0".to_owned(),
             api_base_path: "/_cokret/edge/push".to_owned(),

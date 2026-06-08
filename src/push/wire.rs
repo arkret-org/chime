@@ -21,7 +21,7 @@ use super::urls::{redact_push_key, redact_url};
 ///
 /// The output is hex-encoded so it travels through `serde_json` as a
 /// plain ASCII string without base64 alphabet ambiguity. This binding is
-/// stamped into [`RegisterDeviceRequest::push_key_hmac`] so the floria /
+/// stamped into [`PushRegisterDeviceRequestBody::push_key_hmac`] so the floria /
 /// soland verifier can reject a tampered payload where an attacker swapped
 /// the `push_key` field for one of their own tokens but left the rest of
 /// the signed envelope intact.
@@ -199,11 +199,11 @@ impl fmt::Debug for PushDeviceConfig<'_> {
 /// Request body for `POST /_cokret/edge/push/register-device`.
 ///
 /// Stability: 1.0-stable + `#[non_exhaustive]`. Build via
-/// `RegisterDeviceRequest { ..Default::default() }` from external crates so
+/// `PushRegisterDeviceRequestBody { ..Default::default() }` from external crates so
 /// future field additions stay source-compatible.
 #[derive(Clone, Default, PartialEq, Serialize, Deserialize)]
 #[non_exhaustive]
-pub struct RegisterDeviceRequest {
+pub struct PushRegisterDeviceRequestBody {
     pub operation_id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub principal_id: Option<String>,
@@ -240,9 +240,9 @@ pub struct RegisterDeviceRequest {
     pub proof: Option<Value>,
 }
 
-impl fmt::Debug for RegisterDeviceRequest {
+impl fmt::Debug for PushRegisterDeviceRequestBody {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("RegisterDeviceRequest")
+        f.debug_struct("PushRegisterDeviceRequestBody")
             .field("operation_id", &self.operation_id)
             .field("principal_id", &self.principal_id)
             .field("device_id", &self.device_id)
@@ -265,7 +265,7 @@ impl fmt::Debug for RegisterDeviceRequest {
 /// Stability: 1.0-stable. New optional fields may be added in a minor release.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[non_exhaustive]
-pub struct RegisterDeviceResponse {
+pub struct PushRegisterDeviceOutcome {
     pub ok: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub registration_id: Option<String>,
@@ -288,10 +288,10 @@ pub struct RegisterDeviceResponse {
 /// Request body for `POST /_cokret/edge/push/unregister-device`.
 ///
 /// Stability: 1.0-stable + `#[non_exhaustive]`. Build via
-/// `UnregisterDeviceRequest { ..Default::default() }` from external crates.
+/// `PushUnregisterDeviceRequestBody { ..Default::default() }` from external crates.
 #[derive(Clone, Default, PartialEq, Serialize, Deserialize)]
 #[non_exhaustive]
-pub struct UnregisterDeviceRequest {
+pub struct PushUnregisterDeviceRequestBody {
     pub operation_id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub principal_id: Option<String>,
@@ -316,9 +316,9 @@ pub struct UnregisterDeviceRequest {
     pub proof: Option<Value>,
 }
 
-impl fmt::Debug for UnregisterDeviceRequest {
+impl fmt::Debug for PushUnregisterDeviceRequestBody {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("UnregisterDeviceRequest")
+        f.debug_struct("PushUnregisterDeviceRequestBody")
             .field("operation_id", &self.operation_id)
             .field("principal_id", &self.principal_id)
             .field("device_id", &self.device_id)
@@ -343,7 +343,7 @@ impl fmt::Debug for UnregisterDeviceRequest {
 /// Stability: 1.0-stable. New optional fields may be added in a minor release.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[non_exhaustive]
-pub struct UnregisterDeviceResponse {
+pub struct PushUnregisterDeviceOutcome {
     pub ok: bool,
     #[serde(default)]
     pub already_removed: bool,
@@ -369,7 +369,7 @@ pub struct UnregisterDeviceResponse {
 /// added as new constructors without bumping SemVer.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[non_exhaustive]
-pub struct PushUnsubscribeRequest {
+pub struct PushUnsubscribeRequestBody {
     pub operation_id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub principal_id: Option<String>,
@@ -386,7 +386,7 @@ pub struct PushUnsubscribeRequest {
     pub request_id: Option<String>,
 }
 
-impl PushUnsubscribeRequest {
+impl PushUnsubscribeRequestBody {
     /// Construct an unsubscribe request for a Circle.
     pub fn for_circle(
         device_id: impl Into<String>,
@@ -458,7 +458,7 @@ impl PushUnsubscribeRequest {
 /// Response body for `POST /_cokret/edge/push/unsubscribe`.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[non_exhaustive]
-pub struct PushUnsubscribeResponse {
+pub struct PushUnsubscribeOutcome {
     pub ok: bool,
     #[serde(default)]
     pub already_unsubscribed: bool,
@@ -601,7 +601,7 @@ mod tests {
 
     #[test]
     fn response_models_cover_frozen_wire_metadata() {
-        let register: RegisterDeviceResponse = serde_json::from_value(serde_json::json!({
+        let register: PushRegisterDeviceOutcome = serde_json::from_value(serde_json::json!({
             "ok": true,
             "registration_id": "reg-1",
             "accepted_gateway": "https://push.example.com/_cokret/edge/push/notify",
@@ -631,7 +631,7 @@ mod tests {
         assert_eq!(register.warnings, vec!["duplicate-safe"]);
         assert_eq!(register.request_id.as_deref(), Some("ck:request:123"));
 
-        let unregister: UnregisterDeviceResponse = serde_json::from_value(serde_json::json!({
+        let unregister: PushUnregisterDeviceOutcome = serde_json::from_value(serde_json::json!({
             "ok": true,
             "already_removed": true,
             "removed_registration_id": "reg-1",

@@ -63,7 +63,7 @@ impl Drop for SecretString {
 }
 
 use super::bridge_describe::{
-    IntegrationView, PushBridgeDescribeResponse, PushGatewayIntegrationDescribeResponse,
+    IntegrationView, PushBridgeDescribeOutcome, PushGatewayIntegrationDescribeOutcome,
 };
 use super::errors::{PushErrorKind, PushRegistrationError, classify_http_error};
 use super::registration::{
@@ -71,9 +71,9 @@ use super::registration::{
 };
 use super::urls::{redact_url, try_cokret_api_url};
 use super::wire::{
-    CokretErrorEnvelope, PushDeviceConfig, PushUnsubscribeRequest, PushUnsubscribeResponse,
-    RegisterDeviceRequest, RegisterDeviceResponse, UnregisterDeviceRequest,
-    UnregisterDeviceResponse,
+    CokretErrorEnvelope, PushDeviceConfig, PushRegisterDeviceOutcome,
+    PushRegisterDeviceRequestBody, PushUnregisterDeviceOutcome, PushUnregisterDeviceRequestBody,
+    PushUnsubscribeOutcome, PushUnsubscribeRequestBody,
 };
 use super::{
     COKRET_REQUEST_ID_HEADER, COKRET_SESSION_GRANT_HEADER, PUSH_BRIDGE_DESCRIBE_PATH,
@@ -83,15 +83,15 @@ use super::{
 
 /// HTTP response body plus Cokret response metadata.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct CokretResponse<T> {
+pub struct CokretHttpOutcome<T> {
     pub body: T,
     pub request_id: Option<String>,
     pub retry_after: Option<String>,
 }
 
-impl<T> CokretResponse<T> {
-    pub fn map_body<U>(self, f: impl FnOnce(T) -> U) -> CokretResponse<U> {
-        CokretResponse {
+impl<T> CokretHttpOutcome<T> {
+    pub fn map_body<U>(self, f: impl FnOnce(T) -> U) -> CokretHttpOutcome<U> {
+        CokretHttpOutcome {
             body: f(self.body),
             request_id: self.request_id,
             retry_after: self.retry_after,
@@ -348,28 +348,29 @@ impl CokretPushClient {
     /// Discover the active push gateway bridge contract.
     pub async fn bridge_describe(
         &self,
-    ) -> Result<PushBridgeDescribeResponse, PushRegistrationError> {
+    ) -> Result<PushBridgeDescribeOutcome, PushRegistrationError> {
         Ok(self.bridge_describe_with_context().await?.body)
     }
 
     /// Discover the active push gateway bridge contract and return response metadata.
     pub async fn bridge_describe_with_context(
         &self,
-    ) -> Result<CokretResponse<PushBridgeDescribeResponse>, PushRegistrationError> {
+    ) -> Result<CokretHttpOutcome<PushBridgeDescribeOutcome>, PushRegistrationError> {
         self.get_json(PUSH_BRIDGE_DESCRIBE_PATH).await
     }
 
     /// Discover the service-level push gateway integration manifest.
     pub async fn integration_describe(
         &self,
-    ) -> Result<PushGatewayIntegrationDescribeResponse, PushRegistrationError> {
+    ) -> Result<PushGatewayIntegrationDescribeOutcome, PushRegistrationError> {
         Ok(self.integration_describe_with_context().await?.body)
     }
 
     /// Discover the service-level push gateway integration manifest and return response metadata.
     pub async fn integration_describe_with_context(
         &self,
-    ) -> Result<CokretResponse<PushGatewayIntegrationDescribeResponse>, PushRegistrationError> {
+    ) -> Result<CokretHttpOutcome<PushGatewayIntegrationDescribeOutcome>, PushRegistrationError>
+    {
         self.get_json(PUSH_INTEGRATION_DESCRIBE_PATH).await
     }
 
@@ -429,7 +430,7 @@ impl CokretPushClient {
         config: &PushDeviceConfig<'_>,
         binding: &GatewayBinding,
         prefs: &PushPreferences,
-    ) -> Result<RegisterDeviceResponse, PushRegistrationError> {
+    ) -> Result<PushRegisterDeviceOutcome, PushRegistrationError> {
         Ok(self
             .register_device_with_context(config, binding, prefs)
             .await?
@@ -442,13 +443,13 @@ impl CokretPushClient {
         config: &PushDeviceConfig<'_>,
         binding: &GatewayBinding,
         prefs: &PushPreferences,
-    ) -> Result<CokretResponse<RegisterDeviceResponse>, PushRegistrationError> {
+    ) -> Result<CokretHttpOutcome<PushRegisterDeviceOutcome>, PushRegistrationError> {
         self.assert_session_grant_if_required()?;
         if !prefs.enabled {
             let response = self
                 .unregister_device_with_context(config, binding, prefs)
                 .await?;
-            return Ok(response.map_body(|body| RegisterDeviceResponse {
+            return Ok(response.map_body(|body| PushRegisterDeviceOutcome {
                 ok: body.ok,
                 registration_id: None,
                 accepted_gateway: None,
@@ -482,7 +483,7 @@ impl CokretPushClient {
         Ok(response)
     }
 
-    /// Post a pre-built [`RegisterDeviceRequest`] through the
+    /// Post a pre-built [`PushRegisterDeviceRequestBody`] through the
     /// configured client (session-grant header, retry policy,
     /// caller-supplied headers, register-device path override all
     /// honored). Use this when callers already constructed the wire
@@ -492,10 +493,10 @@ impl CokretPushClient {
     /// it via `build_register_device_request`.
     pub async fn register_device_with_request(
         &self,
-        body: &RegisterDeviceRequest,
+        body: &PushRegisterDeviceRequestBody,
         idempotency_key: Option<&str>,
         request_id: Option<&str>,
-    ) -> Result<CokretResponse<RegisterDeviceResponse>, PushRegistrationError> {
+    ) -> Result<CokretHttpOutcome<PushRegisterDeviceOutcome>, PushRegistrationError> {
         self.assert_session_grant_if_required()?;
         let response = self
             .post_json(
@@ -521,10 +522,10 @@ impl CokretPushClient {
     /// for unregister flows.
     pub async fn unregister_device_with_request(
         &self,
-        body: &UnregisterDeviceRequest,
+        body: &PushUnregisterDeviceRequestBody,
         idempotency_key: Option<&str>,
         request_id: Option<&str>,
-    ) -> Result<CokretResponse<UnregisterDeviceResponse>, PushRegistrationError> {
+    ) -> Result<CokretHttpOutcome<PushUnregisterDeviceOutcome>, PushRegistrationError> {
         self.assert_session_grant_if_required()?;
         let response = match self
             .post_json(
@@ -536,8 +537,8 @@ impl CokretPushClient {
             .await
         {
             Ok(response) => response,
-            Err(error) if error.kind() == PushErrorKind::NotFound => CokretResponse {
-                body: UnregisterDeviceResponse {
+            Err(error) if error.kind() == PushErrorKind::NotFound => CokretHttpOutcome {
+                body: PushUnregisterDeviceOutcome {
                     ok: true,
                     already_removed: true,
                     removed_registration_id: None,
@@ -569,7 +570,7 @@ impl CokretPushClient {
         &self,
         config: &PushDeviceConfig<'_>,
         target_id: &str,
-    ) -> Result<PushUnsubscribeResponse, PushRegistrationError> {
+    ) -> Result<PushUnsubscribeOutcome, PushRegistrationError> {
         Ok(self.unsubscribe_with_context(config, target_id).await?.body)
     }
 
@@ -578,7 +579,7 @@ impl CokretPushClient {
         &self,
         config: &PushDeviceConfig<'_>,
         target_id: &str,
-    ) -> Result<CokretResponse<PushUnsubscribeResponse>, PushRegistrationError> {
+    ) -> Result<CokretHttpOutcome<PushUnsubscribeOutcome>, PushRegistrationError> {
         self.assert_session_grant_if_required()?;
         let body = build_unsubscribe_request(config, target_id)?;
         let path = format!(
@@ -600,11 +601,11 @@ impl CokretPushClient {
     }
 
     /// Variant of [`Self::unsubscribe`] that posts a pre-built body
-    /// (caller-supplied [`PushUnsubscribeRequest`]).
+    /// (caller-supplied [`PushUnsubscribeRequestBody`]).
     pub async fn unsubscribe_with_request(
         &self,
-        body: &PushUnsubscribeRequest,
-    ) -> Result<CokretResponse<PushUnsubscribeResponse>, PushRegistrationError> {
+        body: &PushUnsubscribeRequestBody,
+    ) -> Result<CokretHttpOutcome<PushUnsubscribeOutcome>, PushRegistrationError> {
         self.assert_session_grant_if_required()?;
         let path = format!(
             "{PUSH_UNSUBSCRIBE_PATH}?target_id={}",
@@ -626,7 +627,7 @@ impl CokretPushClient {
         config: &PushDeviceConfig<'_>,
         binding: &GatewayBinding,
         prefs: &PushPreferences,
-    ) -> Result<UnregisterDeviceResponse, PushRegistrationError> {
+    ) -> Result<PushUnregisterDeviceOutcome, PushRegistrationError> {
         Ok(self
             .unregister_device_with_context(config, binding, prefs)
             .await?
@@ -639,7 +640,7 @@ impl CokretPushClient {
         config: &PushDeviceConfig<'_>,
         binding: &GatewayBinding,
         prefs: &PushPreferences,
-    ) -> Result<CokretResponse<UnregisterDeviceResponse>, PushRegistrationError> {
+    ) -> Result<CokretHttpOutcome<PushUnregisterDeviceOutcome>, PushRegistrationError> {
         self.assert_session_grant_if_required()?;
         let body = build_unregister_device_request(config, binding, prefs)?;
         let response = match self
@@ -652,8 +653,8 @@ impl CokretPushClient {
             .await
         {
             Ok(response) => response,
-            Err(error) if error.kind() == PushErrorKind::NotFound => CokretResponse {
-                body: UnregisterDeviceResponse {
+            Err(error) if error.kind() == PushErrorKind::NotFound => CokretHttpOutcome {
+                body: PushUnregisterDeviceOutcome {
                     ok: true,
                     already_removed: true,
                     removed_registration_id: None,
@@ -680,7 +681,7 @@ impl CokretPushClient {
     ///
     /// Each binding is exercised independently — a failure on one
     /// binding does not abort the others. Returns one
-    /// `Result<RegisterDeviceResponse, _>` per binding, in the same
+    /// `Result<PushRegisterDeviceOutcome, _>` per binding, in the same
     /// order as `prefs.gateways`. When `prefs.gateways` is empty the
     /// returned `Vec` is empty.
     ///
@@ -692,7 +693,7 @@ impl CokretPushClient {
         &self,
         config: &PushDeviceConfig<'_>,
         prefs: &PushPreferences,
-    ) -> Vec<Result<RegisterDeviceResponse, PushRegistrationError>> {
+    ) -> Vec<Result<PushRegisterDeviceOutcome, PushRegistrationError>> {
         let mut out = Vec::with_capacity(prefs.gateways.len());
         for binding in &prefs.gateways {
             out.push(self.register_device(config, binding, prefs).await);
@@ -726,7 +727,7 @@ impl CokretPushClient {
         binding: &GatewayBinding,
         prefs: &PushPreferences,
         strategy: crate::PushTokenRotationStrategy,
-    ) -> Result<Option<RegisterDeviceResponse>, PushRegistrationError> {
+    ) -> Result<Option<PushRegisterDeviceOutcome>, PushRegistrationError> {
         let plan =
             crate::plan_token_rotation_with_strategy(existing, config, binding, prefs, strategy)?;
 
@@ -759,7 +760,7 @@ impl CokretPushClient {
         body: &T,
         idempotency_key: Option<&str>,
         request_id: Option<&str>,
-    ) -> Result<CokretResponse<R>, PushRegistrationError>
+    ) -> Result<CokretHttpOutcome<R>, PushRegistrationError>
     where
         T: Serialize + ?Sized,
         R: for<'de> Deserialize<'de>,
@@ -796,7 +797,7 @@ impl CokretPushClient {
         }
     }
 
-    async fn get_json<R>(&self, path: &str) -> Result<CokretResponse<R>, PushRegistrationError>
+    async fn get_json<R>(&self, path: &str) -> Result<CokretHttpOutcome<R>, PushRegistrationError>
     where
         R: for<'de> Deserialize<'de>,
     {
@@ -831,7 +832,7 @@ impl CokretPushClient {
         body: &T,
         idempotency_key: Option<&str>,
         request_id: Option<&str>,
-    ) -> Result<CokretResponse<R>, PushRegistrationError>
+    ) -> Result<CokretHttpOutcome<R>, PushRegistrationError>
     where
         T: Serialize + ?Sized,
         R: for<'de> Deserialize<'de>,
@@ -894,14 +895,17 @@ impl CokretPushClient {
             });
         }
 
-        Ok(CokretResponse {
+        Ok(CokretHttpOutcome {
             body: serde_json::from_str(&body)?,
             request_id,
             retry_after,
         })
     }
 
-    async fn get_json_once<R>(&self, path: &str) -> Result<CokretResponse<R>, PushRegistrationError>
+    async fn get_json_once<R>(
+        &self,
+        path: &str,
+    ) -> Result<CokretHttpOutcome<R>, PushRegistrationError>
     where
         R: for<'de> Deserialize<'de>,
     {
@@ -958,7 +962,7 @@ impl CokretPushClient {
             });
         }
 
-        Ok(CokretResponse {
+        Ok(CokretHttpOutcome {
             body: serde_json::from_str(&body)?,
             request_id,
             retry_after,
@@ -1110,13 +1114,13 @@ mod tests {
 
     use super::*;
 
-    struct MockResponse {
+    struct MockHttpOutcome {
         status: &'static str,
         headers: Vec<(&'static str, &'static str)>,
         body: &'static str,
     }
 
-    fn spawn_mock_server(responses: Vec<MockResponse>) -> (String, Arc<Mutex<Vec<String>>>) {
+    fn spawn_mock_server(responses: Vec<MockHttpOutcome>) -> (String, Arc<Mutex<Vec<String>>>) {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
         let addr = listener.local_addr().unwrap();
         let requests = Arc::new(Mutex::new(Vec::new()));
@@ -1195,7 +1199,7 @@ mod tests {
 
     #[tokio::test]
     async fn register_success_exposes_response_context_and_headers() {
-        let (base_url, requests) = spawn_mock_server(vec![MockResponse {
+        let (base_url, requests) = spawn_mock_server(vec![MockHttpOutcome {
             status: "200 OK",
             headers: vec![(COKRET_REQUEST_ID_HEADER, "ck:request:server")],
             body: r#"{"ok":true,"registration_id":"reg-1","expires_at":"2026-04-29T00:00:00Z"}"#,
@@ -1228,7 +1232,7 @@ mod tests {
 
     #[tokio::test]
     async fn client_default_headers_fill_request_metadata() {
-        let (base_url, requests) = spawn_mock_server(vec![MockResponse {
+        let (base_url, requests) = spawn_mock_server(vec![MockHttpOutcome {
             status: "200 OK",
             headers: vec![],
             body: r#"{"ok":true}"#,
@@ -1254,7 +1258,7 @@ mod tests {
 
     #[tokio::test]
     async fn unregister_success() {
-        let (base_url, requests) = spawn_mock_server(vec![MockResponse {
+        let (base_url, requests) = spawn_mock_server(vec![MockHttpOutcome {
             status: "200 OK",
             headers: vec![],
             body: r#"{"ok":true}"#,
@@ -1273,7 +1277,7 @@ mod tests {
 
     #[tokio::test]
     async fn unregister_not_found_is_idempotent_success() {
-        let (base_url, _) = spawn_mock_server(vec![MockResponse {
+        let (base_url, _) = spawn_mock_server(vec![MockHttpOutcome {
             status: "404 Not Found",
             headers: vec![(COKRET_REQUEST_ID_HEADER, "ck:request:not-found")],
             body: r#"{"ok":false,"error":{"code":"not_found","message":"missing"}}"#,
@@ -1317,7 +1321,7 @@ mod tests {
             let body = format!(
                 r#"{{"ok":false,"error":{{"code":"{code}","message":"x"}},"request_id":"ck:request:error"}}"#
             );
-            let (base_url, _) = spawn_mock_server(vec![MockResponse {
+            let (base_url, _) = spawn_mock_server(vec![MockHttpOutcome {
                 status,
                 headers: vec![],
                 body: Box::leak(body.into_boxed_str()),
@@ -1335,7 +1339,7 @@ mod tests {
 
     #[tokio::test]
     async fn exposes_non_json_error_body_without_debug_leak() {
-        let (base_url, _) = spawn_mock_server(vec![MockResponse {
+        let (base_url, _) = spawn_mock_server(vec![MockHttpOutcome {
             status: "500 Internal Server Error",
             headers: vec![],
             body: "not json",
@@ -1353,7 +1357,7 @@ mod tests {
 
     #[tokio::test]
     async fn invalid_success_schema_is_invalid_response() {
-        let (base_url, _) = spawn_mock_server(vec![MockResponse {
+        let (base_url, _) = spawn_mock_server(vec![MockHttpOutcome {
             status: "200 OK",
             headers: vec![],
             body: r#"{"ok":"yes","registration_id":42}"#,
@@ -1369,7 +1373,7 @@ mod tests {
 
     #[tokio::test]
     async fn error_debug_redacts_envelope_message_and_details() {
-        let (base_url, _) = spawn_mock_server(vec![MockResponse {
+        let (base_url, _) = spawn_mock_server(vec![MockHttpOutcome {
             status: "403 Forbidden",
             headers: vec![],
             body: r#"{"ok":false,"error":{"code":"capability_denied","message":"token fcm:very-secret-token proof super-secret-proof","details":{"proof":"super-secret-proof","push_key":"fcm:very-secret-token"}}}"#,
@@ -1390,12 +1394,12 @@ mod tests {
     #[tokio::test]
     async fn retries_429_and_honors_retry_after() {
         let (base_url, requests) = spawn_mock_server(vec![
-            MockResponse {
+            MockHttpOutcome {
                 status: "429 Too Many Requests",
                 headers: vec![(RETRY_AFTER_HEADER, "0")],
                 body: r#"{"ok":false,"error":{"code":"rate_limited","message":"slow"}}"#,
             },
-            MockResponse {
+            MockHttpOutcome {
                 status: "200 OK",
                 headers: vec![],
                 body: r#"{"ok":true}"#,
@@ -1432,7 +1436,7 @@ mod tests {
 
     #[tokio::test]
     async fn default_register_allows_with_session_grant_header() {
-        let (base_url, requests) = spawn_mock_server(vec![MockResponse {
+        let (base_url, requests) = spawn_mock_server(vec![MockHttpOutcome {
             status: "200 OK",
             headers: vec![],
             body: r#"{"ok":true,"registration_id":"reg-1"}"#,
@@ -1462,7 +1466,7 @@ mod tests {
 
     #[tokio::test]
     async fn opting_out_session_grant_allows_register_without_header() {
-        let (base_url, _) = spawn_mock_server(vec![MockResponse {
+        let (base_url, _) = spawn_mock_server(vec![MockHttpOutcome {
             status: "200 OK",
             headers: vec![],
             body: r#"{"ok":true}"#,
@@ -1480,12 +1484,12 @@ mod tests {
     #[tokio::test]
     async fn register_auto_generates_idempotency_key_when_omitted() {
         let (base_url, requests) = spawn_mock_server(vec![
-            MockResponse {
+            MockHttpOutcome {
                 status: "503 Service Unavailable",
                 headers: vec![(RETRY_AFTER_HEADER, "0")],
                 body: r#"{"ok":false,"error":{"code":"temporarily_unavailable","message":"try later"}}"#,
             },
-            MockResponse {
+            MockHttpOutcome {
                 status: "200 OK",
                 headers: vec![],
                 body: r#"{"ok":true}"#,
@@ -1530,7 +1534,7 @@ mod tests {
 
     #[tokio::test]
     async fn does_not_retry_duplicate_conflict() {
-        let (base_url, requests) = spawn_mock_server(vec![MockResponse {
+        let (base_url, requests) = spawn_mock_server(vec![MockHttpOutcome {
             status: "409 Conflict",
             headers: vec![],
             body: r#"{"ok":false,"error":{"code":"duplicate_conflict","message":"different body"}}"#,
@@ -1555,12 +1559,12 @@ mod tests {
     #[tokio::test]
     async fn retries_503() {
         let (base_url, requests) = spawn_mock_server(vec![
-            MockResponse {
+            MockHttpOutcome {
                 status: "503 Service Unavailable",
                 headers: vec![(RETRY_AFTER_HEADER, "0")],
                 body: r#"{"ok":false,"error":{"code":"temporarily_unavailable","message":"try later"}}"#,
             },
-            MockResponse {
+            MockHttpOutcome {
                 status: "200 OK",
                 headers: vec![],
                 body: r#"{"ok":true}"#,
@@ -1587,7 +1591,7 @@ mod tests {
     async fn disabled_kinds_skip_otherwise_retryable_error() {
         // 503 normally retries, but with TemporarilyUnavailable disabled
         // the very first response should be surfaced immediately.
-        let (base_url, requests) = spawn_mock_server(vec![MockResponse {
+        let (base_url, requests) = spawn_mock_server(vec![MockHttpOutcome {
             status: "503 Service Unavailable",
             headers: vec![(RETRY_AFTER_HEADER, "0")],
             body: r#"{"ok":false,"error":{"code":"temporarily_unavailable","message":"down"}}"#,
@@ -1620,12 +1624,12 @@ mod tests {
         // Two bindings → two responses. We pre-load the mock server
         // with one response per expected request.
         let (base_url, requests) = spawn_mock_server(vec![
-            MockResponse {
+            MockHttpOutcome {
                 status: "200 OK",
                 headers: vec![],
                 body: r#"{"ok":true,"registration_id":"reg-standard"}"#,
             },
-            MockResponse {
+            MockHttpOutcome {
                 status: "200 OK",
                 headers: vec![],
                 body: r#"{"ok":true,"registration_id":"reg-bugle"}"#,

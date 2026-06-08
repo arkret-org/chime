@@ -3,9 +3,9 @@
 //! Shows how a desktop host application (Tauri, Electron, native Cocoa
 //! shell, Win32 Toast bridge, …) wires `chime` into its push surface:
 //!
-//! 1. Build a `RegisterDeviceRequest` for the platform push token the host shell has just received
-//!    (here a WebPush endpoint URL, but the same call site shape works for FCM / APNs / OEM
-//!    tokens).
+//! 1. Build a `PushRegisterDeviceRequestBody` for the platform push token the host shell has just
+//!    received (here a WebPush endpoint URL, but the same call site shape works for FCM / APNs /
+//!    OEM tokens).
 //! 2. Decode an inbound `ck.edge.push.notify` payload that the local platform bridge has handed
 //!    off, validate it against the blind-wakeup policy, and surface the result to the UI layer.
 //!

@@ -6,7 +6,7 @@
 
 pub use cokret::push_gateway_api::{
     EXPECTED_SPEC_VERSION, IntegrationView, PushBridgeDescribeGatewayDescriptor,
-    PushBridgeDescribeNotifyDescriptor, PushBridgeDescribePrivacyDescriptor,
-    PushBridgeDescribeResponse, PushGatewayIntegrationDependency,
-    PushGatewayIntegrationDescribeResponse, PushGatewayIntegrationSurface,
+    PushBridgeDescribeNotifyDescriptor, PushBridgeDescribeOutcome,
+    PushBridgeDescribePrivacyDescriptor, PushGatewayIntegrationDependency,
+    PushGatewayIntegrationDescribeOutcome, PushGatewayIntegrationSurface,
 };

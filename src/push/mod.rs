@@ -35,7 +35,7 @@ pub const REGISTER_DEVICE_PATH: &str = "/_cokret/edge/push/register-device";
 pub const UNREGISTER_DEVICE_PATH: &str = "/_cokret/edge/push/unregister-device";
 
 /// B.5 #8 — Cokret HTTP path for `ck.push.unsubscribe`. The body is a
-/// [`PushUnsubscribeRequest`]; the URL also accepts an optional
+/// [`PushUnsubscribeRequestBody`]; the URL also accepts an optional
 /// `target_id` query parameter for callers that prefer to encode the
 /// scope outside the JSON envelope (the wire body remains canonical).
 pub const PUSH_UNSUBSCRIBE_PATH: &str = "/_cokret/edge/push/unsubscribe";
@@ -105,18 +105,18 @@ const RETRY_AFTER_HEADER: &str = "Retry-After";
 
 pub use bridge_describe::{
     EXPECTED_SPEC_VERSION, IntegrationView, PushBridgeDescribeGatewayDescriptor,
-    PushBridgeDescribeNotifyDescriptor, PushBridgeDescribePrivacyDescriptor,
-    PushBridgeDescribeResponse, PushGatewayIntegrationDependency,
-    PushGatewayIntegrationDescribeResponse, PushGatewayIntegrationSurface,
+    PushBridgeDescribeNotifyDescriptor, PushBridgeDescribeOutcome,
+    PushBridgeDescribePrivacyDescriptor, PushGatewayIntegrationDependency,
+    PushGatewayIntegrationDescribeOutcome, PushGatewayIntegrationSurface,
 };
 #[cfg(feature = "http")]
-pub use client::{CokretPushClient, CokretResponse, PushRetryPolicy};
+pub use client::{CokretHttpOutcome, CokretPushClient, PushRetryPolicy};
 pub use errors::{PushErrorKind, PushRegistrationError};
 pub use media_token::{
-    MediaBackendType, MediaTokenError, MediaTokenExchangeRequest, MediaTokenResponse,
-    MediaTokenStructuralValidationContext, ParticipantBinding,
-    StructurallyValidatedMediaTokenResponse, call_media_token_exchange, ensure_known_backend,
-    structurally_validate_media_token_response,
+    CallMediaParticipantBinding, CallMediaTokenExchangeOutcome, CallMediaTokenExchangeRequestBody,
+    MediaBackendType, MediaTokenError, MediaTokenStructuralValidationContext,
+    StructurallyValidatedMediaTokenOutcome, call_media_token_exchange, ensure_known_backend,
+    structurally_validate_media_token_outcome,
 };
 pub use registration::{
     build_register_device_request, build_register_signing_context,
@@ -142,8 +142,8 @@ pub use urls::{
     validate_webpush_endpoint_allowlist,
 };
 pub use wire::{
-    CokretError, CokretErrorEnvelope, PushDeviceConfig, PushPlatform, PushUnsubscribeRequest,
-    PushUnsubscribeResponse, RegisterDeviceRequest, RegisterDeviceResponse,
-    UnregisterDeviceRequest, UnregisterDeviceResponse, compute_push_key_hmac,
+    CokretError, CokretErrorEnvelope, PushDeviceConfig, PushPlatform, PushRegisterDeviceOutcome,
+    PushRegisterDeviceRequestBody, PushUnregisterDeviceOutcome, PushUnregisterDeviceRequestBody,
+    PushUnsubscribeOutcome, PushUnsubscribeRequestBody, compute_push_key_hmac,
     verify_push_key_binding,
 };

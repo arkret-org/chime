@@ -64,16 +64,16 @@ pub use notify::{
     AgentLifecycleSummary, EncryptedEnvelope, EncryptedEnvelopeError, MentionRedirectRouting,
     PHASE_P2_AGENT_TYPED_ID_PREFIXES, PHASE_P2_LEGACY_FIELD_ALIASES, ProviderRetryHint,
     PushDeliveryReceipt, PushHint, PushNotification, PushNotificationDedup, PushNotificationDevice,
-    PushNotifyPolicyContext, PushNotifyPrivacyError, PushNotifyPrivacyMode,
-    PushNotifyPrivacyVector, PushNotifyRequestBody, PushNotifyOutcome, PushTargetId,
-    ROUND_R2_R3_SENSITIVE_FIELDS, RejectedPushToken, WakeupKind, assert_no_sensitive_fields,
-    classify_agent_event_kind, is_legacy_field_alias, is_phase_p2_agent_typed_id,
-    render_agent_lifecycle_summary, shared_push_notify_privacy_vectors,
+    PushNotifyOutcome, PushNotifyPolicyContext, PushNotifyPrivacyError, PushNotifyPrivacyMode,
+    PushNotifyPrivacyVector, PushNotifyRequestBody, PushTargetId, ROUND_R2_R3_SENSITIVE_FIELDS,
+    RejectedPushToken, WakeupKind, assert_no_sensitive_fields, classify_agent_event_kind,
+    is_legacy_field_alias, is_phase_p2_agent_typed_id, render_agent_lifecycle_summary,
+    shared_push_notify_privacy_vectors,
 };
 // R3 (CALL-1 / CALL-2, spec b47ff6ec) — media token exchange surface.
 // Re-exported so chime consumers (yougen) call
 // `chime::call_media_token_exchange` +
-// `chime::structurally_validate_media_token_response` without depending on
+// `chime::structurally_validate_media_token_outcome` without depending on
 // `cokret` directly. The validation marker is structure-only; hosts must
 // perform Ed25519 signature verification before SFrame keying.
 pub use push::{
@@ -85,31 +85,31 @@ pub use push::{
     EXPECTED_SPEC_VERSION, IntegrationView, NonceReplayError, NonceTracker,
     PUSH_BRIDGE_DESCRIBE_PATH, PUSH_INTEGRATION_DESCRIBE_PATH, PUSH_UNSUBSCRIBE_PATH,
     PushBridgeDescribeGatewayDescriptor, PushBridgeDescribeNotifyDescriptor,
-    PushBridgeDescribePrivacyDescriptor, PushBridgeDescribeResponse, PushDeviceConfig,
-    PushErrorKind, PushGatewayIntegrationDependency, PushGatewayIntegrationDescribeResponse,
-    PushGatewayIntegrationSurface, PushPlatform, PushRegistrationError, PushRequestSigningContext,
-    PushRequestSigningOptions, PushUnsubscribeRequest, PushUnsubscribeResponse,
-    REGISTER_DEVICE_PATH, RegisterDeviceRequest, RegisterDeviceResponse, SIGNATURE_HEADER,
-    SIGNATURE_INPUT_HEADER, UNREGISTER_DEVICE_PATH, UnregisterDeviceRequest,
-    UnregisterDeviceResponse, build_register_device_request, build_register_signing_context,
-    build_register_signing_context_with_options, build_unregister_device_request,
-    build_unregister_signing_context, build_unregister_signing_context_with_options,
-    build_unsubscribe_request, cokret_api_url, compute_push_key_hmac, content_digest_sha256,
-    push_bridge_describe_url, push_gateway_service_base_url, push_integration_describe_url,
-    redact_push_key, validate_push_gateway_url, validate_webpush_endpoint_allowlist,
-    verify_push_key_binding,
+    PushBridgeDescribeOutcome, PushBridgeDescribePrivacyDescriptor, PushDeviceConfig,
+    PushErrorKind, PushGatewayIntegrationDependency, PushGatewayIntegrationDescribeOutcome,
+    PushGatewayIntegrationSurface, PushPlatform, PushRegisterDeviceOutcome,
+    PushRegisterDeviceRequestBody, PushRegistrationError, PushRequestSigningContext,
+    PushRequestSigningOptions, PushUnregisterDeviceOutcome, PushUnregisterDeviceRequestBody,
+    PushUnsubscribeOutcome, PushUnsubscribeRequestBody, REGISTER_DEVICE_PATH, SIGNATURE_HEADER,
+    SIGNATURE_INPUT_HEADER, UNREGISTER_DEVICE_PATH, build_register_device_request,
+    build_register_signing_context, build_register_signing_context_with_options,
+    build_unregister_device_request, build_unregister_signing_context,
+    build_unregister_signing_context_with_options, build_unsubscribe_request, cokret_api_url,
+    compute_push_key_hmac, content_digest_sha256, push_bridge_describe_url,
+    push_gateway_service_base_url, push_integration_describe_url, redact_push_key,
+    validate_push_gateway_url, validate_webpush_endpoint_allowlist, verify_push_key_binding,
+};
+pub use push::{
+    CallMediaParticipantBinding, CallMediaTokenExchangeOutcome, CallMediaTokenExchangeRequestBody,
+    DefaultPlatformAppIdResolver, MediaBackendType, MediaTokenError,
+    MediaTokenStructuralValidationContext, PlatformAppIdResolver, PushRoute, PushRouteCapability,
+    PushRouteError, PushRouteId, PushRouteValidationError, PushRuleEventContext, ServiceDid,
+    ShouldNotify, StructurallyValidatedMediaTokenOutcome, WatchLevel, call_media_token_exchange,
+    ensure_known_backend, evaluate_watch_level, push_rule_reason_code,
+    structurally_validate_media_token_outcome,
 };
 #[cfg(feature = "http")]
-pub use push::{CokretPushClient, CokretResponse, PushRetryPolicy};
-pub use push::{
-    DefaultPlatformAppIdResolver, MediaBackendType, MediaTokenError, MediaTokenExchangeRequest,
-    MediaTokenResponse, MediaTokenStructuralValidationContext, ParticipantBinding,
-    PlatformAppIdResolver, PushRoute, PushRouteCapability, PushRouteError, PushRouteId,
-    PushRouteValidationError, PushRuleEventContext, ServiceDid, ShouldNotify,
-    StructurallyValidatedMediaTokenResponse, WatchLevel, call_media_token_exchange,
-    ensure_known_backend, evaluate_watch_level, push_rule_reason_code,
-    structurally_validate_media_token_response,
-};
+pub use push::{CokretHttpOutcome, CokretPushClient, PushRetryPolicy};
 pub use state::{
     BridgeContractCache, BridgeContractCacheError, BridgeContractDriftVerdict,
     MemoizingPushPreferencesStore, PUSH_PREFERENCES_CACHE_TTL,
@@ -135,7 +135,7 @@ pub const OPERATION_PUSH_NOTIFY: &str = "ck.edge.push.notify";
 
 /// B.5 #8 — Canonical Cokret operation id for the push unsubscribe
 /// call. Sent as the `operation_id` field on
-/// [`PushUnsubscribeRequest`].
+/// [`PushUnsubscribeRequestBody`].
 pub const OPERATION_PUSH_UNSUBSCRIBE: &str = "ck.push.unsubscribe";
 
 /// Default standard Cokret push gateway URL.

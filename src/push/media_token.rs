@@ -3,7 +3,7 @@
 //!
 //! This module is intentionally transport-agnostic: it builds the
 //! request body via the SDK's [`call_media_token_exchange`] helper and
-//! exposes [`structurally_validate_media_token_response`] that performs
+//! exposes [`structurally_validate_media_token_outcome`] that performs
 //! the structure-level checks chime owes its consumer (yougen):
 //!
 //! - `participant_binding.issuer_kid` matches the realm's current
@@ -33,7 +33,7 @@
 //! keystore until the SDK's `verify_service_signature` lands. The
 //! issuer anchor check DOES run today — it is a pure equality check
 //! against the caller-supplied current service id. A returned
-//! [`StructurallyValidatedMediaTokenResponse`] is not proof that
+//! [`StructurallyValidatedMediaTokenOutcome`] is not proof that
 //! `service_signature` or `participant_binding.sig` has been
 //! cryptographically verified.
 
@@ -43,8 +43,8 @@ use chrono::{DateTime, Utc};
 // Re-export the SDK types so chime consumers can pull the full media
 // token surface through `chime::` without a second `cokret` dep.
 pub use cokret::{
-    MediaBackendType, MediaTokenExchangeRequest, MediaTokenResponse, ParticipantBinding,
-    call_media_token_exchange,
+    CallMediaParticipantBinding, CallMediaTokenExchangeOutcome, CallMediaTokenExchangeRequestBody,
+    MediaBackendType, call_media_token_exchange,
 };
 
 use super::errors::PushErrorKind;
@@ -178,7 +178,7 @@ pub struct MediaTokenStructuralValidationContext<'a> {
     pub now: DateTime<Utc>,
 }
 
-/// Marker returned after a [`MediaTokenResponse`] has passed chime's
+/// Marker returned after a [`CallMediaTokenExchangeOutcome`] has passed chime's
 /// structure-level media-token checks.
 ///
 /// This type deliberately means "structurally validated", not
@@ -187,20 +187,20 @@ pub struct MediaTokenStructuralValidationContext<'a> {
 /// media-service key before using the token response for SFrame
 /// keying.
 #[derive(Clone, Copy, Debug)]
-pub struct StructurallyValidatedMediaTokenResponse<'a> {
-    response: &'a MediaTokenResponse,
+pub struct StructurallyValidatedMediaTokenOutcome<'a> {
+    response: &'a CallMediaTokenExchangeOutcome,
 }
 
-impl<'a> StructurallyValidatedMediaTokenResponse<'a> {
+impl<'a> StructurallyValidatedMediaTokenOutcome<'a> {
     /// Borrow the original response after structure-level checks have
     /// passed.
-    pub fn response(&self) -> &'a MediaTokenResponse {
+    pub fn response(&self) -> &'a CallMediaTokenExchangeOutcome {
         self.response
     }
 
     /// Borrow the participant binding whose tuple/TTL/issuer anchor
     /// has been structurally checked.
-    pub fn participant_binding(&self) -> &'a ParticipantBinding {
+    pub fn participant_binding(&self) -> &'a CallMediaParticipantBinding {
         &self.response.participant_binding
     }
 
@@ -217,11 +217,11 @@ impl<'a> StructurallyValidatedMediaTokenResponse<'a> {
     }
 }
 
-/// Structurally validate a [`MediaTokenResponse`] against the realm's
+/// Structurally validate a [`CallMediaTokenExchangeOutcome`] against the realm's
 /// current media service anchor and the call state the caller committed
 /// to.
 ///
-/// On success, returns a [`StructurallyValidatedMediaTokenResponse`]
+/// On success, returns a [`StructurallyValidatedMediaTokenOutcome`]
 /// marker around the borrowed response. On failure, returns a typed
 /// [`MediaTokenError`] whose
 /// [`MediaTokenError::kind`] matches one of the five CKP-0010
@@ -234,10 +234,10 @@ impl<'a> StructurallyValidatedMediaTokenResponse<'a> {
 /// `verify_service_signature` lands. Until then, callers MUST treat
 /// the returned value as structure-only evidence and gate any SFrame
 /// keying on the host application's own signature check.
-pub fn structurally_validate_media_token_response<'response>(
-    response: &'response MediaTokenResponse,
+pub fn structurally_validate_media_token_outcome<'response>(
+    response: &'response CallMediaTokenExchangeOutcome,
     ctx: &MediaTokenStructuralValidationContext<'_>,
-) -> Result<StructurallyValidatedMediaTokenResponse<'response>, MediaTokenError> {
+) -> Result<StructurallyValidatedMediaTokenOutcome<'response>, MediaTokenError> {
     // ── 1. Anchor: `participant_binding.issuer_kid` MUST resolve to
     // the realm's current `ck.realm.media_service.service_id`. We
     // accept either a plain service id ("did:web:host:media") or a
@@ -310,11 +310,11 @@ pub fn structurally_validate_media_token_response<'response>(
             ),
         });
     }
-    if binding.scheme != ParticipantBinding::SCHEME {
+    if binding.scheme != CallMediaParticipantBinding::SCHEME {
         return Err(MediaTokenError::ParticipantBindingInvalid {
             reason: format!(
                 "scheme mismatch: expected `{}`, got `{}`",
-                ParticipantBinding::SCHEME,
+                CallMediaParticipantBinding::SCHEME,
                 binding.scheme
             ),
         });
@@ -346,7 +346,7 @@ pub fn structurally_validate_media_token_response<'response>(
     // applications must perform Ed25519 verification before SFrame
     // keying.
 
-    Ok(StructurallyValidatedMediaTokenResponse { response })
+    Ok(StructurallyValidatedMediaTokenOutcome { response })
 }
 
 /// Reject the focus when the SDK does not recognise the backend
@@ -388,14 +388,17 @@ mod tests {
         DeviceId::new("ck:device:01904100-0000-7000-8000-000000000004".to_owned()).unwrap()
     }
 
-    fn good_response(now: DateTime<Utc>) -> MediaTokenResponse {
+    fn good_response(now: DateTime<Utc>) -> CallMediaTokenExchangeOutcome {
         let expires_at = now + Duration::seconds(300);
-        MediaTokenResponse {
+        CallMediaTokenExchangeOutcome {
+            focus_id: "ck:focus:01".to_owned(),
+            backend_type: "livekit".to_owned(),
+            connect_url: "wss://media.example/livekit".to_owned(),
             backend_token: "livekit-jwt-token".to_owned(),
             participant_identity: "ck:rtc_participant:01904100-0000-7000-8000-000000000003"
                 .to_owned(),
-            participant_binding: ParticipantBinding {
-                scheme: ParticipantBinding::SCHEME.to_owned(),
+            participant_binding: CallMediaParticipantBinding {
+                scheme: CallMediaParticipantBinding::SCHEME.to_owned(),
                 sig: "stub-sig".to_owned(),
                 issuer_kid: "did:web:media.example:media#kid-1".to_owned(),
                 realm_id: realm(),
@@ -409,7 +412,6 @@ mod tests {
             },
             expires_at,
             service_signature: "did:web:media.example:media#kid-1:detached-sig".to_owned(),
-            connect_url: None,
         }
     }
 
@@ -442,7 +444,7 @@ mod tests {
         let device_id = device();
         let ctx = good_ctx(now, &realm_id, &call_id, &actor_id, &device_id);
         let structurally_validated =
-            structurally_validate_media_token_response(&response, &ctx).unwrap();
+            structurally_validate_media_token_outcome(&response, &ctx).unwrap();
         assert_eq!(
             structurally_validated.response().participant_identity,
             response.participant_identity
@@ -463,7 +465,7 @@ mod tests {
         let actor_id = actor();
         let device_id = device();
         let ctx = good_ctx(now, &realm_id, &call_id, &actor_id, &device_id);
-        let err = structurally_validate_media_token_response(&response, &ctx).unwrap_err();
+        let err = structurally_validate_media_token_outcome(&response, &ctx).unwrap_err();
         assert_eq!(err.kind(), PushErrorKind::TokenIssuerUnauthorised);
     }
 
@@ -477,7 +479,7 @@ mod tests {
         let device_id = device();
         let mut ctx = good_ctx(now, &realm_id, &call_id, &actor_id, &device_id);
         ctx.requested_focus_id = "ck:focus:02";
-        let err = structurally_validate_media_token_response(&response, &ctx).unwrap_err();
+        let err = structurally_validate_media_token_outcome(&response, &ctx).unwrap_err();
         assert_eq!(err.kind(), PushErrorKind::FocusMismatch);
         assert!(matches!(
             err,
@@ -499,7 +501,7 @@ mod tests {
         let device_id = device();
         let mut ctx = good_ctx(now, &realm_id, &call_id, &actor_id, &device_id);
         ctx.committed_session_focus = Some("ck:focus:committed-other");
-        let err = structurally_validate_media_token_response(&response, &ctx).unwrap_err();
+        let err = structurally_validate_media_token_outcome(&response, &ctx).unwrap_err();
         assert!(matches!(
             err,
             MediaTokenError::FocusMismatch {
@@ -523,7 +525,7 @@ mod tests {
         let actor_id = actor();
         let device_id = device();
         let ctx = good_ctx(now, &realm_id, &call_id, &actor_id, &device_id);
-        let err = structurally_validate_media_token_response(&response, &ctx).unwrap_err();
+        let err = structurally_validate_media_token_outcome(&response, &ctx).unwrap_err();
         assert_eq!(err.kind(), PushErrorKind::ParticipantBindingInvalid);
     }
 
@@ -539,7 +541,7 @@ mod tests {
         let actor_id = actor();
         let device_id = device();
         let ctx = good_ctx(now, &realm_id, &call_id, &actor_id, &device_id);
-        let err = structurally_validate_media_token_response(&response, &ctx).unwrap_err();
+        let err = structurally_validate_media_token_outcome(&response, &ctx).unwrap_err();
         assert_eq!(err.kind(), PushErrorKind::ParticipantBindingInvalid);
     }
 
@@ -555,7 +557,7 @@ mod tests {
         let actor_id = actor();
         let device_id = device();
         let ctx = good_ctx(now, &realm_id, &call_id, &actor_id, &device_id);
-        let err = structurally_validate_media_token_response(&response, &ctx).unwrap_err();
+        let err = structurally_validate_media_token_outcome(&response, &ctx).unwrap_err();
         assert_eq!(err.kind(), PushErrorKind::ParticipantBindingInvalid);
     }
 

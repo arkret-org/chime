@@ -26,7 +26,7 @@
 use chime::{
     AGENT_ACTOR_PRIVATE_KINDS, AGENT_LIFECYCLE_DURABLE_KINDS, AgentEventRouting,
     BridgeContractCache, BridgeContractDriftVerdict, PHASE_P2_AGENT_TYPED_ID_PREFIXES,
-    PushBridgeDescribeResponse, PushNotifyPrivacyMode, PushNotifyRequestBody,
+    PushBridgeDescribeOutcome, PushNotifyPrivacyMode, PushNotifyRequestBody,
     classify_agent_event_kind, is_phase_p2_agent_typed_id, render_agent_lifecycle_summary,
 };
 
@@ -94,7 +94,7 @@ const BRIDGE_DESCRIBE_FIXTURE: &str = r#"{
 
 #[test]
 fn bridge_describe_fixture_round_trips_into_chime_dto() {
-    let response: PushBridgeDescribeResponse =
+    let response: PushBridgeDescribeOutcome =
         serde_json::from_str(BRIDGE_DESCRIBE_FIXTURE).expect("fixture must parse");
 
     assert_eq!(response.contract, "ck.push.bridge.v1");
@@ -119,7 +119,7 @@ fn bridge_describe_fixture_round_trips_into_chime_dto() {
 
 #[test]
 fn bridge_describe_fixture_blind_wakeup_example_validates() {
-    let response: PushBridgeDescribeResponse =
+    let response: PushBridgeDescribeOutcome =
         serde_json::from_str(BRIDGE_DESCRIBE_FIXTURE).expect("fixture must parse");
 
     let example = response.examples.blind_wakeup_request;
@@ -138,14 +138,14 @@ fn bridge_describe_fixture_blind_wakeup_example_validates() {
 
 #[test]
 fn bridge_describe_digest_is_stable_across_serialize_round_trip() {
-    let response: PushBridgeDescribeResponse =
+    let response: PushBridgeDescribeOutcome =
         serde_json::from_str(BRIDGE_DESCRIBE_FIXTURE).unwrap();
     let cache = BridgeContractCache::from_response(&response, Some("2026-05-26T00:00:00Z"))
         .expect("baseline digest must compute");
 
     // Re-deserialize through serde and confirm the digest stays put.
     let json = serde_json::to_string(&response).unwrap();
-    let round_trip: PushBridgeDescribeResponse = serde_json::from_str(&json).unwrap();
+    let round_trip: PushBridgeDescribeOutcome = serde_json::from_str(&json).unwrap();
     assert_eq!(
         cache
             .evaluate(&round_trip)

@@ -9,8 +9,8 @@ use super::urls::{
     validate_webpush_endpoint_allowlist,
 };
 use super::wire::{
-    PushDeviceConfig, PushPlatform, PushUnsubscribeRequest, RegisterDeviceRequest,
-    UnregisterDeviceRequest, compute_push_key_hmac,
+    PushDeviceConfig, PushPlatform, PushRegisterDeviceRequestBody, PushUnregisterDeviceRequestBody,
+    PushUnsubscribeRequestBody, compute_push_key_hmac,
 };
 use super::{REGISTER_DEVICE_PATH, UNREGISTER_DEVICE_PATH};
 use crate::{GatewayBinding, PushPreferences};
@@ -57,7 +57,7 @@ pub fn build_register_device_request(
     config: &PushDeviceConfig<'_>,
     binding: &GatewayBinding,
     prefs: &PushPreferences,
-) -> Result<RegisterDeviceRequest, PushRegistrationError> {
+) -> Result<PushRegisterDeviceRequestBody, PushRegistrationError> {
     require_non_empty("device_id", config.device_id)?;
     let push_key_value = binding.push_key.as_deref().or(config.push_key);
     let push_key = require_optional_non_empty("push_key", push_key_value)?;
@@ -72,7 +72,7 @@ pub fn build_register_device_request(
         validate_webpush_endpoint_allowlist(push_key, &prefs.webpush_endpoint_allowlist)?;
     }
 
-    Ok(RegisterDeviceRequest {
+    Ok(PushRegisterDeviceRequestBody {
         operation_id: crate::OPERATION_PUSH_REGISTER_DEVICE.to_owned(),
         principal_id: config
             .principal_id
@@ -132,7 +132,7 @@ pub fn build_unregister_device_request(
     config: &PushDeviceConfig<'_>,
     binding: &GatewayBinding,
     prefs: &PushPreferences,
-) -> Result<UnregisterDeviceRequest, PushRegistrationError> {
+) -> Result<PushUnregisterDeviceRequestBody, PushRegistrationError> {
     require_non_empty("device_id", config.device_id)?;
     if non_empty_str(&binding.push_gateway).is_some() {
         validate_push_gateway_url(
@@ -149,7 +149,7 @@ pub fn build_unregister_device_request(
         .or(config.push_key)
         .and_then(non_empty_str);
 
-    Ok(UnregisterDeviceRequest {
+    Ok(PushUnregisterDeviceRequestBody {
         operation_id: crate::OPERATION_PUSH_UNREGISTER_DEVICE.to_owned(),
         principal_id: config
             .principal_id
@@ -172,9 +172,9 @@ pub fn build_unregister_device_request(
 
 /// B.5 #8 — build a push-unsubscribe request body.
 ///
-/// Wraps [`PushUnsubscribeRequest::for_circle`] /
-/// [`PushUnsubscribeRequest::for_realm`] /
-/// [`PushUnsubscribeRequest::for_flow`] with the device id, principal
+/// Wraps [`PushUnsubscribeRequestBody::for_circle`] /
+/// [`PushUnsubscribeRequestBody::for_realm`] /
+/// [`PushUnsubscribeRequestBody::for_flow`] with the device id, principal
 /// did, and request metadata taken from a [`PushDeviceConfig`] so the
 /// shape mirrors the other `build_*_request` helpers in this module.
 ///
@@ -185,16 +185,16 @@ pub fn build_unregister_device_request(
 pub fn build_unsubscribe_request(
     config: &PushDeviceConfig<'_>,
     target_id: &str,
-) -> Result<PushUnsubscribeRequest, PushRegistrationError> {
+) -> Result<PushUnsubscribeRequestBody, PushRegistrationError> {
     require_non_empty("device_id", config.device_id)?;
     require_non_empty("target_id", target_id)?;
 
     let mut request = if target_id.starts_with("ck:circle:") {
-        PushUnsubscribeRequest::for_circle(config.device_id, target_id)?
+        PushUnsubscribeRequestBody::for_circle(config.device_id, target_id)?
     } else if target_id.starts_with("ck:realm:") {
-        PushUnsubscribeRequest::for_realm(config.device_id, target_id)?
+        PushUnsubscribeRequestBody::for_realm(config.device_id, target_id)?
     } else if target_id.starts_with("ck:flow:") {
-        PushUnsubscribeRequest::for_flow(config.device_id, target_id)?
+        PushUnsubscribeRequestBody::for_flow(config.device_id, target_id)?
     } else {
         return Err(PushRegistrationError::MissingField("target_id"));
     };
@@ -253,7 +253,7 @@ pub fn build_unsubscribe_request(
 /// ```
 pub fn build_register_signing_context(
     service_base_url: &str,
-    request: &RegisterDeviceRequest,
+    request: &PushRegisterDeviceRequestBody,
     created_at: impl Into<String>,
     audience: impl Into<String>,
 ) -> Result<PushRequestSigningContext, PushRegistrationError> {
@@ -268,7 +268,7 @@ pub fn build_register_signing_context(
 /// expiry metadata.
 pub fn build_register_signing_context_with_options(
     service_base_url: &str,
-    request: &RegisterDeviceRequest,
+    request: &PushRegisterDeviceRequestBody,
     options: PushRequestSigningOptions,
 ) -> Result<PushRequestSigningContext, PushRegistrationError> {
     build_signing_context(
@@ -284,7 +284,7 @@ pub fn build_register_signing_context_with_options(
 /// Build the signing context for `ck.edge.push.unregister_device`.
 pub fn build_unregister_signing_context(
     service_base_url: &str,
-    request: &UnregisterDeviceRequest,
+    request: &PushUnregisterDeviceRequestBody,
     created_at: impl Into<String>,
     audience: impl Into<String>,
 ) -> Result<PushRequestSigningContext, PushRegistrationError> {
@@ -299,7 +299,7 @@ pub fn build_unregister_signing_context(
 /// expiry metadata.
 pub fn build_unregister_signing_context_with_options(
     service_base_url: &str,
-    request: &UnregisterDeviceRequest,
+    request: &PushUnregisterDeviceRequestBody,
     options: PushRequestSigningOptions,
 ) -> Result<PushRequestSigningContext, PushRegistrationError> {
     build_signing_context(
