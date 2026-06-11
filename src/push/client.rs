@@ -73,8 +73,8 @@ use super::wire::{
     PushRegisterDeviceRequestBody, PushUnregisterDeviceOutcome, PushUnregisterDeviceRequestBody,
 };
 use super::{
-    COKRET_REQUEST_ID_HEADER, COKRET_SESSION_GRANT_HEADER, PUSH_BRIDGE_DESCRIBE_PATH,
-    PUSH_INTEGRATION_DESCRIBE_PATH, REGISTER_DEVICE_PATH, RETRY_AFTER_HEADER, SDK_USER_AGENT,
+    COKRET_REQUEST_ID_HEADER, COKRET_SESSION_GRANT_HEADER, FLORIA_INTEGRATION_DESCRIBE_PATH,
+    FLORIA_PUSH_BRIDGE_DESCRIBE_PATH, REGISTER_DEVICE_PATH, RETRY_AFTER_HEADER, SDK_USER_AGENT,
     UNREGISTER_DEVICE_PATH,
 };
 
@@ -353,7 +353,7 @@ impl CokretPushClient {
     pub async fn bridge_describe_with_context(
         &self,
     ) -> Result<CokretHttpOutcome<PushBridgeDescribeOutcome>, PushRegistrationError> {
-        self.get_json(PUSH_BRIDGE_DESCRIBE_PATH).await
+        self.get_json(FLORIA_PUSH_BRIDGE_DESCRIBE_PATH).await
     }
 
     /// Discover the service-level push gateway integration manifest.
@@ -368,7 +368,7 @@ impl CokretPushClient {
         &self,
     ) -> Result<CokretHttpOutcome<PushGatewayIntegrationDescribeOutcome>, PushRegistrationError>
     {
-        self.get_json(PUSH_INTEGRATION_DESCRIBE_PATH).await
+        self.get_json(FLORIA_INTEGRATION_DESCRIBE_PATH).await
     }
 
     /// Fetch both the service-level integration manifest and the active bridge

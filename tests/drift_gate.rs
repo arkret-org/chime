@@ -38,7 +38,7 @@ use chime::{
 const BRIDGE_DESCRIBE_FIXTURE: &str = r#"{
     "contract": "ck.push.bridge.v1",
     "version": "1.0.0",
-    "api_base_path": "/_cokret/edge/push",
+    "api_base_path": "/_floria/push",
     "spec_version": "cokret-spec@2026-05-26",
     "gateway": {
         "service_did": "did:web:gateway.example",

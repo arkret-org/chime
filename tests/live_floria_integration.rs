@@ -82,7 +82,7 @@ async fn bridge_describe_round_trips_against_live_floria() {
 
     let derived = push_bridge_describe_url(&floria.url("/_cokret/edge/push/notify"))
         .expect("push_bridge_describe_url accepts the loopback gateway URL");
-    assert_eq!(derived, floria.url("/_cokret/edge/push/bridge/describe"));
+    assert_eq!(derived, floria.url("/_floria/push/bridge/describe"));
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -102,7 +102,7 @@ async fn integration_view_combines_describe_endpoints() {
         .manifest
         .surfaces
         .iter()
-        .any(|surface| surface.path == "/_cokret/edge/push/bridge/describe");
+        .any(|surface| surface.path == "/_floria/push/bridge/describe");
     assert!(
         bridge_describe_present,
         "integration manifest should advertise bridge/describe surface: {:?}",
@@ -115,7 +115,7 @@ async fn integration_view_combines_describe_endpoints() {
 
     let derived = push_integration_describe_url(&floria.url("/_cokret/edge/push/notify"))
         .expect("push_integration_describe_url accepts the loopback gateway URL");
-    assert_eq!(derived, floria.url("/_cokret/edge/integration/describe"));
+    assert_eq!(derived, floria.url("/_floria/integration/describe"));
 }
 
 #[tokio::test(flavor = "multi_thread")]

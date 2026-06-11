@@ -6,7 +6,7 @@ use std::net::IpAddr;
 use url::Url;
 
 use super::errors::PushRegistrationError;
-use super::{PUSH_BRIDGE_DESCRIBE_PATH, PUSH_INTEGRATION_DESCRIBE_PATH};
+use super::{FLORIA_INTEGRATION_DESCRIBE_PATH, FLORIA_PUSH_BRIDGE_DESCRIBE_PATH};
 
 /// Builds a normalized Cokret API URL.
 ///
@@ -23,6 +23,18 @@ pub fn cokret_api_url(service_base_url: &str, path: &str) -> String {
     } else {
         format!("{base}/_cokret/{path}")
     }
+}
+
+fn service_api_url(service_base_url: &str, path: &str) -> String {
+    let base = service_base_url.trim_end_matches('/');
+    let path = path.trim_start_matches('/');
+
+    if path.starts_with("_cokret/") {
+        return cokret_api_url(base, path);
+    }
+
+    let base = base.strip_suffix("/_cokret").unwrap_or(base);
+    format!("{base}/{path}")
 }
 
 /// Derive the gateway service base URL from a configured push notify endpoint.
@@ -58,7 +70,7 @@ pub fn push_gateway_service_base_url(
 
     let mut path = url.path().trim_end_matches('/').to_owned();
     for suffix in [
-        "/_cokret/edge/push/bridge/describe",
+        "/_floria/push/bridge/describe",
         "/_cokret/edge/push/notify",
         "/_cokret/edge/push",
         "/_cokret/edge",
@@ -85,9 +97,9 @@ pub fn push_gateway_service_base_url(
 
 /// Derive the active bridge-describe URL from a configured push gateway URL.
 pub fn push_bridge_describe_url(push_gateway_url: &str) -> Result<String, PushRegistrationError> {
-    Ok(cokret_api_url(
+    Ok(service_api_url(
         &push_gateway_service_base_url(push_gateway_url)?,
-        PUSH_BRIDGE_DESCRIBE_PATH,
+        FLORIA_PUSH_BRIDGE_DESCRIBE_PATH,
     ))
 }
 
@@ -95,9 +107,9 @@ pub fn push_bridge_describe_url(push_gateway_url: &str) -> Result<String, PushRe
 pub fn push_integration_describe_url(
     push_gateway_url: &str,
 ) -> Result<String, PushRegistrationError> {
-    Ok(cokret_api_url(
+    Ok(service_api_url(
         &push_gateway_service_base_url(push_gateway_url)?,
-        PUSH_INTEGRATION_DESCRIBE_PATH,
+        FLORIA_INTEGRATION_DESCRIBE_PATH,
     ))
 }
 
@@ -239,7 +251,7 @@ pub(super) fn try_cokret_api_url(
     path: &str,
 ) -> Result<String, PushRegistrationError> {
     validate_service_base_url(service_base_url)?;
-    Ok(cokret_api_url(service_base_url, path))
+    Ok(service_api_url(service_base_url, path))
 }
 
 fn validate_service_base_url(value: &str) -> Result<(), PushRegistrationError> {

@@ -2,7 +2,7 @@
 //!
 //! This module is split into:
 //! - [`wire`]: register/unregister request/response DTOs + `CokretError`
-//! - [`bridge_describe`]: `bridge/describe` + `integration/describe` DTOs
+//! - [`bridge_describe`]: floria `bridge/describe` + `integration/describe` DTOs
 //! - [`errors`]: `PushErrorKind` + `PushRegistrationError` + HTTP classification
 //! - [`signing`]: signing context + options + content digest helpers
 //! - [`urls`]: URL helpers, validation, redaction
@@ -34,11 +34,11 @@ pub const REGISTER_DEVICE_PATH: &str = "/_cokret/edge/push/register-device";
 /// Cokret HTTP path for `ck.edge.push.unregister_device`.
 pub const UNREGISTER_DEVICE_PATH: &str = "/_cokret/edge/push/unregister-device";
 
-/// Cokret HTTP path for discovering the active push gateway bridge contract.
-pub const PUSH_BRIDGE_DESCRIBE_PATH: &str = "/_cokret/edge/push/bridge/describe";
+/// Floria product path for discovering the active push gateway bridge contract.
+pub const FLORIA_PUSH_BRIDGE_DESCRIBE_PATH: &str = "/_floria/push/bridge/describe";
 
-/// Cokret HTTP path for discovering the service-level push gateway integration manifest.
-pub const PUSH_INTEGRATION_DESCRIBE_PATH: &str = "/_cokret/edge/integration/describe";
+/// Floria product path for discovering the service-level push gateway integration manifest.
+pub const FLORIA_INTEGRATION_DESCRIBE_PATH: &str = "/_floria/integration/describe";
 
 // -- Header constants -------------------------------------------------------
 
