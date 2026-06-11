@@ -58,7 +58,7 @@ url = {workspace = true}
 # `tokio::time::Instant`, but the nonce tracker also runs in pure
 # library tests without a tokio runtime; pull in `instant` so the
 # tracker can compile on every target without a runtime dependency.
-reqwest = {workspace = true,default-features = false,features = ["json", "rustls-tls"],optional = true}
+reqwest = {workspace = true,default-features = false,features = ["json", "rustls"],optional = true}
 tokio = {workspace = true,features = ["time"],optional = true}
 zeroize = {workspace = true,features = ["derive"],optional = true}
 
@@ -71,7 +71,7 @@ zeroize = {workspace = true,features = ["derive"],optional = true}
 default = []
 ## Enable Cokret HTTP push device registration via reqwest.
 ##
-## On native targets this enables reqwest with rustls-tls + a tokio
+## On native targets this enables reqwest with rustls + a tokio
 ## time driver. On wasm32 it enables reqwest's fetch backend and
 ## gloo-timers (browser `setTimeout`) for the retry backoff.
 ##

@@ -319,7 +319,7 @@ impl PushErrorKind {
                 PushErrorKind::RecordingArtifactPipelineBypassed,
             ),
             (
-                cokret::error::ERROR_CODE_LEGACY_SINGLE_ENDPOINT_MEDIA_SERVICE,
+                cokret::error::REASON_LEGACY_SINGLE_ENDPOINT_MEDIA_SERVICE,
                 PushErrorKind::LegacySingleEndpointMediaService,
             ),
             (
