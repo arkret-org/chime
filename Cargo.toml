@@ -22,50 +22,50 @@ all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
 
 [dependencies]
-base64 = "0.22"
 # R3 CALL-1 (spec b47ff6ec) — the SDK's `MediaTokenResponse.expires_at`
 # is `chrono::DateTime<Utc>`. Chime needs the type at its public surface
 # (chime exposes the SDK response through
 # `structurally_validate_media_token_response` /
 # `MediaTokenStructuralValidationContext`) so we pull chrono in directly
 # with the default features stripped to keep the wasm32 build slim.
-chrono = { version = "0.4", default-features = false, features = ["serde", "clock"] }
 # CH-1: pin chime's RFC 9530 content-digest computation to the SDK's
 # `http_signature::ContentDigest` so the wire bytes stay byte-identical
 # to what floria's verifier and soland's fanout signer emit. The SDK is
 # brought in with `default-features = false` + only the `full-surface`
 # gate so chime doesn't pick up unrelated runtimes (client/mls/etc.).
-cokret = { version = "0.3.0", path = "../cokret-rust-sdk/crates/sdk", default-features = false, features = ["full-surface"] }
-httpdate = "1"
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-sha2 = "0.11"
-thiserror = "2"
-tracing = "0.1"
-url = "2"
 
 # C34.1: split the `http` transport deps per target. Native targets keep
 # reqwest+rustls+tokio; the wasm32 build routes through reqwest's
 # fetch-backed wasm32 backend and uses `gloo-timers` for retry sleeps
 # because there is no tokio runtime on the browser main thread.
+base64 = {workspace = true}
+chrono = {workspace = true,default-features = false,features = ["serde", "clock"]}
+cokret = {workspace = true,default-features = false,features = ["full-surface"]}
+httpdate = {workspace = true}
+serde = {workspace = true,features = ["derive"]}
+serde_json = {workspace = true}
+sha2 = {workspace = true}
+thiserror = {workspace = true}
+tracing = {workspace = true}
+url = {workspace = true}
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-reqwest = { version = "0.13", default-features = false, features = ["json", "rustls-tls"], optional = true }
-tokio = { version = "1", features = ["time"], optional = true }
 # A.5 #2 — wrap bearer tokens in a `SecretString` so Drop zeroes the
 # heap allocation. Pulled in only for native targets that build the
 # `http` client; the wasm32 build also needs it (token surface is
 # identical) and so re-declares the same dep below.
-zeroize = { version = "1", features = ["derive"], optional = true }
 # A.5 #4 — `NonceTracker` needs a monotonic clock for replay-window
 # expiry. The `time` feature on tokio already gives us
 # `tokio::time::Instant`, but the nonce tracker also runs in pure
 # library tests without a tokio runtime; pull in `instant` so the
 # tracker can compile on every target without a runtime dependency.
+reqwest = {workspace = true,default-features = false,features = ["json", "rustls-tls"],optional = true}
+tokio = {workspace = true,features = ["time"],optional = true}
+zeroize = {workspace = true,features = ["derive"],optional = true}
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-reqwest = { version = "0.13", default-features = false, features = ["json"], optional = true }
-gloo-timers = { version = "0.4", features = ["futures"], optional = true }
-zeroize = { version = "1", features = ["derive"], optional = true }
+gloo-timers = {workspace = true,features = ["futures"],optional = true}
+reqwest = {workspace = true,default-features = false,features = ["json"],optional = true}
+zeroize = {workspace = true,features = ["derive"],optional = true}
 
 [features]
 default = []
@@ -84,5 +84,25 @@ http = ["dep:reqwest", "dep:tokio", "dep:gloo-timers", "dep:zeroize"]
 notify = []
 
 [dev-dependencies]
-proptest = { version = "1", default-features = false, features = ["std"] }
-tokio = { version = "1", features = ["io-util", "macros", "net", "rt-multi-thread", "time"] }
+proptest = {workspace = true,default-features = false,features = ["std"]}
+tokio = {workspace = true,features = ["io-util", "macros", "net", "rt-multi-thread", "time"]}
+
+[workspace]
+resolver = "3"
+
+[workspace.dependencies]
+base64 = "0.22"
+chrono = {version = "0.4",default-features = false}
+cokret = {version = "0.3.0",path = "../cokret-rust-sdk/crates/sdk",default-features = false}
+gloo-timers = "0.4"
+httpdate = "1"
+proptest = {version = "1",default-features = false}
+reqwest = {version = "0.13",default-features = false}
+serde = "1.0"
+serde_json = "1.0"
+sha2 = "0.11"
+thiserror = "2"
+tokio = "1"
+tracing = "0.1"
+url = "2"
+zeroize = "1"
