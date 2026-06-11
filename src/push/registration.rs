@@ -10,7 +10,7 @@ use super::urls::{
 };
 use super::wire::{
     PushDeviceConfig, PushPlatform, PushRegisterDeviceRequestBody, PushUnregisterDeviceRequestBody,
-    PushUnsubscribeRequestBody, compute_push_key_hmac,
+    compute_push_key_hmac,
 };
 use super::{REGISTER_DEVICE_PATH, UNREGISTER_DEVICE_PATH};
 use crate::{GatewayBinding, PushPreferences};
@@ -168,47 +168,6 @@ pub fn build_unregister_device_request(
         proof: config.proof.cloned(),
         ..Default::default()
     })
-}
-
-/// B.5 #8 — build a push-unsubscribe request body.
-///
-/// Wraps [`PushUnsubscribeRequestBody::for_circle`] /
-/// [`PushUnsubscribeRequestBody::for_realm`] /
-/// [`PushUnsubscribeRequestBody::for_flow`] with the device id, principal
-/// did, and request metadata taken from a [`PushDeviceConfig`] so the
-/// shape mirrors the other `build_*_request` helpers in this module.
-///
-/// `target_id` MUST be a typed reference of the form
-/// `ck:{scope}:{opaque}` where `{scope}` is `circle`, `realm`, or
-/// `flow`. Other prefixes fail with
-/// [`PushRegistrationError::MissingField`].
-pub fn build_unsubscribe_request(
-    config: &PushDeviceConfig<'_>,
-    target_id: &str,
-) -> Result<PushUnsubscribeRequestBody, PushRegistrationError> {
-    require_non_empty("device_id", config.device_id)?;
-    require_non_empty("target_id", target_id)?;
-
-    let mut request = if target_id.starts_with("ck:circle:") {
-        PushUnsubscribeRequestBody::for_circle(config.device_id, target_id)?
-    } else if target_id.starts_with("ck:realm:") {
-        PushUnsubscribeRequestBody::for_realm(config.device_id, target_id)?
-    } else if target_id.starts_with("ck:flow:") {
-        PushUnsubscribeRequestBody::for_flow(config.device_id, target_id)?
-    } else {
-        return Err(PushRegistrationError::MissingField("target_id"));
-    };
-
-    if let Some(principal_id) = config.principal_id.and_then(non_empty_str) {
-        request = request.with_principal_id(principal_id);
-    }
-    if let Some(idempotency_key) = config.idempotency_key.and_then(non_empty_str) {
-        request = request.with_idempotency_key(idempotency_key);
-    }
-    if let Some(request_id) = config.request_id.and_then(non_empty_str) {
-        request = request.with_request_id(request_id);
-    }
-    Ok(request)
 }
 
 /// Build the signing context for `ck.edge.push.register_device`.

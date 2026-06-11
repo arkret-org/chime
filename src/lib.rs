@@ -83,19 +83,18 @@ pub use push::{
     COKRET_ORIGIN_HEADER, COKRET_ORIGIN_SERVICE_DID_HEADER, COKRET_REQUEST_ID_HEADER,
     COKRET_SESSION_GRANT_HEADER, CONTENT_DIGEST_HEADER, CokretError, CokretErrorEnvelope,
     EXPECTED_SPEC_VERSION, IntegrationView, NonceReplayError, NonceTracker,
-    PUSH_BRIDGE_DESCRIBE_PATH, PUSH_INTEGRATION_DESCRIBE_PATH, PUSH_UNSUBSCRIBE_PATH,
-    PushBridgeDescribeGatewayDescriptor, PushBridgeDescribeNotifyDescriptor,
-    PushBridgeDescribeOutcome, PushBridgeDescribePrivacyDescriptor, PushDeviceConfig,
-    PushErrorKind, PushGatewayIntegrationDependency, PushGatewayIntegrationDescribeOutcome,
+    PUSH_BRIDGE_DESCRIBE_PATH, PUSH_INTEGRATION_DESCRIBE_PATH, PushBridgeDescribeGatewayDescriptor,
+    PushBridgeDescribeNotifyDescriptor, PushBridgeDescribeOutcome,
+    PushBridgeDescribePrivacyDescriptor, PushDeviceConfig, PushErrorKind,
+    PushGatewayIntegrationDependency, PushGatewayIntegrationDescribeOutcome,
     PushGatewayIntegrationSurface, PushPlatform, PushRegisterDeviceOutcome,
     PushRegisterDeviceRequestBody, PushRegistrationError, PushRequestSigningContext,
     PushRequestSigningOptions, PushUnregisterDeviceOutcome, PushUnregisterDeviceRequestBody,
-    PushUnsubscribeOutcome, PushUnsubscribeRequestBody, REGISTER_DEVICE_PATH, SIGNATURE_HEADER,
-    SIGNATURE_INPUT_HEADER, UNREGISTER_DEVICE_PATH, build_register_device_request,
-    build_register_signing_context, build_register_signing_context_with_options,
-    build_unregister_device_request, build_unregister_signing_context,
-    build_unregister_signing_context_with_options, build_unsubscribe_request, cokret_api_url,
-    compute_push_key_hmac, content_digest_sha256, push_bridge_describe_url,
+    REGISTER_DEVICE_PATH, SIGNATURE_HEADER, SIGNATURE_INPUT_HEADER, UNREGISTER_DEVICE_PATH,
+    build_register_device_request, build_register_signing_context,
+    build_register_signing_context_with_options, build_unregister_device_request,
+    build_unregister_signing_context, build_unregister_signing_context_with_options,
+    cokret_api_url, compute_push_key_hmac, content_digest_sha256, push_bridge_describe_url,
     push_gateway_service_base_url, push_integration_describe_url, redact_push_key,
     validate_push_gateway_url, validate_webpush_endpoint_allowlist, verify_push_key_binding,
 };
@@ -132,11 +131,6 @@ pub const OPERATION_PUSH_UNREGISTER_DEVICE: &str = "ck.edge.push.unregister_devi
 
 /// Canonical Cokret operation id for push wakeup delivery.
 pub const OPERATION_PUSH_NOTIFY: &str = "ck.edge.push.notify";
-
-/// B.5 #8 — Canonical Cokret operation id for the push unsubscribe
-/// call. Sent as the `operation_id` field on
-/// [`PushUnsubscribeRequestBody`].
-pub const OPERATION_PUSH_UNSUBSCRIBE: &str = "ck.push.unsubscribe";
 
 /// Default standard Cokret push gateway URL.
 ///

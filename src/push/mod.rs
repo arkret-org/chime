@@ -34,12 +34,6 @@ pub const REGISTER_DEVICE_PATH: &str = "/_cokret/edge/push/register-device";
 /// Cokret HTTP path for `ck.edge.push.unregister_device`.
 pub const UNREGISTER_DEVICE_PATH: &str = "/_cokret/edge/push/unregister-device";
 
-/// B.5 #8 — Cokret HTTP path for `ck.push.unsubscribe`. The body is a
-/// [`PushUnsubscribeRequestBody`]; the URL also accepts an optional
-/// `target_id` query parameter for callers that prefer to encode the
-/// scope outside the JSON envelope (the wire body remains canonical).
-pub const PUSH_UNSUBSCRIBE_PATH: &str = "/_cokret/edge/push/unsubscribe";
-
 /// Cokret HTTP path for discovering the active push gateway bridge contract.
 pub const PUSH_BRIDGE_DESCRIBE_PATH: &str = "/_cokret/edge/push/bridge/describe";
 
@@ -122,7 +116,6 @@ pub use registration::{
     build_register_device_request, build_register_signing_context,
     build_register_signing_context_with_options, build_unregister_device_request,
     build_unregister_signing_context, build_unregister_signing_context_with_options,
-    build_unsubscribe_request,
 };
 pub use route::{
     PushRoute, PushRouteCapability, PushRouteError, PushRouteId, PushRouteValidationError,
@@ -144,6 +137,5 @@ pub use urls::{
 pub use wire::{
     CokretError, CokretErrorEnvelope, PushDeviceConfig, PushPlatform, PushRegisterDeviceOutcome,
     PushRegisterDeviceRequestBody, PushUnregisterDeviceOutcome, PushUnregisterDeviceRequestBody,
-    PushUnsubscribeOutcome, PushUnsubscribeRequestBody, compute_push_key_hmac,
-    verify_push_key_binding,
+    compute_push_key_hmac, verify_push_key_binding,
 };

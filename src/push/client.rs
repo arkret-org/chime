@@ -66,19 +66,16 @@ use super::bridge_describe::{
     IntegrationView, PushBridgeDescribeOutcome, PushGatewayIntegrationDescribeOutcome,
 };
 use super::errors::{PushErrorKind, PushRegistrationError, classify_http_error};
-use super::registration::{
-    build_register_device_request, build_unregister_device_request, build_unsubscribe_request,
-};
+use super::registration::{build_register_device_request, build_unregister_device_request};
 use super::urls::{redact_url, try_cokret_api_url};
 use super::wire::{
     CokretErrorEnvelope, PushDeviceConfig, PushRegisterDeviceOutcome,
     PushRegisterDeviceRequestBody, PushUnregisterDeviceOutcome, PushUnregisterDeviceRequestBody,
-    PushUnsubscribeOutcome, PushUnsubscribeRequestBody,
 };
 use super::{
     COKRET_REQUEST_ID_HEADER, COKRET_SESSION_GRANT_HEADER, PUSH_BRIDGE_DESCRIBE_PATH,
-    PUSH_INTEGRATION_DESCRIBE_PATH, PUSH_UNSUBSCRIBE_PATH, REGISTER_DEVICE_PATH,
-    RETRY_AFTER_HEADER, SDK_USER_AGENT, UNREGISTER_DEVICE_PATH,
+    PUSH_INTEGRATION_DESCRIBE_PATH, REGISTER_DEVICE_PATH, RETRY_AFTER_HEADER, SDK_USER_AGENT,
+    UNREGISTER_DEVICE_PATH,
 };
 
 /// HTTP response body plus Cokret response metadata.
@@ -553,73 +550,6 @@ impl CokretPushClient {
         Ok(response)
     }
 
-    /// B.5 #8 — unsubscribe a device from a specific Circle / Realm /
-    /// Flow at the gateway.
-    ///
-    /// Differs from [`Self::unregister_device`] in scope: unregister
-    /// removes the device's push registration entirely (no more
-    /// wakeups from any scope), whereas `unsubscribe` removes a single
-    /// scope while keeping the registration alive for other scopes.
-    /// Use this when the user mutes a single Circle but expects other
-    /// Circles and Realms to keep waking the device.
-    ///
-    /// The `target_id` query parameter is added to the URL in
-    /// addition to the wire body, mirroring the floria contract that
-    /// accepts both forms for the same operation.
-    pub async fn unsubscribe(
-        &self,
-        config: &PushDeviceConfig<'_>,
-        target_id: &str,
-    ) -> Result<PushUnsubscribeOutcome, PushRegistrationError> {
-        Ok(self.unsubscribe_with_context(config, target_id).await?.body)
-    }
-
-    /// Unsubscribe a device from a scope and return response metadata.
-    pub async fn unsubscribe_with_context(
-        &self,
-        config: &PushDeviceConfig<'_>,
-        target_id: &str,
-    ) -> Result<CokretHttpOutcome<PushUnsubscribeOutcome>, PushRegistrationError> {
-        self.assert_session_grant_if_required()?;
-        let body = build_unsubscribe_request(config, target_id)?;
-        let path = format!(
-            "{PUSH_UNSUBSCRIBE_PATH}?target_id={}",
-            urlencode_for_query(target_id),
-        );
-        let response = self
-            .post_json(&path, &body, config.idempotency_key, config.request_id)
-            .await?;
-
-        tracing::info!(
-            target_id = target_id,
-            operation_id = crate::OPERATION_PUSH_UNSUBSCRIBE,
-            request_id = response.request_id.as_deref(),
-            "Cokret push device unsubscribed from scope",
-        );
-
-        Ok(response)
-    }
-
-    /// Variant of [`Self::unsubscribe`] that posts a pre-built body
-    /// (caller-supplied [`PushUnsubscribeRequestBody`]).
-    pub async fn unsubscribe_with_request(
-        &self,
-        body: &PushUnsubscribeRequestBody,
-    ) -> Result<CokretHttpOutcome<PushUnsubscribeOutcome>, PushRegistrationError> {
-        self.assert_session_grant_if_required()?;
-        let path = format!(
-            "{PUSH_UNSUBSCRIBE_PATH}?target_id={}",
-            urlencode_for_query(&body.target_id),
-        );
-        self.post_json(
-            &path,
-            body,
-            body.idempotency_key.as_deref(),
-            body.request_id.as_deref(),
-        )
-        .await
-    }
-
     /// Unregister a push-capable device from a Cokret service against
     /// a specific gateway binding.
     pub async fn unregister_device(
@@ -1074,28 +1004,6 @@ fn generate_idempotency_key() -> String {
         let _ = write!(output, "{byte:02x}");
     }
     output
-}
-
-/// Percent-encode a value for use as a URL query parameter.
-///
-/// Minimal implementation — the typed `ck:scope:opaque` strings chime
-/// builds for unsubscribe only need `:` and a small punctuation set
-/// encoded. We avoid pulling in `percent-encoding` just for this one
-/// call site.
-fn urlencode_for_query(value: &str) -> String {
-    let mut out = String::with_capacity(value.len());
-    for byte in value.bytes() {
-        match byte {
-            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
-                out.push(byte as char);
-            }
-            _ => {
-                use std::fmt::Write as _;
-                let _ = write!(out, "%{byte:02X}");
-            }
-        }
-    }
-    out
 }
 
 fn header_value(headers: &reqwest::header::HeaderMap, name: &str) -> Option<String> {
