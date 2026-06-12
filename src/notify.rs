@@ -1488,9 +1488,8 @@ pub fn is_legacy_field_alias(key: &str) -> bool {
 
 /// Recursively walk a JSON value and return `Err(field_path)` if any
 /// nested key matches a legacy B-B field-naming alias. Used by chime's
-/// wire validators (`PushNotifyRequestBody::validate_wire_model`) and by
-/// the drift-gate to ensure no caller can smuggle a renamed-from name
-/// past us.
+/// wire validators (`PushNotifyRequestBody::validate_wire_model`) so no
+/// caller can smuggle a renamed-from name past us.
 fn assert_no_legacy_aliases(payload: &Value) -> Result<(), String> {
     fn walk(path: &str, value: &Value) -> Result<(), String> {
         match value {

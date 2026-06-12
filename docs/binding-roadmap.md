@@ -12,8 +12,7 @@ promoted out of this roadmap.
 
 ## Why bindings are out of scope today
 
-- The Rust API surface still moves at every spec round (see the
-  drift-gate SLA in `docs/production-checklist.md`). Stabilising a
+- The Rust API surface still moves at every spec round. Stabilising a
   parallel ABI now would either freeze chime in place or force every
   language binding to chase the spec — neither is acceptable.
 - The host-app responsibilities documented in `SECURITY.md` (inbound

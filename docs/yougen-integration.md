@@ -42,7 +42,7 @@ Notes:
 chime exposes the compiled-in protocol version as
 `chime::EXPECTED_SPEC_VERSION` (current value pinned in
 `chime/src/push/bridge_describe.rs`). The push bridge's
-`PushBridgeDescribeResponse::spec_version` field carries whatever the
+`PushBridgeDescribeOutcome::spec_version` field carries whatever the
 deployed gateway advertises; the SDK provides
 `warn_on_spec_version_mismatch()` so drift surfaces in logs without
 crashing existing devices.
@@ -85,7 +85,7 @@ releases.
   — builds and structure-checks a `ck.self.call.media.token_exchange`
   response. The validation context type is
   `MediaTokenStructuralValidationContext`, and success returns
-  `StructurallyValidatedMediaTokenResponse`. This marker means only
+  `StructurallyValidatedMediaTokenOutcome`. This marker means only
   issuer-anchor, tuple, and TTL checks passed; yougen MUST verify
   `service_signature` and `participant_binding.sig` with the realm
   media-service Ed25519 key before SFrame keying.

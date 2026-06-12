@@ -5,8 +5,8 @@
 [![coverage](https://img.shields.io/badge/coverage-local%20tarpaulin-informational)](docs/production-checklist.md#local-verification)
 
 > **Stability:** local `1.0.0` freeze candidate. Breaking public API changes
-> now require a major-version bump. Response wire types
-> (`RegisterDeviceResponse`, `UnregisterDeviceResponse`, `CokretErrorEnvelope`)
+> now require a major-version bump. Outcome wire types
+> (`PushRegisterDeviceOutcome`, `PushUnregisterDeviceOutcome`, `CokretErrorEnvelope`)
 > carry `#[non_exhaustive]` so server-driven field additions do not break
 > downstream consumers.
 
@@ -337,7 +337,7 @@ Production notes:
 - Authentication material is only sent through headers. Do not put session tokens, API keys, signatures, or bearer tokens in a binding's `push_gateway` URL query string.
 - Media-token exchange uses a structure-only helper:
   `structurally_validate_media_token_response` returns
-  `StructurallyValidatedMediaTokenResponse` after issuer-anchor,
+  `StructurallyValidatedMediaTokenOutcome` after issuer-anchor,
   participant tuple, and TTL checks. It does not verify
   `service_signature` or `participant_binding.sig`; host code must run
   Ed25519 verification with the realm media-service key before SFrame

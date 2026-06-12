@@ -30,9 +30,9 @@ Bugle 说明：host 仍负责华为/小米/OPPO/vivo/HONOR/HarmonyOS/JPush SDK
 调用流程：
 
 1. `call_media_token_exchange(...)` 构造 token exchange 请求。
-2. 收到 `MediaTokenResponse` 后调用
+2. 收到 `CallMediaTokenExchangeOutcome` 后调用
    `structurally_validate_media_token_response(&response, &ctx)`。
-3. 成功返回的是 `StructurallyValidatedMediaTokenResponse`，只表示
+3. 成功返回的是 `StructurallyValidatedMediaTokenOutcome`，只表示
    issuer anchor、participant tuple、TTL 已通过结构校验。
 4. yougen/host 必须用 realm media-service Ed25519 公钥验证
    `service_signature` 和 `participant_binding.sig`。

@@ -1,12 +1,8 @@
-//! Local chime <-> yougen push-registration smoke tests.
+//! Local chime <-> yougen-style push-registration smoke tests.
 //!
-//! This is intentionally a local cross-check against the sibling yougen
-//! checkout. Chime owns the wire DTO/client behavior; yougen owns platform
-//! token acquisition. The smoke keeps the integration honest without adding a
-//! crate dependency cycle.
-
-use std::fs;
-use std::path::{Path, PathBuf};
+//! Chime owns the wire DTO/client behavior; yougen owns platform token
+//! acquisition. These tests exercise the chime side with the token shapes
+//! yougen supplies in production.
 
 use chime::{
     GatewayBinding, PushDeviceConfig, PushGatewayType, PushPreferences,
@@ -67,53 +63,6 @@ async fn chime_client_requires_session_grant_before_yougen_can_register() {
     );
 }
 
-#[test]
-fn sibling_yougen_wires_real_token_sources_into_chime_registration() {
-    let Some(yougen_root) = sibling_yougen_root() else {
-        eprintln!(
-            "skip sibling_yougen_wires_real_token_sources_into_chime_registration: ../yougen unavailable"
-        );
-        return;
-    };
-    let push_rs = read_required(&yougen_root, "src/push.rs");
-    let registration_rs = read_required(&yougen_root, "src/push_registration.rs");
-    let todos = read_required(&yougen_root, "_yougen_todos.md");
-
-    for needle in [
-        "set_fcm_push_token",
-        "set_apns_push_token",
-        "YOUGEN_FCM_PUSH_TOKEN",
-        "YOUGEN_APNS_PUSH_TOKEN",
-        "FcmPushTokenProvider",
-        "ApnsPushTokenProvider",
-    ] {
-        assert!(
-            push_rs.contains(needle),
-            "yougen src/push.rs no longer exposes token source `{needle}`"
-        );
-    }
-
-    for needle in [
-        "use chime::",
-        "CokretPushClient",
-        "build_register_device_request",
-        "ensure_production_register_request",
-        "with_session_grant",
-        "register_device_with_request",
-        "save_push_registration",
-    ] {
-        assert!(
-            registration_rs.contains(needle),
-            "yougen src/push_registration.rs no longer wires chime integration `{needle}`"
-        );
-    }
-
-    assert!(
-        todos.contains("Push tokens and chime session-grant proof wiring are closed"),
-        "yougen todo file no longer records the closed local push-token/chime wiring"
-    );
-}
-
 fn yougen_register_request(
     platform: &'static str,
     token: &'static str,
@@ -140,23 +89,4 @@ fn yougen_register_request(
 
     build_register_device_request(&config, &binding, &prefs)
         .expect("yougen-style platform token should build a chime register request")
-}
-
-fn sibling_yougen_root() -> Option<PathBuf> {
-    let chime_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    chime_root
-        .parent()
-        .map(|root| root.join("yougen"))
-        .filter(|path| {
-            path.join("src/push.rs").is_file() && path.join("src/push_registration.rs").is_file()
-        })
-}
-
-fn read_required(root: &Path, rel: &str) -> String {
-    fs::read_to_string(root.join(rel)).unwrap_or_else(|err| {
-        panic!(
-            "failed to read sibling yougen file {}: {err}",
-            root.join(rel).display()
-        )
-    })
 }

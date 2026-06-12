@@ -22,9 +22,9 @@ all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
 
 [dependencies]
-# R3 CALL-1 (spec b47ff6ec) — the SDK's `MediaTokenResponse.expires_at`
+# R3 CALL-1 (spec b47ff6ec) — the SDK's `CallMediaTokenExchangeOutcome.expires_at`
 # is `chrono::DateTime<Utc>`. Chime needs the type at its public surface
-# (chime exposes the SDK response through
+# (chime exposes the SDK outcome through
 # `structurally_validate_media_token_response` /
 # `MediaTokenStructuralValidationContext`) so we pull chrono in directly
 # with the default features stripped to keep the wasm32 build slim.

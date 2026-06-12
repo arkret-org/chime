@@ -76,7 +76,7 @@ change, mirroring existing history:
 
 ```
 chime: PushNotifyPolicyContext closes the C1 release gate
-chime: bridge capability accessors (B2) + drift gate fixture test (F4)
+chime: bridge capability accessors (B2) + notify agent privacy tests (F4)
 ```
 
 Reference TODO IDs (e.g. `A2`, `C3`, `F4`, `G5`) when the change
