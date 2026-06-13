@@ -101,7 +101,7 @@ pub use bridge_describe::{
     EXPECTED_SPEC_VERSION, IntegrationView, PushBridgeDescribeGatewayDescriptor,
     PushBridgeDescribeNotifyDescriptor, PushBridgeDescribeOutcome,
     PushBridgeDescribePrivacyDescriptor, PushGatewayIntegrationDependency,
-    PushGatewayIntegrationDescribeOutcome, PushGatewayIntegrationSurface,
+    PushGatewayIntegrationDescribeOutcome,
 };
 #[cfg(feature = "http")]
 pub use client::{CokretHttpOutcome, CokretPushClient, PushRetryPolicy};
@@ -141,6 +141,5 @@ pub use urls::{
 pub use wire::{
     ChimePushRegisterDeviceOutcome, ChimePushRegisterDeviceRequest,
     ChimePushUnregisterDeviceOutcome, ChimePushUnregisterDeviceRequest, CokretError,
-    CokretErrorEnvelope, PushDeviceConfig, PushPlatform, compute_push_key_hmac,
-    verify_push_key_binding,
+    CokretErrorEnvelope, PushDeviceConfig, PushPlatform,
 };

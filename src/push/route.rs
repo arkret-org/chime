@@ -12,9 +12,27 @@
 //! identifiers are reused.
 //!
 //! `chime` does not own private keys, control streams, or persistence.
-//! This module only models the wire shape and the activation /
-//! revocation state machine so consumers (yougen, soland) agree on
-//! what a route is and how it rotates.
+//!
+//! ## This is NOT the `ck.device.push_route` event payload
+//!
+//! [`PushRoute`] models chime's local **activation / revocation state
+//! machine**, not the on-the-wire `ck.device.push_route` payload. The
+//! authoritative wire contract for that event lives in the SDK as
+//! `cokret_core::model::DevicePushRoutePayload` (mirroring
+//! `event-payload.schema.json#/$defs/device_push_route_payload`). The two
+//! deliberately diverge:
+//!
+//! - the route id is stored under `route` here, whereas the event payload's field is `push_route`;
+//! - [`PushRoute`] carries state-machine fields (`revoked`, `metadata`) that the
+//!   `additionalProperties: false` event payload does not define; and
+//! - [`PushRoute`] omits the payload-required `principal_id` / `device_id` legs of the cell_subject
+//!   (they are out of scope for this struct).
+//!
+//! `PushRoute` therefore MUST NOT be serialized directly as a
+//! `ck.device.push_route` event payload. Consumers (yougen, soland) that
+//! emit the event MUST construct `DevicePushRoutePayload` from the SDK;
+//! `PushRoute`'s `Serialize`/`Deserialize` exist only for chime's own
+//! local persistence and for round-tripping the state machine in tests.
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -122,9 +140,29 @@ pub enum PushRouteCapability {
     Silent,
     /// Data-only wakeups (no user-visible alert).
     Data,
-    /// Custom capability tag. Opaque, ≤32 chars, `[a-z0-9_]`.
+    /// Custom capability tag.
+    ///
+    /// Opaque to chime and the Sync Service. The authoritative wire
+    /// schema (`device_push_route_payload.capabilities` → `string_list`)
+    /// only constrains each tag to be a non-empty string; it does NOT
+    /// pin a length or character set, so chime enforces only the
+    /// `minLength: 1` rule in [`PushRoute::validate`]. Callers that want
+    /// a tighter local convention must enforce it themselves.
     #[serde(untagged)]
     Custom(String),
+}
+
+impl PushRouteCapability {
+    /// The opaque tag string this capability serializes to.
+    fn tag(&self) -> &str {
+        match self {
+            Self::Chat => "chat",
+            Self::Voip => "voip",
+            Self::Silent => "silent",
+            Self::Data => "data",
+            Self::Custom(value) => value,
+        }
+    }
 }
 
 /// Single `(push_route, push_target_id, …)` registration written by a
@@ -209,6 +247,14 @@ pub enum PushRouteError {
     /// of silently writing a revoke into the wrong cell.
     #[error("cannot revoke a route that has no recipient_service_did")]
     RevokeMissingServiceDid,
+    /// The `capabilities` array carried an empty-string tag. The wire
+    /// schema's `string_list` items are `non_empty_string` (minLength: 1).
+    #[error("capabilities must not contain an empty tag")]
+    EmptyCapabilityTag,
+    /// The `capabilities` array carried the same tag twice. The wire
+    /// schema's `string_list` requires `uniqueItems: true`.
+    #[error("capabilities must not contain a duplicate tag `{0}`")]
+    DuplicateCapabilityTag(String),
 }
 
 /// Alias kept for the wording used in T4.1's task description so
@@ -325,15 +371,11 @@ impl PushRoute {
         self.revoked = true;
         // The retired pseudonym MUST stop being honoured by the Sync
         // Service. We clear it here so a downstream caller cannot
-        // accidentally re-emit it on the active channel.
-        #[cfg(feature = "notify")]
-        {
-            self.push_target_id = None;
-        }
-        #[cfg(not(feature = "notify"))]
-        {
-            self.push_target_id = None;
-        }
+        // accidentally re-emit it on the active channel. The field
+        // exists under both feature flags (typed vs raw-string variant),
+        // and `= None` is valid for either `Option<T>`, so no cfg gate
+        // is needed.
+        self.push_target_id = None;
         self.push_gateway_did = None;
         self.encryption_key = None;
         Ok(self)
@@ -378,6 +420,31 @@ impl PushRoute {
             return Err(PushRouteError::ActiveRouteMissing {
                 field: "recipient_service_did",
             });
+        }
+
+        self.validate_capabilities()?;
+        Ok(())
+    }
+
+    /// Enforce the authoritative `string_list` constraints on
+    /// `capabilities`: each tag MUST be a non-empty string
+    /// (`non_empty_string`, minLength: 1) and the array MUST have no
+    /// duplicates (`uniqueItems: true`).
+    ///
+    /// Spec: `event-payload.schema.json` `device_push_route_payload.capabilities`
+    /// → `string_list`. The schema pins neither a maximum length nor a
+    /// character set, so we deliberately do NOT enforce either here.
+    fn validate_capabilities(&self) -> Result<(), PushRouteError> {
+        let mut seen: Vec<&str> = Vec::with_capacity(self.capabilities.len());
+        for capability in &self.capabilities {
+            let tag = capability.tag();
+            if tag.is_empty() {
+                return Err(PushRouteError::EmptyCapabilityTag);
+            }
+            if seen.contains(&tag) {
+                return Err(PushRouteError::DuplicateCapabilityTag(tag.to_owned()));
+            }
+            seen.push(tag);
         }
         Ok(())
     }
@@ -610,6 +677,28 @@ mod tests {
 
         assert!(route.supports(&PushRouteCapability::Voip));
         assert!(!route.supports(&PushRouteCapability::Chat));
+    }
+
+    #[test]
+    fn validate_rejects_empty_capability_tag() {
+        // `string_list` items are non_empty_string (minLength: 1).
+        let json = r#"{"recipient_service_did": "did:web:p.example", "route": "apns_main", "revoked": true, "capabilities": [""]}"#;
+        let route: PushRoute = serde_json::from_str(json).unwrap();
+        assert!(matches!(
+            route.validate().unwrap_err(),
+            PushRouteError::EmptyCapabilityTag
+        ));
+    }
+
+    #[test]
+    fn validate_rejects_duplicate_capability_tag() {
+        // `string_list` requires uniqueItems: true.
+        let json = r#"{"recipient_service_did": "did:web:p.example", "route": "apns_main", "revoked": true, "capabilities": ["chat", "chat"]}"#;
+        let route: PushRoute = serde_json::from_str(json).unwrap();
+        assert!(matches!(
+            route.validate().unwrap_err(),
+            PushRouteError::DuplicateCapabilityTag(tag) if tag == "chat"
+        ));
     }
 
     #[test]

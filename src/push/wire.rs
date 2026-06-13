@@ -12,96 +12,9 @@ use std::fmt;
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use sha2::{Digest, Sha256};
 
 use super::errors::PushRegistrationError;
 use super::urls::{redact_push_key, redact_url};
-
-/// A.5 #5 — HMAC-SHA256 over the push token, keyed by the device id.
-///
-/// The output is hex-encoded so it travels through `serde_json` as a
-/// plain ASCII string without base64 alphabet ambiguity. This binding is
-/// stamped into [`ChimePushRegisterDeviceRequest::push_key_hmac`] so the floria /
-/// soland verifier can reject a tampered payload where an attacker swapped
-/// the `push_key` field for one of their own tokens but left the rest of
-/// the signed envelope intact.
-///
-/// We deliberately implement HMAC-SHA256 inline rather than pulling in
-/// the `hmac` crate: the algorithm is one page of code, and chime's
-/// transitive dep graph is already on `sha2 = 0.10`. Constants follow
-/// RFC 2104 — `ipad = 0x36`, `opad = 0x5C`, block size 64 bytes for
-/// SHA-256.
-pub fn compute_push_key_hmac(push_key: &str, device_id: &str) -> String {
-    let mac = hmac_sha256(device_id.as_bytes(), push_key.as_bytes());
-    let mut out = String::with_capacity(mac.len() * 2);
-    use std::fmt::Write as _;
-    for byte in mac {
-        let _ = write!(out, "{byte:02x}");
-    }
-    out
-}
-
-/// A.5 #5 — verify the encryption binding between a push token and a
-/// device id.
-///
-/// Returns `true` only when [`compute_push_key_hmac`] over `push_key` and
-/// `device_id` matches `expected` byte-for-byte. The comparison is
-/// constant-time so a timing side-channel doesn't leak which bytes
-/// matched.
-///
-/// Callers should treat a `false` result as fatal — it means the
-/// persisted state has been tampered with, the registration request has
-/// been man-in-the-middled, or the verifier is reading state across an
-/// incompatible device id boundary. Either way the registration MUST be
-/// rebuilt from scratch rather than retried with the old material.
-pub fn verify_push_key_binding(push_key: &str, device_id: &str, expected: &str) -> bool {
-    let expected = expected.as_bytes();
-    let computed = compute_push_key_hmac(push_key, device_id);
-    let computed = computed.as_bytes();
-    if expected.len() != computed.len() {
-        return false;
-    }
-    // Constant-time byte comparison.
-    let mut diff: u8 = 0;
-    for (a, b) in expected.iter().zip(computed.iter()) {
-        diff |= a ^ b;
-    }
-    diff == 0
-}
-
-fn hmac_sha256(key: &[u8], message: &[u8]) -> [u8; 32] {
-    const BLOCK_SIZE: usize = 64;
-    const IPAD: u8 = 0x36;
-    const OPAD: u8 = 0x5c;
-
-    // Normalise the key to BLOCK_SIZE bytes.
-    let mut block_key = [0u8; BLOCK_SIZE];
-    if key.len() > BLOCK_SIZE {
-        let digest = Sha256::digest(key);
-        block_key[..32].copy_from_slice(&digest);
-    } else {
-        block_key[..key.len()].copy_from_slice(key);
-    }
-
-    let mut inner_key = [0u8; BLOCK_SIZE];
-    let mut outer_key = [0u8; BLOCK_SIZE];
-    for i in 0..BLOCK_SIZE {
-        inner_key[i] = block_key[i] ^ IPAD;
-        outer_key[i] = block_key[i] ^ OPAD;
-    }
-
-    // Inner hash: SHA256(inner_key || message)
-    let mut inner = Sha256::new();
-    inner.update(inner_key);
-    inner.update(message);
-    let inner_digest = inner.finalize();
-
-    // Outer hash: SHA256(outer_key || inner_digest)
-    let mut outer = Sha256::new();
-    outer.update(outer_key);
-    outer.update(inner_digest);
-    outer.finalize().into()
-}
 
 /// Supported Cokret push platform values.
 ///
@@ -225,17 +138,6 @@ pub struct ChimePushRegisterDeviceRequest {
     /// with the old one and reclaim it server-side.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub previous_token_hash: Option<String>,
-    /// A.5 #5 — HMAC-SHA256(`push_key`, key=`device_id`), hex-encoded.
-    ///
-    /// Binds the push token to the device id so an attacker that
-    /// intercepts the wire envelope cannot swap the `push_key` field
-    /// for one of their own tokens. Floria/soland verifiers
-    /// recompute the HMAC from the signed payload's `push_key` +
-    /// `device_id` and reject mismatches. See
-    /// [`compute_push_key_hmac`] for the production helper and
-    /// [`verify_push_key_binding`] for the verifier-side check.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub push_key_hmac: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub proof: Option<Value>,
 }
@@ -254,7 +156,6 @@ impl fmt::Debug for ChimePushRegisterDeviceRequest {
             .field("idempotency_key", &self.idempotency_key)
             .field("request_id", &self.request_id)
             .field("previous_token_hash", &self.previous_token_hash)
-            .field("push_key_hmac", &self.push_key_hmac)
             .field("proof", &self.proof.as_ref().map(|_| "<present>"))
             .finish()
     }
@@ -484,69 +385,6 @@ mod tests {
             PushPlatform::try_from("desktop").unwrap(),
             PushPlatform::Desktop
         );
-    }
-
-    #[test]
-    fn push_key_hmac_is_stable_and_device_bound() {
-        // A.5 #5 — same `(push_key, device_id)` always produces the
-        // same digest; swapping either input changes the digest. This
-        // is the property the floria verifier relies on.
-        let hmac_a = compute_push_key_hmac("fcm:token-a", "did:web:alice.example#device-phone");
-        let hmac_a_again =
-            compute_push_key_hmac("fcm:token-a", "did:web:alice.example#device-phone");
-        assert_eq!(hmac_a, hmac_a_again);
-
-        let hmac_other_key =
-            compute_push_key_hmac("fcm:token-b", "did:web:alice.example#device-phone");
-        assert_ne!(
-            hmac_a, hmac_other_key,
-            "different push_key MUST move the HMAC"
-        );
-
-        let hmac_other_device =
-            compute_push_key_hmac("fcm:token-a", "did:web:alice.example#device-tablet");
-        assert_ne!(
-            hmac_a, hmac_other_device,
-            "different device_id MUST move the HMAC"
-        );
-
-        // 32 raw bytes -> 64 hex chars.
-        assert_eq!(hmac_a.len(), 64);
-        assert!(hmac_a.chars().all(|ch| ch.is_ascii_hexdigit()));
-    }
-
-    #[test]
-    fn verify_push_key_binding_round_trip_and_rejects_tamper() {
-        let expected = compute_push_key_hmac("fcm:token-a", "did:web:alice.example#device-phone");
-
-        assert!(verify_push_key_binding(
-            "fcm:token-a",
-            "did:web:alice.example#device-phone",
-            &expected,
-        ));
-        // Tampered push_key.
-        assert!(!verify_push_key_binding(
-            "fcm:swapped-by-attacker",
-            "did:web:alice.example#device-phone",
-            &expected,
-        ));
-        // Tampered device_id.
-        assert!(!verify_push_key_binding(
-            "fcm:token-a",
-            "did:web:mallory.example#device-phone",
-            &expected,
-        ));
-        // Tampered HMAC (single-byte flip in the hex string).
-        let mut flipped = expected;
-        let last = flipped.pop().unwrap();
-        // Swap the last hex digit to something else so the comparison
-        // is *just barely* wrong.
-        flipped.push(if last == '0' { '1' } else { '0' });
-        assert!(!verify_push_key_binding(
-            "fcm:token-a",
-            "did:web:alice.example#device-phone",
-            &flipped,
-        ));
     }
 
     #[test]

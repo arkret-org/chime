@@ -10,8 +10,8 @@
 //! `PushRequestSigningContext` type itself stays in chime because:
 //!
 //! 1. chime's covered-component set differs from floria's notify set — it covers
-//!    `x-cokret-operation-id`, `x-cokretice-id`, `x-cokret-created-at`, `x-cokret-audience` (the
-//!    device- registration flow), not the two service-DID headers floria's `/notify` verifier
+//!    `x-cokret-operation-id`, `x-cokret-device-id`, `x-cokret-created-at`, `x-cokret-audience`
+//!    (the device- registration flow), not the two service-DID headers floria's `/notify` verifier
 //!    requires.
 //! 2. chime never owned a private key; it only canonicalizes context so an external signer (the
 //!    host application's DID proof or HSM) can attach a pre-computed `Signature` header. The SDK's
@@ -147,6 +147,12 @@ impl PushRequestSigningContext {
     }
 
     /// Build the `Signature-Input` header value for this request context.
+    ///
+    /// Covered-component header names are derived from the same
+    /// `COKRET_*_HEADER` constants emitted by
+    /// [`Self::signed_metadata_headers`] (lowercased per RFC 9421), so the
+    /// declared `Signature-Input` set can never drift from the headers
+    /// actually placed on the wire.
     pub fn http_message_signature_input(
         &self,
         label: &str,
@@ -155,37 +161,57 @@ impl PushRequestSigningContext {
         let mut components: Vec<Component> = Vec::with_capacity(15);
         components.push(Component::Method);
         components.push(Component::TargetUri);
-        components.push(Component::Header("content-digest".to_owned()));
-        components.push(Component::Header("x-cokret-operation-id".to_owned()));
-        components.push(Component::Header("x-cokretice-id".to_owned()));
-        components.push(Component::Header("x-cokret-created-at".to_owned()));
-        components.push(Component::Header("x-cokret-audience".to_owned()));
+        components.push(Component::Header(
+            CONTENT_DIGEST_HEADER.to_ascii_lowercase(),
+        ));
+        components.push(Component::Header(
+            COKRET_OPERATION_ID_HEADER.to_ascii_lowercase(),
+        ));
+        components.push(Component::Header(
+            COKRET_DEVICE_ID_HEADER.to_ascii_lowercase(),
+        ));
+        components.push(Component::Header(
+            COKRET_CREATED_AT_HEADER.to_ascii_lowercase(),
+        ));
+        components.push(Component::Header(
+            COKRET_AUDIENCE_HEADER.to_ascii_lowercase(),
+        ));
 
         if self.actor_id.is_some() {
-            components.push(Component::Header("x-cokret-actor-id".to_owned()));
+            components.push(Component::Header(
+                COKRET_ACTOR_ID_HEADER.to_ascii_lowercase(),
+            ));
         }
         if self.expires_at.is_some() {
-            components.push(Component::Header("x-cokret-expires-at".to_owned()));
+            components.push(Component::Header(
+                COKRET_EXPIRES_AT_HEADER.to_ascii_lowercase(),
+            ));
         }
         if self.origin.is_some() {
-            components.push(Component::Header("x-cokret-origin".to_owned()));
+            components.push(Component::Header(COKRET_ORIGIN_HEADER.to_ascii_lowercase()));
         }
         if self.origin_service_did.is_some() {
-            components.push(Component::Header("x-cokret-origin-service-did".to_owned()));
+            components.push(Component::Header(
+                COKRET_ORIGIN_SERVICE_DID_HEADER.to_ascii_lowercase(),
+            ));
         }
         if self.destination_service_did.is_some() {
             components.push(Component::Header(
-                "x-cokret-destination-service-did".to_owned(),
+                COKRET_DESTINATION_SERVICE_DID_HEADER.to_ascii_lowercase(),
             ));
         }
         if self.nonce.is_some() {
-            components.push(Component::Header("x-cokret-nonce".to_owned()));
+            components.push(Component::Header(COKRET_NONCE_HEADER.to_ascii_lowercase()));
         }
         if self.idempotency_key.is_some() {
-            components.push(Component::Header("x-cokret-idempotency-key".to_owned()));
+            components.push(Component::Header(
+                COKRET_IDEMPOTENCY_KEY_HEADER.to_ascii_lowercase(),
+            ));
         }
         if self.session_grant.is_some() {
-            components.push(Component::Header("x-cokret-session-grant".to_owned()));
+            components.push(Component::Header(
+                COKRET_SESSION_GRANT_HEADER.to_ascii_lowercase(),
+            ));
         }
 
         format_signature_input_component_list(label, &components).map_err(|_| {

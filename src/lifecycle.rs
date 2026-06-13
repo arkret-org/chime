@@ -314,11 +314,16 @@ where
 /// Errors surfaced by [`on_account_deactivate`].
 ///
 /// Each variant pins down which sub-step failed so the integrator can
-/// retry the right one. We deliberately do NOT short-circuit on the
-/// first error: chime always attempts all three sub-steps and reports
-/// the first failure, because cancelling on (e.g.) a transient queue
-/// drain error would leave the keypackage cache and session intact —
-/// the opposite of fail-closed.
+/// retry the right one. The three sink sub-steps (drain queue → clear
+/// keypackage cache → invalidate session) run in a fixed order and
+/// **short-circuit on the first error**: a failure aborts the remaining
+/// sink steps and is returned as the matching variant, with the
+/// [`AccountDeactivationReceipt`] recording exactly which steps ran. The
+/// caller is responsible for retrying the failed step (and any it
+/// preceded) so deactivation eventually completes fail-closed. The
+/// push-preferences clear is the one exception — it uses a separate
+/// store and is always attempted regardless of a sink failure; see
+/// [`on_account_deactivate`].
 #[derive(Debug, thiserror::Error)]
 pub enum AccountDeactivationError<E> {
     /// The local push queue drain hook returned an error.
@@ -388,10 +393,12 @@ impl AccountDeactivationReceipt {
 /// 4. PushPreferences clear is best-effort and runs after the three sink hooks because it's purely
 ///    chime-owned state.
 ///
-/// On the first error chime stops invoking *subsequent* sink methods
-/// (the receipt records what ran and what didn't) but ALWAYS attempts
-/// the push-preferences clear because that step uses a separate
-/// trait/store and doesn't depend on the sink.
+/// On the first error chime stops invoking *subsequent* steps and
+/// returns the matching [`AccountDeactivationError`] variant; the
+/// receipt records which steps ran and which did not. The
+/// push-preferences clear runs only after all three sink steps have
+/// succeeded (it is the last step), so a sink failure also skips it —
+/// the integrator retries the failed step and everything after it.
 //
 pub fn on_account_deactivate<S, P>(
     sink: &S,

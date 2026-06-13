@@ -17,9 +17,7 @@ pub(crate) mod test_fixtures;
 /// Schema version recorded with each persisted [`PushRegistrationState`].
 pub const PUSH_REGISTRATION_STATE_SCHEMA_VERSION: u16 = 1;
 
-pub use bridge_cache::{
-    BridgeContractCache, BridgeContractDriftVerdict, CacheError as BridgeContractCacheError,
-};
+pub use bridge_cache::{BridgeContractCache, BridgeContractCacheError, BridgeContractDriftVerdict};
 pub use model::{
     MemoizingPushPreferencesStore, PUSH_PREFERENCES_CACHE_TTL, PushPreferencesStore,
     PushRegistrationLastError, PushRegistrationState, PushRegistrationStore,

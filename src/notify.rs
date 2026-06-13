@@ -491,7 +491,7 @@ impl PushNotification {
             });
         }
         if let Some(counts) = &self.counts {
-            validate_counts("counts", counts)?;
+            validate_counts("counts", None, counts)?;
         }
         for (key, value) in &self.extra {
             if is_sensitive_payload_key(key) {
@@ -915,7 +915,7 @@ pub fn shared_push_notify_privacy_vectors() -> Vec<PushNotifyPrivacyVector> {
                     "push_target_id": "ck:pseudonym:push:01HYZ8Z000000000000000",
                     "wakeup_kind": "message",
                     "push_hint": "new_message",
-                    "counts": { "unread": 1 },
+                    "counts": { "badge": "2-5" },
                     "devices": [{ "push_key": "fcm:opaque-token", "app_id": "app.example" }]
                 }
             }),
@@ -1140,12 +1140,60 @@ fn validate_extra_typed_string(
     }
 }
 
-fn validate_counts(path: &str, value: &Value) -> Result<(), PushNotifyPrivacyError> {
+/// Validate `notification.counts` under the `blind_wakeup` privacy baseline.
+///
+/// Per `discovery/push-notifications.md` §5.1 (normative), a plaintext
+/// **absolute** unread count is an activity side-channel and MUST NOT
+/// travel in a blind wakeup. `counts` MUST instead use one of:
+///
+/// 1. a coarse boolean `badge` (`true`/`false` — "has / has-no new content");
+/// 2. an `unread_increment` delta (a number that conveys only the change, not the running total);
+///    or
+/// 3. a **bucketized** string such as `"1"` / `"2-5"` / `"6+"`.
+///
+/// chime can enforce the structural part of this rule: a bare `Number`
+/// for any key other than the `*_increment` delta keys is a plaintext
+/// absolute count and is rejected. The hysteresis / minimum-residency
+/// requirement on bucket outputs depends on Realm policy bandwidth that
+/// is not visible at the chime boundary and is enforced by the emitting
+/// service (floria); see SPEC-CR follow-up.
+///
+/// `leaf_key` is the immediate object key the value was found under (the
+/// last path segment), used to distinguish increment deltas from absolute
+/// counts. The top-level `counts` object passes `None`.
+fn validate_counts(
+    path: &str,
+    leaf_key: Option<&str>,
+    value: &Value,
+) -> Result<(), PushNotifyPrivacyError> {
     match value {
-        Value::Number(_) => Ok(()),
+        // Coarse boolean badge — never exposes an absolute magnitude.
+        Value::Bool(_) => Ok(()),
+        // A numeric value is only permitted for increment-delta keys.
+        // Any other numeric key is a plaintext absolute count, which
+        // §5.1 forbids under blind_wakeup.
+        Value::Number(_) => match leaf_key {
+            Some(key) if key == "unread_increment" || key.ends_with("_increment") => Ok(()),
+            _ => Err(PushNotifyPrivacyError::SensitiveField {
+                field: path.to_owned(),
+            }),
+        },
+        // Bucketized string form (e.g. "1" / "2-5" / "6+"). We reject any
+        // sensitive literal but otherwise treat the opaque bucket label as
+        // acceptable; the policy-driven hysteresis/min-residency band is
+        // enforced by the emitting service, not visible here.
+        Value::String(raw) => {
+            let lowered = raw.to_ascii_lowercase();
+            if lowered.contains("did:") || lowered.contains(":did") {
+                return Err(PushNotifyPrivacyError::SensitiveField {
+                    field: path.to_owned(),
+                });
+            }
+            Ok(())
+        }
         Value::Object(map) => {
             for (key, nested) in map {
-                validate_counts(&format!("{path}.{key}"), nested)?;
+                validate_counts(&format!("{path}.{key}"), Some(key), nested)?;
             }
             Ok(())
         }
@@ -1626,7 +1674,7 @@ mod tests {
             event_id: Some("ck:event:01JS0EV000000000000000000".to_owned()),
             realm_id: Some("ck:realm:01JS0SP000000000000000000".to_owned()),
             push_hint: Some(PushHint::new("new_message").unwrap()),
-            counts: Some(serde_json::json!({ "unread": 1 })),
+            counts: Some(serde_json::json!({ "badge": "2-5" })),
             devices: vec![device()],
             ..Default::default()
         }
@@ -2027,6 +2075,35 @@ mod tests {
             err,
             PushNotifyPrivacyError::SensitiveField { field } if field == "circle_id"
         ));
+    }
+
+    #[test]
+    fn blind_wakeup_rejects_plaintext_absolute_unread_count() {
+        // §5.1: a plaintext absolute unread count is an activity
+        // side-channel and MUST NOT travel in a blind wakeup.
+        let mut n = notification();
+        n.counts = Some(serde_json::json!({ "unread": 9999 }));
+        let err = n.validate_blind_wakeup().unwrap_err();
+        assert!(matches!(
+            err,
+            PushNotifyPrivacyError::SensitiveField { field } if field == "counts.unread"
+        ));
+    }
+
+    #[test]
+    fn blind_wakeup_accepts_increment_bucket_and_badge_counts() {
+        // The three §5.1-permitted forms: increment delta, bucketized
+        // string, and coarse boolean badge.
+        for counts in [
+            serde_json::json!({ "unread_increment": 3 }),
+            serde_json::json!({ "badge": "2-5" }),
+            serde_json::json!({ "badge": true }),
+        ] {
+            let mut n = notification();
+            n.counts = Some(counts.clone());
+            n.validate_blind_wakeup()
+                .unwrap_or_else(|err| panic!("counts {counts} must pass blind_wakeup: {err}"));
+        }
     }
 
     #[test]

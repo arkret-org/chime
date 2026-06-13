@@ -39,33 +39,27 @@ pub trait PlatformAppIdResolver {
 
 /// Default `PlatformAppIdResolver` implementation.
 ///
-/// - `Android` / `Ios` → require `app_id`; ignore `domestic_app_id` because provider-specific
-///   routing belongs to [`crate::bugle::BugleAppIdResolver`] or a host-supplied resolver.
-/// - `Web` / `Desktop` → fall back to `app_id` when present; treat the field as required (the
-///   gateway needs *some* identifier even for webpush so it can scope subscriptions per origin).
-///
-/// Returns `PushRegistrationError::MissingField("app_id")` whenever no
-/// usable identifier is available.
+/// For every platform the rule is identical: require a non-empty
+/// `app_id` and ignore `domestic_app_id`. The gateway needs *some*
+/// identifier even for webpush so it can scope subscriptions per origin,
+/// and provider-specific (e.g. Bugle Huawei/Xiaomi/OPPO) routing belongs
+/// to [`crate::bugle::BugleAppIdResolver`] or a host-supplied resolver,
+/// not the default. Returns `PushRegistrationError::MissingField("app_id")`
+/// whenever no usable identifier is available.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct DefaultPlatformAppIdResolver;
 
 impl PlatformAppIdResolver for DefaultPlatformAppIdResolver {
     fn resolve_app_id(
         &self,
-        platform: PushPlatform,
+        _platform: PushPlatform,
         app_id: Option<&str>,
         _domestic_app_id: Option<&str>,
     ) -> Result<String, PushRegistrationError> {
-        match platform {
-            PushPlatform::Android | PushPlatform::Ios => app_id
-                .filter(|value| !value.trim().is_empty())
-                .map(str::to_owned)
-                .ok_or(PushRegistrationError::MissingField("app_id")),
-            PushPlatform::Web | PushPlatform::Desktop => app_id
-                .filter(|value| !value.trim().is_empty())
-                .map(str::to_owned)
-                .ok_or(PushRegistrationError::MissingField("app_id")),
-        }
+        app_id
+            .filter(|value| !value.trim().is_empty())
+            .map(str::to_owned)
+            .ok_or(PushRegistrationError::MissingField("app_id"))
     }
 }
 

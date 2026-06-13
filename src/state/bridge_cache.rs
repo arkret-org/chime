@@ -29,7 +29,7 @@ use crate::PushBridgeDescribeOutcome;
 /// `PushBridgeDescribeOutcome` schema allows. Surfacing the error
 /// nonetheless guards against future schema additions.
 #[derive(Debug, Error)]
-pub enum CacheError {
+pub enum BridgeContractCacheError {
     /// Serialising the bridge/describe response to canonical JSON failed.
     /// The digest cannot be computed; the cache entry MUST NOT be
     /// constructed.
@@ -61,13 +61,13 @@ impl BridgeContractCache {
     /// Compute a fresh cache entry from a bridge describe response.
     ///
     /// A.5 #3 — fail-closed: when the underlying serialisation fails the
-    /// constructor returns `Err(CacheError::Serialize)` rather than
+    /// constructor returns `Err(BridgeContractCacheError::Serialize)` rather than
     /// silently building a cache entry whose digest is over an empty
     /// byte slice.
     pub fn from_response(
         response: &PushBridgeDescribeOutcome,
         observed_at: Option<&str>,
-    ) -> Result<Self, CacheError> {
+    ) -> Result<Self, BridgeContractCacheError> {
         Ok(Self {
             digest: compute_digest(response)?,
             contract: response.contract.clone(),
@@ -85,7 +85,7 @@ impl BridgeContractCache {
     pub fn evaluate(
         &self,
         fresh: &PushBridgeDescribeOutcome,
-    ) -> Result<BridgeContractDriftVerdict, CacheError> {
+    ) -> Result<BridgeContractDriftVerdict, BridgeContractCacheError> {
         let fresh_digest = compute_digest(fresh)?;
         Ok(if self.digest == fresh_digest {
             BridgeContractDriftVerdict::Unchanged
@@ -145,7 +145,9 @@ impl BridgeContractDriftVerdict {
     }
 }
 
-fn compute_digest(response: &PushBridgeDescribeOutcome) -> Result<String, CacheError> {
+fn compute_digest(
+    response: &PushBridgeDescribeOutcome,
+) -> Result<String, BridgeContractCacheError> {
     let json = serde_json::to_vec(response)?;
     let digest = Sha256::digest(&json);
     let mut output = String::with_capacity(digest.len() * 2);

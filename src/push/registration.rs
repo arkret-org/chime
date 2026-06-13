@@ -1,7 +1,5 @@
 //! Request body builders for register/unregister + their signing contexts.
 
-use sha2::{Digest, Sha256};
-
 use super::errors::PushRegistrationError;
 use super::signing::{PushRequestSigningContext, PushRequestSigningOptions, build_signing_context};
 use super::urls::{
@@ -10,10 +8,10 @@ use super::urls::{
 };
 use super::wire::{
     ChimePushRegisterDeviceRequest, ChimePushUnregisterDeviceRequest, PushDeviceConfig,
-    PushPlatform, compute_push_key_hmac,
+    PushPlatform,
 };
 use super::{REGISTER_DEVICE_PATH, UNREGISTER_DEVICE_PATH};
-use crate::{GatewayBinding, PushPreferences};
+use crate::{GatewayBinding, PushPreferences, hash_push_key};
 
 /// Build the Cokret register-device request body from app configuration,
 /// the target gateway binding, and stored push preferences.
@@ -86,10 +84,6 @@ pub fn build_register_device_request(
         display_name: config.display_name.map(str::to_owned),
         idempotency_key: config.idempotency_key.map(str::to_owned),
         request_id: config.request_id.map(str::to_owned),
-        // A.5 #5 — bind the push token to the device id with an
-        // HMAC-SHA256 so a tampered wire envelope (push_key swap) is
-        // rejected by floria's verifier.
-        push_key_hmac: Some(compute_push_key_hmac(push_key, config.device_id)),
         proof: config.proof.cloned(),
         ..Default::default()
     })
@@ -160,7 +154,7 @@ pub fn build_unregister_device_request(
             .map(str::to_owned),
         push_gateway: non_empty_str(&binding.push_gateway).map(str::to_owned),
         push_key: push_key.map(str::to_owned),
-        push_key_hash: push_key.map(hash_push_key_for_wire),
+        push_key_hash: push_key.map(hash_push_key),
         push_key_preview: push_key.map(redact_push_key),
         app_id: app_id.map(str::to_owned),
         idempotency_key: config.idempotency_key.map(str::to_owned),
@@ -275,17 +269,6 @@ pub fn build_unregister_signing_context_with_options(
 
 fn parse_platform(value: Option<&str>) -> Result<Option<PushPlatform>, PushRegistrationError> {
     value.map(PushPlatform::try_from).transpose()
-}
-
-fn hash_push_key_for_wire(push_key: &str) -> String {
-    let digest = Sha256::digest(push_key.as_bytes());
-    let mut output = String::with_capacity("sha256:".len() + digest.len() * 2);
-    output.push_str("sha256:");
-    for byte in digest {
-        use std::fmt::Write as _;
-        let _ = write!(output, "{byte:02x}");
-    }
-    output
 }
 
 fn non_empty_str(value: &str) -> Option<&str> {
