@@ -207,22 +207,32 @@ impl fmt::Debug for CokretPushClient {
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
+fn default_http_client() -> reqwest::Client {
+    // Disable redirect-following: the push register/unregister/describe
+    // calls are protocol-face POST/GET that never legitimately need a
+    // client redirect. reqwest only strips the standard
+    // Authorization/Cookie/Proxy-Authorization headers on a cross-host
+    // redirect, NOT custom headers — so following a 3xx would re-send
+    // the credential-bearing `x-cokret-session-grant` and HTTP Message
+    // Signature headers to the redirect target. We fail-close on any
+    // 3xx instead. Hosts injecting their own client via
+    // `with_http_client` should apply the same policy.
+    reqwest::Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+        .unwrap_or_else(|_| reqwest::Client::new())
+}
+
+#[cfg(target_arch = "wasm32")]
+fn default_http_client() -> reqwest::Client {
+    reqwest::Client::new()
+}
+
 impl CokretPushClient {
     pub fn new(service_base_url: impl Into<String>) -> Self {
         Self {
-            // Disable redirect-following: the push register/unregister/describe
-            // calls are protocol-face POST/GET that never legitimately need a
-            // client redirect. reqwest only strips the standard
-            // Authorization/Cookie/Proxy-Authorization headers on a cross-host
-            // redirect, NOT custom headers — so following a 3xx would re-send
-            // the credential-bearing `x-cokret-session-grant` and HTTP Message
-            // Signature headers to the redirect target. We fail-close on any
-            // 3xx instead. Hosts injecting their own client via
-            // `with_http_client` should apply the same policy.
-            http: reqwest::Client::builder()
-                .redirect(reqwest::redirect::Policy::none())
-                .build()
-                .unwrap_or_else(|_| reqwest::Client::new()),
+            http: default_http_client(),
             service_base_url: service_base_url.into(),
             bearer_token: None,
             timeout: None,
@@ -243,13 +253,14 @@ impl CokretPushClient {
 
     /// Override the underlying `reqwest::Client`.
     ///
-    /// The injected client SHOULD disable redirect-following
-    /// (`reqwest::redirect::Policy::none()`); otherwise a cross-host 3xx
-    /// from a compromised or misconfigured service will re-send the
-    /// credential-bearing `x-cokret-session-grant` and HTTP Message
-    /// Signature headers to the redirect target (reqwest does not strip
-    /// custom headers across redirects). The default client built by
-    /// [`Self::new`] already disables redirects.
+    /// On native targets, the injected client SHOULD disable redirect-following
+    /// (`reqwest::redirect::Policy::none()`). Otherwise a cross-host 3xx from
+    /// a compromised or misconfigured service can re-send the credential-bearing
+    /// `x-cokret-session-grant` and HTTP Message Signature headers to the
+    /// redirect target (reqwest does not strip custom headers across redirects).
+    /// The default native client built by [`Self::new`] already disables
+    /// redirects. On wasm32, reqwest delegates to browser Fetch and exposes no
+    /// redirect-policy builder API.
     pub fn with_http_client(mut self, http: reqwest::Client) -> Self {
         self.http = http;
         self
