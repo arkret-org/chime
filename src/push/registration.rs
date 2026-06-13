@@ -9,8 +9,8 @@ use super::urls::{
     validate_webpush_endpoint_allowlist,
 };
 use super::wire::{
-    PushDeviceConfig, PushPlatform, ChimePushRegisterDeviceRequest, ChimePushUnregisterDeviceRequest,
-    compute_push_key_hmac,
+    ChimePushRegisterDeviceRequest, ChimePushUnregisterDeviceRequest, PushDeviceConfig,
+    PushPlatform, compute_push_key_hmac,
 };
 use super::{REGISTER_DEVICE_PATH, UNREGISTER_DEVICE_PATH};
 use crate::{GatewayBinding, PushPreferences};
@@ -170,7 +170,7 @@ pub fn build_unregister_device_request(
     })
 }
 
-/// Build the signing context for `ck.edge.push.register_device`.
+/// Build the signing context for `ck.edge.push.command.register_device`.
 ///
 /// ```rust
 /// use chime::{
@@ -223,7 +223,7 @@ pub fn build_register_signing_context(
     )
 }
 
-/// Build the signing context for `ck.edge.push.register_device` with actor and
+/// Build the signing context for `ck.edge.push.command.register_device` with actor and
 /// expiry metadata.
 pub fn build_register_signing_context_with_options(
     service_base_url: &str,
@@ -241,7 +241,7 @@ pub fn build_register_signing_context_with_options(
     )
 }
 
-/// Build the signing context for `ck.edge.push.unregister_device`.
+/// Build the signing context for `ck.edge.push.command.unregister_device`.
 pub fn build_unregister_signing_context(
     service_base_url: &str,
     request: &ChimePushUnregisterDeviceRequest,
@@ -255,7 +255,7 @@ pub fn build_unregister_signing_context(
     )
 }
 
-/// Build the signing context for `ck.edge.push.unregister_device` with actor and
+/// Build the signing context for `ck.edge.push.command.unregister_device` with actor and
 /// expiry metadata.
 pub fn build_unregister_signing_context_with_options(
     service_base_url: &str,

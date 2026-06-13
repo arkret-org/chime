@@ -1,4 +1,4 @@
-//! Wire DTOs for `ck.edge.push.register_device` / `ck.edge.push.unregister_device`.
+//! Wire DTOs for `ck.edge.push.command.register_device` / `ck.edge.push.command.unregister_device`.
 //!
 //! ## Stability
 //!
@@ -581,13 +581,14 @@ mod tests {
         assert_eq!(register.warnings, vec!["duplicate-safe"]);
         assert_eq!(register.request_id.as_deref(), Some("ck:request:123"));
 
-        let unregister: ChimePushUnregisterDeviceOutcome = serde_json::from_value(serde_json::json!({
-            "ok": true,
-            "already_removed": true,
-            "removed_registration_id": "reg-1",
-            "request_id": "ck:request:456"
-        }))
-        .unwrap();
+        let unregister: ChimePushUnregisterDeviceOutcome =
+            serde_json::from_value(serde_json::json!({
+                "ok": true,
+                "already_removed": true,
+                "removed_registration_id": "reg-1",
+                "request_id": "ck:request:456"
+            }))
+            .unwrap();
 
         assert!(unregister.ok);
         assert!(unregister.already_removed);

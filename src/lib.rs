@@ -61,14 +61,14 @@ pub use lifecycle::{
 #[cfg(feature = "notify")]
 pub use notify::{
     AGENT_ACTOR_PRIVATE_KINDS, AGENT_LIFECYCLE_DURABLE_KINDS, AgentEventRouting,
-    AgentLifecycleSummary, EncryptedEnvelope, EncryptedEnvelopeError, MentionRedirectRouting,
-    PHASE_P2_AGENT_TYPED_ID_PREFIXES, PHASE_P2_LEGACY_FIELD_ALIASES, ProviderRetryHint,
-    PushDeliveryReceipt, PushHint, PushNotification, PushNotificationDedup, PushNotificationDevice,
-    ChimePushNotifyOutcome, PushNotifyPolicyContext, PushNotifyPrivacyError, PushNotifyPrivacyMode,
-    PushNotifyPrivacyVector, ChimePushNotifyEnvelope, PushTargetId, ROUND_R2_R3_SENSITIVE_FIELDS,
-    RejectedPushToken, WakeupKind, assert_no_sensitive_fields, classify_agent_event_kind,
-    is_legacy_field_alias, is_phase_p2_agent_typed_id, render_agent_lifecycle_summary,
-    shared_push_notify_privacy_vectors,
+    AgentLifecycleSummary, ChimePushNotifyEnvelope, ChimePushNotifyOutcome, EncryptedEnvelope,
+    EncryptedEnvelopeError, MentionRedirectRouting, PHASE_P2_AGENT_TYPED_ID_PREFIXES,
+    PHASE_P2_LEGACY_FIELD_ALIASES, ProviderRetryHint, PushDeliveryReceipt, PushHint,
+    PushNotification, PushNotificationDedup, PushNotificationDevice, PushNotifyPolicyContext,
+    PushNotifyPrivacyError, PushNotifyPrivacyMode, PushNotifyPrivacyVector, PushTargetId,
+    ROUND_R2_R3_SENSITIVE_FIELDS, RejectedPushToken, WakeupKind, assert_no_sensitive_fields,
+    classify_agent_event_kind, is_legacy_field_alias, is_phase_p2_agent_typed_id,
+    render_agent_lifecycle_summary, shared_push_notify_privacy_vectors,
 };
 // R3 (CALL-1 / CALL-2, spec b47ff6ec) — media token exchange surface.
 // Re-exported so chime consumers (yougen) call
@@ -81,18 +81,18 @@ pub use push::{
     COKRET_DESTINATION_SERVICE_DID_HEADER, COKRET_DEVICE_ID_HEADER, COKRET_EXPIRES_AT_HEADER,
     COKRET_IDEMPOTENCY_KEY_HEADER, COKRET_NONCE_HEADER, COKRET_OPERATION_ID_HEADER,
     COKRET_ORIGIN_HEADER, COKRET_ORIGIN_SERVICE_DID_HEADER, COKRET_REQUEST_ID_HEADER,
-    COKRET_SESSION_GRANT_HEADER, CONTENT_DIGEST_HEADER, CokretError, CokretErrorEnvelope,
-    EXPECTED_SPEC_VERSION, FLORIA_INTEGRATION_DESCRIBE_PATH, FLORIA_PUSH_BRIDGE_DESCRIBE_PATH,
-    IntegrationView, NonceReplayError, NonceTracker, PushBridgeDescribeGatewayDescriptor,
+    COKRET_SESSION_GRANT_HEADER, CONTENT_DIGEST_HEADER, ChimePushRegisterDeviceOutcome,
+    ChimePushRegisterDeviceRequest, ChimePushUnregisterDeviceOutcome,
+    ChimePushUnregisterDeviceRequest, CokretError, CokretErrorEnvelope, EXPECTED_SPEC_VERSION,
+    FLORIA_INTEGRATION_DESCRIBE_PATH, FLORIA_PUSH_BRIDGE_DESCRIBE_PATH, IntegrationView,
+    NonceReplayError, NonceTracker, PushBridgeDescribeGatewayDescriptor,
     PushBridgeDescribeNotifyDescriptor, PushBridgeDescribeOutcome,
     PushBridgeDescribePrivacyDescriptor, PushDeviceConfig, PushErrorKind,
     PushGatewayIntegrationDependency, PushGatewayIntegrationDescribeOutcome,
     PushGatewayIntegrationSurface, PushPlatform, PushRegisterDeviceOutcome,
-    PushRegisterDeviceRequestBody, ChimePushRegisterDeviceOutcome,
-    ChimePushRegisterDeviceRequest, PushRegistrationError, PushRequestSigningContext,
+    PushRegisterDeviceRequestBody, PushRegistrationError, PushRequestSigningContext,
     PushRequestSigningOptions, PushUnregisterDeviceOutcome, PushUnregisterDeviceRequestBody,
-    ChimePushUnregisterDeviceOutcome, ChimePushUnregisterDeviceRequest, REGISTER_DEVICE_PATH,
-    SIGNATURE_HEADER, SIGNATURE_INPUT_HEADER, UNREGISTER_DEVICE_PATH,
+    REGISTER_DEVICE_PATH, SIGNATURE_HEADER, SIGNATURE_INPUT_HEADER, UNREGISTER_DEVICE_PATH,
     build_register_device_request, build_register_signing_context,
     build_register_signing_context_with_options, build_unregister_device_request,
     build_unregister_signing_context, build_unregister_signing_context_with_options,
@@ -126,13 +126,13 @@ pub use state::{
 // -- Constants ---------------------------------------------------------------
 
 /// Canonical Cokret operation id for push device registration.
-pub const OPERATION_PUSH_REGISTER_DEVICE: &str = "ck.edge.push.register_device";
+pub const OPERATION_PUSH_REGISTER_DEVICE: &str = "ck.edge.push.command.register_device";
 
 /// Canonical Cokret operation id for push device unregistration.
-pub const OPERATION_PUSH_UNREGISTER_DEVICE: &str = "ck.edge.push.unregister_device";
+pub const OPERATION_PUSH_UNREGISTER_DEVICE: &str = "ck.edge.push.command.unregister_device";
 
 /// Canonical Cokret operation id for push wakeup delivery.
-pub const OPERATION_PUSH_NOTIFY: &str = "ck.edge.push.notify";
+pub const OPERATION_PUSH_NOTIFY: &str = "ck.edge.push.command.notify";
 
 /// Default standard Cokret push gateway URL.
 ///

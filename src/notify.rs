@@ -1,4 +1,4 @@
-//! Optional `ck.edge.push.notify` wire model for Push Gateway implementations.
+//! Optional `ck.edge.push.command.notify` wire model for Push Gateway implementations.
 //!
 //! This module models the Cokret notify request/response payload and keeps
 //! blind-wakeup validation conservative. It does not implement APNs, FCM, Web
@@ -259,7 +259,7 @@ impl<'de> Deserialize<'de> for WakeupKind {
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[non_exhaustive]
-/// Wire notification descriptor for `ck.edge.push.notify`.
+/// Wire notification descriptor for `ck.edge.push.command.notify`.
 ///
 /// This type intentionally carries unknown JSON fields in [`Self::extra`]
 /// because `#[serde(flatten)]` cannot be combined with
@@ -1757,7 +1757,7 @@ mod tests {
                 .with_nonce("bm9uY2VfYWJj")
                 .unwrap()
                 .with_key_id("kid-1")
-                .with_aad("ck.edge.push.notify");
+                .with_aad("ck.edge.push.command.notify");
 
         envelope.validate().unwrap();
         assert!(EncryptedEnvelope::new("alice", "x25519", "Y2lwaGVydGV4dA==").is_err());

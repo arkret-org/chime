@@ -165,7 +165,7 @@ proptest! {
 #[cfg(feature = "notify")]
 mod notify_props {
     use chime::{
-        PushNotification, PushNotificationDevice, PushNotifyPolicyContext, ChimePushNotifyEnvelope,
+        ChimePushNotifyEnvelope, PushNotification, PushNotificationDevice, PushNotifyPolicyContext,
         PushTargetId, WakeupKind,
     };
 

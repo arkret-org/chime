@@ -10,8 +10,8 @@ use serde::{Deserialize, Serialize};
 
 use super::model::{PushRegistrationState, token_rotation_required};
 use crate::{
-    GatewayBinding, PushDeviceConfig, PushGatewayType, PushPreferences,
-    ChimePushRegisterDeviceRequest, PushRegistrationError, ChimePushUnregisterDeviceRequest,
+    ChimePushRegisterDeviceRequest, ChimePushUnregisterDeviceRequest, GatewayBinding,
+    PushDeviceConfig, PushGatewayType, PushPreferences, PushRegistrationError,
     build_register_device_request, build_unregister_device_request,
 };
 

@@ -12,7 +12,7 @@
 use std::time::Duration;
 
 use chime::{
-    CokretPushClient, ChimePushNotifyOutcome, PushRetryPolicy, push_bridge_describe_url,
+    ChimePushNotifyOutcome, CokretPushClient, PushRetryPolicy, push_bridge_describe_url,
     push_integration_describe_url,
 };
 use serde_json::{Value, json};

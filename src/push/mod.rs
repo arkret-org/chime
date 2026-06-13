@@ -28,10 +28,10 @@ pub use platform_app_id::{DefaultPlatformAppIdResolver, PlatformAppIdResolver};
 
 // -- Path constants ---------------------------------------------------------
 
-/// Cokret HTTP path for `ck.edge.push.register_device`.
+/// Cokret HTTP path for `ck.edge.push.command.register_device`.
 pub const REGISTER_DEVICE_PATH: &str = "/_cokret/edge/push/register-device";
 
-/// Cokret HTTP path for `ck.edge.push.unregister_device`.
+/// Cokret HTTP path for `ck.edge.push.command.unregister_device`.
 pub const UNREGISTER_DEVICE_PATH: &str = "/_cokret/edge/push/unregister-device";
 
 /// Floria product path for discovering the active push gateway bridge contract.
@@ -105,6 +105,10 @@ pub use bridge_describe::{
 };
 #[cfg(feature = "http")]
 pub use client::{CokretHttpOutcome, CokretPushClient, PushRetryPolicy};
+pub use cokret::{
+    PushRegisterDeviceOutcome, PushRegisterDeviceRequestBody, PushUnregisterDeviceOutcome,
+    PushUnregisterDeviceRequestBody,
+};
 pub use errors::{PushErrorKind, PushRegistrationError};
 pub use media_token::{
     CallMediaParticipantBinding, CallMediaTokenExchangeOutcome, CallMediaTokenExchangeRequestBody,
@@ -133,10 +137,6 @@ pub use urls::{
     cokret_api_url, push_bridge_describe_url, push_gateway_service_base_url,
     push_integration_describe_url, redact_push_key, validate_push_gateway_url,
     validate_webpush_endpoint_allowlist,
-};
-pub use cokret::{
-    PushRegisterDeviceOutcome, PushRegisterDeviceRequestBody, PushUnregisterDeviceOutcome,
-    PushUnregisterDeviceRequestBody,
 };
 pub use wire::{
     ChimePushRegisterDeviceOutcome, ChimePushRegisterDeviceRequest,

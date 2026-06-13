@@ -9,8 +9,9 @@ use sha2::{Digest, Sha256};
 
 use super::PUSH_REGISTRATION_STATE_SCHEMA_VERSION;
 use crate::{
-    GatewayBinding, PushDeviceConfig, PushPreferences, ChimePushRegisterDeviceOutcome,
-    ChimePushRegisterDeviceRequest, ChimePushUnregisterDeviceRequest, redact_push_key,
+    ChimePushRegisterDeviceOutcome, ChimePushRegisterDeviceRequest,
+    ChimePushUnregisterDeviceRequest, GatewayBinding, PushDeviceConfig, PushPreferences,
+    redact_push_key,
 };
 
 /// Persistable local state for a successful push registration.
@@ -298,8 +299,8 @@ pub fn token_moved_to_different_device(
 ///
 /// ```rust
 /// use chime::{
-///     GatewayBinding, PushDeviceConfig, PushGatewayType, PushPreferences,
-///     ChimePushRegisterDeviceOutcome, build_register_device_request, build_registration_state,
+///     ChimePushRegisterDeviceOutcome, GatewayBinding, PushDeviceConfig, PushGatewayType,
+///     PushPreferences, build_register_device_request, build_registration_state,
 /// };
 ///
 /// let config = PushDeviceConfig {

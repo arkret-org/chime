@@ -28,7 +28,7 @@ When you report, please include:
 
 - a description of the issue and its impact in the Cokret push surface
   (`register-device`, `unregister-device`, `bridge/describe`,
-  `ck.edge.push.notify` validators, or local `PushRegistrationStore` state);
+  `ck.edge.push.command.notify` validators, or local `PushRegistrationStore` state);
 - a minimal reproduction (test fixture, JSON payload, request flow);
 - whether the issue is exploitable through the public crate API, requires
   a malicious server response, or requires local code change;
@@ -42,7 +42,7 @@ When you report, please include:
   output, or error messages.
 - DIDs (`did:*`) MUST NOT appear inside `notification.extra`,
   `push_hint`, or any token-shaped wire field.
-- `ck.edge.push.notify` payloads default to E2EE blind wakeup; only services
+- `ck.edge.push.command.notify` payloads default to E2EE blind wakeup; only services
   on the explicit `plaintext_visible_services` allowlist may receive
   identifying metadata.
 
@@ -91,7 +91,7 @@ it as a security report and use the private channels above.
 ## Inbound push frame handling
 
 `chime` ships the wire-shape, privacy, and replay validators for inbound
-`ck.edge.push.notify` frames, but it deliberately stops short of cryptographic
+`ck.edge.push.command.notify` frames, but it deliberately stops short of cryptographic
 authentication of the frame itself. The host application owns the
 remaining pieces.
 

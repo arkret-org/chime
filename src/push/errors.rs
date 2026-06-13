@@ -60,7 +60,7 @@ pub enum PushErrorKind {
     // (see `cokret_core::error`). Chime mirrors the media-binding,
     // agent-lifecycle, and handle-homograph subsets because those are
     // the codes a push-SDK consumer can plausibly observe — either while
-    // calling `ck.self.call.media.token_exchange` directly (`Media*`) or
+    // calling `ck.self.call.media.exchange.issue_token` directly (`Media*`) or
     // while the user's agent/principal pair is in an inactive state
     // (`Agent*`) or while a handle homograph slips through wire-level
     // validation (`HandleHomographForbidden`).
@@ -403,10 +403,7 @@ pub enum PushRegistrationError {
     #[error("invalid HTTP header `{name}`")]
     InvalidHeader { name: String },
     #[error("invalid Cokret push field `{field}`: {reason}")]
-    InvalidField {
-        field: &'static str,
-        reason: String,
-    },
+    InvalidField { field: &'static str, reason: String },
     #[error("Cokret service returned HTTP {status}")]
     HttpStatus {
         status: u16,

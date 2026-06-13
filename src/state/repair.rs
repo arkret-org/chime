@@ -22,8 +22,9 @@ use serde::{Deserialize, Serialize};
 
 use super::model::{PushRegistrationState, build_unregister_request_for_state, hash_push_key};
 use crate::{
-    GatewayBinding, PushDeviceConfig, PushPlatform, PushPreferences, ChimePushRegisterDeviceRequest,
-    PushRegistrationError, ChimePushUnregisterDeviceRequest, build_register_device_request,
+    ChimePushRegisterDeviceRequest, ChimePushUnregisterDeviceRequest, GatewayBinding,
+    PushDeviceConfig, PushPlatform, PushPreferences, PushRegistrationError,
+    build_register_device_request,
 };
 
 /// Aggregated repair plan across every binding in

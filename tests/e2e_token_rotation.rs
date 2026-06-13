@@ -15,8 +15,8 @@
 #![cfg(all(feature = "http", feature = "notify"))]
 
 use chime::{
-    GatewayBinding, PushDeviceConfig, PushGatewayType, PushPreferences,
-    ChimePushRegisterDeviceRequest, build_register_device_request,
+    ChimePushRegisterDeviceRequest, GatewayBinding, PushDeviceConfig, PushGatewayType,
+    PushPreferences, build_register_device_request,
 };
 use sha2::{Digest, Sha256};
 

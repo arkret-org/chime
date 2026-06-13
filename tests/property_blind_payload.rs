@@ -14,7 +14,7 @@
 #![cfg(feature = "notify")]
 
 use chime::{
-    PushNotification, PushNotificationDevice, PushNotifyPolicyContext, ChimePushNotifyEnvelope,
+    ChimePushNotifyEnvelope, PushNotification, PushNotificationDevice, PushNotifyPolicyContext,
     PushTargetId, WakeupKind,
 };
 use proptest::prelude::*;

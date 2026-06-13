@@ -7,7 +7,7 @@
 
 use chime::{
     AGENT_ACTOR_PRIVATE_KINDS, AGENT_LIFECYCLE_DURABLE_KINDS, AgentEventRouting,
-    PHASE_P2_AGENT_TYPED_ID_PREFIXES, ChimePushNotifyEnvelope, classify_agent_event_kind,
+    ChimePushNotifyEnvelope, PHASE_P2_AGENT_TYPED_ID_PREFIXES, classify_agent_event_kind,
     is_phase_p2_agent_typed_id, render_agent_lifecycle_summary,
 };
 
@@ -84,7 +84,7 @@ fn phase_p2_typed_id_prefixes_are_recognized() {
 #[test]
 fn agent_typed_id_in_event_id_slot_fails_closed() {
     let frame = serde_json::json!({
-        "operation_id": "ck.edge.push.notify",
+        "operation_id": "ck.edge.push.command.notify",
         "notification": {
             "push_target_id": "ck:pseudonym:push:01HYZ8Z000000000000000",
             "wakeup_kind": "message",
@@ -110,7 +110,7 @@ fn agent_typed_id_in_event_id_slot_fails_closed() {
 #[test]
 fn agent_typed_id_in_extra_fails_closed() {
     let frame = serde_json::json!({
-        "operation_id": "ck.edge.push.notify",
+        "operation_id": "ck.edge.push.command.notify",
         "notification": {
             "push_target_id": "ck:pseudonym:push:01HYZ8Z000000000000000",
             "wakeup_kind": "message",

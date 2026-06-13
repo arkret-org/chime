@@ -6,8 +6,9 @@
 //! 1. Build a `PushRegisterDeviceRequestBody` for the platform push token the host shell has just
 //!    received (here a WebPush endpoint URL, but the same call site shape works for FCM / APNs /
 //!    OEM tokens).
-//! 2. Decode an inbound `ck.edge.push.notify` payload that the local platform bridge has handed
-//!    off, validate it against the blind-wakeup policy, and surface the result to the UI layer.
+//! 2. Decode an inbound `ck.edge.push.command.notify` payload that the local platform bridge has
+//!    handed off, validate it against the blind-wakeup policy, and surface the result to the UI
+//!    layer.
 //!
 //! The example does NOT perform any network I/O — it is deliberately
 //! `--no-run`-friendly so `cargo check --examples` and
@@ -73,7 +74,7 @@ mod inner {
         Ok(())
     }
 
-    /// Processes one inbound `ck.edge.push.notify` payload that the host
+    /// Processes one inbound `ck.edge.push.command.notify` payload that the host
     /// shell's platform bridge has just received.
     pub fn process_inbound_notify(raw_payload: &str) -> Result<(), Box<dyn std::error::Error>> {
         // 1. Deserialise the wire payload into the typed request body. `deny_unknown_fields`
@@ -105,7 +106,7 @@ mod inner {
         // from APNs / WebPush / OEM provider after the host shell
         // decodes the platform-specific envelope.
         let raw_payload = r#"{
-            "operation_id": "ck.edge.push.notify",
+            "operation_id": "ck.edge.push.command.notify",
             "destination_service_did": "did:web:desktop.example",
             "notification": {
                 "wakeup_kind": "message",

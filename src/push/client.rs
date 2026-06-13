@@ -69,8 +69,9 @@ use super::errors::{PushErrorKind, PushRegistrationError, classify_http_error};
 use super::registration::{build_register_device_request, build_unregister_device_request};
 use super::urls::{redact_url, try_cokret_api_url};
 use super::wire::{
-    CokretErrorEnvelope, PushDeviceConfig, ChimePushRegisterDeviceOutcome,
-    ChimePushRegisterDeviceRequest, ChimePushUnregisterDeviceOutcome, ChimePushUnregisterDeviceRequest,
+    ChimePushRegisterDeviceOutcome, ChimePushRegisterDeviceRequest,
+    ChimePushUnregisterDeviceOutcome, ChimePushUnregisterDeviceRequest, CokretErrorEnvelope,
+    PushDeviceConfig,
 };
 use super::{
     COKRET_REQUEST_ID_HEADER, COKRET_SESSION_GRANT_HEADER, FLORIA_INTEGRATION_DESCRIBE_PATH,

@@ -16,8 +16,8 @@
 #![cfg(all(feature = "http", feature = "notify"))]
 
 use chime::{
-    GatewayBinding, OPERATION_PUSH_REGISTER_DEVICE, PushDeviceConfig, PushGatewayType,
-    PushPreferences, ChimePushRegisterDeviceRequest, build_register_device_request,
+    ChimePushRegisterDeviceRequest, GatewayBinding, OPERATION_PUSH_REGISTER_DEVICE,
+    PushDeviceConfig, PushGatewayType, PushPreferences, build_register_device_request,
 };
 
 const GATEWAY_URL: &str = "https://push.gateway.example/_cokret/edge/push/notify";
