@@ -50,7 +50,7 @@ pub use bugle::BugleAppIdResolver;
 // chime consumers (yougen, host apps) need for the late-key-recovery banner
 // without having to depend on `cokret` directly.
 #[cfg(feature = "notify")]
-pub use cokret::{AccessKind, AuditPolicyAccessPayload};
+pub use cokret::{AccessKind, AuditPolicyAccessPayload, PushNotifyOutcome, PushNotifyRequestBody};
 pub use gateway_binding::GatewayBinding;
 pub use lifecycle::{
     AccountDeactivationError, AccountDeactivationReceipt, AccountDeactivationSink,
@@ -64,8 +64,8 @@ pub use notify::{
     AgentLifecycleSummary, EncryptedEnvelope, EncryptedEnvelopeError, MentionRedirectRouting,
     PHASE_P2_AGENT_TYPED_ID_PREFIXES, PHASE_P2_LEGACY_FIELD_ALIASES, ProviderRetryHint,
     PushDeliveryReceipt, PushHint, PushNotification, PushNotificationDedup, PushNotificationDevice,
-    PushNotifyOutcome, PushNotifyPolicyContext, PushNotifyPrivacyError, PushNotifyPrivacyMode,
-    PushNotifyPrivacyVector, PushNotifyRequestBody, PushTargetId, ROUND_R2_R3_SENSITIVE_FIELDS,
+    ChimePushNotifyOutcome, PushNotifyPolicyContext, PushNotifyPrivacyError, PushNotifyPrivacyMode,
+    PushNotifyPrivacyVector, ChimePushNotifyEnvelope, PushTargetId, ROUND_R2_R3_SENSITIVE_FIELDS,
     RejectedPushToken, WakeupKind, assert_no_sensitive_fields, classify_agent_event_kind,
     is_legacy_field_alias, is_phase_p2_agent_typed_id, render_agent_lifecycle_summary,
     shared_push_notify_privacy_vectors,
@@ -88,9 +88,11 @@ pub use push::{
     PushBridgeDescribePrivacyDescriptor, PushDeviceConfig, PushErrorKind,
     PushGatewayIntegrationDependency, PushGatewayIntegrationDescribeOutcome,
     PushGatewayIntegrationSurface, PushPlatform, PushRegisterDeviceOutcome,
-    PushRegisterDeviceRequestBody, PushRegistrationError, PushRequestSigningContext,
+    PushRegisterDeviceRequestBody, ChimePushRegisterDeviceOutcome,
+    ChimePushRegisterDeviceRequest, PushRegistrationError, PushRequestSigningContext,
     PushRequestSigningOptions, PushUnregisterDeviceOutcome, PushUnregisterDeviceRequestBody,
-    REGISTER_DEVICE_PATH, SIGNATURE_HEADER, SIGNATURE_INPUT_HEADER, UNREGISTER_DEVICE_PATH,
+    ChimePushUnregisterDeviceOutcome, ChimePushUnregisterDeviceRequest, REGISTER_DEVICE_PATH,
+    SIGNATURE_HEADER, SIGNATURE_INPUT_HEADER, UNREGISTER_DEVICE_PATH,
     build_register_device_request, build_register_signing_context,
     build_register_signing_context_with_options, build_unregister_device_request,
     build_unregister_signing_context, build_unregister_signing_context_with_options,

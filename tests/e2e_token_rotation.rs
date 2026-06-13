@@ -3,7 +3,7 @@
 //! Round 2 (post-improve) — placeholder coverage for the
 //! "device rotates its push token, server reclaims the old registration
 //! and binds the new token" flow. Uses `previous_token_hash` (set by
-//! the rotation path on `PushRegisterDeviceRequestBody`) to correlate the new
+//! the rotation path on `ChimePushRegisterDeviceRequest`) to correlate the new
 //! registration with the old one.
 //!
 //! Gating: these tests are `#[ignore]` because they require a live
@@ -16,7 +16,7 @@
 
 use chime::{
     GatewayBinding, PushDeviceConfig, PushGatewayType, PushPreferences,
-    PushRegisterDeviceRequestBody, build_register_device_request,
+    ChimePushRegisterDeviceRequest, build_register_device_request,
 };
 use sha2::{Digest, Sha256};
 
@@ -77,11 +77,11 @@ async fn token_rotation_reclaims_old_registration() {
     let binding = fixture_binding();
     let prefs = fixture_prefs();
 
-    let old_request: PushRegisterDeviceRequestBody =
+    let old_request: ChimePushRegisterDeviceRequest =
         build_register_device_request(&config_for_token(old_token, "rot-old"), &binding, &prefs)
             .expect("old token request builds");
 
-    let mut new_request: PushRegisterDeviceRequestBody =
+    let mut new_request: ChimePushRegisterDeviceRequest =
         build_register_device_request(&config_for_token(new_token, "rot-new"), &binding, &prefs)
             .expect("new token request builds");
     new_request.previous_token_hash = Some(format!("sha256:{}", sha256_hex(old_token)));
@@ -103,7 +103,7 @@ async fn token_rotation_rejects_mismatched_previous_hash() {
     // silently treating the request as a fresh registration. Caller
     // expects a 4xx with a stable failure code.
     let new_token = "fcm:rotation-token-NEW";
-    let mut request: PushRegisterDeviceRequestBody = build_register_device_request(
+    let mut request: ChimePushRegisterDeviceRequest = build_register_device_request(
         &config_for_token(new_token, "rot-bad"),
         &fixture_binding(),
         &fixture_prefs(),

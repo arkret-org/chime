@@ -36,7 +36,7 @@ fn yougen_style_fcm_and_apns_tokens_build_chime_register_requests() {
         let debug = format!("{request:?}");
         assert!(
             !debug.contains(token),
-            "PushRegisterDeviceRequestBody::Debug must redact the platform token: {debug}"
+            "ChimePushRegisterDeviceRequest::Debug must redact the platform token: {debug}"
         );
     }
 }
@@ -67,7 +67,7 @@ fn yougen_register_request(
     platform: &'static str,
     token: &'static str,
     app_id: &'static str,
-) -> chime::PushRegisterDeviceRequestBody {
+) -> chime::ChimePushRegisterDeviceRequest {
     let binding = GatewayBinding::new(PushGatewayType::Standard, PUSH_GATEWAY);
     let prefs = PushPreferences {
         enabled: true,

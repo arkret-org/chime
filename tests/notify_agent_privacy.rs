@@ -7,7 +7,7 @@
 
 use chime::{
     AGENT_ACTOR_PRIVATE_KINDS, AGENT_LIFECYCLE_DURABLE_KINDS, AgentEventRouting,
-    PHASE_P2_AGENT_TYPED_ID_PREFIXES, PushNotifyRequestBody, classify_agent_event_kind,
+    PHASE_P2_AGENT_TYPED_ID_PREFIXES, ChimePushNotifyEnvelope, classify_agent_event_kind,
     is_phase_p2_agent_typed_id, render_agent_lifecycle_summary,
 };
 
@@ -94,7 +94,7 @@ fn agent_typed_id_in_event_id_slot_fails_closed() {
             ]
         }
     });
-    let request: PushNotifyRequestBody =
+    let request: ChimePushNotifyEnvelope =
         serde_json::from_value(frame).expect("request must parse syntactically");
     let err = request.validate_wire_model().unwrap_err();
     let field = match err {
@@ -120,7 +120,7 @@ fn agent_typed_id_in_extra_fails_closed() {
             ]
         }
     });
-    let request: PushNotifyRequestBody =
+    let request: ChimePushNotifyEnvelope =
         serde_json::from_value(frame).expect("request must parse syntactically");
     let err = request.validate_wire_model().unwrap_err();
     let field = match err {

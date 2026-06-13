@@ -1,7 +1,7 @@
 //! T8.2 — additional property tests for chime's blind-wakeup contract.
 //!
 //! Complements `tests/property.rs` by exercising the
-//! `PushNotifyRequestBody::assert_payload_safe` validator with:
+//! `ChimePushNotifyEnvelope::assert_payload_safe` validator with:
 //!
 //!  * Deeply-nested `extra` payloads (depth ≤ 3).
 //!  * Unicode and emoji string values.
@@ -14,7 +14,7 @@
 #![cfg(feature = "notify")]
 
 use chime::{
-    PushNotification, PushNotificationDevice, PushNotifyPolicyContext, PushNotifyRequestBody,
+    PushNotification, PushNotificationDevice, PushNotifyPolicyContext, ChimePushNotifyEnvelope,
     PushTargetId, WakeupKind,
 };
 use proptest::prelude::*;
@@ -104,7 +104,7 @@ fn arb_unicode_string() -> impl Strategy<Value = String> {
     .prop_map(|chars| chars.into_iter().collect())
 }
 
-fn make_request() -> PushNotifyRequestBody {
+fn make_request() -> ChimePushNotifyEnvelope {
     let device: PushNotificationDevice = serde_json::from_value(json!({
         "push_key": "fcm:token-aaaaaaaaaa",
         "app_id": "app.example",
@@ -115,7 +115,7 @@ fn make_request() -> PushNotifyRequestBody {
         WakeupKind::Message,
     );
     notification.devices = vec![device];
-    PushNotifyRequestBody {
+    ChimePushNotifyEnvelope {
         notification,
         ..Default::default()
     }

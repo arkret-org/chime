@@ -9,8 +9,8 @@ use sha2::{Digest, Sha256};
 
 use super::PUSH_REGISTRATION_STATE_SCHEMA_VERSION;
 use crate::{
-    GatewayBinding, PushDeviceConfig, PushPreferences, PushRegisterDeviceOutcome,
-    PushRegisterDeviceRequestBody, PushUnregisterDeviceRequestBody, redact_push_key,
+    GatewayBinding, PushDeviceConfig, PushPreferences, ChimePushRegisterDeviceOutcome,
+    ChimePushRegisterDeviceRequest, ChimePushUnregisterDeviceRequest, redact_push_key,
 };
 
 /// Persistable local state for a successful push registration.
@@ -299,7 +299,7 @@ pub fn token_moved_to_different_device(
 /// ```rust
 /// use chime::{
 ///     GatewayBinding, PushDeviceConfig, PushGatewayType, PushPreferences,
-///     PushRegisterDeviceOutcome, build_register_device_request, build_registration_state,
+///     ChimePushRegisterDeviceOutcome, build_register_device_request, build_registration_state,
 /// };
 ///
 /// let config = PushDeviceConfig {
@@ -324,7 +324,7 @@ pub fn token_moved_to_different_device(
 ///     ..Default::default()
 /// };
 /// let request = build_register_device_request(&config, &binding, &prefs).unwrap();
-/// let mut response = PushRegisterDeviceOutcome::default();
+/// let mut response = ChimePushRegisterDeviceOutcome::default();
 /// response.ok = true;
 /// response.registration_id = Some("reg-1".to_owned());
 /// let state = build_registration_state(&binding, &request, &response, None);
@@ -332,8 +332,8 @@ pub fn token_moved_to_different_device(
 /// ```
 pub fn build_registration_state(
     binding: &GatewayBinding,
-    request: &PushRegisterDeviceRequestBody,
-    response: &PushRegisterDeviceOutcome,
+    request: &ChimePushRegisterDeviceRequest,
+    response: &ChimePushRegisterDeviceOutcome,
     registered_at: Option<&str>,
 ) -> PushRegistrationState {
     PushRegistrationState {
@@ -438,7 +438,7 @@ pub(super) fn build_unregister_request_for_state(
     state: &PushRegistrationState,
     config: &PushDeviceConfig<'_>,
     prefs: &PushPreferences,
-) -> Result<PushUnregisterDeviceRequestBody, crate::PushRegistrationError> {
+) -> Result<ChimePushUnregisterDeviceRequest, crate::PushRegistrationError> {
     let binding = GatewayBinding::new(crate::PushGatewayType::Standard, state.push_gateway.clone());
 
     let unregister_config = PushDeviceConfig {
@@ -476,7 +476,7 @@ mod tests {
     fn builds_registration_state_from_success() {
         let request =
             build_register_device_request(&config("fcm:new-token"), &binding(), &prefs()).unwrap();
-        let response = PushRegisterDeviceOutcome {
+        let response = ChimePushRegisterDeviceOutcome {
             ok: true,
             registration_id: Some("reg-new".to_owned()),
             accepted_gateway: None,

@@ -2,7 +2,7 @@
 // CH-3 evaluated 2026-05-18: kept local. See `repair.rs` for the full
 // rationale; rotation here is a 5-line policy
 // (`token_rotation_required` => one bool compare on `push_key_hash`)
-// wrapped around `PushRegisterDeviceRequestBody` / `PushUnregisterDeviceRequestBody`
+// wrapped around `ChimePushRegisterDeviceRequest` / `ChimePushUnregisterDeviceRequest`
 // builders, so a generic SDK shape would not reduce code in any
 // current consumer.
 
@@ -11,15 +11,15 @@ use serde::{Deserialize, Serialize};
 use super::model::{PushRegistrationState, token_rotation_required};
 use crate::{
     GatewayBinding, PushDeviceConfig, PushGatewayType, PushPreferences,
-    PushRegisterDeviceRequestBody, PushRegistrationError, PushUnregisterDeviceRequestBody,
+    ChimePushRegisterDeviceRequest, PushRegistrationError, ChimePushUnregisterDeviceRequest,
     build_register_device_request, build_unregister_device_request,
 };
 
 /// Request plan for replacing a platform push token.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct PushTokenRotationPlan {
-    pub unregister_old: Option<PushUnregisterDeviceRequestBody>,
-    pub register_new: Option<PushRegisterDeviceRequestBody>,
+    pub unregister_old: Option<ChimePushUnregisterDeviceRequest>,
+    pub register_new: Option<ChimePushRegisterDeviceRequest>,
     pub token_changed: bool,
     pub strategy: PushTokenRotationStrategy,
 }
@@ -108,7 +108,7 @@ pub fn plan_token_rotation_with_strategy(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::PushRegisterDeviceOutcome;
+    use crate::ChimePushRegisterDeviceOutcome;
     use crate::state::model::build_registration_state;
     use crate::state::test_fixtures::{binding, config, prefs};
 
@@ -116,7 +116,7 @@ mod tests {
     fn rotation_plan_is_empty_when_token_unchanged() {
         let request =
             build_register_device_request(&config("fcm:same-token"), &binding(), &prefs()).unwrap();
-        let response = PushRegisterDeviceOutcome {
+        let response = ChimePushRegisterDeviceOutcome {
             ok: true,
             registration_id: Some("reg-1".to_owned()),
             accepted_gateway: None,
@@ -147,7 +147,7 @@ mod tests {
     fn rotation_plan_unregisters_old_and_registers_new_token() {
         let request =
             build_register_device_request(&config("fcm:old-token"), &binding(), &prefs()).unwrap();
-        let response = PushRegisterDeviceOutcome {
+        let response = ChimePushRegisterDeviceOutcome {
             ok: true,
             registration_id: Some("reg-old".to_owned()),
             accepted_gateway: None,
@@ -183,7 +183,7 @@ mod tests {
     fn rotation_plan_attaches_previous_token_hash_to_register_request() {
         let request =
             build_register_device_request(&config("fcm:old-token"), &binding(), &prefs()).unwrap();
-        let response = PushRegisterDeviceOutcome {
+        let response = ChimePushRegisterDeviceOutcome {
             ok: true,
             registration_id: Some("reg-old".to_owned()),
             ..Default::default()
@@ -219,7 +219,7 @@ mod tests {
     fn rotation_plan_supports_register_new_first_strategy() {
         let request =
             build_register_device_request(&config("fcm:old-token"), &binding(), &prefs()).unwrap();
-        let response = PushRegisterDeviceOutcome {
+        let response = ChimePushRegisterDeviceOutcome {
             ok: true,
             registration_id: Some("reg-old".to_owned()),
             accepted_gateway: None,

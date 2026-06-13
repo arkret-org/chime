@@ -9,7 +9,7 @@ use super::urls::{
     validate_webpush_endpoint_allowlist,
 };
 use super::wire::{
-    PushDeviceConfig, PushPlatform, PushRegisterDeviceRequestBody, PushUnregisterDeviceRequestBody,
+    PushDeviceConfig, PushPlatform, ChimePushRegisterDeviceRequest, ChimePushUnregisterDeviceRequest,
     compute_push_key_hmac,
 };
 use super::{REGISTER_DEVICE_PATH, UNREGISTER_DEVICE_PATH};
@@ -57,7 +57,7 @@ pub fn build_register_device_request(
     config: &PushDeviceConfig<'_>,
     binding: &GatewayBinding,
     prefs: &PushPreferences,
-) -> Result<PushRegisterDeviceRequestBody, PushRegistrationError> {
+) -> Result<ChimePushRegisterDeviceRequest, PushRegistrationError> {
     require_non_empty("device_id", config.device_id)?;
     let push_key_value = binding.push_key.as_deref().or(config.push_key);
     let push_key = require_optional_non_empty("push_key", push_key_value)?;
@@ -72,7 +72,7 @@ pub fn build_register_device_request(
         validate_webpush_endpoint_allowlist(push_key, &prefs.webpush_endpoint_allowlist)?;
     }
 
-    Ok(PushRegisterDeviceRequestBody {
+    Ok(ChimePushRegisterDeviceRequest {
         operation_id: crate::OPERATION_PUSH_REGISTER_DEVICE.to_owned(),
         principal_id: config
             .principal_id
@@ -132,7 +132,7 @@ pub fn build_unregister_device_request(
     config: &PushDeviceConfig<'_>,
     binding: &GatewayBinding,
     prefs: &PushPreferences,
-) -> Result<PushUnregisterDeviceRequestBody, PushRegistrationError> {
+) -> Result<ChimePushUnregisterDeviceRequest, PushRegistrationError> {
     require_non_empty("device_id", config.device_id)?;
     if non_empty_str(&binding.push_gateway).is_some() {
         validate_push_gateway_url(
@@ -149,7 +149,7 @@ pub fn build_unregister_device_request(
         .or(config.push_key)
         .and_then(non_empty_str);
 
-    Ok(PushUnregisterDeviceRequestBody {
+    Ok(ChimePushUnregisterDeviceRequest {
         operation_id: crate::OPERATION_PUSH_UNREGISTER_DEVICE.to_owned(),
         principal_id: config
             .principal_id
@@ -212,7 +212,7 @@ pub fn build_unregister_device_request(
 /// ```
 pub fn build_register_signing_context(
     service_base_url: &str,
-    request: &PushRegisterDeviceRequestBody,
+    request: &ChimePushRegisterDeviceRequest,
     created_at: impl Into<String>,
     audience: impl Into<String>,
 ) -> Result<PushRequestSigningContext, PushRegistrationError> {
@@ -227,15 +227,16 @@ pub fn build_register_signing_context(
 /// expiry metadata.
 pub fn build_register_signing_context_with_options(
     service_base_url: &str,
-    request: &PushRegisterDeviceRequestBody,
+    request: &ChimePushRegisterDeviceRequest,
     options: PushRequestSigningOptions,
 ) -> Result<PushRequestSigningContext, PushRegistrationError> {
+    let sdk_request = request.to_sdk_request()?;
     build_signing_context(
         service_base_url,
         crate::OPERATION_PUSH_REGISTER_DEVICE,
         REGISTER_DEVICE_PATH,
-        &request.device_id,
-        request,
+        sdk_request.device_id.as_str(),
+        &sdk_request,
         options,
     )
 }
@@ -243,7 +244,7 @@ pub fn build_register_signing_context_with_options(
 /// Build the signing context for `ck.edge.push.unregister_device`.
 pub fn build_unregister_signing_context(
     service_base_url: &str,
-    request: &PushUnregisterDeviceRequestBody,
+    request: &ChimePushUnregisterDeviceRequest,
     created_at: impl Into<String>,
     audience: impl Into<String>,
 ) -> Result<PushRequestSigningContext, PushRegistrationError> {
@@ -258,15 +259,16 @@ pub fn build_unregister_signing_context(
 /// expiry metadata.
 pub fn build_unregister_signing_context_with_options(
     service_base_url: &str,
-    request: &PushUnregisterDeviceRequestBody,
+    request: &ChimePushUnregisterDeviceRequest,
     options: PushRequestSigningOptions,
 ) -> Result<PushRequestSigningContext, PushRegistrationError> {
+    let sdk_request = request.to_sdk_request()?;
     build_signing_context(
         service_base_url,
         crate::OPERATION_PUSH_UNREGISTER_DEVICE,
         UNREGISTER_DEVICE_PATH,
-        &request.device_id,
-        request,
+        sdk_request.device_id.as_str(),
+        &sdk_request,
         options,
     )
 }

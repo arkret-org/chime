@@ -402,6 +402,11 @@ pub enum PushRegistrationError {
     ForbiddenPushGatewayQueryParam { param: String },
     #[error("invalid HTTP header `{name}`")]
     InvalidHeader { name: String },
+    #[error("invalid Cokret push field `{field}`: {reason}")]
+    InvalidField {
+        field: &'static str,
+        reason: String,
+    },
     #[error("Cokret service returned HTTP {status}")]
     HttpStatus {
         status: u16,
@@ -447,6 +452,11 @@ impl fmt::Debug for PushRegistrationError {
             Self::InvalidHeader { name } => {
                 f.debug_struct("InvalidHeader").field("name", name).finish()
             }
+            Self::InvalidField { field, reason } => f
+                .debug_struct("InvalidField")
+                .field("field", field)
+                .field("reason", reason)
+                .finish(),
             Self::HttpStatus {
                 status,
                 kind,
@@ -482,6 +492,7 @@ impl PushRegistrationError {
                 PushErrorKind::ForbiddenPushGatewayQueryParam
             }
             Self::InvalidHeader { .. } => PushErrorKind::InvalidHeader,
+            Self::InvalidField { .. } => PushErrorKind::SchemaViolation,
             Self::HttpStatus { kind, .. } => *kind,
             #[cfg(feature = "http")]
             Self::Http(error) if error.is_timeout() => PushErrorKind::NetworkTimeout,

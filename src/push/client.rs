@@ -69,8 +69,8 @@ use super::errors::{PushErrorKind, PushRegistrationError, classify_http_error};
 use super::registration::{build_register_device_request, build_unregister_device_request};
 use super::urls::{redact_url, try_cokret_api_url};
 use super::wire::{
-    CokretErrorEnvelope, PushDeviceConfig, PushRegisterDeviceOutcome,
-    PushRegisterDeviceRequestBody, PushUnregisterDeviceOutcome, PushUnregisterDeviceRequestBody,
+    CokretErrorEnvelope, PushDeviceConfig, ChimePushRegisterDeviceOutcome,
+    ChimePushRegisterDeviceRequest, ChimePushUnregisterDeviceOutcome, ChimePushUnregisterDeviceRequest,
 };
 use super::{
     COKRET_REQUEST_ID_HEADER, COKRET_SESSION_GRANT_HEADER, FLORIA_INTEGRATION_DESCRIBE_PATH,
@@ -427,7 +427,7 @@ impl CokretPushClient {
         config: &PushDeviceConfig<'_>,
         binding: &GatewayBinding,
         prefs: &PushPreferences,
-    ) -> Result<PushRegisterDeviceOutcome, PushRegistrationError> {
+    ) -> Result<ChimePushRegisterDeviceOutcome, PushRegistrationError> {
         Ok(self
             .register_device_with_context(config, binding, prefs)
             .await?
@@ -440,13 +440,13 @@ impl CokretPushClient {
         config: &PushDeviceConfig<'_>,
         binding: &GatewayBinding,
         prefs: &PushPreferences,
-    ) -> Result<CokretHttpOutcome<PushRegisterDeviceOutcome>, PushRegistrationError> {
+    ) -> Result<CokretHttpOutcome<ChimePushRegisterDeviceOutcome>, PushRegistrationError> {
         self.assert_session_grant_if_required()?;
         if !prefs.enabled {
             let response = self
                 .unregister_device_with_context(config, binding, prefs)
                 .await?;
-            return Ok(response.map_body(|body| PushRegisterDeviceOutcome {
+            return Ok(response.map_body(|body| ChimePushRegisterDeviceOutcome {
                 ok: body.ok,
                 registration_id: None,
                 accepted_gateway: None,
@@ -460,14 +460,21 @@ impl CokretPushClient {
         }
 
         let body = build_register_device_request(config, binding, prefs)?;
-        let response = self
+        let sdk_body = body.to_sdk_request()?;
+        let response: CokretHttpOutcome<cokret::PushRegisterDeviceOutcome> = self
             .post_json(
                 self.effective_register_device_path(),
-                &body,
+                &sdk_body,
                 config.idempotency_key,
                 config.request_id,
             )
             .await?;
+        let response_request_id = response.request_id.clone();
+        let response = response.map_body(|body| {
+            let mut body = ChimePushRegisterDeviceOutcome::from(body);
+            body.request_id = response_request_id;
+            body
+        });
 
         tracing::info!(
             platform = body.platform.as_deref().unwrap_or("unspecified"),
@@ -480,7 +487,7 @@ impl CokretPushClient {
         Ok(response)
     }
 
-    /// Post a pre-built [`PushRegisterDeviceRequestBody`] through the
+    /// Post a pre-built [`ChimePushRegisterDeviceRequest`] through the
     /// configured client (session-grant header, retry policy,
     /// caller-supplied headers, register-device path override all
     /// honored). Use this when callers already constructed the wire
@@ -490,19 +497,26 @@ impl CokretPushClient {
     /// it via `build_register_device_request`.
     pub async fn register_device_with_request(
         &self,
-        body: &PushRegisterDeviceRequestBody,
+        body: &ChimePushRegisterDeviceRequest,
         idempotency_key: Option<&str>,
         request_id: Option<&str>,
-    ) -> Result<CokretHttpOutcome<PushRegisterDeviceOutcome>, PushRegistrationError> {
+    ) -> Result<CokretHttpOutcome<ChimePushRegisterDeviceOutcome>, PushRegistrationError> {
         self.assert_session_grant_if_required()?;
-        let response = self
+        let sdk_body = body.to_sdk_request()?;
+        let response: CokretHttpOutcome<cokret::PushRegisterDeviceOutcome> = self
             .post_json(
                 self.effective_register_device_path(),
-                body,
+                &sdk_body,
                 idempotency_key.or(body.idempotency_key.as_deref()),
                 request_id,
             )
             .await?;
+        let response_request_id = response.request_id.clone();
+        let response = response.map_body(|body| {
+            let mut body = ChimePushRegisterDeviceOutcome::from(body);
+            body.request_id = response_request_id;
+            body
+        });
 
         tracing::info!(
             platform = body.platform.as_deref().unwrap_or("unspecified"),
@@ -519,23 +533,32 @@ impl CokretPushClient {
     /// for unregister flows.
     pub async fn unregister_device_with_request(
         &self,
-        body: &PushUnregisterDeviceRequestBody,
+        body: &ChimePushUnregisterDeviceRequest,
         idempotency_key: Option<&str>,
         request_id: Option<&str>,
-    ) -> Result<CokretHttpOutcome<PushUnregisterDeviceOutcome>, PushRegistrationError> {
+    ) -> Result<CokretHttpOutcome<ChimePushUnregisterDeviceOutcome>, PushRegistrationError> {
         self.assert_session_grant_if_required()?;
+        let sdk_body = body.to_sdk_request()?;
         let response = match self
             .post_json(
                 self.effective_unregister_device_path(),
-                body,
+                &sdk_body,
                 idempotency_key.or(body.idempotency_key.as_deref()),
                 request_id,
             )
             .await
         {
-            Ok(response) => response,
+            Ok(response) => {
+                let response: CokretHttpOutcome<cokret::PushUnregisterDeviceOutcome> = response;
+                let response_request_id = response.request_id.clone();
+                response.map_body(|body| {
+                    let mut body = ChimePushUnregisterDeviceOutcome::from(body);
+                    body.request_id = response_request_id;
+                    body
+                })
+            }
             Err(error) if error.kind() == PushErrorKind::NotFound => CokretHttpOutcome {
-                body: PushUnregisterDeviceOutcome {
+                body: ChimePushUnregisterDeviceOutcome {
                     ok: true,
                     already_removed: true,
                     removed_registration_id: None,
@@ -557,7 +580,7 @@ impl CokretPushClient {
         config: &PushDeviceConfig<'_>,
         binding: &GatewayBinding,
         prefs: &PushPreferences,
-    ) -> Result<PushUnregisterDeviceOutcome, PushRegistrationError> {
+    ) -> Result<ChimePushUnregisterDeviceOutcome, PushRegistrationError> {
         Ok(self
             .unregister_device_with_context(config, binding, prefs)
             .await?
@@ -570,21 +593,30 @@ impl CokretPushClient {
         config: &PushDeviceConfig<'_>,
         binding: &GatewayBinding,
         prefs: &PushPreferences,
-    ) -> Result<CokretHttpOutcome<PushUnregisterDeviceOutcome>, PushRegistrationError> {
+    ) -> Result<CokretHttpOutcome<ChimePushUnregisterDeviceOutcome>, PushRegistrationError> {
         self.assert_session_grant_if_required()?;
         let body = build_unregister_device_request(config, binding, prefs)?;
+        let sdk_body = body.to_sdk_request()?;
         let response = match self
             .post_json(
                 self.effective_unregister_device_path(),
-                &body,
+                &sdk_body,
                 config.idempotency_key,
                 config.request_id,
             )
             .await
         {
-            Ok(response) => response,
+            Ok(response) => {
+                let response: CokretHttpOutcome<cokret::PushUnregisterDeviceOutcome> = response;
+                let response_request_id = response.request_id.clone();
+                response.map_body(|body| {
+                    let mut body = ChimePushUnregisterDeviceOutcome::from(body);
+                    body.request_id = response_request_id;
+                    body
+                })
+            }
             Err(error) if error.kind() == PushErrorKind::NotFound => CokretHttpOutcome {
-                body: PushUnregisterDeviceOutcome {
+                body: ChimePushUnregisterDeviceOutcome {
                     ok: true,
                     already_removed: true,
                     removed_registration_id: None,
@@ -611,7 +643,7 @@ impl CokretPushClient {
     ///
     /// Each binding is exercised independently — a failure on one
     /// binding does not abort the others. Returns one
-    /// `Result<PushRegisterDeviceOutcome, _>` per binding, in the same
+    /// `Result<ChimePushRegisterDeviceOutcome, _>` per binding, in the same
     /// order as `prefs.gateways`. When `prefs.gateways` is empty the
     /// returned `Vec` is empty.
     ///
@@ -623,7 +655,7 @@ impl CokretPushClient {
         &self,
         config: &PushDeviceConfig<'_>,
         prefs: &PushPreferences,
-    ) -> Vec<Result<PushRegisterDeviceOutcome, PushRegistrationError>> {
+    ) -> Vec<Result<ChimePushRegisterDeviceOutcome, PushRegistrationError>> {
         let mut out = Vec::with_capacity(prefs.gateways.len());
         for binding in &prefs.gateways {
             out.push(self.register_device(config, binding, prefs).await);
@@ -657,7 +689,7 @@ impl CokretPushClient {
         binding: &GatewayBinding,
         prefs: &PushPreferences,
         strategy: crate::PushTokenRotationStrategy,
-    ) -> Result<Option<PushRegisterDeviceOutcome>, PushRegistrationError> {
+    ) -> Result<Option<ChimePushRegisterDeviceOutcome>, PushRegistrationError> {
         let plan =
             crate::plan_token_rotation_with_strategy(existing, config, binding, prefs, strategy)?;
 

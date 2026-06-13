@@ -134,8 +134,13 @@ pub use urls::{
     push_integration_describe_url, redact_push_key, validate_push_gateway_url,
     validate_webpush_endpoint_allowlist,
 };
+pub use cokret::{
+    PushRegisterDeviceOutcome, PushRegisterDeviceRequestBody, PushUnregisterDeviceOutcome,
+    PushUnregisterDeviceRequestBody,
+};
 pub use wire::{
-    CokretError, CokretErrorEnvelope, PushDeviceConfig, PushPlatform, PushRegisterDeviceOutcome,
-    PushRegisterDeviceRequestBody, PushUnregisterDeviceOutcome, PushUnregisterDeviceRequestBody,
-    compute_push_key_hmac, verify_push_key_binding,
+    ChimePushRegisterDeviceOutcome, ChimePushRegisterDeviceRequest,
+    ChimePushUnregisterDeviceOutcome, ChimePushUnregisterDeviceRequest, CokretError,
+    CokretErrorEnvelope, PushDeviceConfig, PushPlatform, compute_push_key_hmac,
+    verify_push_key_binding,
 };

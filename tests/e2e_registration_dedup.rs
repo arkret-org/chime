@@ -17,7 +17,7 @@
 
 use chime::{
     GatewayBinding, OPERATION_PUSH_REGISTER_DEVICE, PushDeviceConfig, PushGatewayType,
-    PushPreferences, PushRegisterDeviceRequestBody, build_register_device_request,
+    PushPreferences, ChimePushRegisterDeviceRequest, build_register_device_request,
 };
 
 const GATEWAY_URL: &str = "https://push.gateway.example/_cokret/edge/push/notify";
@@ -49,7 +49,7 @@ fn fixture_prefs() -> PushPreferences {
     }
 }
 
-fn fixture_register_request(idempotency: &str) -> PushRegisterDeviceRequestBody {
+fn fixture_register_request(idempotency: &str) -> ChimePushRegisterDeviceRequest {
     build_register_device_request(
         &fixture_device_config(idempotency),
         &fixture_binding(),

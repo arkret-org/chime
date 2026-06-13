@@ -5,8 +5,8 @@
 // Every plan function here takes `PushRegistrationState` (which carries
 // `push_gateway`, `push_key_hash`, `push_key_preview`, `platform`,
 // `app_id`), `PushDeviceConfig`, a `GatewayBinding`, and
-// `PushPreferences`, and emits `PushRegisterDeviceRequestBody` /
-// `PushUnregisterDeviceRequestBody` wire bodies — all push-specific types. The
+// `PushPreferences`, and emits `ChimePushRegisterDeviceRequest` /
+// `ChimePushUnregisterDeviceRequest` wire bodies — all push-specific types. The
 // pure "policy" logic (`registration_state_rank` and same-token /
 // same-logical matching) is ~30 LoC and structurally specific to push:
 // it ranks states by `registration_id`/`last_success_at` and equates
@@ -22,8 +22,8 @@ use serde::{Deserialize, Serialize};
 
 use super::model::{PushRegistrationState, build_unregister_request_for_state, hash_push_key};
 use crate::{
-    GatewayBinding, PushDeviceConfig, PushPlatform, PushPreferences, PushRegisterDeviceRequestBody,
-    PushRegistrationError, PushUnregisterDeviceRequestBody, build_register_device_request,
+    GatewayBinding, PushDeviceConfig, PushPlatform, PushPreferences, ChimePushRegisterDeviceRequest,
+    PushRegistrationError, ChimePushUnregisterDeviceRequest, build_register_device_request,
 };
 
 /// Aggregated repair plan across every binding in
@@ -49,7 +49,7 @@ pub struct PushMultiGatewayRepairPlan {
     pub orphan_states: Vec<PushRegistrationState>,
     /// Pre-built unregister requests for the orphan states.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub unregister_orphans: Vec<PushUnregisterDeviceRequestBody>,
+    pub unregister_orphans: Vec<ChimePushUnregisterDeviceRequest>,
 }
 
 impl PushMultiGatewayRepairPlan {
@@ -77,9 +77,9 @@ pub struct PushRegistrationRepairPlan {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub stale_states: Vec<PushRegistrationState>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub unregister_stale: Vec<PushUnregisterDeviceRequestBody>,
+    pub unregister_stale: Vec<ChimePushUnregisterDeviceRequest>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub register_current: Option<PushRegisterDeviceRequestBody>,
+    pub register_current: Option<ChimePushRegisterDeviceRequest>,
     #[serde(default)]
     pub stale_state_detected: bool,
     #[serde(default)]

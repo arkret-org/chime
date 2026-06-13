@@ -4,7 +4,7 @@
 
 use super::model::{PushRegistrationState, build_registration_state};
 use crate::{
-    GatewayBinding, PushDeviceConfig, PushGatewayType, PushPreferences, PushRegisterDeviceOutcome,
+    GatewayBinding, PushDeviceConfig, PushGatewayType, PushPreferences, ChimePushRegisterDeviceOutcome,
     build_register_device_request,
 };
 
@@ -84,7 +84,7 @@ pub(crate) fn state_for_binding(
     let binding = GatewayBinding::new(gateway_type, push_gateway);
 
     let request = build_register_device_request(&device_config, &binding, &prefs()).unwrap();
-    let response = PushRegisterDeviceOutcome {
+    let response = ChimePushRegisterDeviceOutcome {
         ok: true,
         registration_id: Some(registration_id.to_owned()),
         accepted_gateway: None,

@@ -21,7 +21,7 @@ use super::urls::{redact_push_key, redact_url};
 ///
 /// The output is hex-encoded so it travels through `serde_json` as a
 /// plain ASCII string without base64 alphabet ambiguity. This binding is
-/// stamped into [`PushRegisterDeviceRequestBody::push_key_hmac`] so the floria /
+/// stamped into [`ChimePushRegisterDeviceRequest::push_key_hmac`] so the floria /
 /// soland verifier can reject a tampered payload where an attacker swapped
 /// the `push_key` field for one of their own tokens but left the rest of
 /// the signed envelope intact.
@@ -199,11 +199,11 @@ impl fmt::Debug for PushDeviceConfig<'_> {
 /// Request body for `POST /_cokret/edge/push/register-device`.
 ///
 /// Stability: 1.0-stable + `#[non_exhaustive]`. Build via
-/// `PushRegisterDeviceRequestBody { ..Default::default() }` from external crates so
+/// `ChimePushRegisterDeviceRequest { ..Default::default() }` from external crates so
 /// future field additions stay source-compatible.
 #[derive(Clone, Default, PartialEq, Serialize, Deserialize)]
 #[non_exhaustive]
-pub struct PushRegisterDeviceRequestBody {
+pub struct ChimePushRegisterDeviceRequest {
     pub operation_id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub principal_id: Option<String>,
@@ -240,9 +240,9 @@ pub struct PushRegisterDeviceRequestBody {
     pub proof: Option<Value>,
 }
 
-impl fmt::Debug for PushRegisterDeviceRequestBody {
+impl fmt::Debug for ChimePushRegisterDeviceRequest {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("PushRegisterDeviceRequestBody")
+        f.debug_struct("ChimePushRegisterDeviceRequest")
             .field("operation_id", &self.operation_id)
             .field("principal_id", &self.principal_id)
             .field("device_id", &self.device_id)
@@ -260,12 +260,33 @@ impl fmt::Debug for PushRegisterDeviceRequestBody {
     }
 }
 
+impl ChimePushRegisterDeviceRequest {
+    pub fn to_sdk_request(
+        &self,
+    ) -> Result<cokret::PushRegisterDeviceRequestBody, PushRegistrationError> {
+        Ok(cokret::PushRegisterDeviceRequestBody {
+            device_id: cokret::DeviceId::new(self.device_id.clone()).map_err(|error| {
+                PushRegistrationError::InvalidField {
+                    field: "device_id",
+                    reason: error.to_string(),
+                }
+            })?,
+            push_gateway: self.push_gateway.clone(),
+            push_key: self.push_key.clone(),
+            platform: self.platform.clone(),
+            app_id: self.app_id.clone(),
+            display_name: self.display_name.clone(),
+            recipient_service_did: None,
+        })
+    }
+}
+
 /// Response body for `POST /_cokret/edge/push/register-device`.
 ///
 /// Stability: 1.0-stable. New optional fields may be added in a minor release.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[non_exhaustive]
-pub struct PushRegisterDeviceOutcome {
+pub struct ChimePushRegisterDeviceOutcome {
     pub ok: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub registration_id: Option<String>,
@@ -285,13 +306,29 @@ pub struct PushRegisterDeviceOutcome {
     pub request_id: Option<String>,
 }
 
+impl From<cokret::PushRegisterDeviceOutcome> for ChimePushRegisterDeviceOutcome {
+    fn from(value: cokret::PushRegisterDeviceOutcome) -> Self {
+        Self {
+            ok: value.ok,
+            registration_id: value.registration_id,
+            accepted_gateway: None,
+            push_key_hash: None,
+            push_key_preview: None,
+            expires_at: value.expires_at.map(|expires_at| expires_at.to_rfc3339()),
+            refresh_hint: None,
+            warnings: Vec::new(),
+            request_id: None,
+        }
+    }
+}
+
 /// Request body for `POST /_cokret/edge/push/unregister-device`.
 ///
 /// Stability: 1.0-stable + `#[non_exhaustive]`. Build via
-/// `PushUnregisterDeviceRequestBody { ..Default::default() }` from external crates.
+/// `ChimePushUnregisterDeviceRequest { ..Default::default() }` from external crates.
 #[derive(Clone, Default, PartialEq, Serialize, Deserialize)]
 #[non_exhaustive]
-pub struct PushUnregisterDeviceRequestBody {
+pub struct ChimePushUnregisterDeviceRequest {
     pub operation_id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub principal_id: Option<String>,
@@ -316,9 +353,9 @@ pub struct PushUnregisterDeviceRequestBody {
     pub proof: Option<Value>,
 }
 
-impl fmt::Debug for PushUnregisterDeviceRequestBody {
+impl fmt::Debug for ChimePushUnregisterDeviceRequest {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("PushUnregisterDeviceRequestBody")
+        f.debug_struct("ChimePushUnregisterDeviceRequest")
             .field("operation_id", &self.operation_id)
             .field("principal_id", &self.principal_id)
             .field("device_id", &self.device_id)
@@ -338,12 +375,29 @@ impl fmt::Debug for PushUnregisterDeviceRequestBody {
     }
 }
 
+impl ChimePushUnregisterDeviceRequest {
+    pub fn to_sdk_request(
+        &self,
+    ) -> Result<cokret::PushUnregisterDeviceRequestBody, PushRegistrationError> {
+        Ok(cokret::PushUnregisterDeviceRequestBody {
+            device_id: cokret::DeviceId::new(self.device_id.clone()).map_err(|error| {
+                PushRegistrationError::InvalidField {
+                    field: "device_id",
+                    reason: error.to_string(),
+                }
+            })?,
+            push_key: self.push_key.clone(),
+            app_id: self.app_id.clone(),
+        })
+    }
+}
+
 /// Response body for `POST /_cokret/edge/push/unregister-device`.
 ///
 /// Stability: 1.0-stable. New optional fields may be added in a minor release.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[non_exhaustive]
-pub struct PushUnregisterDeviceOutcome {
+pub struct ChimePushUnregisterDeviceOutcome {
     pub ok: bool,
     #[serde(default)]
     pub already_removed: bool,
@@ -351,6 +405,17 @@ pub struct PushUnregisterDeviceOutcome {
     pub removed_registration_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub request_id: Option<String>,
+}
+
+impl From<cokret::PushUnregisterDeviceOutcome> for ChimePushUnregisterDeviceOutcome {
+    fn from(value: cokret::PushUnregisterDeviceOutcome) -> Self {
+        Self {
+            ok: value.ok,
+            already_removed: false,
+            removed_registration_id: None,
+            request_id: None,
+        }
+    }
 }
 
 /// Cokret standard error object.
@@ -486,7 +551,7 @@ mod tests {
 
     #[test]
     fn response_models_cover_frozen_wire_metadata() {
-        let register: PushRegisterDeviceOutcome = serde_json::from_value(serde_json::json!({
+        let register: ChimePushRegisterDeviceOutcome = serde_json::from_value(serde_json::json!({
             "ok": true,
             "registration_id": "reg-1",
             "accepted_gateway": "https://push.example.com/_cokret/edge/push/notify",
@@ -516,7 +581,7 @@ mod tests {
         assert_eq!(register.warnings, vec!["duplicate-safe"]);
         assert_eq!(register.request_id.as_deref(), Some("ck:request:123"));
 
-        let unregister: PushUnregisterDeviceOutcome = serde_json::from_value(serde_json::json!({
+        let unregister: ChimePushUnregisterDeviceOutcome = serde_json::from_value(serde_json::json!({
             "ok": true,
             "already_removed": true,
             "removed_registration_id": "reg-1",
