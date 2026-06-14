@@ -91,10 +91,6 @@ pub enum PushErrorKind {
     /// CKP-0010 — recording artifact bypassed the Cokret blob upload
     /// pipeline (e.g. LiveKit Egress direct-to-S3).
     RecordingArtifactPipelineBypassed,
-    /// CKP-0010 — realm's `ck.realm.media_service` is still configured
-    /// as a single-endpoint legacy service; multi-focus binding is
-    /// required for the requested operation.
-    LegacySingleEndpointMediaService,
     /// CKP-0010 — chosen focus is unavailable to this client (e.g. the
     /// focus has been retired or the client is on an unsupported
     /// platform); callers MUST surface this rather than silently
@@ -168,7 +164,6 @@ impl PushErrorKind {
             Self::SessionFocusAlreadyCommitted => 27,
             Self::E2eeKeySourceUnauthorised => 28,
             Self::RecordingArtifactPipelineBypassed => 29,
-            Self::LegacySingleEndpointMediaService => 30,
             Self::FocusUnavailableForClient => 31,
             // R3 ordinals ≥ 32 spill outside the u32 retry mask. The
             // codes below are not retry candidates anyway — they are
@@ -201,7 +196,6 @@ impl PushErrorKind {
                 | Self::TokenIssuerUnauthorised
                 | Self::ParticipantBindingInvalid
                 | Self::FocusMismatch
-                | Self::LegacySingleEndpointMediaService
         )
     }
 
@@ -216,7 +210,6 @@ impl PushErrorKind {
                 | Self::TokenIssuerUnauthorised
                 | Self::ParticipantBindingInvalid
                 | Self::FocusMismatch
-                | Self::LegacySingleEndpointMediaService
                 | Self::ParticipantIdentityUnrecognised
                 | Self::SessionFocusAlreadyCommitted
                 | Self::E2eeKeySourceUnauthorised
@@ -317,10 +310,6 @@ impl PushErrorKind {
             (
                 cokret::error::ERROR_CODE_RECORDING_ARTIFACT_PIPELINE_BYPASSED,
                 PushErrorKind::RecordingArtifactPipelineBypassed,
-            ),
-            (
-                cokret::error::REASON_LEGACY_SINGLE_ENDPOINT_MEDIA_SERVICE,
-                PushErrorKind::LegacySingleEndpointMediaService,
             ),
             (
                 cokret::error::ERROR_CODE_FOCUS_UNAVAILABLE_FOR_CLIENT,

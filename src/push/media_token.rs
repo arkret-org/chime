@@ -71,10 +71,6 @@ pub enum MediaTokenError {
     /// CALL-2 — `participant_binding` tuple does not match the call
     /// state the caller committed to (focus / call / actor / device).
     ParticipantBindingInvalid { reason: String },
-    /// CALL-2 — server has not committed a multi-focus
-    /// `ck.realm.media_service` binding yet; the realm is still on the
-    /// single-endpoint legacy contract.
-    LegacySingleEndpointMediaService,
     /// CALL-2 — the focus id in `participant_binding` does not match
     /// either the requested focus id or the already-committed
     /// `ck.call.state.session_focus`.
@@ -95,9 +91,6 @@ impl MediaTokenError {
             Self::TokenIssuerUnauthorised { .. } => PushErrorKind::TokenIssuerUnauthorised,
             Self::UnknownFocusType => PushErrorKind::UnknownFocusType,
             Self::ParticipantBindingInvalid { .. } => PushErrorKind::ParticipantBindingInvalid,
-            Self::LegacySingleEndpointMediaService => {
-                PushErrorKind::LegacySingleEndpointMediaService
-            }
             Self::FocusMismatch { .. } => PushErrorKind::FocusMismatch,
         }
     }
@@ -119,9 +112,6 @@ impl fmt::Display for MediaTokenError {
             Self::ParticipantBindingInvalid { reason } => {
                 write!(f, "participant_binding_invalid: {reason}")
             }
-            Self::LegacySingleEndpointMediaService => f.write_str(
-                "legacy_single_endpoint_media_service: realm still on single-endpoint media service",
-            ),
             Self::FocusMismatch {
                 requested_focus_id,
                 binding_focus_id,
@@ -588,11 +578,6 @@ mod tests {
         assert!(err.kind().is_media_token_rejection());
         assert!(
             MediaTokenError::UnknownFocusType
-                .kind()
-                .is_media_token_rejection()
-        );
-        assert!(
-            MediaTokenError::LegacySingleEndpointMediaService
                 .kind()
                 .is_media_token_rejection()
         );

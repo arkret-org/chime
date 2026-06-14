@@ -25,7 +25,6 @@ chime 将网关/协议失败归一到 `PushErrorKind`。调用方应优先按 ki
 | `UnknownFocusType` | SDK 不认识该 media backend，必须 fail-closed。 |
 | `TokenIssuerUnauthorised` | `participant_binding.issuer_kid` 未锚定到当前 realm media service。 |
 | `ParticipantBindingInvalid` | participant tuple 或 TTL 不合法。当前 chime 不在这里完成 Ed25519 验签。 |
-| `LegacySingleEndpointMediaService` | realm 仍是旧单端点 media service，不能执行多 focus token exchange。 |
 
 其它 media-binding kind 可用 `is_media_binding_code()` 归类到同一遥测桶。
 
