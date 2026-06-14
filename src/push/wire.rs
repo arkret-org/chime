@@ -134,7 +134,7 @@ pub struct ChimePushRegisterDeviceRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub request_id: Option<String>,
     /// SHA-256 fingerprint of the previously registered push token, set by
-    /// token-rotation flows so the gateway can correlate the new registration
+    /// token-rotation strands so the gateway can correlate the new registration
     /// with the old one and reclaim it server-side.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub previous_token_hash: Option<String>,

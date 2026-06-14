@@ -34,7 +34,7 @@ const SENSITIVE_KEYS: &[&str] = &[
     "attachment_name",
     "attachment_filename",
     "space_name",
-    "flow_name",
+    "strand_name",
     "room_name",
     "sender",
     "sender_did",

@@ -29,7 +29,7 @@ When you report, please include:
 - a description of the issue and its impact in the Cokret push surface
   (`register-device`, `unregister-device`, `bridge/describe`,
   `ck.edge.push.command.notify` validators, or local `PushRegistrationStore` state);
-- a minimal reproduction (test fixture, JSON payload, request flow);
+- a minimal reproduction (test fixture, JSON payload, request strand);
 - whether the issue is exploitable through the public crate API, requires
   a malicious server response, or requires local code change;
 - any disclosure deadline you intend to honor.

@@ -11,7 +11,7 @@
 //!
 //! 1. chime's covered-component set differs from floria's notify set — it covers
 //!    `x-cokret-operation-id`, `x-cokret-device-id`, `x-cokret-created-at`, `x-cokret-audience`
-//!    (the device- registration flow), not the two service-DID headers floria's `/notify` verifier
+//!    (the device- registration strand), not the two service-DID headers floria's `/notify` verifier
 //!    requires.
 //! 2. chime never owned a private key; it only canonicalizes context so an external signer (the
 //!    host application's DID proof or HSM) can attach a pre-computed `Signature` header. The SDK's
@@ -410,7 +410,7 @@ where
 
 /// A.5 #4 — per-`(device_id, nonce)` replay-window tracker.
 ///
-/// The chime push device registration / unregistration flow stamps a
+/// The chime push device registration / unregistration strand stamps a
 /// random `X-Cokret-Nonce` value on every signed request so floria's
 /// verifier can reject replays. The signed transcript would otherwise
 /// stay valid forever, which means an attacker who recorded one

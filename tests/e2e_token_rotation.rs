@@ -2,7 +2,7 @@
 //!
 //! Round 2 (post-improve) — placeholder coverage for the
 //! "device rotates its push token, server reclaims the old registration
-//! and binds the new token" flow. Uses `previous_token_hash` (set by
+//! and binds the new token" strand. Uses `previous_token_hash` (set by
 //! the rotation path on `ChimePushRegisterDeviceRequest`) to correlate the new
 //! registration with the old one.
 //!

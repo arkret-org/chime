@@ -429,7 +429,7 @@ impl PushRegistrationState {
 
 /// Builds an unregister request body that matches a stored registration state.
 ///
-/// Used by repair flows to clean up state-side records that no longer match
+/// Used by repair strands to clean up state-side records that no longer match
 /// the current device/token. The synthetic binding uses
 /// [`PushGatewayType::Standard`](crate::PushGatewayType::Standard) as a
 /// placeholder — `gateway_type` is not echoed on the wire and unregister

@@ -73,7 +73,7 @@ releases.
   Returns a request struct the caller serialises via the chime HTTP
   client (or hands off to whatever transport yougen prefers).
 - `chime::build_unregister_device_request(...)` — symmetric tear-down call
-  for device deregistration / sign-out flows.
+  for device deregistration / sign-out strands.
 - `chime::PushNotificationDedup::from_descriptor(&notify_descriptor)`
   — constructs the dedup key used to suppress duplicate notification
   deliveries. yougen's local-notification scheduler MUST run every

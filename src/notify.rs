@@ -1160,7 +1160,7 @@ fn validate_active_reference_extension(
     }
 
     match key {
-        "flow_id" => validate_extra_typed_string(key, value, "ck:flow:"),
+        "strand_id" => validate_extra_typed_string(key, value, "ck:strand:"),
         "message_id" => validate_extra_typed_string(key, value, "ck:message:"),
         "notification_projection_id" => {
             validate_extra_typed_string(key, value, "ck:notification_projection:")
@@ -1315,7 +1315,7 @@ fn is_sensitive_payload_key(key: &str) -> bool {
 
     matches!(
         key,
-        // Local policy extension: SDK blocks `space_name` / `flow_name` /
+        // Local policy extension: SDK blocks `space_name` / `strand_name` /
         // `room_name`; chime also treats the v1 security-boundary display
         // label as sensitive until all downstream services agree on a
         // generic `*_name` rule.
@@ -1564,10 +1564,10 @@ pub fn render_agent_lifecycle_summary(event_kind: &str) -> Option<AgentLifecycle
 /// belt-and-braces: the SDK's blind-payload sanitizer also rejects
 /// `message_content` / similar leaves, but the *legacy* names need
 /// their own pass so an old caller can't slip past by sending the
-/// rename's old form (`size` / `flow_body` / `message_body` /
+/// rename's old form (`size` / `strand_body` / `message_body` /
 /// `body_only`).
 pub const PHASE_P2_LEGACY_FIELD_ALIASES: &[&str] =
-    &["size", "flow_body", "message_body", "body_only"];
+    &["size", "strand_body", "message_body", "body_only"];
 
 /// Return `true` if `key` is one of the legacy B-B field-naming aliases
 /// listed in [`PHASE_P2_LEGACY_FIELD_ALIASES`]. Used by chime's wire
@@ -1789,7 +1789,7 @@ mod tests {
         notification.extra.insert(
             "audience_mention_routing_hint".to_owned(),
             serde_json::json!({
-                "audience": "flow_engaged",
+                "audience": "strand_engaged",
                 "recipient_count": 3,
             }),
         );
@@ -2123,7 +2123,7 @@ mod tests {
         let mut n = notification();
         n.routing_metadata
             .get_or_insert_with(Default::default)
-            .effective_scope = Some("ck:flow:01HZK9Z000000000000000000".to_owned());
+            .effective_scope = Some("ck:strand:01HZK9Z000000000000000000".to_owned());
         assert!(matches!(
             n.validate_wire_model().unwrap_err(),
             PushNotifyPrivacyError::InvalidFieldValue { field } if field == "effective_scope"

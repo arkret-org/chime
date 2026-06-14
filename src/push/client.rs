@@ -453,7 +453,7 @@ impl CokretPushClient {
     /// # }
     /// ```
     ///
-    /// Live coverage of this flow lives in `tests/live_floria_integration.rs`,
+    /// Live coverage of this strand lives in `tests/live_floria_integration.rs`,
     /// which spawns a real `floria` push gateway on a loopback port.
     pub async fn register_device(
         &self,
@@ -526,7 +526,7 @@ impl CokretPushClient {
     /// honored). Use this when callers already constructed the wire
     /// body — typically because they cached it for retry or built it
     /// in one place and post in another (yougen's bridge-discovered
-    /// register flow does this) — and would otherwise have to rebuild
+    /// register strand does this) — and would otherwise have to rebuild
     /// it via `build_register_device_request`.
     pub async fn register_device_with_request(
         &self,
@@ -563,7 +563,7 @@ impl CokretPushClient {
 
     /// Symmetric counterpart of
     /// [`register_device_with_request`](Self::register_device_with_request)
-    /// for unregister flows.
+    /// for unregister strands.
     pub async fn unregister_device_with_request(
         &self,
         body: &ChimePushUnregisterDeviceRequest,

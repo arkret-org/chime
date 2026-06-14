@@ -328,7 +328,7 @@ assert!(response.body.ok);
 # }
 ```
 
-> Live coverage of this flow lives in `tests/live_floria_integration.rs`,
+> Live coverage of this strand lives in `tests/live_floria_integration.rs`,
 > which spawns a real `floria` push gateway on a loopback port and exercises
 > the discovery + notify side of the same `CokretPushClient`.
 
