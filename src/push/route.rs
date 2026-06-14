@@ -18,7 +18,7 @@
 //! [`PushRoute`] models chime's local **activation / revocation state
 //! machine**, not the on-the-wire `ck.device.push_route` payload. The
 //! authoritative wire contract for that event lives in the SDK as
-//! `cokret_core::model::DevicePushRoutePayload` (mirroring
+//! `cokret_core::models::DevicePushRoutePayload` (mirroring
 //! `event-payload.schema.json#/$defs/device_push_route_payload`). The two
 //! deliberately diverge:
 //!
