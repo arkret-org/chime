@@ -221,7 +221,8 @@ mod notify_props {
             };
 
             prop_assert!(request.assert_payload_safe(
-                &PushNotifyPolicyContext::blind_wakeup_only()
+                &PushNotifyPolicyContext::blind_wakeup_only(),
+                None,
             ).is_err());
         }
 

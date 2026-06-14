@@ -140,7 +140,7 @@ proptest! {
             .insert("default_payload".into(), Value::Object(default_payload));
         prop_assert!(
             request
-                .assert_payload_safe(&PushNotifyPolicyContext::blind_wakeup_only())
+                .assert_payload_safe(&PushNotifyPolicyContext::blind_wakeup_only(), None)
                 .is_err(),
             "sensitive key `{key}` nested under default_payload survived"
         );
@@ -159,7 +159,7 @@ proptest! {
             .insert("title".into(), Value::String(value));
         prop_assert!(
             request
-                .assert_payload_safe(&PushNotifyPolicyContext::blind_wakeup_only())
+                .assert_payload_safe(&PushNotifyPolicyContext::blind_wakeup_only(), None)
                 .is_err()
         );
     }
@@ -179,7 +179,7 @@ proptest! {
             .insert("attachment_name".into(), Value::String(filename));
         prop_assert!(
             request
-                .assert_payload_safe(&PushNotifyPolicyContext::blind_wakeup_only())
+                .assert_payload_safe(&PushNotifyPolicyContext::blind_wakeup_only(), None)
                 .is_err()
         );
     }
@@ -196,7 +196,7 @@ proptest! {
         request.notification.extra.insert("nest".into(), nested);
         prop_assert!(
             request
-                .assert_payload_safe(&PushNotifyPolicyContext::blind_wakeup_only())
+                .assert_payload_safe(&PushNotifyPolicyContext::blind_wakeup_only(), None)
                 .is_err(),
             "deeply nested sensitive key `{key}` survived"
         );
