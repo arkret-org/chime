@@ -63,11 +63,11 @@ pub use notify::{
     AGENT_ACTOR_PRIVATE_KINDS, AGENT_LIFECYCLE_DURABLE_KINDS, AgentEventRouting,
     AgentLifecycleSummary, ChimePushNotifyEnvelope, ChimePushNotifyOutcome, EncryptedEnvelope,
     EncryptedEnvelopeError, MentionRedirectRouting, PHASE_P2_AGENT_TYPED_ID_PREFIXES,
-    PHASE_P2_LEGACY_FIELD_ALIASES, ProviderRetryHint, PushDeliveryReceipt, PushHint,
+    PHASE_P2_FORBIDDEN_FIELD_ALIASES, ProviderRetryHint, PushDeliveryReceipt, PushHint,
     PushNotification, PushNotificationDedup, PushNotificationDevice, PushNotifyPolicyContext,
     PushNotifyPrivacyError, PushNotifyPrivacyMode, PushNotifyPrivacyVector, PushTargetId,
     ROUND_R2_R3_SENSITIVE_FIELDS, RejectedPushToken, WakeupKind, assert_no_sensitive_fields,
-    classify_agent_event_kind, is_legacy_field_alias, is_phase_p2_agent_typed_id,
+    classify_agent_event_kind, is_forbidden_field_alias, is_phase_p2_agent_typed_id,
     render_agent_lifecycle_summary, shared_push_notify_privacy_vectors,
 };
 // R3 (CALL-1 / CALL-2, spec b47ff6ec) — media token exchange surface.
@@ -267,7 +267,7 @@ pub struct PushPreferences {
     pub muted_circle_ids: BTreeSet<String>,
     /// Set of `ck:realm:` ids the user has muted on this device. Same
     /// semantics as [`Self::muted_circle_ids`], scoped to the Realm
-    /// (legacy Realm-scoped wakeups + any Circle-less Realm wakeups).
+    /// (Realm-scoped wakeups + any Circle-less Realm wakeups).
     #[serde(default, skip_serializing_if = "BTreeSet::is_empty")]
     pub muted_realm_ids: BTreeSet<String>,
 }

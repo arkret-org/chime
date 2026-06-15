@@ -359,7 +359,7 @@ pub struct AccountDeactivationReceipt {
     /// when no Circle-scoped state existed for this principal.
     pub circle_bindings_cleared: Vec<String>,
     /// CKP-0007 — same as [`Self::circle_bindings_cleared`] but for the
-    /// Realm-scoped mute list (legacy + Circle-less Realm wakeups).
+    /// Realm-scoped mute list and Circle-less Realm wakeups.
     pub realm_bindings_cleared: Vec<String>,
 }
 

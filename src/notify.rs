@@ -432,8 +432,8 @@ impl PushNotification {
         validate_typed_id("event_id", self.event_id.as_deref(), "ck:event:")?;
         validate_typed_id("realm_id", self.realm_id(), "ck:realm:")?;
         // CKP-0007 — Circle primitive typed-shape validation. We don't
-        // require either to be present (legacy Realm-scoped wakeups
-        // still set realm_id only), but when present they MUST be the
+        // require either to be present (Realm-scoped wakeups can set
+        // realm_id only), but when present they MUST be the
         // canonical typed-id shape so floria/yougen don't have to
         // re-parse arbitrary strings later.
         //
@@ -460,13 +460,13 @@ impl PushNotification {
             // fail closed at the wire layer. floria 6496235 mirrors the
             // same reject set on the gateway side; chime is the client-side
             // mirror.
-            if is_legacy_field_alias(key) {
+            if is_forbidden_field_alias(key) {
                 return Err(PushNotifyPrivacyError::RemovedField {
                     field: key.to_owned(),
                 });
             }
             // Reject nested removed aliases too (e.g. `media.size`).
-            if let Err(path) = assert_no_legacy_aliases(value) {
+            if let Err(path) = assert_no_forbidden_aliases(value) {
                 return Err(PushNotifyPrivacyError::RemovedField {
                     field: format!("{key}.{path}"),
                 });
@@ -1133,8 +1133,8 @@ fn validate_circle_id_opaque(value: Option<&str>) -> Result<(), PushNotifyPrivac
 
 /// CKP-0007 — `effective_scope` is a typed reference that floria stamps on
 /// `ck.event.*` envelopes. The only two legal prefixes are `ck:circle:`
-/// (intra-Realm encrypted sub-boundary) and `ck:realm:` (legacy
-/// Realm-scoped). Anything else is wire-broken.
+/// (intra-Realm encrypted sub-boundary) and `ck:realm:` (Realm-scoped).
+/// Anything else is wire-broken.
 fn validate_effective_scope(value: Option<&str>) -> Result<(), PushNotifyPrivacyError> {
     let Some(value) = value else {
         return Ok(());
@@ -1556,31 +1556,25 @@ pub fn render_agent_lifecycle_summary(event_kind: &str) -> Option<AgentLifecycle
     })
 }
 
-/// Phase P2 — legacy B-B field-naming aliases that were renamed in the
-/// candidate-stage breaking pass (spec 37ce729 / SDK 4d5a1af). chime
-/// mirrors floria 6496235's wire-side reject list so inbound push frames
-/// carrying any of these legacy keys fail closed at deserialisation
-/// rather than getting silently translated. The hard reject is
-/// belt-and-braces: the SDK's blind-payload sanitizer also rejects
-/// `message_content` / similar leaves, but the *legacy* names need
-/// their own pass so an old caller can't slip past by sending the
-/// rename's old form (`size` / `strand_body` / `message_body` /
-/// `body_only`).
-pub const PHASE_P2_LEGACY_FIELD_ALIASES: &[&str] =
+/// Phase P2 — B-B field-naming aliases removed in the candidate-stage
+/// breaking pass (spec 37ce729 / SDK 4d5a1af). chime mirrors floria
+/// 6496235's wire-side reject list so inbound push frames carrying any
+/// of these keys fail closed at deserialisation.
+pub const PHASE_P2_FORBIDDEN_FIELD_ALIASES: &[&str] =
     &["size", "strand_body", "message_body", "body_only"];
 
-/// Return `true` if `key` is one of the legacy B-B field-naming aliases
-/// listed in [`PHASE_P2_LEGACY_FIELD_ALIASES`]. Used by chime's wire
+/// Return `true` if `key` is one of the forbidden B-B field-naming aliases
+/// listed in [`PHASE_P2_FORBIDDEN_FIELD_ALIASES`]. Used by chime's wire
 /// recognizers to fail closed at deserialisation.
-pub fn is_legacy_field_alias(key: &str) -> bool {
-    PHASE_P2_LEGACY_FIELD_ALIASES.contains(&key)
+pub fn is_forbidden_field_alias(key: &str) -> bool {
+    PHASE_P2_FORBIDDEN_FIELD_ALIASES.contains(&key)
 }
 
 /// Recursively walk a JSON value and return `Err(field_path)` if any
-/// nested key matches a legacy B-B field-naming alias. Used by chime's
+/// nested key matches a forbidden B-B field-naming alias. Used by chime's
 /// wire validators (`ChimePushNotifyEnvelope::validate_wire_model`) so no
 /// caller can smuggle a renamed-from name past us.
-fn assert_no_legacy_aliases(payload: &Value) -> Result<(), String> {
+fn assert_no_forbidden_aliases(payload: &Value) -> Result<(), String> {
     fn walk(path: &str, value: &Value) -> Result<(), String> {
         match value {
             Value::Object(map) => {
@@ -1590,7 +1584,7 @@ fn assert_no_legacy_aliases(payload: &Value) -> Result<(), String> {
                     } else {
                         format!("{path}.{key}")
                     };
-                    if is_legacy_field_alias(key) {
+                    if is_forbidden_field_alias(key) {
                         return Err(nested_path);
                     }
                     walk(&nested_path, nested)?;

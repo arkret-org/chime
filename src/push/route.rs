@@ -354,10 +354,8 @@ impl PushRoute {
     /// keeping them stable across the active → revoked transition.
     ///
     /// T4.1: returns [`PushRouteError::RevokeMissingServiceDid`] if
-    /// the input route somehow has no `recipient_service_did` (which
-    /// can only happen via [`PushRoute::stub_unauthenticated`] or a
-    /// deserialized legacy record), so a buggy revoke can never land
-    /// in the wrong cell.
+    /// the input route somehow has no `recipient_service_did`, so a
+    /// buggy revoke can never land in the wrong cell.
     pub fn revoke(mut self) -> Result<Self, PushRouteError> {
         if self
             .recipient_service_did
@@ -583,10 +581,9 @@ mod tests {
 
     #[test]
     fn revoked_route_with_blank_service_did_is_rejected() {
-        // Round-trip path: a legacy persisted record with an empty
-        // recipient_service_did must not pass validation, otherwise a
-        // downstream caller could write the revoke into a default
-        // ("") cell.
+        // A record with an empty recipient_service_did must not pass
+        // validation, otherwise a downstream caller could write the
+        // revoke into a default ("") cell.
         let json = r#"{"recipient_service_did": "", "route": "apns_main", "revoked": true}"#;
         let route: PushRoute = serde_json::from_str(json).unwrap();
         let err = route.validate().unwrap_err();
