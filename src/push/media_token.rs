@@ -43,8 +43,8 @@ use chrono::{DateTime, Utc};
 // Re-export the SDK types so chime consumers can pull the full media
 // token surface through `chime::` without a second `cokret` dep.
 pub use cokret::{
-    CallMediaParticipantBinding, CallMediaTokenExchangeOutcome, CallMediaTokenExchangeRequestBody,
-    MediaBackendType, call_media_token_exchange,
+    CallMediaParticipantBinding, CallMediaServiceSignature, CallMediaTokenExchangeOutcome,
+    CallMediaTokenExchangeRequestBody, MediaBackendType, call_media_token_exchange,
 };
 
 use super::errors::PushErrorKind;
@@ -194,9 +194,11 @@ impl<'a> StructurallyValidatedMediaTokenOutcome<'a> {
         &self.response.participant_binding
     }
 
-    /// Detached service signature material that still requires host-side
-    /// Ed25519 verification.
-    pub fn service_signature(&self) -> &'a str {
+    /// Typed `{kid, sig}` service signature material (media-service-binding
+    /// §3) that still requires host-side Ed25519 verification: `kid` resolves
+    /// to a realm media-service anchor, `sig` is the backend-specific detached
+    /// signature.
+    pub fn service_signature(&self) -> &'a CallMediaServiceSignature {
         &self.response.service_signature
     }
 
@@ -401,7 +403,10 @@ mod tests {
                 expires_at,
             },
             expires_at,
-            service_signature: "did:web:media.example:media#kid-1:detached-sig".to_owned(),
+            service_signature: CallMediaServiceSignature {
+                kid: "did:web:media.example:media#kid-1".to_owned(),
+                sig: "detached-sig".to_owned(),
+            },
         }
     }
 
