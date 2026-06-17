@@ -1,0 +1,634 @@
+use cokret::{AuditPolicyAccessPayload, Did, EventId};
+use serde_json::Value;
+
+use super::*;
+
+fn device() -> PushNotificationDevice {
+    PushNotificationDevice {
+        push_key: "fcm:very-secret-token".to_owned(),
+        app_id: Some("app.example".to_owned()),
+        registration_id: None,
+        push_key_hash: Some("sha256:abc".to_owned()),
+        platform: Some("android".to_owned()),
+    }
+}
+
+fn notification() -> PushNotification {
+    // `PushNotification` is `#[non_exhaustive]`; build through
+    // `Default` and field-update so adding a new optional field
+    // does not require touching every test fixture.
+    PushNotification {
+        push_target_id: Some(
+            PushTargetId::new("ck:pseudonym:push:01HYZ8Z000000000000000").unwrap(),
+        ),
+        wakeup_kind: Some(WakeupKind::Message),
+        event_id: Some("ck:event:01JS0EV000000000000000000".to_owned()),
+        routing_metadata: Some(RoutingMetadata {
+            realm_id: Some("ck:realm:01JS0SP000000000000000000".to_owned()),
+            ..Default::default()
+        }),
+        push_hint: Some(PushHint::new("new_message").unwrap()),
+        counts: Some(serde_json::json!({ "badge": "2-5" })),
+        devices: vec![device()],
+        ..Default::default()
+    }
+}
+
+#[test]
+fn push_hint_accepts_only_protocol_vocabulary() {
+    PushHint::new("new_message").unwrap();
+    PushHint::new("incoming_call").unwrap();
+    PushHint::new("mention_self").unwrap();
+    PushHint::new("l10n_key:message.new").unwrap();
+
+    assert!(PushHint::new("New message").is_err());
+    assert!(PushHint::new("title:secret").is_err());
+}
+
+#[test]
+fn wakeup_kind_rejects_unknown_values() {
+    let value = "custom_kind";
+    let error = serde_json::from_value::<WakeupKind>(Value::String(value.to_owned()))
+        .expect_err("unknown wakeup kind must fail closed");
+    assert!(
+        error.to_string().contains(
+            "message, mention, reaction, call_invite, reminder, scheduled_send, expiry_invalidation"
+        ),
+        "unexpected error for {value}: {error}"
+    );
+
+    assert_eq!(
+        serde_json::from_value::<WakeupKind>(Value::String("call_invite".to_owned())).unwrap(),
+        WakeupKind::CallInvite
+    );
+    assert_eq!(
+        serde_json::from_value::<WakeupKind>(Value::String("reminder".to_owned())).unwrap(),
+        WakeupKind::Reminder
+    );
+    assert_eq!(
+        serde_json::from_value::<WakeupKind>(Value::String("scheduled_send".to_owned())).unwrap(),
+        WakeupKind::ScheduledSend
+    );
+    assert_eq!(
+        serde_json::from_value::<WakeupKind>(Value::String("expiry_invalidation".to_owned()))
+            .unwrap(),
+        WakeupKind::ExpiryInvalidation
+    );
+}
+
+#[test]
+fn blind_wakeup_rejects_plaintext_metadata() {
+    let mut notification = notification();
+    notification
+        .extra
+        .insert("title".to_owned(), Value::String("Secret".to_owned()));
+
+    assert_eq!(
+        notification.validate_blind_wakeup().unwrap_err(),
+        PushNotifyPrivacyError::SensitiveField {
+            field: "title".to_owned()
+        }
+    );
+}
+
+#[test]
+fn blind_wakeup_rejects_audience_mention_expansion_metadata() {
+    let mut notification = notification();
+    notification.extra.insert(
+        "audience_mention_routing_hint".to_owned(),
+        serde_json::json!({
+            "audience": "strand_engaged",
+            "recipient_count": 3,
+        }),
+    );
+
+    assert_eq!(
+        notification.validate_blind_wakeup().unwrap_err(),
+        PushNotifyPrivacyError::SensitiveField {
+            field: "audience_mention_routing_hint".to_owned()
+        }
+    );
+}
+
+#[test]
+fn deserialized_extra_fields_require_runtime_validation() {
+    let loaded: PushNotification = serde_json::from_value(serde_json::json!({
+        "push_target_id": "ck:pseudonym:push:01HYZ8Z000000000000000",
+        "wakeup_kind": "message",
+        "kind": "captured-extra-field",
+        "devices": [{
+            "push_key": "fcm:very-secret-token",
+            "app_id": "app.example"
+        }]
+    }))
+    .unwrap();
+
+    assert!(loaded.extra.contains_key("kind"));
+    assert!(matches!(
+        loaded.validate_wire_model().unwrap_err(),
+        PushNotifyPrivacyError::RemovedField { field } if field == "kind"
+    ));
+}
+
+#[test]
+fn notify_request_validates_fixture_shape() {
+    let request = ChimePushNotifyEnvelope {
+        notification: notification(),
+        ..Default::default()
+    };
+
+    request.validate_blind_wakeup().unwrap();
+}
+
+#[test]
+fn push_target_id_accepts_typed_and_raw_tokens() {
+    PushTargetId::new("ck:pseudonym:push:01HYZ8Z000000000000000").unwrap();
+    PushTargetId::new("01HYZ8Z000000000000000").unwrap();
+
+    assert!(PushTargetId::new("ck:device:01HYZ8Z000000000000000").is_err());
+    assert!(PushTargetId::new("did:web:alice.example").is_err());
+}
+
+#[test]
+fn encrypted_envelope_validates_base64_payloads() {
+    let envelope = EncryptedEnvelope::new("did:web:alice.example", "x25519", "Y2lwaGVydGV4dA==")
+        .unwrap()
+        .with_nonce("bm9uY2VfYWJj")
+        .unwrap()
+        .with_key_id("kid-1")
+        .with_aad("ck.edge.push.command.notify");
+
+    envelope.validate().unwrap();
+    assert!(EncryptedEnvelope::new("alice", "x25519", "Y2lwaGVydGV4dA==").is_err());
+    assert!(EncryptedEnvelope::new("did:web:alice", "x25519", "not base64!").is_err());
+}
+
+#[test]
+fn debug_redacts_push_tokens() {
+    let debug = format!("{:?}", device());
+    assert!(debug.contains("fcm:<redacted"));
+    assert!(!debug.contains("very-secret-token"));
+
+    let rejected = RejectedPushToken {
+        push_key: Some("fcm:very-secret-token".to_owned()),
+        push_key_hash: Some("pkh_abc".to_owned()),
+        app_id: Some("app.example".to_owned()),
+        reason: Some("unregistered".to_owned()),
+    };
+    let debug = format!("{rejected:?}");
+    assert!(debug.contains("fcm:<redacted"));
+    assert!(!debug.contains("very-secret-token"));
+}
+
+#[test]
+fn assert_no_sensitive_fields_accepts_clean_payload() {
+    let payload = serde_json::json!({
+        "push_target_id": "ck:pseudonym:push:01HYZ8Z000000000000000",
+        "wakeup_kind": "message",
+        "counts": {"unread": 1},
+    });
+    assert_no_sensitive_fields(&payload).unwrap();
+}
+
+#[test]
+fn assert_no_sensitive_fields_rejects_round23_governance_fields() {
+    for field in ROUND_R2_R3_SENSITIVE_FIELDS {
+        let payload = serde_json::json!({
+            "push_target_id": "ck:pseudonym:push:01HYZ8Z000000000000000",
+            "wakeup_kind": "message",
+            *field: "leaked-value",
+        });
+        // The release-build return value is what we lock in;
+        // debug builds will panic in `walk` first, which is also
+        // what we want, so we run the function with a catch_unwind
+        // so the test verifies both paths.
+        let outcome = std::panic::catch_unwind(|| assert_no_sensitive_fields(&payload));
+        match outcome {
+            Ok(Ok(())) => panic!("field `{field}` slipped through"),
+            Ok(Err(path)) => assert!(
+                path.contains(field),
+                "returned path `{path}` should mention `{field}`"
+            ),
+            Err(_) => {
+                // debug_assert! triggered — also a pass.
+            }
+        }
+    }
+}
+
+#[test]
+fn assert_no_sensitive_fields_walks_nested_objects() {
+    let payload = serde_json::json!({
+        "push_target_id": "ck:pseudonym:push:01HYZ8Z000000000000000",
+        "metadata": {
+            "deep": {
+                "appeal_id": "ck:appeal:01ABC"
+            }
+        }
+    });
+    let outcome = std::panic::catch_unwind(|| assert_no_sensitive_fields(&payload));
+    match outcome {
+        Ok(Ok(())) => panic!("nested appeal_id slipped through"),
+        Ok(Err(path)) => assert!(path.contains("appeal_id")),
+        Err(_) => {} // debug panic path
+    }
+}
+
+#[test]
+fn assert_no_sensitive_fields_walks_arrays() {
+    let payload = serde_json::json!({
+        "items": [
+            {"ok": 1},
+            {"trust_domain": "ck:trust_domain:example.net"}
+        ]
+    });
+    let outcome = std::panic::catch_unwind(|| assert_no_sensitive_fields(&payload));
+    match outcome {
+        Ok(Ok(())) => panic!("array trust_domain slipped through"),
+        Ok(Err(path)) => assert!(path.contains("trust_domain")),
+        Err(_) => {} // debug panic path
+    }
+}
+
+// ── Round 4 (B5) — mention_redirect plaintext routing tests ───────
+
+#[test]
+fn decrypt_allowed_for_actor_no_routing_is_open() {
+    // No `mention_redirect` field → not a mention-redirect wakeup,
+    // gate decision lives elsewhere, return true.
+    let notification = notification();
+    let actor = Did::new("did:web:alice.example").unwrap();
+    assert!(notification.decrypt_allowed_for_actor(&actor));
+    assert!(!notification.has_mention_redirect_routing());
+}
+
+#[test]
+fn decrypt_allowed_for_actor_in_list_passes() {
+    let mut notification = notification();
+    let alice = Did::new("did:web:alice.example").unwrap();
+    let bob = Did::new("did:webvh:bob.example").unwrap();
+    notification
+        .routing_metadata
+        .get_or_insert_with(Default::default)
+        .mention_redirect = Some(MentionRedirectRouting {
+        mention_redirect_target_actor_ids: vec![alice.clone(), bob.clone()],
+    });
+    assert!(notification.has_mention_redirect_routing());
+    assert!(notification.decrypt_allowed_for_actor(&alice));
+    assert!(notification.decrypt_allowed_for_actor(&bob));
+}
+
+#[test]
+fn decrypt_allowed_for_actor_not_in_list_is_fail_closed() {
+    let mut notification = notification();
+    let alice = Did::new("did:web:alice.example").unwrap();
+    let mallory = Did::new("did:web:mallory.example").unwrap();
+    notification
+        .routing_metadata
+        .get_or_insert_with(Default::default)
+        .mention_redirect = Some(MentionRedirectRouting {
+        mention_redirect_target_actor_ids: vec![alice],
+    });
+    // Mallory is not in the list → fail-closed.
+    assert!(!notification.decrypt_allowed_for_actor(&mallory));
+}
+
+#[test]
+fn decrypt_allowed_for_actor_empty_list_is_fail_closed() {
+    // B5: an empty mention_redirect_target_actor_ids array means
+    // *nobody* is allowed — explicit empty wakeups should not fall
+    // back to "open". Fail closed by construction.
+    let mut notification = notification();
+    notification
+        .routing_metadata
+        .get_or_insert_with(Default::default)
+        .mention_redirect = Some(MentionRedirectRouting::default());
+    let anyone = Did::new("did:web:anyone.example").unwrap();
+    assert!(notification.has_mention_redirect_routing());
+    assert!(!notification.decrypt_allowed_for_actor(&anyone));
+}
+
+#[test]
+fn mention_redirect_round_trips_through_json() {
+    let mut notification = notification();
+    let alice = Did::new("did:web:alice.example").unwrap();
+    notification
+        .routing_metadata
+        .get_or_insert_with(Default::default)
+        .mention_redirect = Some(MentionRedirectRouting {
+        mention_redirect_target_actor_ids: vec![alice.clone()],
+    });
+    let json = serde_json::to_string(&notification).unwrap();
+    // Ensure the field is serialised under the canonical wire name.
+    assert!(
+        json.contains("mention_redirect_target_actor_ids"),
+        "wire name must survive serde: {json}",
+    );
+    let loaded: PushNotification = serde_json::from_str(&json).unwrap();
+    assert!(loaded.decrypt_allowed_for_actor(&alice));
+}
+
+// ── Round 4 (B5) — e2ee_late_recovery banner surface tests ────────
+
+#[test]
+fn late_recovery_event_id_is_some_for_e2ee_late_recovery() {
+    // Parse the SDK shape via JSON so chime doesn't need to depend
+    // on `chrono` directly to construct timestamps in tests.
+    let payload: AuditPolicyAccessPayload = serde_json::from_value(serde_json::json!({
+        "realm_id": "ck:realm:01904100-0000-7000-8000-000000000001",
+        "actor": "did:web:alice.example",
+        "access_kind": "e2_e_e_late_recovery",
+        "late_recovery_original_event_id":
+            "ck:event:01904100-0000-7000-8000-000000000002",
+        "observed_at": "2026-05-20T00:00:00Z",
+    }))
+    .unwrap();
+    // Sanity-check the SDK validator agrees.
+    payload.validate_minimal().unwrap();
+
+    let expected_event_id = EventId::new("ck:event:01904100-0000-7000-8000-000000000002").unwrap();
+    let mut notification = notification();
+    notification.policy_access = Some(payload);
+    assert_eq!(
+        notification.late_recovery_event_id(),
+        Some(&expected_event_id)
+    );
+}
+
+#[test]
+fn late_recovery_event_id_is_none_for_other_access_kinds() {
+    let payload: AuditPolicyAccessPayload = serde_json::from_value(serde_json::json!({
+        "realm_id": "ck:realm:01904100-0000-7000-8000-000000000001",
+        "actor": "did:web:alice.example",
+        "access_kind": "audit",
+        "observed_at": "2026-05-20T00:00:00Z",
+    }))
+    .unwrap();
+    let mut notification = notification();
+    notification.policy_access = Some(payload);
+    assert!(notification.late_recovery_event_id().is_none());
+}
+
+#[test]
+fn late_recovery_event_id_is_none_when_payload_absent() {
+    let notification = notification();
+    assert!(notification.late_recovery_event_id().is_none());
+}
+
+// ── CKP-0007 (Circle primitive) — circle_id / effective_scope ────────
+
+#[test]
+fn circle_id_and_effective_scope_round_trip_through_json() {
+    let mut n = notification();
+    n.routing_metadata
+        .get_or_insert_with(Default::default)
+        .circle_id = Some("ck:circle:01HZK9Z000000000000000000".to_owned());
+    n.routing_metadata
+        .get_or_insert_with(Default::default)
+        .effective_scope = Some("ck:circle:01HZK9Z000000000000000000".to_owned());
+    let json = serde_json::to_string(&n).unwrap();
+    assert!(json.contains("circle_id"));
+    assert!(json.contains("effective_scope"));
+    let loaded: PushNotification = serde_json::from_str(&json).unwrap();
+    assert_eq!(loaded.circle_id(), n.circle_id());
+    assert_eq!(loaded.effective_scope(), n.effective_scope());
+    // Wire shape validates.
+    loaded.validate_wire_model().unwrap();
+    // And it passes blind-wakeup privacy (typed circle_id is allowed
+    // as opaque routing metadata).
+    loaded.validate_blind_wakeup().unwrap();
+}
+
+#[test]
+fn circle_id_rejects_untyped_value() {
+    let mut n = notification();
+    n.routing_metadata
+        .get_or_insert_with(Default::default)
+        .circle_id = Some("not-a-typed-id".to_owned());
+    assert!(matches!(
+        n.validate_wire_model().unwrap_err(),
+        PushNotifyPrivacyError::InvalidFieldValue { field } if field == "circle_id"
+    ));
+}
+
+#[test]
+fn effective_scope_accepts_circle_or_realm_prefix() {
+    let mut n = notification();
+    n.routing_metadata
+        .get_or_insert_with(Default::default)
+        .effective_scope = Some("ck:realm:01HZK9Z000000000000000000".to_owned());
+    n.validate_wire_model().unwrap();
+    n.routing_metadata
+        .get_or_insert_with(Default::default)
+        .effective_scope = Some("ck:circle:01HZK9Z000000000000000000".to_owned());
+    n.validate_wire_model().unwrap();
+}
+
+#[test]
+fn effective_scope_rejects_other_prefixes() {
+    let mut n = notification();
+    n.routing_metadata
+        .get_or_insert_with(Default::default)
+        .effective_scope = Some("ck:strand:01HZK9Z000000000000000000".to_owned());
+    assert!(matches!(
+        n.validate_wire_model().unwrap_err(),
+        PushNotifyPrivacyError::InvalidFieldValue { field } if field == "effective_scope"
+    ));
+}
+
+#[test]
+fn blind_wakeup_rejects_circle_id_carrying_did_literal() {
+    let mut n = notification();
+    // Force-bypass the typed-id check at construction by skipping
+    // PushTargetId's constructor; the wire-model validator is what
+    // we want to exercise here. We set a value that satisfies the
+    // `ck:circle:` prefix but smuggles a did: literal in the tail.
+    n.routing_metadata
+        .get_or_insert_with(Default::default)
+        .circle_id = Some("ck:circle:did:web:alice.example".to_owned());
+    let err = n.validate_blind_wakeup().unwrap_err();
+    assert!(matches!(
+        err,
+        PushNotifyPrivacyError::SensitiveField { field } if field == "circle_id"
+    ));
+}
+
+#[test]
+fn blind_wakeup_rejects_plaintext_absolute_unread_count() {
+    // §5.1: a plaintext absolute unread count is an activity
+    // side-channel and MUST NOT travel in a blind wakeup.
+    let mut n = notification();
+    n.counts = Some(serde_json::json!({ "unread": 9999 }));
+    let err = n.validate_blind_wakeup().unwrap_err();
+    assert!(matches!(
+        err,
+        PushNotifyPrivacyError::SensitiveField { field } if field == "counts.unread"
+    ));
+}
+
+#[test]
+fn blind_wakeup_accepts_increment_bucket_and_badge_counts() {
+    // The three §5.1-permitted forms: increment delta, bucketized
+    // string, and coarse boolean badge.
+    for counts in [
+        serde_json::json!({ "unread_increment": 3 }),
+        serde_json::json!({ "badge": "2-5" }),
+        serde_json::json!({ "badge": true }),
+    ] {
+        let mut n = notification();
+        n.counts = Some(counts.clone());
+        n.validate_blind_wakeup()
+            .unwrap_or_else(|err| panic!("counts {counts} must pass blind_wakeup: {err}"));
+    }
+}
+
+#[test]
+fn blind_wakeup_rejects_circle_name_in_extra() {
+    let mut n = notification();
+    n.extra.insert(
+        "circle_name".to_owned(),
+        Value::String("Bridge Team".to_owned()),
+    );
+    let err = n.validate_blind_wakeup().unwrap_err();
+    assert!(matches!(
+        err,
+        PushNotifyPrivacyError::SensitiveField { field } if field == "circle_name"
+    ));
+}
+
+#[test]
+fn plaintext_visible_service_rejects_circle_members_array() {
+    let mut n = notification();
+    n.extra.insert(
+        "circle_members".to_owned(),
+        serde_json::json!(["did:web:alice.example"]),
+    );
+    let err = n.validate_plaintext_visible_service().unwrap_err();
+    assert!(matches!(
+        err,
+        PushNotifyPrivacyError::SensitiveField { field } if field == "circle_members"
+    ));
+}
+
+// ── Phase P2 (spec 37ce729) — Personal Agent event-kind parsing ─────
+
+#[test]
+fn agent_lifecycle_summary_is_pii_free() {
+    // Each durable lifecycle kind renders an l10n key and no actor,
+    // payload, or grant identifier. The host MUST be able to
+    // surface the summary to a control-plane UI without leaking PII.
+    for (kind, expected_suffix) in [
+        ("ck.self.agent.pause", "pause"),
+        ("ck.self.agent.resume", "resume"),
+        ("ck.self.agent.deactivate", "deactivate"),
+    ] {
+        let summary = render_agent_lifecycle_summary(kind).expect("renders");
+        assert_eq!(summary.event_kind, kind);
+        assert_eq!(
+            summary.l10n_key,
+            format!("l10n_key:agent.lifecycle.{expected_suffix}")
+        );
+    }
+    assert!(render_agent_lifecycle_summary("ck.agent.draft.propose").is_none());
+    assert!(render_agent_lifecycle_summary("ck.message.create").is_none());
+}
+
+#[test]
+fn agent_typed_id_in_extra_fails_closed() {
+    // An agent / sidecar / backup / recovery typed-id appearing in
+    // `extra` is a correlation leak — the wakeup wire never carries
+    // these prefixes in a non-Agent slot. chime MUST reject the
+    // frame.
+    for prefix in PHASE_P2_AGENT_TYPED_ID_PREFIXES {
+        let mut n = notification();
+        n.extra.insert(
+            "smuggled".to_owned(),
+            Value::String(format!("{prefix}01HZK9Z000000000000000000")),
+        );
+        let err = n.validate_wire_model().unwrap_err();
+        match err {
+            PushNotifyPrivacyError::SensitiveField { field } => {
+                assert_eq!(field, "smuggled");
+            }
+            other => panic!("expected SensitiveField for prefix `{prefix}`, got {other:?}"),
+        }
+    }
+}
+
+#[test]
+fn round23_sensitive_fields_cover_agent_governance_set() {
+    // Phase P2 added 10 agent / sidecar / recovery governance
+    // identifiers to the `assert_no_sensitive_fields` tripwire.
+    // Spot-check each one to lock in the wire-side reject.
+    for field in [
+        "accountability_grant_id",
+        "controller_did",
+        "agent_principal_id",
+        "agent_session_id",
+        "agent_key_id",
+        "sidecar_circle_id",
+        "agent_draft_id",
+        "proposed_action",
+        "action_payload_digest",
+        "approval_nonce",
+    ] {
+        assert!(
+            ROUND_R2_R3_SENSITIVE_FIELDS.contains(&field),
+            "field `{field}` must be in ROUND_R2_R3_SENSITIVE_FIELDS"
+        );
+        let payload = serde_json::json!({
+            "push_target_id": "ck:pseudonym:push:01HYZ8Z000000000000000",
+            "wakeup_kind": "message",
+            field: "leaked-value",
+        });
+        let outcome = std::panic::catch_unwind(|| assert_no_sensitive_fields(&payload));
+        match outcome {
+            Ok(Ok(())) => panic!("agent field `{field}` slipped through"),
+            Ok(Err(path)) => assert!(
+                path.contains(field),
+                "returned path `{path}` should mention `{field}`"
+            ),
+            Err(_) => {
+                // debug_assert! triggered — also a pass.
+            }
+        }
+    }
+}
+
+#[test]
+fn round23_sensitive_fields_cover_private_productivity_and_search_set() {
+    for field in [
+        "target_ref",
+        "target_key",
+        "collection_title",
+        "collection_key",
+        "reminder_note",
+        "note",
+        "message_payload",
+        "message_payload_digest",
+        "draft_slot",
+        "origin_device_id",
+        "realm_key",
+        "blind_tokens",
+        "shard_key",
+    ] {
+        assert!(
+            ROUND_R2_R3_SENSITIVE_FIELDS.contains(&field),
+            "field `{field}` must be in ROUND_R2_R3_SENSITIVE_FIELDS"
+        );
+        let payload = serde_json::json!({
+            "push_target_id": "ck:pseudonym:push:01HYZ8Z000000000000000",
+            "wakeup_kind": "reminder",
+            field: "leaked-value",
+        });
+        let outcome = std::panic::catch_unwind(|| assert_no_sensitive_fields(&payload));
+        match outcome {
+            Ok(Ok(())) => panic!("private field `{field}` slipped through"),
+            Ok(Err(path)) => assert!(
+                path.contains(field),
+                "returned path `{path}` should mention `{field}`"
+            ),
+            Err(_) => {}
+        }
+    }
+}
