@@ -397,6 +397,12 @@ pub(super) fn is_never_allowed_payload_key(key: &str) -> bool {
         key,
         "provider_payload"
             | "aps"
+            | "content"
+            | "content_body"
+            | "content_msgtype"
+            | "body"
+            | "preview"
+            | "summary"
             | "encrypted_payload"
             | "encrypted_content"
             | "encrypted_metadata"

@@ -756,6 +756,20 @@ fn plaintext_visible_service_rejects_circle_members_array() {
     ));
 }
 
+#[test]
+fn plaintext_visible_service_rejects_product_private_content_body() {
+    let mut n = notification();
+    n.extra.insert(
+        "content".to_owned(),
+        serde_json::json!({ "body": "secret message" }),
+    );
+    let err = n.validate_plaintext_visible_service().unwrap_err();
+    assert!(matches!(
+        err,
+        PushNotifyPrivacyError::SensitiveField { field } if field == "content"
+    ));
+}
+
 // ── Phase P2 (spec 37ce729) — Personal Agent event-kind parsing ─────
 
 #[test]
