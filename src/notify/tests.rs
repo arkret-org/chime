@@ -140,6 +140,81 @@ fn notify_request_validates_fixture_shape() {
     request.validate_blind_wakeup().unwrap();
 }
 
+/// CHIME-02 — actually consume `shared_push_notify_privacy_vectors()`
+/// so the exported fixtures can never silently drift from the wire model
+/// again. Every accept-vector payload MUST be a spec-valid notify request
+/// body (top level limited to `{notification, event_kind?, reason_code?,
+/// audit_envelope?}`, no transport fields like `operation_id`), and its
+/// nested `notification` MUST pass the matching privacy mode. Reject
+/// vectors MUST fail, surfacing their declared `expected_error_field`.
+#[test]
+fn shared_privacy_vectors_match_wire_model() {
+    // Transport / path-determined fields that the canonical body forbids at
+    // the top level (service-http-binding.md:213, :559).
+    const FORBIDDEN_BODY_KEYS: &[&str] = &[
+        "operation_id",
+        "idempotency_key",
+        "origin_service_did",
+        "destination_service_did",
+        "service_did",
+    ];
+
+    let vectors = shared_push_notify_privacy_vectors();
+    assert!(!vectors.is_empty(), "fixture set must not be empty");
+
+    for vector in vectors {
+        let payload = vector
+            .payload
+            .as_object()
+            .unwrap_or_else(|| panic!("vector `{}` payload must be a JSON object", vector.name));
+
+        // The notify request body top level only carries the canonical keys;
+        // assert no forbidden transport field leaked in (defends the very
+        // regression CHIME-02 fixed).
+        for key in payload.keys() {
+            assert!(
+                !FORBIDDEN_BODY_KEYS.contains(&key.as_str()),
+                "vector `{}` leaks forbidden body field `{key}`",
+                vector.name
+            );
+        }
+
+        let notification: PushNotification = serde_json::from_value(
+            payload
+                .get("notification")
+                .unwrap_or_else(|| panic!("vector `{}` missing `notification`", vector.name))
+                .clone(),
+        )
+        .unwrap_or_else(|err| panic!("vector `{}` notification deserialises: {err}", vector.name));
+
+        let envelope = ChimePushNotifyEnvelope {
+            notification,
+            ..Default::default()
+        };
+
+        let result = envelope.validate_privacy(vector.mode);
+        if vector.should_accept {
+            result.unwrap_or_else(|err| {
+                panic!(
+                    "vector `{}` should accept but rejected: {err:?}",
+                    vector.name
+                )
+            });
+        } else {
+            let err = result
+                .err()
+                .unwrap_or_else(|| panic!("vector `{}` should reject but accepted", vector.name));
+            if let Some(field) = vector.expected_error_field.as_deref() {
+                assert!(
+                    format!("{err:?}").contains(field),
+                    "vector `{}` error {err:?} missing expected field `{field}`",
+                    vector.name
+                );
+            }
+        }
+    }
+}
+
 #[test]
 fn push_target_id_accepts_typed_and_raw_tokens() {
     PushTargetId::new("ck:pseudonym:push:01HYZ8Z000000000000000").unwrap();

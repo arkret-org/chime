@@ -109,7 +109,21 @@ impl fmt::Debug for PushDeviceConfig<'_> {
     }
 }
 
-/// Request body for `POST /_cokret/edge/push/register-device`.
+/// Internal builder/config for a `register-device` call.
+///
+/// **This is NOT a wire body.** The canonical `register-device` request
+/// body is [`cokret::PushRegisterDeviceRequestBody`] and is the only thing
+/// ever serialized onto the wire — chime derives it from this builder via
+/// [`Self::to_sdk_request`]. The transport-only fields carried here
+/// (`operation_id`, `principal_id`, `idempotency_key`, `request_id`,
+/// `proof`, `previous_token_hash`) ride HTTP headers / the signing context
+/// and the URL path, never the body (`push-operations.schema.json` sets
+/// `additionalProperties:false` on the canonical body;
+/// `service-http-binding.md:211-212`). The `Serialize`/`Deserialize`
+/// derives exist only so local-state types such as
+/// [`crate::PushTokenRotationPlan`] can persist a pending plan; the
+/// resulting JSON is private SDK state, **never** a notify/register wire
+/// body. Always route through [`Self::to_sdk_request`] before POSTing.
 ///
 /// Stability: 1.0-stable + `#[non_exhaustive]`. Build via
 /// `ChimePushRegisterDeviceRequest { ..Default::default() }` from external crates so
@@ -223,7 +237,22 @@ impl From<cokret::PushRegisterDeviceOutcome> for ChimePushRegisterDeviceOutcome 
     }
 }
 
-/// Request body for `POST /_cokret/edge/push/unregister-device`.
+/// Internal builder/config for an `unregister-device` call.
+///
+/// **This is NOT a wire body.** The canonical `unregister-device` request
+/// body is [`cokret::PushUnregisterDeviceRequestBody`] and is the only
+/// thing serialized onto the wire — chime derives it from this builder via
+/// [`Self::to_sdk_request`], which keeps only `{device_id, push_key?,
+/// app_id?}`. The remaining fields here (`operation_id`, `principal_id`,
+/// `registration_id`, `push_gateway`, `push_key_hash`, `push_key_preview`,
+/// `idempotency_key`, `request_id`, `proof`) are correlation / transport
+/// metadata that ride HTTP headers, the signing context, or local state —
+/// never the body (`push-operations.schema.json` sets
+/// `additionalProperties:false`; `service-http-binding.md:211-212`). The
+/// `Serialize`/`Deserialize` derives exist only so local-state types such
+/// as [`crate::PushTokenRotationPlan`] can persist a pending plan; the
+/// resulting JSON is private SDK state, **never** an unregister wire body.
+/// Always route through [`Self::to_sdk_request`] before POSTing.
 ///
 /// Stability: 1.0-stable + `#[non_exhaustive]`. Build via
 /// `ChimePushUnregisterDeviceRequest { ..Default::default() }` from external crates.

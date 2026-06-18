@@ -121,10 +121,33 @@ async fn register_success_exposes_response_context_and_headers() {
     let request = requests.lock().unwrap().join("\n");
     assert!(request.contains("POST /_cokret/edge/push/register-device HTTP/1.1"));
     assert!(request.contains("authorization: Bearer session-secret"));
+    // CHIME-01: idempotency key, request id, operation id, and proof are
+    // header / path / signing-context concerns — they ride the headers,
+    // never the canonical wire body.
     assert!(request.contains("idempotency-key: idem-1"));
     assert!(request.contains("x-cokret-request-id: ck:request:test"));
     assert!(request.contains("user-agent: test-agent"));
-    assert!(request.contains("\"idempotency_key\":\"idem-1\""));
+
+    // CHIME-01: the POSTed body is the canonical
+    // `PushRegisterDeviceRequestBody` (`additionalProperties:false`), so it
+    // MUST NOT carry any of the transport-only fields the local builder
+    // tracks. Split off the headers so we only inspect the JSON body.
+    let body = request
+        .rsplit("\r\n\r\n")
+        .next()
+        .expect("request has a body");
+    for forbidden in [
+        "\"idempotency_key\"",
+        "\"operation_id\"",
+        "\"principal_id\"",
+        "\"request_id\"",
+        "\"proof\"",
+    ] {
+        assert!(
+            !body.contains(forbidden),
+            "register wire body must not contain {forbidden}: {body}"
+        );
+    }
 }
 
 #[tokio::test]

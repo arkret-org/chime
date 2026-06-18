@@ -154,8 +154,13 @@ pub fn shared_push_notify_privacy_vectors() -> Vec<PushNotifyPrivacyVector> {
         PushNotifyPrivacyVector {
             name: "blind wakeup accepts opaque metadata".to_owned(),
             mode: PushNotifyPrivacyMode::E2eeBlindWakeup,
+            // SPEC-CR-016: the notify request body top level is strictly
+            // `{notification, event_kind?, reason_code?, audit_envelope?}`
+            // (`deny_unknown_fields`). Transport fields such as
+            // `operation_id` are determined by the URL path / HTTP headers
+            // and MUST NOT appear in the body, so this accept-vector payload
+            // carries no `operation_id` (see `service-http-binding.md:213`).
             payload: serde_json::json!({
-                "operation_id": crate::OPERATION_PUSH_NOTIFY,
                 "notification": {
                     "push_target_id": "ck:pseudonym:push:01HYZ8Z000000000000000",
                     "wakeup_kind": "message",
