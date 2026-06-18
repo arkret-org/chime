@@ -2,6 +2,7 @@ use cokret::{AuditPolicyAccessPayload, Did, EventId};
 use serde_json::Value;
 
 use super::*;
+use crate::{PushRuleEventContext, ShouldNotify, WatchLevel, push_rule_reason_code};
 
 fn device() -> PushNotificationDevice {
     PushNotificationDevice {
@@ -32,6 +33,176 @@ fn notification() -> PushNotification {
         devices: vec![device()],
         ..Default::default()
     }
+}
+
+fn expiry_invalidation_notification() -> PushNotification {
+    PushNotification {
+        wakeup_kind: Some(WakeupKind::ExpiryInvalidation),
+        devices: vec![device()],
+        ..Default::default()
+    }
+}
+
+#[test]
+fn local_notification_expiry_invalidation_revokes_visible_preview() {
+    let decision = evaluate_local_notification(
+        &expiry_invalidation_notification(),
+        LocalNotificationState::visible_preview(),
+        &LocalNotificationPolicy::default(),
+    );
+
+    assert_eq!(decision.action, LocalNotificationAction::RevokeExisting);
+    assert_eq!(decision.reason_code, local_reason_code::EXPIRY_INVALIDATION);
+    assert_eq!(decision.push_rule_decision, None);
+    assert!(decision.action.mutates_existing());
+    assert!(!decision.action.visible());
+}
+
+#[test]
+fn local_notification_expiry_invalidation_can_replace_with_stub() {
+    let policy = LocalNotificationPolicy {
+        expiry_invalidation_behavior: ExpiryInvalidationBehavior::ReplaceWithExpiredStub,
+        ..Default::default()
+    };
+
+    let decision = evaluate_local_notification(
+        &expiry_invalidation_notification(),
+        LocalNotificationState::visible_preview(),
+        &policy,
+    );
+
+    assert_eq!(
+        decision.action,
+        LocalNotificationAction::ReplaceWithExpiredStub
+    );
+    assert_eq!(decision.reason_code, local_reason_code::EXPIRY_INVALIDATION);
+    assert_eq!(decision.push_rule_decision, None);
+    assert!(decision.action.mutates_existing());
+    assert!(decision.action.visible());
+}
+
+#[test]
+fn local_notification_expiry_invalidation_noops_without_visible_preview() {
+    for state in [
+        LocalNotificationState {
+            visible: false,
+            contains_preview: true,
+        },
+        LocalNotificationState {
+            visible: true,
+            contains_preview: false,
+        },
+    ] {
+        let decision = evaluate_local_notification(
+            &expiry_invalidation_notification(),
+            state,
+            &LocalNotificationPolicy::default(),
+        );
+
+        assert_eq!(decision.action, LocalNotificationAction::Noop);
+        assert_eq!(decision.reason_code, local_reason_code::NO_VISIBLE_PREVIEW);
+        assert_eq!(decision.push_rule_decision, None);
+        assert!(!decision.action.mutates_existing());
+        assert!(!decision.action.visible());
+    }
+}
+
+#[test]
+fn local_notification_push_rule_notify_shows_when_unrestricted() {
+    let policy = LocalNotificationPolicy {
+        watch_level: WatchLevel::All,
+        ..Default::default()
+    };
+
+    let decision =
+        evaluate_local_notification(&notification(), LocalNotificationState::default(), &policy);
+
+    assert_eq!(decision.action, LocalNotificationAction::Show);
+    assert_eq!(decision.reason_code, push_rule_reason_code::WATCH_ALLOWS);
+    assert_eq!(decision.push_rule_decision, Some(ShouldNotify::Notify));
+    assert!(decision.action.visible());
+}
+
+#[test]
+fn local_notification_dnd_suppresses_visible_notify() {
+    let policy = LocalNotificationPolicy {
+        watch_level: WatchLevel::All,
+        dnd_active: true,
+        ..Default::default()
+    };
+
+    let decision =
+        evaluate_local_notification(&notification(), LocalNotificationState::default(), &policy);
+
+    assert_eq!(decision.action, LocalNotificationAction::Suppress);
+    assert_eq!(decision.reason_code, local_reason_code::DND);
+    assert_eq!(decision.push_rule_decision, Some(ShouldNotify::Notify));
+    assert!(!decision.action.visible());
+}
+
+#[test]
+fn local_notification_snooze_suppresses_visible_notify() {
+    let policy = LocalNotificationPolicy {
+        watch_level: WatchLevel::All,
+        snoozed: true,
+        ..Default::default()
+    };
+
+    let decision =
+        evaluate_local_notification(&notification(), LocalNotificationState::default(), &policy);
+
+    assert_eq!(decision.action, LocalNotificationAction::Suppress);
+    assert_eq!(decision.reason_code, local_reason_code::SNOOZED);
+    assert_eq!(decision.push_rule_decision, Some(ShouldNotify::Notify));
+    assert!(!decision.action.visible());
+}
+
+#[test]
+fn local_notification_muted_watch_suppresses_before_local_gates() {
+    let policy = LocalNotificationPolicy {
+        watch_level: WatchLevel::Muted,
+        event_context: PushRuleEventContext {
+            mentions_actor: true,
+            is_e2ee: true,
+            ..Default::default()
+        },
+        dnd_active: true,
+        snoozed: true,
+        ..Default::default()
+    };
+
+    let decision =
+        evaluate_local_notification(&notification(), LocalNotificationState::default(), &policy);
+
+    assert_eq!(decision.action, LocalNotificationAction::Suppress);
+    assert_eq!(decision.reason_code, push_rule_reason_code::MUTED);
+    assert_eq!(decision.push_rule_decision, Some(ShouldNotify::DontNotify));
+}
+
+#[test]
+fn local_notification_blind_wakeup_ignores_dnd_and_snooze_until_decrypted() {
+    let policy = LocalNotificationPolicy {
+        watch_level: WatchLevel::All,
+        event_context: PushRuleEventContext {
+            is_e2ee: true,
+            local_decrypted: false,
+            ..Default::default()
+        },
+        dnd_active: true,
+        snoozed: true,
+        ..Default::default()
+    };
+
+    let decision =
+        evaluate_local_notification(&notification(), LocalNotificationState::default(), &policy);
+
+    assert_eq!(decision.action, LocalNotificationAction::BackgroundFetch);
+    assert_eq!(
+        decision.reason_code,
+        push_rule_reason_code::BLIND_WAKEUP_REQUIRED
+    );
+    assert_eq!(decision.push_rule_decision, Some(ShouldNotify::BlindWakeup));
+    assert!(!decision.action.visible());
 }
 
 #[test]
@@ -412,7 +583,7 @@ fn late_recovery_event_id_is_some_for_e2ee_late_recovery() {
     let payload: AuditPolicyAccessPayload = serde_json::from_value(serde_json::json!({
         "realm_id": "ck:realm:01904100-0000-7000-8000-000000000001",
         "actor": "did:web:alice.example",
-        "access_kind": "e2_e_e_late_recovery",
+        "access_kind": "e2ee_late_recovery",
         "late_recovery_original_event_id":
             "ck:event:01904100-0000-7000-8000-000000000002",
         "observed_at": "2026-05-20T00:00:00Z",

@@ -28,7 +28,7 @@ use crate::{GatewayBinding, PushPreferences, hash_push_key};
 ///
 /// let config = PushDeviceConfig {
 ///     principal_id: Some("did:web:alice.example"),
-///     device_id: "did:web:alice.example#device-phone",
+///     device_id: "ck:device:01904100-0000-7000-8000-000000000004",
 ///     push_key: Some("fcm:token"),
 ///     platform: Some("android"),
 ///     app_id: Some("app.example.android"),
@@ -49,7 +49,10 @@ use crate::{GatewayBinding, PushPreferences, hash_push_key};
 /// };
 ///
 /// let request = build_register_device_request(&config, &binding, &prefs).unwrap();
-/// assert_eq!(request.device_id, "did:web:alice.example#device-phone");
+/// assert_eq!(
+///     request.device_id,
+///     "ck:device:01904100-0000-7000-8000-000000000004"
+/// );
 /// ```
 pub fn build_register_device_request(
     config: &PushDeviceConfig<'_>,
@@ -100,7 +103,7 @@ pub fn build_register_device_request(
 ///
 /// let config = PushDeviceConfig {
 ///     principal_id: Some("did:web:alice.example"),
-///     device_id: "did:web:alice.example#device-phone",
+///     device_id: "ck:device:01904100-0000-7000-8000-000000000004",
 ///     push_key: None,
 ///     platform: Some("android"),
 ///     app_id: Some("app.example.android"),
@@ -174,7 +177,7 @@ pub fn build_unregister_device_request(
 ///
 /// let config = PushDeviceConfig {
 ///     principal_id: Some("did:web:alice.example"),
-///     device_id: "did:web:alice.example#device-phone",
+///     device_id: "ck:device:01904100-0000-7000-8000-000000000004",
 ///     push_key: Some("fcm:token"),
 ///     platform: Some("android"),
 ///     app_id: Some("app.example.android"),
@@ -290,7 +293,7 @@ mod tests {
     fn config<'a>(platform: Option<&'a str>) -> PushDeviceConfig<'a> {
         PushDeviceConfig {
             principal_id: Some("did:web:alice.example"),
-            device_id: "did:web:alice.example#device-phone",
+            device_id: "ck:device:01904100-0000-7000-8000-000000000004",
             push_key: Some("fcm:very-secret-token"),
             platform,
             app_id: Some("app.example.android"),
@@ -326,7 +329,10 @@ mod tests {
             request.principal_id.as_deref(),
             Some("did:web:alice.example")
         );
-        assert_eq!(request.device_id, "did:web:alice.example#device-phone");
+        assert_eq!(
+            request.device_id,
+            "ck:device:01904100-0000-7000-8000-000000000004"
+        );
         assert_eq!(request.push_gateway, DEFAULT_BUGLE_PUSH_GATEWAY_URL);
         assert_eq!(request.push_key, "fcm:very-secret-token");
         assert_eq!(request.platform.as_deref(), Some("android"));
@@ -360,7 +366,10 @@ mod tests {
             request.principal_id.as_deref(),
             Some("did:web:alice.example")
         );
-        assert_eq!(request.device_id, "did:web:alice.example#device-phone");
+        assert_eq!(
+            request.device_id,
+            "ck:device:01904100-0000-7000-8000-000000000004"
+        );
         assert_eq!(
             request.registration_id.as_deref(),
             Some("ck:pushreg:01JS0KE000000000000000000")
@@ -506,7 +515,10 @@ mod tests {
             context.target_uri,
             "https://principal.example/_cokret/edge/push/register-device"
         );
-        assert_eq!(context.device_id, "did:web:alice.example#device-phone");
+        assert_eq!(
+            context.device_id,
+            "ck:device:01904100-0000-7000-8000-000000000004"
+        );
         assert!(context.content_digest.starts_with("sha-256=:"));
         assert!(context.content_digest.ends_with(':'));
     }

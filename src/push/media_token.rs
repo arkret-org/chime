@@ -400,6 +400,7 @@ mod tests {
                 device_id: device(),
                 participant_identity: "ck:rtc_participant:01904100-0000-7000-8000-000000000003"
                     .to_owned(),
+                issued_at: expires_at - Duration::minutes(5),
                 expires_at,
             },
             expires_at,

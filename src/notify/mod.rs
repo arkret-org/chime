@@ -7,6 +7,7 @@
 mod agent_routing;
 mod envelope;
 mod errors;
+mod local;
 mod notification;
 mod outcome;
 mod validation;
@@ -33,6 +34,11 @@ pub use envelope::{
     PushNotifyPrivacyVector, shared_push_notify_privacy_vectors,
 };
 pub use errors::PushNotifyPrivacyError;
+pub use local::{
+    ExpiryInvalidationBehavior, LocalNotificationAction, LocalNotificationDecision,
+    LocalNotificationPolicy, LocalNotificationState, evaluate_local_notification,
+    local_reason_code,
+};
 #[allow(unused_imports)]
 pub use notification::RoutingMetadata;
 pub use notification::{
