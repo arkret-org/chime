@@ -197,28 +197,15 @@ impl ChimePushRegisterDeviceRequest {
 }
 
 /// Response body for `POST /_cokret/edge/push/register-device`.
-///
-/// Stability: 1.0-stable. New optional fields may be added in a minor release.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 #[non_exhaustive]
 pub struct ChimePushRegisterDeviceOutcome {
     pub ok: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub registration_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub accepted_gateway: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub push_key_hash: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub push_key_preview: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub expires_at: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub refresh_hint: Option<String>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub warnings: Vec<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub request_id: Option<String>,
 }
 
 impl From<cokret::PushRegisterDeviceOutcome> for ChimePushRegisterDeviceOutcome {
@@ -226,13 +213,7 @@ impl From<cokret::PushRegisterDeviceOutcome> for ChimePushRegisterDeviceOutcome 
         Self {
             ok: value.ok,
             registration_id: value.registration_id,
-            accepted_gateway: None,
-            push_key_hash: None,
-            push_key_preview: None,
             expires_at: value.expires_at.map(|expires_at| expires_at.to_rfc3339()),
-            refresh_hint: None,
-            warnings: Vec::new(),
-            request_id: None,
         }
     }
 }
@@ -348,53 +329,8 @@ impl From<cokret::PushUnregisterDeviceOutcome> for ChimePushUnregisterDeviceOutc
     }
 }
 
-/// Cokret standard error object.
-///
-/// Stability: 1.0-stable + `#[non_exhaustive]`. Server-controlled shape.
-#[derive(Clone, Default, PartialEq, Serialize, Deserialize)]
-#[non_exhaustive]
-pub struct CokretError {
-    pub code: String,
-    pub message: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub retry_after_ms: Option<u64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub details: Option<Value>,
-}
-
-impl fmt::Debug for CokretError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("CokretError")
-            .field("code", &self.code)
-            .field("message", &"<redacted>")
-            .field("retry_after_ms", &self.retry_after_ms)
-            .field("details_present", &self.details.is_some())
-            .finish()
-    }
-}
-
-/// Cokret standard error envelope.
-///
-/// Stability: 1.0-stable. Server-controlled response shape, so additional
-/// fields may appear in a minor release.
-#[derive(Clone, PartialEq, Serialize, Deserialize)]
-#[non_exhaustive]
-pub struct CokretErrorEnvelope {
-    pub ok: bool,
-    pub error: CokretError,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub request_id: Option<String>,
-}
-
-impl fmt::Debug for CokretErrorEnvelope {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("CokretErrorEnvelope")
-            .field("ok", &self.ok)
-            .field("error", &self.error)
-            .field("request_id", &self.request_id)
-            .finish()
-    }
-}
+pub type CokretError = cokret::ErrorDetail;
+pub type CokretErrorEnvelope = cokret::ErrorEnvelope;
 
 #[cfg(test)]
 mod tests {
@@ -421,32 +357,20 @@ mod tests {
         let register: ChimePushRegisterDeviceOutcome = serde_json::from_value(serde_json::json!({
             "ok": true,
             "registration_id": "reg-1",
-            "accepted_gateway": "https://push.example.com/_cokret/edge/push/notify",
-            "push_key_hash": "sha256:abc",
-            "push_key_preview": "fcm:<redacted,len=17>",
-            "expires_at": "2026-05-02T00:00:00Z",
-            "refresh_hint": "rotate_before_expiry",
-            "warnings": ["duplicate-safe"],
-            "request_id": "ck:request:123"
+            "expires_at": "2026-05-02T00:00:00Z"
         }))
         .unwrap();
 
         assert!(register.ok);
-        assert_eq!(
-            register.accepted_gateway.as_deref(),
-            Some("https://push.example.com/_cokret/edge/push/notify")
-        );
-        assert_eq!(register.push_key_hash.as_deref(), Some("sha256:abc"));
-        assert_eq!(
-            register.push_key_preview.as_deref(),
-            Some("fcm:<redacted,len=17>")
-        );
-        assert_eq!(
-            register.refresh_hint.as_deref(),
-            Some("rotate_before_expiry")
-        );
-        assert_eq!(register.warnings, vec!["duplicate-safe"]);
-        assert_eq!(register.request_id.as_deref(), Some("ck:request:123"));
+        assert_eq!(register.registration_id.as_deref(), Some("reg-1"));
+        assert_eq!(register.expires_at.as_deref(), Some("2026-05-02T00:00:00Z"));
+
+        serde_json::from_value::<ChimePushRegisterDeviceOutcome>(serde_json::json!({
+            "ok": true,
+            "registration_id": "reg-1",
+            "request_id": "ck:request:123"
+        }))
+        .expect_err("register outcome must reject non-spec response fields");
 
         let unregister: ChimePushUnregisterDeviceOutcome =
             serde_json::from_value(serde_json::json!({

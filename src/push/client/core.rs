@@ -318,13 +318,7 @@ impl CokretPushClient {
             return Ok(response.map_body(|body| ChimePushRegisterDeviceOutcome {
                 ok: body.ok,
                 registration_id: None,
-                accepted_gateway: None,
-                push_key_hash: None,
-                push_key_preview: None,
                 expires_at: None,
-                refresh_hint: None,
-                warnings: Vec::new(),
-                request_id: body.request_id,
             }));
         }
 
@@ -338,12 +332,7 @@ impl CokretPushClient {
                 config.request_id,
             )
             .await?;
-        let response_request_id = response.request_id.clone();
-        let response = response.map_body(|body| {
-            let mut body = ChimePushRegisterDeviceOutcome::from(body);
-            body.request_id = response_request_id;
-            body
-        });
+        let response = response.map_body(ChimePushRegisterDeviceOutcome::from);
 
         tracing::info!(
             platform = body.platform.as_deref().unwrap_or("unspecified"),
@@ -380,12 +369,7 @@ impl CokretPushClient {
                 request_id,
             )
             .await?;
-        let response_request_id = response.request_id.clone();
-        let response = response.map_body(|body| {
-            let mut body = ChimePushRegisterDeviceOutcome::from(body);
-            body.request_id = response_request_id;
-            body
-        });
+        let response = response.map_body(ChimePushRegisterDeviceOutcome::from);
 
         tracing::info!(
             platform = body.platform.as_deref().unwrap_or("unspecified"),

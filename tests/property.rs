@@ -204,6 +204,7 @@ mod notify_props {
             };
 
             let device: PushNotificationDevice = serde_json::from_value(serde_json::json!({
+                "device_id": "ck:device:01JS0D000000000000000000",
                 "push_key": "fcm:token-aaaaaaaaaa",
                 "app_id": "app.example",
             }))

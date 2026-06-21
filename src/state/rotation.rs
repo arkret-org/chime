@@ -119,13 +119,7 @@ mod tests {
         let response = ChimePushRegisterDeviceOutcome {
             ok: true,
             registration_id: Some("reg-1".to_owned()),
-            accepted_gateway: None,
-            push_key_hash: None,
-            push_key_preview: None,
             expires_at: None,
-            refresh_hint: None,
-            warnings: Vec::new(),
-            request_id: None,
         };
         let state = build_registration_state(&binding(), &request, &response, None);
 
@@ -150,13 +144,7 @@ mod tests {
         let response = ChimePushRegisterDeviceOutcome {
             ok: true,
             registration_id: Some("reg-old".to_owned()),
-            accepted_gateway: None,
-            push_key_hash: None,
-            push_key_preview: None,
             expires_at: None,
-            refresh_hint: None,
-            warnings: Vec::new(),
-            request_id: None,
         };
         let state = build_registration_state(&binding(), &request, &response, None);
 
@@ -222,13 +210,7 @@ mod tests {
         let response = ChimePushRegisterDeviceOutcome {
             ok: true,
             registration_id: Some("reg-old".to_owned()),
-            accepted_gateway: None,
-            push_key_hash: None,
-            push_key_preview: None,
             expires_at: None,
-            refresh_hint: None,
-            warnings: Vec::new(),
-            request_id: None,
         };
         let state = build_registration_state(&binding(), &request, &response, None);
 

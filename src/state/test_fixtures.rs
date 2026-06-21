@@ -87,13 +87,7 @@ pub(crate) fn state_for_binding(
     let response = ChimePushRegisterDeviceOutcome {
         ok: true,
         registration_id: Some(registration_id.to_owned()),
-        accepted_gateway: None,
-        push_key_hash: None,
-        push_key_preview: None,
         expires_at: Some("2026-05-03T00:00:00Z".to_owned()),
-        refresh_hint: Some("rotate_before_expiry".to_owned()),
-        warnings: Vec::new(),
-        request_id: None,
     };
 
     build_registration_state(&binding, &request, &response, Some("2026-05-03T00:00:00Z"))

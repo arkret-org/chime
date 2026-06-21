@@ -1,15 +1,14 @@
 use std::fmt;
 
 // Round 4 (B5, spec a77b995) — pull typed audit surfaces from the SDK so
-// chime stays byte-aligned with what soland/floria emit. The
-// mention-redirect routing wrapper is local to chime until the SDK grows a
-// stable public type for that exact wire object.
+// chime stays byte-aligned with what soland/floria emit.
 use cokret::{AccessKind, AuditPolicyAccessPayload, Did, EventId};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
 use super::agent_routing::{
-    assert_no_forbidden_aliases, is_forbidden_field_alias, is_phase_p2_agent_typed_id,
+    assert_no_forbidden_aliases, assert_no_sensitive_fields, is_forbidden_field_alias,
+    is_phase_p2_agent_typed_id,
 };
 use super::errors::PushNotifyPrivacyError;
 use super::validation::{
@@ -155,7 +154,7 @@ pub struct PushNotification {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub routing_metadata: Option<RoutingMetadata>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub sender: Option<String>,
+    pub sender_actor_id: Option<Did>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub sender_actor_display_name: Option<String>,
     /// SPEC-CR-016 (class C) — profile-gated client-visible priority hint
@@ -164,9 +163,11 @@ pub struct PushNotification {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub priority: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub realm_name: Option<String>,
+    pub realm_title: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub push_hint: Option<PushHint>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub push_hint_l10n_key: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub counts: Option<Value>,
     /// Round 4 (B5) — typed `ck.audit.policy_access` payload surfaced to
@@ -190,12 +191,6 @@ pub struct PushNotification {
     pub extra: Map<String, Value>,
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub struct MentionRedirectRouting {
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub mention_redirect_target_actor_ids: Vec<Did>,
-}
-
 /// SPEC-CR-016 — gateway-internal routing fragment carried under
 /// `notification.routing_metadata`. Every field here drives gateway-side
 /// routing / dedup and MUST be stripped before any provider sees it.
@@ -214,6 +209,12 @@ pub struct RoutingMetadata {
     /// leak" invariant is enforced by [`validate_circle_id_opaque`].
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub circle_id: Option<String>,
+    /// Round-4 gateway-internal scope Circle ID. Distinct from the
+    /// legacy `circle_id` delivery hint: this identifies the scoped
+    /// Circle boundary used by routing policy and is stripped before
+    /// provider delivery.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub scope_circle_id: Option<String>,
     /// CKP-0007 — mirror of the event envelope's `effective_scope`
     /// (`ck:circle:...` or `ck:realm:...`). Lets the client correlate the
     /// wakeup with the authoring scope without a round-trip.
@@ -223,8 +224,8 @@ pub struct RoutingMetadata {
     /// actor IDs in this list may decrypt the (otherwise encrypted) body at
     /// the push layer — see [`PushNotification::decrypt_allowed_for_actor`].
     /// Gateway-internal; stripped before any provider call.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub mention_redirect: Option<MentionRedirectRouting>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub mention_redirect_target_actor_ids: Vec<Did>,
     /// Receiver's accepted Realm delivery-binding frontier on a federation
     /// hop. Gateway-internal; stripped before any provider call.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -262,6 +263,13 @@ impl PushNotification {
             .and_then(|routing| routing.circle_id.as_deref())
     }
 
+    /// SPEC-CR-016 — gateway-internal routing `scope_circle_id`.
+    pub fn scope_circle_id(&self) -> Option<&str> {
+        self.routing_metadata
+            .as_ref()
+            .and_then(|routing| routing.scope_circle_id.as_deref())
+    }
+
     /// SPEC-CR-016 — gateway-internal `effective_scope` mirror.
     pub fn effective_scope(&self) -> Option<&str> {
         self.routing_metadata
@@ -271,10 +279,16 @@ impl PushNotification {
 
     /// SPEC-CR-016 — mention-redirect routing fragment (under
     /// `routing_metadata`).
-    pub fn mention_redirect(&self) -> Option<&MentionRedirectRouting> {
-        self.routing_metadata
-            .as_ref()
-            .and_then(|routing| routing.mention_redirect.as_ref())
+    pub fn mention_redirect_target_actor_ids(&self) -> Option<&[Did]> {
+        let ids = &self
+            .routing_metadata
+            .as_ref()?
+            .mention_redirect_target_actor_ids;
+        if ids.is_empty() {
+            None
+        } else {
+            Some(ids.as_slice())
+        }
     }
 
     pub fn validate_wire_model(&self) -> Result<(), PushNotifyPrivacyError> {
@@ -286,6 +300,7 @@ impl PushNotification {
 
         validate_typed_id("event_id", self.event_id.as_deref(), "ck:event:")?;
         validate_typed_id("realm_id", self.realm_id(), "ck:realm:")?;
+        validate_typed_id("scope_circle_id", self.scope_circle_id(), "ck:circle:")?;
         // CKP-0007 — Circle primitive typed-shape validation. We don't
         // require either to be present (Realm-scoped wakeups can set
         // realm_id only), but when present they MUST be the
@@ -300,7 +315,21 @@ impl PushNotification {
         // wire layer.
         validate_circle_id_opaque(self.circle_id())?;
         validate_effective_scope(self.effective_scope())?;
-        validate_optional_non_empty("sender", self.sender.as_deref())?;
+        validate_optional_non_empty("realm_title", self.realm_title.as_deref())?;
+        if self
+            .push_hint
+            .as_ref()
+            .is_some_and(|hint| hint.as_str() == "l10n_key")
+        {
+            validate_required(
+                "push_hint_l10n_key",
+                self.push_hint_l10n_key.as_deref().unwrap_or_default(),
+            )?;
+        } else if self.push_hint_l10n_key.is_some() {
+            return Err(PushNotifyPrivacyError::InvalidFieldValue {
+                field: "push_hint_l10n_key".to_owned(),
+            });
+        }
 
         if self.devices.is_empty() {
             return Err(PushNotifyPrivacyError::MissingField {
@@ -309,6 +338,9 @@ impl PushNotification {
         }
         for device in &self.devices {
             device.validate_wire_model()?;
+        }
+        if let Err(path) = assert_no_sensitive_fields(&Value::Object(self.extra.clone())) {
+            return Err(PushNotifyPrivacyError::SensitiveField { field: path });
         }
         for (key, value) in &self.extra {
             // Phase P2 (spec 37ce729) — removed B-B field-naming aliases
@@ -367,9 +399,9 @@ impl PushNotification {
                 field: "event_id".to_owned(),
             });
         }
-        if self.sender.is_some() {
+        if self.sender_actor_id.is_some() {
             return Err(PushNotifyPrivacyError::SensitiveField {
-                field: "sender".to_owned(),
+                field: "sender_actor_id".to_owned(),
             });
         }
         if self.sender_actor_display_name.is_some() {
@@ -377,9 +409,9 @@ impl PushNotification {
                 field: "sender_actor_display_name".to_owned(),
             });
         }
-        if self.realm_name.is_some() {
+        if self.realm_title.is_some() {
             return Err(PushNotifyPrivacyError::SensitiveField {
-                field: "realm_name".to_owned(),
+                field: "realm_title".to_owned(),
             });
         }
         // CKP-0007 Circle metadata privacy invariant: even in blind
@@ -441,24 +473,21 @@ impl PushNotification {
     /// at the push layer for `receiver_actor_id`.
     ///
     /// Semantics:
-    /// - When [`Self::mention_redirect`] is `None`, this is NOT a mention-redirect scenario and the
-    ///   call returns `true` (the normal recipient-set gate elsewhere applies).
-    /// - When `mention_redirect` is `Some`, the receiver's actor ID MUST appear in
-    ///   `mention_redirect_target_actor_ids` to be permitted. **Empty array means nobody is
-    ///   permitted** — fail-closed by construction.
+    /// - When `mention_redirect_target_actor_ids` is empty, this is NOT a mention-redirect scenario
+    ///   and the call returns `true` (the normal recipient-set gate elsewhere applies).
+    /// - When it is non-empty, the receiver's actor ID MUST appear in the list to be permitted.
     ///
     /// This is the canonical accessor consumers (yougen, floria, host
     /// apps) should call before unwrapping the body. Direct reads of
-    /// `self.mention_redirect.mention_redirect_target_actor_ids` are
-    /// permitted for display but MUST NOT gate decryption — the
+    /// `mention_redirect_target_actor_ids` are permitted for display but
+    /// MUST NOT gate decryption — the
     /// fail-closed semantics live here, not at the call site.
     pub fn decrypt_allowed_for_actor(&self, receiver_actor_id: &Did) -> bool {
-        let Some(routing) = self.mention_redirect() else {
+        let Some(allowed_ids) = self.mention_redirect_target_actor_ids() else {
             // Not a mention-redirect wakeup; gate is decided elsewhere.
             return true;
         };
-        routing
-            .mention_redirect_target_actor_ids
+        allowed_ids
             .iter()
             .any(|allowed| allowed == receiver_actor_id)
     }
@@ -468,7 +497,7 @@ impl PushNotification {
     /// actor is permitted). Consumers can branch on this to render
     /// "@-mention redirected to N actors" UI.
     pub fn has_mention_redirect_routing(&self) -> bool {
-        self.mention_redirect().is_some()
+        self.mention_redirect_target_actor_ids().is_some()
     }
 
     /// B.5 #9 — build a [`crate::BackgroundFetchHint`] that mirrors the
@@ -516,13 +545,13 @@ impl PushNotification {
 #[derive(Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PushNotificationDevice {
-    pub push_key: String,
+    pub device_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub push_key: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub app_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub registration_id: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub push_key_hash: Option<String>,
+    pub target_actor_id: Option<Did>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub platform: Option<String>,
 }
@@ -530,10 +559,10 @@ pub struct PushNotificationDevice {
 impl fmt::Debug for PushNotificationDevice {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("PushNotificationDevice")
-            .field("push_key", &redact_push_key(&self.push_key))
+            .field("device_id", &self.device_id)
+            .field("push_key", &self.push_key.as_deref().map(redact_push_key))
             .field("app_id", &self.app_id)
-            .field("registration_id", &self.registration_id)
-            .field("push_key_hash", &self.push_key_hash)
+            .field("target_actor_id", &self.target_actor_id)
             .field("platform", &self.platform)
             .finish()
     }
@@ -541,7 +570,8 @@ impl fmt::Debug for PushNotificationDevice {
 
 impl PushNotificationDevice {
     fn validate_wire_model(&self) -> Result<(), PushNotifyPrivacyError> {
-        validate_required("devices[].push_key", &self.push_key)
+        validate_required("devices[].device_id", &self.device_id)?;
+        validate_optional_non_empty("devices[].push_key", self.push_key.as_deref())
     }
 }
 

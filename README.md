@@ -89,7 +89,7 @@ hosts that need the standalone resolver trait can use
 
 > **Production deployments MUST enable the `notify` feature.** Without it,
 > the blind-wakeup / plaintext-visible privacy validators
-> (`PushNotifyRequestBody::assert_payload_safe`,
+> (`ChimePushNotifyEnvelope::assert_payload_safe`,
 > `PushNotification::validate_blind_wakeup`) and the Circle / governance
 > metadata leak checks (`assert_no_sensitive_fields`,
 > `ROUND_R2_R3_SENSITIVE_FIELDS`) are not compiled in — a wakeup that
@@ -98,7 +98,7 @@ hosts that need the standalone resolver trait can use
 > integration that touches real floria / yougen / soland traffic must
 > compile with `--features http,notify`.
 >
-> Deserializing `PushNotifyRequestBody` or `PushNotification` is not enough:
+> Deserializing `ChimePushNotifyEnvelope` or `PushNotification` is not enough:
 > `PushNotification.extra` uses `#[serde(flatten)]`, so unknown fields
 > are captured and must be rejected by `assert_payload_safe`,
 > `validate_blind_wakeup`, or `validate_wire_model` before the host reads
@@ -224,7 +224,7 @@ receiver. The validator accepts only opaque routing metadata by default.
 ```rust
 # #[cfg(feature = "notify")]
 use chime::{
-    PushNotification, PushNotificationDevice, PushNotifyPolicyContext, PushNotifyRequestBody,
+    ChimePushNotifyEnvelope, PushNotification, PushNotificationDevice, PushNotifyPolicyContext,
     PushTargetId, WakeupKind,
 };
 
@@ -238,18 +238,18 @@ let mut notification = PushNotification::new_blind_wakeup(
     WakeupKind::Message,
 );
 notification.devices = vec![PushNotificationDevice {
-    push_key: "fcm:opaque-token".to_owned(),
+    device_id: "ck:device:01JS0D000000000000000000".to_owned(),
+    push_key: Some("fcm:opaque-token".to_owned()),
     app_id: Some("app.example".to_owned()),
-    registration_id: None,
-    push_key_hash: None,
+    target_actor_id: None,
     platform: None,
 }];
-let request = PushNotifyRequestBody {
+let request = ChimePushNotifyEnvelope {
     notification,
     ..Default::default()
 };
 
-request.assert_payload_safe(&PushNotifyPolicyContext::blind_wakeup_only())?;
+request.assert_payload_safe(&PushNotifyPolicyContext::blind_wakeup_only(), None)?;
 
 // P2D.5 — error-path doc-test: a plaintext label in `extra` is
 // rejected by the blind-wakeup validator even when the wire shape
@@ -260,22 +260,22 @@ let mut leaky = PushNotification::new_blind_wakeup(
     WakeupKind::Message,
 );
 leaky.devices = vec![PushNotificationDevice {
-    push_key: "fcm:opaque-token".to_owned(),
+    device_id: "ck:device:01JS0D000000000000000001".to_owned(),
+    push_key: Some("fcm:opaque-token".to_owned()),
     app_id: Some("app.example".to_owned()),
-    registration_id: None,
-    push_key_hash: None,
+    target_actor_id: None,
     platform: None,
 }];
 leaky.extra.insert(
     "title".to_owned(),
     serde_json::Value::String("Secret".to_owned()),
 );
-let leaky_request = PushNotifyRequestBody {
+let leaky_request = ChimePushNotifyEnvelope {
     notification: leaky,
     ..Default::default()
 };
 let err = leaky_request
-    .assert_payload_safe(&PushNotifyPolicyContext::blind_wakeup_only())
+    .assert_payload_safe(&PushNotifyPolicyContext::blind_wakeup_only(), None)
     .expect_err("plaintext metadata must be rejected");
 let msg = err.to_string();
 assert!(msg.contains("title"), "error should name the leaking field: {msg}");
@@ -512,7 +512,7 @@ into a Cokret Principal Server / Sync Service deployment.
   tracing fields, and you should mirror that in your own code.
 - **Privacy gate.** When you build the `notify` feature into a
   gateway, validate every outbound payload through
-  `PushNotifyRequestBody::assert_payload_safe(&policy)`. Empty
+  `ChimePushNotifyEnvelope::assert_payload_safe(&policy, None)`. Empty
   `PushNotifyPolicyContext` means every notification is treated as
   blind wakeup, which is the safest default.
 
@@ -547,11 +547,11 @@ The crate maps to the Cokret v1 push HTTP binding:
 | `ck.edge.push.command.unregister_device` | `POST /_cokret/edge/push/unregister-device` | `build_unregister_device_request()` |
 | `ck.edge.push.command.notify` | `POST /_cokret/edge/push/notify` | Gateway/server-side operation, not a client registration call. |
 
-Register/unregister bodies carry the canonical operation id, optional `principal_id`, `device_id`, app id, gateway URL, idempotency key, request id, and caller-supplied proof. Responses expose the accepted gateway, token hash/preview, expiry or refresh hints, warnings, and request id when the service returns them.
+Register/unregister builders carry the canonical operation id, optional `principal_id`, `device_id`, app id, gateway URL, idempotency key, request id, and caller-supplied proof. Register responses expose only the spec response body fields (`ok`, `registration_id`, and `expires_at`); response headers carry transport metadata such as request id.
 
 Push notifications are derived wakeups, not canonical truth. For E2EE Realms, push gateways should receive only minimized metadata such as `push_target_id`, `wakeup_kind`, counts, priority/TTL/collapse hints, and optional body-free `push_hint`.
 
-With the `notify` feature, `PushNotifyRequestBody::validate_wire_model()` and `PushNotifyRequestBody::validate_blind_wakeup()` enforce that boundary. Entity facets and view-renderer output are routing or context hints only when the application has explicitly authorized that use; do not serialize facet-derived title, body, display name, or space name into provider payloads. The validator rejects removed aliases such as `schema_id` and `kind`, provider payload wrappers, title/body/preview fields, and facet/view-renderer extension keys before gateway delivery.
+With the `notify` feature, `ChimePushNotifyEnvelope::validate_wire_model()` and `ChimePushNotifyEnvelope::validate_blind_wakeup()` enforce that boundary. Entity facets and view-renderer output are routing or context hints only when the application has explicitly authorized that use; do not serialize facet-derived title, body, display name, or space name into provider payloads. The validator rejects removed aliases such as `schema_id` and `kind`, provider payload wrappers, title/body/preview fields, and facet/view-renderer extension keys before gateway delivery.
 
 `shared_push_notify_privacy_vectors()` exposes the E2EE invalid cases and the explicit plaintext-visible service allow case so gateway implementations such as `floria` can run the same vectors.
 

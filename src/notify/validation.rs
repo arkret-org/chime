@@ -1,8 +1,7 @@
 use base64::Engine as _;
 use base64::engine::general_purpose;
 use cokret::blind_payload_sanitizer::{
-    self as sdk_sanitizer, ALLOWED_PUSH_HINTS, is_forbidden_payload_key, is_valid_push_hint,
-    is_valid_push_target_id,
+    self as sdk_sanitizer, ALLOWED_PUSH_HINTS, is_forbidden_payload_key, is_valid_push_target_id,
 };
 use serde_json::{Map, Value};
 
@@ -46,11 +45,7 @@ pub(super) fn validate_push_hint_value(value: &str) -> Result<(), PushNotifyPriv
         });
     }
 
-    if ALLOWED_PUSH_HINTS.contains(&value) {
-        return Ok(());
-    }
-
-    if is_valid_push_hint(value) {
+    if ALLOWED_PUSH_HINTS.contains(&value) || value == "l10n_key" {
         return Ok(());
     }
 

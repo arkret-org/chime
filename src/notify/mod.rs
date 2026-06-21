@@ -42,8 +42,8 @@ pub use local::{
 #[allow(unused_imports)]
 pub use notification::RoutingMetadata;
 pub use notification::{
-    MentionRedirectRouting, PushHint, PushNotification, PushNotificationDedup,
-    PushNotificationDevice, PushTargetId, WakeupKind,
+    PushHint, PushNotification, PushNotificationDedup, PushNotificationDevice, PushTargetId,
+    WakeupKind,
 };
 pub use outcome::{
     ChimePushNotifyOutcome, EncryptedEnvelope, EncryptedEnvelopeError, ProviderRetryHint,

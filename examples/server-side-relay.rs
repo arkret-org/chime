@@ -8,7 +8,7 @@
 //!
 //! Responsibilities demonstrated here:
 //!
-//! 1. Decode the inbound frame into `PushNotifyRequestBody`.
+//! 1. Decode the inbound frame into `ChimePushNotifyEnvelope`.
 //! 2. Run `assert_payload_safe` in `blind_wakeup_only` mode — relays NEVER assume plaintext
 //!    visibility.
 //! 3. Track replay nonces with `NonceTracker` so a duplicated frame cannot be re-fanned out. The
@@ -24,12 +24,12 @@
 mod inner {
     use std::time::Duration;
 
-    use chime::{NonceTracker, PushNotifyPolicyContext, PushNotifyRequestBody};
+    use chime::{ChimePushNotifyEnvelope, NonceTracker, PushNotifyPolicyContext};
 
     /// Stand-in for the host application's internal queue (Kafka,
     /// NATS, …). Real implementations push the validated frame as the
     /// payload of the per-device topic.
-    fn enqueue_for_fanout(frame: &PushNotifyRequestBody) {
+    fn enqueue_for_fanout(frame: &ChimePushNotifyEnvelope) {
         let target = frame
             .notification
             .push_target_id
@@ -58,12 +58,14 @@ mod inner {
                 "did:web:floria-shard-a.example",
                 "nonce-aaaaaaaaaaaa",
                 r#"{
-                    "operation_id": "ck.edge.push.command.notify",
-                    "destination_service_did": "did:web:yougen.example",
                     "notification": {
                         "wakeup_kind": "message",
                         "push_target_id": "ck:pseudonym:push:abcdefghijklmnopqrstuv",
-                        "event_id": "ck:event:01JS0KE000000000000000001"
+                        "devices": [{
+                            "device_id": "ck:device:01JS0D000000000000000000",
+                            "push_key": "fcm:opaque-token",
+                            "app_id": "app.example"
+                        }]
                     }
                 }"#,
             ),
@@ -71,20 +73,22 @@ mod inner {
                 "did:web:floria-shard-a.example",
                 "nonce-aaaaaaaaaaaa",
                 r#"{
-                    "operation_id": "ck.edge.push.command.notify",
-                    "destination_service_did": "did:web:yougen.example",
                     "notification": {
                         "wakeup_kind": "message",
                         "push_target_id": "ck:pseudonym:push:abcdefghijklmnopqrstuv",
-                        "event_id": "ck:event:01JS0KE000000000000000001"
+                        "devices": [{
+                            "device_id": "ck:device:01JS0D000000000000000000",
+                            "push_key": "fcm:opaque-token",
+                            "app_id": "app.example"
+                        }]
                     }
                 }"#,
             ),
         ];
 
         for (origin_did, nonce, raw) in raw_frames {
-            let frame: PushNotifyRequestBody = serde_json::from_str(raw)?;
-            frame.assert_payload_safe(&policy)?;
+            let frame: ChimePushNotifyEnvelope = serde_json::from_str(raw)?;
+            frame.assert_payload_safe(&policy, None)?;
 
             match nonces.observe(origin_did, nonce) {
                 Ok(()) => enqueue_for_fanout(&frame),

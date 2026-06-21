@@ -24,8 +24,8 @@
 #[cfg(feature = "notify")]
 mod inner {
     use chime::{
-        GatewayBinding, PushDeviceConfig, PushGatewayType, PushNotifyPolicyContext,
-        PushNotifyRequestBody, PushPreferences, build_register_device_request,
+        ChimePushNotifyEnvelope, GatewayBinding, PushDeviceConfig, PushGatewayType,
+        PushNotifyPolicyContext, PushPreferences, build_register_device_request,
     };
 
     /// Registers the desktop shell's WebPush endpoint with a Cokret push
@@ -79,12 +79,12 @@ mod inner {
     pub fn process_inbound_notify(raw_payload: &str) -> Result<(), Box<dyn std::error::Error>> {
         // 1. Deserialise the wire payload into the typed request body. `deny_unknown_fields`
         //    rejects any forbidden top-level extras.
-        let request: PushNotifyRequestBody = serde_json::from_str(raw_payload)?;
+        let request: ChimePushNotifyEnvelope = serde_json::from_str(raw_payload)?;
 
         // 2. Validate against the blind-wakeup privacy policy. Desktop shells never appear on the
         //    plaintext-visible service DID allowlist, so `blind_wakeup_only` is the right context.
         let policy = PushNotifyPolicyContext::blind_wakeup_only();
-        request.assert_payload_safe(&policy)?;
+        request.assert_payload_safe(&policy, None)?;
 
         // 3. The payload is now safe to hand to the UI layer. The example just logs the wakeup kind
         //    so the file stays runnable without a real UI dependency.
@@ -106,12 +106,14 @@ mod inner {
         // from APNs / WebPush / OEM provider after the host shell
         // decodes the platform-specific envelope.
         let raw_payload = r#"{
-            "operation_id": "ck.edge.push.command.notify",
-            "destination_service_did": "did:web:desktop.example",
             "notification": {
                 "wakeup_kind": "message",
                 "push_target_id": "ck:pseudonym:push:abcdefghijklmnopqrstuv",
-                "event_id": "ck:event:01JS0KE000000000000000001"
+                "devices": [{
+                    "device_id": "ck:device:01JS0D000000000000000000",
+                    "push_key": "webpush:https://fcm.googleapis.com/wp/AAA-fake-endpoint-aaaaaaaa",
+                    "app_id": "im.cokret.desktop"
+                }]
             }
         }"#;
         process_inbound_notify(raw_payload)?;

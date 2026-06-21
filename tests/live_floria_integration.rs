@@ -46,6 +46,7 @@ fn notify_payload(idempotency_key: &str) -> Value {
             "wakeup_kind": "message",
             "push_hint": "new_message",
             "devices": [{
+                "device_id": "ck:device:01JS0D000000000000000000",
                 "app_id": APP_ID,
                 "push_key": "chime-live-token-01"
             }]

@@ -166,7 +166,11 @@ pub fn shared_push_notify_privacy_vectors() -> Vec<PushNotifyPrivacyVector> {
                     "wakeup_kind": "message",
                     "push_hint": "new_message",
                     "counts": { "badge": "2-5" },
-                    "devices": [{ "push_key": "fcm:opaque-token", "app_id": "app.example" }]
+                    "devices": [{
+                        "device_id": "ck:device:01JS0D000000000000000000",
+                        "push_key": "fcm:opaque-token",
+                        "app_id": "app.example"
+                    }]
                 }
             }),
             should_accept: true,
@@ -180,7 +184,11 @@ pub fn shared_push_notify_privacy_vectors() -> Vec<PushNotifyPrivacyVector> {
                     "push_target_id": "ck:pseudonym:push:01HYZ8Z000000000000000",
                     "wakeup_kind": "message",
                     "title": "Secret",
-                    "devices": [{ "push_key": "fcm:opaque-token", "app_id": "app.example" }]
+                    "devices": [{
+                        "device_id": "ck:device:01JS0D000000000000000000",
+                        "push_key": "fcm:opaque-token",
+                        "app_id": "app.example"
+                    }]
                 }
             }),
             should_accept: false,

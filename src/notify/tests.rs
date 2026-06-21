@@ -6,10 +6,10 @@ use crate::{PushRuleEventContext, ShouldNotify, WatchLevel, push_rule_reason_cod
 
 fn device() -> PushNotificationDevice {
     PushNotificationDevice {
-        push_key: "fcm:very-secret-token".to_owned(),
+        device_id: "ck:device:01JS0D000000000000000000".to_owned(),
+        push_key: Some("fcm:very-secret-token".to_owned()),
         app_id: Some("app.example".to_owned()),
-        registration_id: None,
-        push_key_hash: Some("sha256:abc".to_owned()),
+        target_actor_id: None,
         platform: Some("android".to_owned()),
     }
 }
@@ -209,9 +209,10 @@ fn push_hint_accepts_only_protocol_vocabulary() {
     PushHint::new("new_message").unwrap();
     PushHint::new("incoming_call").unwrap();
     PushHint::new("mention_self").unwrap();
-    PushHint::new("l10n_key:message.new").unwrap();
+    PushHint::new("l10n_key").unwrap();
 
     assert!(PushHint::new("New message").is_err());
+    assert!(PushHint::new("l10n_key:message.new").is_err());
     assert!(PushHint::new("title:secret").is_err());
 }
 
@@ -296,12 +297,12 @@ fn blind_wakeup_rejects_top_level_event_id() {
 #[test]
 fn blind_wakeup_rejects_top_level_sender() {
     let mut notification = notification();
-    notification.sender = Some("did:web:alice.example".to_owned());
+    notification.sender_actor_id = Some(Did::new("did:web:alice.example").unwrap());
 
     assert_eq!(
         notification.validate_blind_wakeup().unwrap_err(),
         PushNotifyPrivacyError::SensitiveField {
-            field: "sender".to_owned()
+            field: "sender_actor_id".to_owned()
         }
     );
 }
@@ -313,6 +314,7 @@ fn deserialized_extra_fields_require_runtime_validation() {
         "wakeup_kind": "message",
         "kind": "captured-extra-field",
         "devices": [{
+            "device_id": "ck:device:01JS0D000000000000000000",
             "push_key": "fcm:very-secret-token",
             "app_id": "app.example"
         }]
@@ -541,9 +543,7 @@ fn decrypt_allowed_for_actor_in_list_passes() {
     notification
         .routing_metadata
         .get_or_insert_with(Default::default)
-        .mention_redirect = Some(MentionRedirectRouting {
-        mention_redirect_target_actor_ids: vec![alice.clone(), bob.clone()],
-    });
+        .mention_redirect_target_actor_ids = vec![alice.clone(), bob.clone()];
     assert!(notification.has_mention_redirect_routing());
     assert!(notification.decrypt_allowed_for_actor(&alice));
     assert!(notification.decrypt_allowed_for_actor(&bob));
@@ -557,26 +557,23 @@ fn decrypt_allowed_for_actor_not_in_list_is_fail_closed() {
     notification
         .routing_metadata
         .get_or_insert_with(Default::default)
-        .mention_redirect = Some(MentionRedirectRouting {
-        mention_redirect_target_actor_ids: vec![alice],
-    });
+        .mention_redirect_target_actor_ids = vec![alice];
     // Mallory is not in the list → fail-closed.
     assert!(!notification.decrypt_allowed_for_actor(&mallory));
 }
 
 #[test]
 fn decrypt_allowed_for_actor_empty_list_is_fail_closed() {
-    // B5: an empty mention_redirect_target_actor_ids array means
-    // *nobody* is allowed — explicit empty wakeups should not fall
-    // back to "open". Fail closed by construction.
+    // B5: an empty mention_redirect_target_actor_ids array means this is
+    // not a mention-redirect wakeup. Gate decisions live elsewhere.
     let mut notification = notification();
     notification
         .routing_metadata
         .get_or_insert_with(Default::default)
-        .mention_redirect = Some(MentionRedirectRouting::default());
+        .mention_redirect_target_actor_ids = Vec::new();
     let anyone = Did::new("did:web:anyone.example").unwrap();
-    assert!(notification.has_mention_redirect_routing());
-    assert!(!notification.decrypt_allowed_for_actor(&anyone));
+    assert!(!notification.has_mention_redirect_routing());
+    assert!(notification.decrypt_allowed_for_actor(&anyone));
 }
 
 #[test]
@@ -586,9 +583,7 @@ fn mention_redirect_round_trips_through_json() {
     notification
         .routing_metadata
         .get_or_insert_with(Default::default)
-        .mention_redirect = Some(MentionRedirectRouting {
-        mention_redirect_target_actor_ids: vec![alice.clone()],
-    });
+        .mention_redirect_target_actor_ids = vec![alice.clone()];
     let json = serde_json::to_string(&notification).unwrap();
     // Ensure the field is serialised under the canonical wire name.
     assert!(

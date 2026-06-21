@@ -164,23 +164,17 @@ impl PushErrorKind {
             Self::SessionFocusAlreadyCommitted => 27,
             Self::E2eeKeySourceUnauthorised => 28,
             Self::RecordingArtifactPipelineBypassed => 29,
-            Self::FocusUnavailableForClient => 31,
-            // R3 ordinals ≥ 32 spill outside the u32 retry mask. The
-            // codes below are not retry candidates anyway — they are
-            // terminal classifications surfaced through the `kind()`
-            // path. We saturate at 31 so the existing `with_disabled_kinds`
-            // call sites keep compiling without panicking on shift
-            // overflow; callers MUST NOT add them to the retry mask.
-            Self::PairingRequestExpired
-            | Self::ProofInvalid
-            | Self::VerificationMethodPrincipalMismatch
-            | Self::AgentPaused
-            | Self::AgentDeactivated
-            | Self::ApprovalAlreadyConsumed
-            | Self::SidecarCreateDenied
-            | Self::ActorKindReducerManaged
-            | Self::RecoveryWitnessRevokeLagging
-            | Self::HandleHomographForbidden => 31,
+            Self::FocusUnavailableForClient => 30,
+            Self::PairingRequestExpired => 31,
+            Self::ProofInvalid => 32,
+            Self::VerificationMethodPrincipalMismatch => 33,
+            Self::AgentPaused => 34,
+            Self::AgentDeactivated => 35,
+            Self::ApprovalAlreadyConsumed => 36,
+            Self::SidecarCreateDenied => 37,
+            Self::ActorKindReducerManaged => 38,
+            Self::RecoveryWitnessRevokeLagging => 39,
+            Self::HandleHomographForbidden => 40,
         }
     }
 
@@ -484,7 +478,7 @@ impl PushRegistrationError {
             } => request_id.as_deref().or_else(|| {
                 error
                     .as_deref()
-                    .and_then(|envelope| envelope.request_id.as_deref())
+                    .map(|envelope| envelope.request_id.as_str())
             }),
             _ => None,
         }
@@ -537,6 +531,8 @@ pub(super) fn parse_retry_after(value: &str) -> Option<Duration> {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::BTreeMap;
+
     use super::*;
     use crate::push::wire::CokretError;
 
@@ -548,9 +544,9 @@ mod tests {
                 code: cokret::ERROR_CODE_CAPABILITY_DENIED.to_owned(),
                 message: "denied".to_owned(),
                 retry_after_ms: None,
-                details: None,
+                details: BTreeMap::new(),
             },
-            request_id: Some("ck:request:test".to_owned()),
+            request_id: "ck:request:test".to_owned(),
         };
 
         assert_eq!(
@@ -611,6 +607,59 @@ mod tests {
     }
 
     #[test]
+    fn ordinals_are_unique_and_fit_retry_mask() {
+        let kinds = [
+            PushErrorKind::MissingField,
+            PushErrorKind::InvalidPlatform,
+            PushErrorKind::InvalidPushGatewayUrl,
+            PushErrorKind::InvalidWebPushEndpoint,
+            PushErrorKind::WebPushEndpointNotAllowed,
+            PushErrorKind::ForbiddenPushGatewayQueryParam,
+            PushErrorKind::InvalidHeader,
+            PushErrorKind::Unauthenticated,
+            PushErrorKind::CapabilityDenied,
+            PushErrorKind::RateLimited,
+            PushErrorKind::TemporarilyUnavailable,
+            PushErrorKind::DuplicateConflict,
+            PushErrorKind::NotFound,
+            PushErrorKind::Gone,
+            PushErrorKind::SchemaViolation,
+            PushErrorKind::NetworkTimeout,
+            PushErrorKind::Network,
+            PushErrorKind::InvalidResponse,
+            PushErrorKind::HttpStatus,
+            PushErrorKind::DeliveryBindingStale,
+            PushErrorKind::DeliveryBindingHandedOver,
+            PushErrorKind::HistoricalOnly,
+            PushErrorKind::FocusMismatch,
+            PushErrorKind::UnknownFocusType,
+            PushErrorKind::TokenIssuerUnauthorised,
+            PushErrorKind::ParticipantBindingInvalid,
+            PushErrorKind::ParticipantIdentityUnrecognised,
+            PushErrorKind::SessionFocusAlreadyCommitted,
+            PushErrorKind::E2eeKeySourceUnauthorised,
+            PushErrorKind::RecordingArtifactPipelineBypassed,
+            PushErrorKind::FocusUnavailableForClient,
+            PushErrorKind::PairingRequestExpired,
+            PushErrorKind::ProofInvalid,
+            PushErrorKind::VerificationMethodPrincipalMismatch,
+            PushErrorKind::AgentPaused,
+            PushErrorKind::AgentDeactivated,
+            PushErrorKind::ApprovalAlreadyConsumed,
+            PushErrorKind::SidecarCreateDenied,
+            PushErrorKind::ActorKindReducerManaged,
+            PushErrorKind::RecoveryWitnessRevokeLagging,
+            PushErrorKind::HandleHomographForbidden,
+        ];
+        let mut seen = std::collections::BTreeSet::new();
+        for kind in kinds {
+            let ordinal = kind.ordinal();
+            assert!(ordinal < 64, "{kind:?} ordinal must fit u64 mask");
+            assert!(seen.insert(ordinal), "{kind:?} reuses ordinal {ordinal}");
+        }
+    }
+
+    #[test]
     fn round4_codes_classify_against_409_and_200_statuses() {
         // Spec status mapping: stale/handed_over → 409, historical_only → 200.
         let envelope = CokretErrorEnvelope {
@@ -619,9 +668,9 @@ mod tests {
                 code: cokret::ERROR_CODE_DELIVERY_BINDING_STALE.to_owned(),
                 message: "stale".to_owned(),
                 retry_after_ms: None,
-                details: None,
+                details: BTreeMap::new(),
             },
-            request_id: None,
+            request_id: "ck:request:test".to_owned(),
         };
         assert_eq!(
             classify_http_error(409, Some(&envelope)),
@@ -634,9 +683,9 @@ mod tests {
                 code: cokret::ERROR_CODE_HISTORICAL_ONLY.to_owned(),
                 message: "diagnostic".to_owned(),
                 retry_after_ms: None,
-                details: None,
+                details: BTreeMap::new(),
             },
-            request_id: None,
+            request_id: "ck:request:test".to_owned(),
         };
         assert_eq!(
             classify_http_error(200, Some(&envelope)),

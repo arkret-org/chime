@@ -336,21 +336,12 @@ pub fn build_registration_state(
         device_id: request.device_id.clone(),
         platform: request.platform.clone(),
         app_id: request.app_id.clone(),
-        push_gateway: response
-            .accepted_gateway
-            .clone()
-            .unwrap_or_else(|| binding.push_gateway.clone()),
-        push_key_hash: response
-            .push_key_hash
-            .clone()
-            .unwrap_or_else(|| hash_push_key(&request.push_key)),
-        push_key_preview: response
-            .push_key_preview
-            .clone()
-            .unwrap_or_else(|| redact_push_key(&request.push_key)),
+        push_gateway: binding.push_gateway.clone(),
+        push_key_hash: hash_push_key(&request.push_key),
+        push_key_preview: redact_push_key(&request.push_key),
         registered_at: registered_at.map(str::to_owned),
         expires_at: response.expires_at.clone(),
-        refresh_hint: response.refresh_hint.clone(),
+        refresh_hint: None,
         last_success_at: registered_at.map(str::to_owned),
         last_error: None,
     }
@@ -472,13 +463,7 @@ mod tests {
         let response = ChimePushRegisterDeviceOutcome {
             ok: true,
             registration_id: Some("reg-new".to_owned()),
-            accepted_gateway: None,
-            push_key_hash: None,
-            push_key_preview: None,
             expires_at: Some("2026-04-29T00:00:00Z".to_owned()),
-            refresh_hint: None,
-            warnings: Vec::new(),
-            request_id: None,
         };
 
         let state = build_registration_state(

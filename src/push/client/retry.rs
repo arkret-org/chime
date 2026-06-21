@@ -20,7 +20,7 @@ pub struct PushRetryPolicy {
     /// retried even when `is_retryable()` would say yes. Useful when
     /// the host application wants to bypass retries for `RateLimited`
     /// to surface 429 immediately, etc.
-    pub disabled_kinds_mask: u32,
+    pub disabled_kinds_mask: u64,
 }
 
 impl PushRetryPolicy {
@@ -50,7 +50,7 @@ impl PushRetryPolicy {
     pub const fn with_disabled_kinds(mut self, kinds: &[super::super::PushErrorKind]) -> Self {
         let mut i = 0;
         while i < kinds.len() {
-            self.disabled_kinds_mask |= 1u32 << kinds[i].ordinal();
+            self.disabled_kinds_mask |= 1u64 << kinds[i].ordinal();
             i += 1;
         }
         self
@@ -58,7 +58,7 @@ impl PushRetryPolicy {
 
     /// Whether retries are explicitly disabled for `kind`.
     pub const fn retries_disabled_for(&self, kind: super::super::PushErrorKind) -> bool {
-        self.disabled_kinds_mask & (1u32 << kind.ordinal()) != 0
+        self.disabled_kinds_mask & (1u64 << kind.ordinal()) != 0
     }
 }
 
