@@ -23,7 +23,6 @@ fn notification() -> PushNotification {
             PushTargetId::new("ck:pseudonym:push:01HYZ8Z000000000000000").unwrap(),
         ),
         wakeup_kind: Some(WakeupKind::Message),
-        event_id: Some("ck:event:01JS0EV000000000000000000".to_owned()),
         routing_metadata: Some(RoutingMetadata {
             realm_id: Some("ck:realm:01JS0SP000000000000000000".to_owned()),
             ..Default::default()
@@ -277,6 +276,32 @@ fn blind_wakeup_rejects_audience_mention_expansion_metadata() {
         notification.validate_blind_wakeup().unwrap_err(),
         PushNotifyPrivacyError::SensitiveField {
             field: "audience_mention_routing_hint".to_owned()
+        }
+    );
+}
+
+#[test]
+fn blind_wakeup_rejects_top_level_event_id() {
+    let mut notification = notification();
+    notification.event_id = Some("ck:event:01JS0EV000000000000000000".to_owned());
+
+    assert_eq!(
+        notification.validate_blind_wakeup().unwrap_err(),
+        PushNotifyPrivacyError::SensitiveField {
+            field: "event_id".to_owned()
+        }
+    );
+}
+
+#[test]
+fn blind_wakeup_rejects_top_level_sender() {
+    let mut notification = notification();
+    notification.sender = Some("did:web:alice.example".to_owned());
+
+    assert_eq!(
+        notification.validate_blind_wakeup().unwrap_err(),
+        PushNotifyPrivacyError::SensitiveField {
+            field: "sender".to_owned()
         }
     );
 }

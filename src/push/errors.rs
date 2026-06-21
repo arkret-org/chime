@@ -262,11 +262,50 @@ impl PushErrorKind {
     pub fn from_failure_code(code: &str) -> Option<Self> {
         // Canonical wire codes sourced from the SDK constants so chime's
         // classification stays byte-aligned with what soland/floria emit.
-        // The early Round-4 codes are glob-reexported at the crate root;
-        // the R3 codes (spec b47ff6ec — CKP-0010 media-binding,
-        // agent-lifecycle, handle homograph) still live under
-        // `cokret::error`. Adding a code is a one-line table entry.
+        // Top-level error codes are glob-reexported at the crate root;
+        // reason-code classifications use SDK `cokret::error::REASON_*`
+        // constants when the SDK exposes them.
         const CODE_MAP: &[(&str, PushErrorKind)] = &[
+            (
+                cokret::ERROR_CODE_UNAUTHENTICATED,
+                PushErrorKind::Unauthenticated,
+            ),
+            (
+                cokret::ERROR_CODE_AUTH_EXPIRED,
+                PushErrorKind::Unauthenticated,
+            ),
+            (
+                cokret::ERROR_CODE_SOFT_LOGGED_OUT,
+                PushErrorKind::Unauthenticated,
+            ),
+            (
+                cokret::ERROR_CODE_CAPABILITY_DENIED,
+                PushErrorKind::CapabilityDenied,
+            ),
+            (cokret::ERROR_CODE_RATE_LIMITED, PushErrorKind::RateLimited),
+            (
+                cokret::ERROR_CODE_TEMPORARILY_UNAVAILABLE,
+                PushErrorKind::TemporarilyUnavailable,
+            ),
+            (
+                cokret::ERROR_CODE_DUPLICATE_CONFLICT,
+                PushErrorKind::DuplicateConflict,
+            ),
+            (cokret::ERROR_CODE_NOT_FOUND, PushErrorKind::NotFound),
+            (
+                cokret::ERROR_CODE_SCHEMA_VIOLATION,
+                PushErrorKind::SchemaViolation,
+            ),
+            (cokret::ERROR_CODE_BAD_JSON, PushErrorKind::SchemaViolation),
+            (cokret::ERROR_CODE_BAD_QUERY, PushErrorKind::SchemaViolation),
+            (
+                cokret::ERROR_CODE_MISSING_PARAM,
+                PushErrorKind::SchemaViolation,
+            ),
+            (
+                cokret::ERROR_CODE_INVALID_PARAM,
+                PushErrorKind::SchemaViolation,
+            ),
             (
                 cokret::ERROR_CODE_DELIVERY_BINDING_STALE,
                 PushErrorKind::DeliveryBindingStale,
@@ -280,98 +319,22 @@ impl PushErrorKind {
                 PushErrorKind::HistoricalOnly,
             ),
             (
-                cokret::error::ERROR_CODE_FOCUS_MISMATCH,
-                PushErrorKind::FocusMismatch,
-            ),
-            (
-                cokret::error::ERROR_CODE_UNKNOWN_FOCUS_TYPE,
-                PushErrorKind::UnknownFocusType,
-            ),
-            (
-                cokret::error::ERROR_CODE_TOKEN_ISSUER_UNAUTHORISED,
+                cokret::error::REASON_TOKEN_ISSUER_UNAUTHORISED,
                 PushErrorKind::TokenIssuerUnauthorised,
             ),
             (
-                cokret::error::ERROR_CODE_PARTICIPANT_BINDING_INVALID,
-                PushErrorKind::ParticipantBindingInvalid,
-            ),
-            (
-                cokret::error::ERROR_CODE_PARTICIPANT_IDENTITY_UNRECOGNISED,
-                PushErrorKind::ParticipantIdentityUnrecognised,
-            ),
-            (
-                cokret::error::ERROR_CODE_SESSION_FOCUS_ALREADY_COMMITTED,
-                PushErrorKind::SessionFocusAlreadyCommitted,
-            ),
-            (
-                cokret::error::ERROR_CODE_E2EE_KEY_SOURCE_UNAUTHORISED,
+                cokret::error::REASON_E2EE_KEY_SOURCE_UNAUTHORISED,
                 PushErrorKind::E2eeKeySourceUnauthorised,
             ),
             (
-                cokret::error::ERROR_CODE_RECORDING_ARTIFACT_PIPELINE_BYPASSED,
+                cokret::error::REASON_RECORDING_ARTIFACT_PIPELINE_BYPASSED,
                 PushErrorKind::RecordingArtifactPipelineBypassed,
-            ),
-            (
-                cokret::error::ERROR_CODE_FOCUS_UNAVAILABLE_FOR_CLIENT,
-                PushErrorKind::FocusUnavailableForClient,
-            ),
-            (
-                cokret::error::ERROR_CODE_PAIRING_REQUEST_EXPIRED,
-                PushErrorKind::PairingRequestExpired,
-            ),
-            (
-                cokret::error::ERROR_CODE_PROOF_INVALID,
-                PushErrorKind::ProofInvalid,
-            ),
-            (
-                cokret::error::ERROR_CODE_VERIFICATION_METHOD_PRINCIPAL_MISMATCH,
-                PushErrorKind::VerificationMethodPrincipalMismatch,
-            ),
-            (
-                cokret::error::ERROR_CODE_AGENT_PAUSED,
-                PushErrorKind::AgentPaused,
-            ),
-            (
-                cokret::error::ERROR_CODE_AGENT_DEACTIVATED,
-                PushErrorKind::AgentDeactivated,
-            ),
-            (
-                cokret::error::ERROR_CODE_APPROVAL_ALREADY_CONSUMED,
-                PushErrorKind::ApprovalAlreadyConsumed,
-            ),
-            (
-                cokret::error::ERROR_CODE_SIDECAR_CREATE_DENIED,
-                PushErrorKind::SidecarCreateDenied,
-            ),
-            (
-                cokret::error::ERROR_CODE_ACTOR_KIND_REDUCER_MANAGED,
-                PushErrorKind::ActorKindReducerManaged,
-            ),
-            (
-                cokret::error::ERROR_CODE_RECOVERY_WITNESS_REVOKE_LAGGING,
-                PushErrorKind::RecoveryWitnessRevokeLagging,
-            ),
-            (
-                cokret::error::ERROR_CODE_HANDLE_HOMOGRAPH_FORBIDDEN,
-                PushErrorKind::HandleHomographForbidden,
             ),
         ];
         if let Some(&(_, kind)) = CODE_MAP.iter().find(|(c, _)| *c == code) {
             return Some(kind);
         }
-        Some(match code {
-            "unauthenticated" | "auth_expired" | "soft_logged_out" => Self::Unauthenticated,
-            "capability_denied" => Self::CapabilityDenied,
-            "rate_limited" => Self::RateLimited,
-            "temporarily_unavailable" => Self::TemporarilyUnavailable,
-            "duplicate_conflict" => Self::DuplicateConflict,
-            "not_found" => Self::NotFound,
-            "gone" | "registration_gone" | "push_token_gone" => Self::Gone,
-            "schema_violation" | "bad_json" | "bad_query" | "missing_param" | "invalid_param" => {
-                Self::SchemaViolation
-            }
-            _ => return None,
-        })
+        None
     }
 }
 
@@ -582,7 +545,7 @@ mod tests {
         let envelope = CokretErrorEnvelope {
             ok: false,
             error: CokretError {
-                code: "capability_denied".to_owned(),
+                code: cokret::ERROR_CODE_CAPABILITY_DENIED.to_owned(),
                 message: "denied".to_owned(),
                 retry_after_ms: None,
                 details: None,
@@ -604,13 +567,10 @@ mod tests {
     #[test]
     fn from_failure_code_covers_contract() {
         assert_eq!(
-            PushErrorKind::from_failure_code("rate_limited"),
+            PushErrorKind::from_failure_code(cokret::ERROR_CODE_RATE_LIMITED),
             Some(PushErrorKind::RateLimited)
         );
-        assert_eq!(
-            PushErrorKind::from_failure_code("registration_gone"),
-            Some(PushErrorKind::Gone)
-        );
+        assert_eq!(PushErrorKind::from_failure_code("registration_gone"), None);
         assert_eq!(PushErrorKind::from_failure_code("unknown_code"), None);
     }
 

@@ -1,6 +1,9 @@
 use base64::Engine as _;
 use base64::engine::general_purpose;
-use cokret::blind_payload_sanitizer::{self as sdk_sanitizer, is_forbidden_payload_key};
+use cokret::blind_payload_sanitizer::{
+    self as sdk_sanitizer, ALLOWED_PUSH_HINTS, is_forbidden_payload_key, is_valid_push_hint,
+    is_valid_push_target_id,
+};
 use serde_json::{Map, Value};
 
 use super::errors::PushNotifyPrivacyError;
@@ -43,17 +46,11 @@ pub(super) fn validate_push_hint_value(value: &str) -> Result<(), PushNotifyPriv
         });
     }
 
-    if matches!(value, "new_message" | "incoming_call" | "mention_self") {
+    if ALLOWED_PUSH_HINTS.contains(&value) {
         return Ok(());
     }
 
-    if let Some(token) = value.strip_prefix("l10n_key:")
-        && !token.is_empty()
-        && token.len() <= 64
-        && token
-            .chars()
-            .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '.' | '_' | '-'))
-    {
+    if is_valid_push_hint(value) {
         return Ok(());
     }
 
@@ -77,27 +74,13 @@ pub(super) fn validate_push_target_id(value: &str) -> Result<(), PushNotifyPriva
         });
     }
 
-    let token = if let Some(token) = trimmed.strip_prefix("ck:pseudonym:push:") {
-        token
-    } else if trimmed.starts_with("ck:") || trimmed.contains(':') {
-        return Err(PushNotifyPrivacyError::InvalidFieldValue {
-            field: "push_target_id".to_owned(),
-        });
-    } else {
-        trimmed
-    };
-
-    if !(22..=128).contains(&token.len())
-        || !token
-            .chars()
-            .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '_' | '-'))
-    {
-        return Err(PushNotifyPrivacyError::InvalidFieldValue {
-            field: "push_target_id".to_owned(),
-        });
+    if is_valid_push_target_id(trimmed) {
+        return Ok(());
     }
 
-    Ok(())
+    Err(PushNotifyPrivacyError::InvalidFieldValue {
+        field: "push_target_id".to_owned(),
+    })
 }
 
 pub(super) fn validate_required(field: &str, value: &str) -> Result<(), PushNotifyPrivacyError> {

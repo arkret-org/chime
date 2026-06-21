@@ -362,6 +362,16 @@ impl PushNotification {
     pub fn validate_blind_wakeup(&self) -> Result<(), PushNotifyPrivacyError> {
         self.validate_wire_model()?;
 
+        if self.event_id.is_some() {
+            return Err(PushNotifyPrivacyError::SensitiveField {
+                field: "event_id".to_owned(),
+            });
+        }
+        if self.sender.is_some() {
+            return Err(PushNotifyPrivacyError::SensitiveField {
+                field: "sender".to_owned(),
+            });
+        }
         if self.sender_actor_display_name.is_some() {
             return Err(PushNotifyPrivacyError::SensitiveField {
                 field: "sender_actor_display_name".to_owned(),

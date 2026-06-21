@@ -1,11 +1,9 @@
 //! Persistable push registration state types and lifecycle helpers.
 
-use std::fmt::Write as _;
 use std::sync::RwLock;
 use std::time::{Duration, Instant};
 
 use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
 
 use super::PUSH_REGISTRATION_STATE_SCHEMA_VERSION;
 use crate::{
@@ -241,13 +239,7 @@ fn default_state_schema_version() -> u16 {
 
 /// Return a stable SHA-256 fingerprint for local token comparison.
 pub fn hash_push_key(push_key: &str) -> String {
-    let digest = Sha256::digest(push_key.as_bytes());
-    let mut output = String::with_capacity("sha256:".len() + digest.len() * 2);
-    output.push_str("sha256:");
-    for byte in digest {
-        let _ = write!(output, "{byte:02x}");
-    }
-    output
+    cokret::canonical::sha256_digest(push_key.as_bytes())
 }
 
 pub fn token_rotation_required(

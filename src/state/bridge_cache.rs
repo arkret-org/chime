@@ -4,10 +4,7 @@
 //! to emit warnings, force a re-fetch, or invalidate dependent state. The SDK
 //! itself never blocks requests on a digest mismatch.
 
-use std::fmt::Write as _;
-
 use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
 use thiserror::Error;
 
 use crate::PushBridgeDescribeOutcome;
@@ -149,12 +146,7 @@ fn compute_digest(
     response: &PushBridgeDescribeOutcome,
 ) -> Result<String, BridgeContractCacheError> {
     let json = serde_json::to_vec(response)?;
-    let digest = Sha256::digest(&json);
-    let mut output = String::with_capacity(digest.len() * 2);
-    for byte in digest {
-        let _ = write!(output, "{byte:02x}");
-    }
-    Ok(output)
+    Ok(cokret::canonical::sha256_hex(&json))
 }
 
 #[cfg(test)]
