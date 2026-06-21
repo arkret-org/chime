@@ -49,14 +49,15 @@ crashing existing devices.
 
 yougen's smoke-test harness MUST:
 
-1. Call `bridge_describe()` against the target gateway.
-2. Compare the returned `spec_version` to
+1. Call `server_describe()` against the target Cokret service.
+2. If the deployment is floria-specific, call
+   `floria_bridge_describe()` as an adapter check and compare the returned `spec_version` to
    `chime::EXPECTED_SPEC_VERSION`.
-3. Fail the smoke test if the two differ — gateway drift is the most
+3. Fail the smoke test if the floria bridge version differs — gateway drift is the most
    common cause of "registrations succeed but notifications never
    arrive" bugs and is cheap to catch up-front.
 
-The crate-level audited spec target is `cokret-spec @ cced4b8`; older
+The crate-level audited spec target is `cokret-spec @ 5d66aeb`; older
 SHAs in changelog history are retained only as round-by-round audit
 records.
 
@@ -81,14 +82,12 @@ releases.
   notification; otherwise re-delivered pushes (common on flaky
   cellular) appear twice in the user's tray.
 - `chime::call_media_token_exchange(...)` plus
-  `chime::structurally_validate_media_token_response(&response, &ctx)`
-  — builds and structure-checks a `ck.self.call.media.exchange.issue_token`
-  response. The validation context type is
-  `MediaTokenStructuralValidationContext`, and success returns
-  `StructurallyValidatedMediaTokenOutcome`. This marker means only
-  issuer-anchor, tuple, and TTL checks passed; yougen MUST verify
-  `service_signature` and `participant_binding.sig` with the realm
-  media-service Ed25519 key before SFrame keying.
+  `chime::verify_media_token_outcome(&response, &ctx)`
+  — builds and verifies a `ck.self.call.media.exchange.issue_token`
+  response. The verification context carries the original request and
+  current `MediaServiceAnchors`; success returns `VerifiedMediaTokenOutcome`
+  only after issuer anchoring, tuple, TTL, `service_signature`, and
+  `participant_binding.sig` all pass.
 
 ## `BackgroundFetchDriver` integration
 

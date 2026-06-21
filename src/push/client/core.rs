@@ -13,7 +13,8 @@ use super::super::wire::{
 };
 use super::super::{
     COKRET_SESSION_GRANT_HEADER, FLORIA_INTEGRATION_DESCRIBE_PATH,
-    FLORIA_PUSH_BRIDGE_DESCRIBE_PATH, REGISTER_DEVICE_PATH, SDK_USER_AGENT, UNREGISTER_DEVICE_PATH,
+    FLORIA_PUSH_BRIDGE_DESCRIBE_PATH, REGISTER_DEVICE_PATH, SDK_USER_AGENT, SERVER_DESCRIBE_PATH,
+    UNREGISTER_DEVICE_PATH,
 };
 use super::retry::{PushRetryPolicy, retry_jitter_seed};
 use super::secret::SecretString;
@@ -211,42 +212,54 @@ impl CokretPushClient {
         Ok(self)
     }
 
-    /// Discover the active push gateway bridge contract.
-    pub async fn bridge_describe(
-        &self,
-    ) -> Result<PushBridgeDescribeOutcome, PushRegistrationError> {
-        Ok(self.bridge_describe_with_context().await?.body)
+    /// Discover the Cokret service through the protocol `/_cokret/describe` surface.
+    pub async fn server_describe(&self) -> Result<cokret::ServiceDescribe, PushRegistrationError> {
+        Ok(self.server_describe_with_context().await?.body)
     }
 
-    /// Discover the active push gateway bridge contract and return response metadata.
-    pub async fn bridge_describe_with_context(
+    /// Discover the Cokret service and return response metadata.
+    pub async fn server_describe_with_context(
+        &self,
+    ) -> Result<CokretHttpOutcome<cokret::ServiceDescribe>, PushRegistrationError> {
+        self.get_json(SERVER_DESCRIBE_PATH).await
+    }
+
+    /// Discover floria's product-local active push gateway bridge contract.
+    pub async fn floria_bridge_describe(
+        &self,
+    ) -> Result<PushBridgeDescribeOutcome, PushRegistrationError> {
+        Ok(self.floria_bridge_describe_with_context().await?.body)
+    }
+
+    /// Discover floria's bridge contract and return response metadata.
+    pub async fn floria_bridge_describe_with_context(
         &self,
     ) -> Result<CokretHttpOutcome<PushBridgeDescribeOutcome>, PushRegistrationError> {
         self.get_json(FLORIA_PUSH_BRIDGE_DESCRIBE_PATH).await
     }
 
-    /// Discover the service-level push gateway integration manifest.
-    pub async fn integration_describe(
+    /// Discover floria's service-level push gateway integration manifest.
+    pub async fn floria_integration_describe(
         &self,
     ) -> Result<PushGatewayIntegrationDescribeOutcome, PushRegistrationError> {
-        Ok(self.integration_describe_with_context().await?.body)
+        Ok(self.floria_integration_describe_with_context().await?.body)
     }
 
-    /// Discover the service-level push gateway integration manifest and return response metadata.
-    pub async fn integration_describe_with_context(
+    /// Discover floria's service-level integration manifest and return response metadata.
+    pub async fn floria_integration_describe_with_context(
         &self,
     ) -> Result<CokretHttpOutcome<PushGatewayIntegrationDescribeOutcome>, PushRegistrationError>
     {
         self.get_json(FLORIA_INTEGRATION_DESCRIBE_PATH).await
     }
 
-    /// Fetch both the service-level integration manifest and the active bridge
+    /// Fetch both floria's service-level integration manifest and active bridge
     /// contract and return them as a single [`IntegrationView`].
     ///
     /// The two requests run sequentially. Either failure short-circuits.
-    pub async fn integration_view(&self) -> Result<IntegrationView, PushRegistrationError> {
-        let manifest = self.integration_describe().await?;
-        let bridge = self.bridge_describe().await?;
+    pub async fn floria_integration_view(&self) -> Result<IntegrationView, PushRegistrationError> {
+        let manifest = self.floria_integration_describe().await?;
+        let bridge = self.floria_bridge_describe().await?;
         Ok(IntegrationView::new(manifest, bridge))
     }
 

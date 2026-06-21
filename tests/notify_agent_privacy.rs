@@ -56,7 +56,7 @@ fn agent_event_kind_unknown_falls_through() {
 
 #[test]
 fn phase_p2_typed_id_prefixes_are_recognized() {
-    assert_eq!(PHASE_P2_AGENT_TYPED_ID_PREFIXES.len(), 7);
+    assert_eq!(PHASE_P2_AGENT_TYPED_ID_PREFIXES.len(), 4);
     for prefix in PHASE_P2_AGENT_TYPED_ID_PREFIXES {
         assert!(
             prefix.starts_with("ck:"),
@@ -65,13 +65,10 @@ fn phase_p2_typed_id_prefixes_are_recognized() {
         assert!(prefix.ends_with(':'), "prefix `{prefix}` must end with `:`");
     }
     assert!(is_phase_p2_agent_typed_id(
-        "ck:agent_session:01HZK9Z000000000000000000"
+        "ck:agent_interop_session:01HZK9Z000000000000000000"
     ));
     assert!(is_phase_p2_agent_typed_id(
-        "ck:accountability_grant:01HZK9Z000000000000000000"
-    ));
-    assert!(is_phase_p2_agent_typed_id(
-        "ck:sidecar_circle:01HZK9Z000000000000000000"
+        "ck:grant:01HZK9Z000000000000000000"
     ));
     assert!(!is_phase_p2_agent_typed_id(
         "ck:circle:01HZK9Z000000000000000000"
@@ -84,11 +81,10 @@ fn phase_p2_typed_id_prefixes_are_recognized() {
 #[test]
 fn agent_typed_id_in_event_id_slot_fails_closed() {
     let frame = serde_json::json!({
-        "operation_id": "ck.edge.push.command.notify",
         "notification": {
             "push_target_id": "ck:pseudonym:push:01HYZ8Z000000000000000",
             "wakeup_kind": "message",
-            "event_id": "ck:agent_session:01HZK9Z000000000000000000",
+            "event_id": "ck:agent_interop_session:01HZK9Z000000000000000000",
             "devices": [
                 {
                     "device_id": "ck:device:01JS0D000000000000000000",
@@ -107,18 +103,17 @@ fn agent_typed_id_in_event_id_slot_fails_closed() {
     };
     assert_eq!(
         field, "event_id",
-        "an agent_session typed-id smuggled into the event_id slot must be rejected"
+        "an agent_interop_session typed-id smuggled into the event_id slot must be rejected"
     );
 }
 
 #[test]
 fn agent_typed_id_in_extra_fails_closed() {
     let frame = serde_json::json!({
-        "operation_id": "ck.edge.push.command.notify",
         "notification": {
             "push_target_id": "ck:pseudonym:push:01HYZ8Z000000000000000",
             "wakeup_kind": "message",
-            "agent_link": "ck:sidecar_circle:01HZK9Z000000000000000000",
+            "agent_link": "ck:grant:01HZK9Z000000000000000000",
             "devices": [
                 {
                     "device_id": "ck:device:01JS0D000000000000000001",

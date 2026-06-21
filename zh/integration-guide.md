@@ -31,15 +31,15 @@ Bugle 说明：host 仍负责华为/小米/OPPO/vivo/HONOR/HarmonyOS/JPush SDK
 
 1. `call_media_token_exchange(...)` 构造 token exchange 请求。
 2. 收到 `CallMediaTokenExchangeOutcome` 后调用
-   `structurally_validate_media_token_response(&response, &ctx)`。
-3. 成功返回的是 `StructurallyValidatedMediaTokenOutcome`，只表示
-   issuer anchor、participant tuple、TTL 已通过结构校验。
-4. yougen/host 必须用 realm media-service Ed25519 公钥验证
-   `service_signature` 和 `participant_binding.sig`。
-5. 只有签名验证通过后，才允许进入 SFrame keying。
+   `verify_media_token_outcome(&response, &ctx)`。
+3. `ctx` 必须携带原始请求和当前 `MediaServiceAnchors`。
+4. 成功返回 `VerifiedMediaTokenOutcome`，表示 issuer anchor、participant
+   tuple、TTL、`service_signature` 和 `participant_binding.sig` 均已通过。
+5. 只有该 verifier 通过后，才允许进入 SFrame keying。
 
 ## drift 检查
 
-`bridge_describe()` 返回的 `spec_version` 应与
+协议发现默认使用 `server_describe()`。floria 部署可额外调用
+`floria_bridge_describe()`，其 `spec_version` 应与
 `chime::EXPECTED_SPEC_VERSION` 一致。smoke test 应在不一致时失败，而不是
 继续注册设备。

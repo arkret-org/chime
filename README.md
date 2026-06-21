@@ -1,6 +1,6 @@
 # chime
 
-> **Spec target**: [cokret-spec @ c2848a4](../cokret-spec) (R3.4 sync 2026-05-31)
+> **Spec target**: [cokret-spec @ 5d66aeb](../cokret-spec) (R4 sync 2026-06-21)
 
 [![coverage](https://img.shields.io/badge/coverage-local%20tarpaulin-informational)](docs/production-checklist.md#local-verification)
 
@@ -23,10 +23,9 @@ Cokret push notification gateway types, preferences, and device registration hel
 
 ## Round R4 (protocol review closures)
 
-Spec round 4 (`cokret-spec` range `2a4d39b..a77b995`, 8 commits) adds
-two client-SDK shape changes. See [`CHANGELOG.md`](CHANGELOG.md)
-`[Unreleased]` and [`../_todos.md`](../_todos.md) for the canonical
-wire-breaking list.
+Spec round 4 adds two client-SDK shape changes. See
+[`CHANGELOG.md`](CHANGELOG.md) `[Unreleased]` for the chime-facing
+wire-breaking list; the normative source remains `../cokret-spec/spec/v1/`.
 
 - **`mention_redirect_target_actor_ids` recognition** — typed
   push-payload structs expose the field; consumers (yougen et al.)
@@ -45,16 +44,13 @@ host integration hook (T07 — 4-step local push cleanup) and the
 `ROUND_R2_R3_SENSITIVE_FIELDS` defense-in-depth list that mirrors floria's
 blind-wakeup forbidden-field surface. Ephemeral kinds (`ck.presence`,
 `ck.typing`, `ck.receipt.read`, `ck.call.signal`) are confirmed not
-consumed by chime. See [`CHANGELOG.md`](CHANGELOG.md) `[Unreleased]` and
-[`../cokret-spec/CHANGELOG.md`](../cokret-spec/CHANGELOG.md) for the
-normative source.
+consumed by chime. See [`CHANGELOG.md`](CHANGELOG.md) `[Unreleased]`;
+the normative source remains `../cokret-spec/spec/v1/`.
 
-## Cross-project task tracking
+## Protocol Baseline
 
-Per-project task lists are consolidated upstream — see
-[`../_todos.md`](../_todos.md) for the active cross-project task plan.
 The current audited protocol pin for this crate is
-`cokret-spec @ c2848a4`; older SHAs in `CHANGELOG.md` are historical
+`cokret-spec @ 5d66aeb`; older SHAs in `CHANGELOG.md` are historical
 round entries, not the active completion gate.
 
 ## Chinese docs
@@ -191,7 +187,7 @@ use chime::{
 
 let config = PushDeviceConfig {
     principal_id: Some("did:web:alice.example"),
-    device_id: "did:web:alice.example#device-phone",
+    device_id: "ck:device:01904100-0000-7000-8000-000000000004",
     push_key: Some("fcm-or-apns-device-token"),
     platform: Some("android"),
     app_id: Some("app.example.android"),
@@ -213,7 +209,10 @@ let prefs = PushPreferences {
 };
 
 let request = build_register_device_request(&config, &binding, &prefs).unwrap();
-assert_eq!(request.device_id, "did:web:alice.example#device-phone");
+assert_eq!(
+    request.device_id,
+    "ck:device:01904100-0000-7000-8000-000000000004"
+);
 ```
 
 ### Validate a blind push wakeup
@@ -293,7 +292,7 @@ assert!(msg.contains("title"), "error should name the leaking field: {msg}");
 # use chime::{GatewayBinding, PushDeviceConfig, PushGatewayType, PushPreferences};
 # let config = PushDeviceConfig {
 #     principal_id: None,
-#     device_id: "did:web:alice.example#device-phone",
+#     device_id: "ck:device:01904100-0000-7000-8000-000000000004",
 #     push_key: Some("fcm-or-apns-device-token"),
 #     platform: None,
 #     app_id: None,
@@ -335,13 +334,12 @@ assert!(response.body.ok);
 Production notes:
 
 - Authentication material is only sent through headers. Do not put session tokens, API keys, signatures, or bearer tokens in a binding's `push_gateway` URL query string.
-- Media-token exchange uses a structure-only helper:
-  `structurally_validate_media_token_response` returns
-  `StructurallyValidatedMediaTokenOutcome` after issuer-anchor,
-  participant tuple, and TTL checks. It does not verify
-  `service_signature` or `participant_binding.sig`; host code must run
-  Ed25519 verification with the realm media-service key before SFrame
-  keying.
+- Media-token exchange uses `verify_media_token_outcome`, which delegates
+  to the SDK media verifier. The caller supplies the original
+  `CallMediaTokenExchangeRequestBody` and current `MediaServiceAnchors`,
+  so chime checks issuer anchoring, participant tuple, TTL,
+  `service_signature`, and `participant_binding.sig` before returning a
+  verified token marker.
 - Each binding's `push_gateway` must be HTTPS unless `allow_insecure_loopback_push_gateway` is enabled for localhost development.
 - WebPush registrations can set `webpush_endpoint_allowlist` to restrict accepted endpoint origins or host patterns before a browser endpoint is sent to the service.
 - `push_key` is redacted in debug output and logs; callers should still store it as a secret.
@@ -357,7 +355,7 @@ Production notes:
 # use chime::{GatewayBinding, PushDeviceConfig, PushGatewayType, PushPreferences};
 # let config = PushDeviceConfig {
 #     principal_id: None,
-#     device_id: "did:web:alice.example#device-phone",
+#     device_id: "ck:device:01904100-0000-7000-8000-000000000004",
 #     push_key: Some("fcm-or-apns-device-token"),
 #     platform: None, app_id: None, domestic_app_id: None,
 #     registration_id: None, display_name: None,
@@ -422,7 +420,7 @@ After a successful register, `merge_registration_state()` drops stale logical du
 # use chime::{GatewayBinding, PushDeviceConfig, PushGatewayType, PushPreferences};
 # let config = PushDeviceConfig {
 #     principal_id: None,
-#     device_id: "did:web:alice.example#device-phone",
+#     device_id: "ck:device:01904100-0000-7000-8000-000000000004",
 #     push_key: Some("fcm-or-apns-device-token"),
 #     platform: None, app_id: None, domestic_app_id: None,
 #     registration_id: None, display_name: None,
@@ -471,7 +469,7 @@ into a Cokret Principal Server / Sync Service deployment.
 
 | Knob | Value | Note |
 | ---- | ----- | ---- |
-| MSRV | `1.89` | Enforced by CI; bump only with a minor release. |
+| MSRV | `1.96` | Enforced by CI; bump only with a minor release. |
 | TLS backend | `rustls-tls` (via reqwest) | No system OpenSSL dependency. |
 | Tokio runtime | optional via `http` feature | Multi-thread or current-thread, host's choice. |
 | Logging | `tracing` events on the `chime` target | No allocator on the hot path; subscribe at info-level for register/unregister breadcrumbs. |
@@ -584,10 +582,3 @@ Cokret Push Gateway
 ## License
 
 Licensed under Apache 2.0. See [LICENSE](LICENSE).
-
----
-
-<!-- circle-rollout milestone pointer -->
-> **Active milestone tracking** (local-only, gitignored): see
-> `_chime_todos.md` in the parent `cokret/` directory for the
-> circle-rollout (CKP-0007) work item list and per-stage checkpoints.

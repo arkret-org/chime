@@ -3,9 +3,9 @@
 ## 编译与协议
 
 - 生产构建启用 `--features http,notify`。
-- `bridge_describe().spec_version` 必须匹配
-  `chime::EXPECTED_SPEC_VERSION`。
-- 当前 chime 审计目标是 `cokret-spec @ cced4b8`；升级协议头前需要重新跑
+- 协议发现走 `server_describe()`；floria 适配层的
+  `floria_bridge_describe().spec_version` 必须匹配 `chime::EXPECTED_SPEC_VERSION`。
+- 当前 chime 审计目标是 `cokret-spec @ 5d66aeb`；升级协议头前需要重新跑
   drift gate 和集成 smoke test。
 
 ## push payload 安全
@@ -19,9 +19,9 @@
 
 ## media token
 
-- `structurally_validate_media_token_response` 只确认结构、anchor、TTL。
-- SFrame keying 前必须完成 host 侧 Ed25519 验签：
-  `service_signature` 和 `participant_binding.sig` 都要验证。
+- SFrame keying 前必须调用 `verify_media_token_outcome`。
+- `MediaTokenVerificationContext` 必须包含原始 token exchange 请求和当前
+  `MediaServiceAnchors`，以验证 `service_signature` 和 `participant_binding.sig`。
 - `FocusMismatch` 日志应记录 requested、binding、committed 三个 focus 字段。
 
 ## replay / nonce

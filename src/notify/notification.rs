@@ -358,12 +358,11 @@ impl PushNotification {
                     field: format!("{key}.{path}"),
                 });
             }
-            // Phase P2 — agent / sidecar / backup / recovery typed-id
+            // Phase P2 — agent / grant / backup / recovery typed-id
             // prefixes are never expected to appear in a blind wakeup's
             // `extra` map. Reject any string value that starts with one
-            // of the seven SDK typed-id prefixes so a caller can't
-            // smuggle an agent_session / accountability_grant /
-            // sidecar_circle id through.
+            // of the registered prefixes so a caller can't smuggle an
+            // agent_interop_session / grant / backup / recovery id through.
             if let Some(raw) = value.as_str()
                 && is_phase_p2_agent_typed_id(raw)
             {

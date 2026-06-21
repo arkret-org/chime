@@ -64,8 +64,7 @@ impl TryFrom<&str> for PushPlatform {
 pub struct PushDeviceConfig<'a> {
     /// Cokret principal ID that owns this device registration.
     pub principal_id: Option<&'a str>,
-    /// Cokret device id, usually a DID fragment such as
-    /// `did:web:alice.example#device-phone`.
+    /// Cokret device id, usually a `ck:device:*` typed id.
     pub device_id: &'a str,
     /// Platform push token, e.g. `fcm:...`, `apns:...`, `webpush:...`.
     pub push_key: Option<&'a str>,

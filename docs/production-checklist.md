@@ -12,11 +12,10 @@ platform receivers and call into chime for validation and wire-shape handling.
   service DID is explicitly authorized to see plaintext.
 - Wire account deactivation into `on_account_deactivate` with either a concrete
   `AccountDeactivationSink` implementation or `ClosureAccountDeactivationSink`.
-- Treat media-token exchange as two gates: first call
-  `structurally_validate_media_token_response` for anchor / tuple / TTL
-  checks, then run host-side Ed25519 verification of
-  `service_signature` and `participant_binding.sig` before SFrame
-  keying.
+- Treat media-token exchange as a fail-closed SDK verifier path: retain
+  the original `CallMediaTokenExchangeRequestBody`, resolve the current
+  `MediaServiceAnchors`, then call `verify_media_token_outcome` before
+  SFrame keying.
 - Drain local push queues before invalidating the device session.
 - Clear keypackage caches and persisted push preferences after deactivation.
 - Store push gateway credentials outside logs and crash reports.

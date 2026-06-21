@@ -56,7 +56,7 @@ fn spawn_mock_server(responses: Vec<MockHttpOutcome>) -> (String, Arc<Mutex<Vec<
 fn config<'a>() -> PushDeviceConfig<'a> {
     PushDeviceConfig {
         principal_id: Some("did:web:alice.example"),
-        device_id: "did:web:alice.example#device-phone",
+        device_id: "ck:device:01904100-0000-7000-8000-000000000005",
         push_key: Some("fcm:very-secret-token"),
         platform: Some("android"),
         app_id: Some("app.example.android"),
@@ -192,7 +192,17 @@ async fn unregister_success() {
     assert!(response.ok);
     let request = requests.lock().unwrap().join("\n");
     assert!(request.contains("POST /_cokret/edge/push/unregister-device HTTP/1.1"));
-    assert!(request.contains("\"registration_id\":\"ck:pushreg:01JS0KE000000000000000000\""));
+    let body = request
+        .rsplit("\r\n\r\n")
+        .next()
+        .expect("request has a body");
+    assert!(body.contains("\"device_id\":\"ck:device:01904100-0000-7000-8000-000000000005\""));
+    assert!(body.contains("\"push_key\":\"fcm:very-secret-token\""));
+    assert!(body.contains("\"app_id\":\"app.example.android\""));
+    assert!(
+        !body.contains("\"registration_id\""),
+        "unregister wire body must not contain registration_id: {body}"
+    );
 }
 
 #[tokio::test]
@@ -296,7 +306,7 @@ async fn error_debug_redacts_envelope_message_and_details() {
     let (base_url, _) = spawn_mock_server(vec![MockHttpOutcome {
         status: "403 Forbidden",
         headers: vec![],
-        body: r#"{"ok":false,"error":{"code":"capability_denied","message":"token fcm:very-secret-token proof super-secret-proof","details":{"proof":"super-secret-proof","push_key":"fcm:very-secret-token"}}}"#,
+        body: r#"{"ok":false,"error":{"code":"capability_denied","message":"token fcm:very-secret-token proof super-secret-proof","details":{"proof":"super-secret-proof","push_key":"fcm:very-secret-token"}},"request_id":"ck:request:denied"}"#,
     }]);
 
     let err = client(base_url)
@@ -306,6 +316,10 @@ async fn error_debug_redacts_envelope_message_and_details() {
 
     let debug = format!("{err:?}");
     assert_eq!(err.kind(), PushErrorKind::CapabilityDenied);
+    assert!(
+        err.cokret_error()
+            .is_some_and(|envelope| !envelope.error.details.is_empty())
+    );
     assert!(!debug.contains("very-secret-token"));
     assert!(!debug.contains("super-secret-proof"));
     assert!(debug.contains("details_present"));

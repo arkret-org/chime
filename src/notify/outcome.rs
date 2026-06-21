@@ -7,6 +7,18 @@ use thiserror::Error;
 use super::validation::validate_base64_field;
 use crate::redact_push_key;
 
+/// Active HPKE suite ids from `hpke-suite-registry.json`.
+///
+/// This is a narrow receiver-side allowlist for `EncryptedEnvelope.algorithm`.
+/// Reserved registry rows are intentionally excluded until the spec marks them
+/// active and the SDK exposes a generated registry view.
+pub const SUPPORTED_ENCRYPTED_ENVELOPE_ALGORITHMS: &[&str] = &[
+    "ck.hpke_x25519_aead_xchacha20poly1305.v1",
+    "ck.hpke_x25519_aead_aes256gcm.v1",
+    "ck.hpke_x25519_aead_chacha20poly1305.v1",
+    "ck.hpke_p256_aead_aes256gcm.v1",
+];
+
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct ChimePushNotifyOutcome {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -137,6 +149,11 @@ impl EncryptedEnvelope {
         if self.algorithm.trim().is_empty() {
             return Err(EncryptedEnvelopeError::MissingField { field: "algorithm" });
         }
+        if !SUPPORTED_ENCRYPTED_ENVELOPE_ALGORITHMS.contains(&self.algorithm.as_str()) {
+            return Err(EncryptedEnvelopeError::UnsupportedAlgorithm {
+                algorithm: self.algorithm.clone(),
+            });
+        }
         if self.ciphertext.trim().is_empty() {
             return Err(EncryptedEnvelopeError::MissingField {
                 field: "ciphertext",
@@ -156,6 +173,8 @@ pub enum EncryptedEnvelopeError {
     MissingField { field: &'static str },
     #[error("encrypted envelope recipient must be a DID, got `{got}`")]
     InvalidRecipient { got: String },
+    #[error("encrypted envelope algorithm is not an active HPKE suite: `{algorithm}`")]
+    UnsupportedAlgorithm { algorithm: String },
     #[error("encrypted envelope field `{field}` is not base64")]
     InvalidBase64 { field: &'static str },
 }

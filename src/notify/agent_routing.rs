@@ -106,18 +106,15 @@ pub const AGENT_ACTOR_PRIVATE_KINDS: &[&str] = &[
     "ck.agent.action_reject",
 ];
 
-/// Phase P2 — seven SDK typed-id prefixes mirrored from floria
-/// 6496235's `PHASE_P2_AGENT_TYPED_ID_PREFIXES`. chime uses the list to
-/// reject inbound payloads that route an agent/sidecar/backup/recovery
-/// typed id into a slot reserved for a *different* typed-id prefix
-/// (e.g. an `agent_session` id smuggled into a wakeup's `event_id`
-/// slot). `agent_principal_id` is a DID-as-id, not a `ck:*` typed id.
+/// Phase P2 — agent/recovery typed-id prefixes registered in the v1
+/// `id-kind-registry.json`. chime uses the list to reject inbound payloads
+/// that route an agent/recovery/grant typed id into a slot reserved for a
+/// different typed-id prefix (e.g. an `agent_interop_session` id smuggled
+/// into a wakeup's `event_id` slot). `agent_principal_id` is a DID-as-id,
+/// not a `ck:*` typed id.
 pub const PHASE_P2_AGENT_TYPED_ID_PREFIXES: &[&str] = &[
-    "ck:agent_session:",
-    "ck:agent_key:",
-    "ck:agent_draft:",
-    "ck:accountability_grant:",
-    "ck:sidecar_circle:",
+    "ck:agent_interop_session:",
+    "ck:grant:",
     "ck:backup_series:",
     "ck:recovery_session:",
 ];
@@ -151,12 +148,11 @@ pub fn classify_agent_event_kind(event_kind: &str) -> Option<AgentEventRouting> 
     None
 }
 
-/// Return `true` if `value` starts with one of the seven SDK typed-id
-/// prefixes mirrored in [`PHASE_P2_AGENT_TYPED_ID_PREFIXES`]. Used by
+/// Return `true` if `value` starts with one of the registered typed-id
+/// prefixes listed in [`PHASE_P2_AGENT_TYPED_ID_PREFIXES`]. Used by
 /// chime's wire-validation layer to fail closed when one of these typed
-/// ids appears in a wakeup slot that should never carry an agent /
-/// sidecar / backup / recovery identifier (e.g. `event_id`,
-/// `circle_id`).
+/// ids appears in a wakeup slot that should never carry an agent,
+/// grant, backup, or recovery identifier (e.g. `event_id`, `circle_id`).
 pub fn is_phase_p2_agent_typed_id(value: &str) -> bool {
     PHASE_P2_AGENT_TYPED_ID_PREFIXES
         .iter()

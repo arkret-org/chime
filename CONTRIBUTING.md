@@ -23,7 +23,7 @@ and adapt to your local toolchain.
 ## Development environment
 
 - Rust toolchain: stable channel.
-- Minimum supported Rust version (MSRV): **1.89** — keep CI green on
+- Minimum supported Rust version (MSRV): **1.96** — keep CI green on
   this toolchain even if you develop on a newer one.
 - Editor: any. The repo enforces formatting via `rustfmt`.
 

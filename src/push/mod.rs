@@ -34,11 +34,17 @@ pub const REGISTER_DEVICE_PATH: &str = "/_cokret/edge/push/register-device";
 /// Cokret HTTP path for `ck.edge.push.command.unregister_device`.
 pub const UNREGISTER_DEVICE_PATH: &str = "/_cokret/edge/push/unregister-device";
 
+/// Cokret HTTP path for `ck.edge.push.command.notify`.
+pub const PUSH_NOTIFY_PATH: &str = "/_cokret/edge/push/notify";
+
+/// Cokret HTTP path for `ck.server.query.describe`.
+pub const SERVER_DESCRIBE_PATH: &str = "/_cokret/describe";
+
 /// Floria product path for discovering the active push gateway bridge contract.
-pub const FLORIA_PUSH_BRIDGE_DESCRIBE_PATH: &str = "/_floria/push/bridge/describe";
+pub(crate) const FLORIA_PUSH_BRIDGE_DESCRIBE_PATH: &str = "/_floria/push/bridge/describe";
 
 /// Floria product path for discovering the service-level push gateway integration manifest.
-pub const FLORIA_INTEGRATION_DESCRIBE_PATH: &str = "/_floria/integration/describe";
+pub(crate) const FLORIA_INTEGRATION_DESCRIBE_PATH: &str = "/_floria/integration/describe";
 
 // -- Header constants -------------------------------------------------------
 
@@ -107,14 +113,14 @@ pub use bridge_describe::{
 pub use client::{CokretHttpOutcome, CokretPushClient, PushRetryPolicy};
 pub use cokret::{
     PushRegisterDeviceOutcome, PushRegisterDeviceRequestBody, PushUnregisterDeviceOutcome,
-    PushUnregisterDeviceRequestBody,
+    PushUnregisterDeviceRequestBody, ServiceDescribe,
 };
 pub use errors::{PushErrorKind, PushRegistrationError};
 pub use media_token::{
     CallMediaParticipantBinding, CallMediaTokenExchangeOutcome, CallMediaTokenExchangeRequestBody,
-    MediaBackendType, MediaTokenError, MediaTokenStructuralValidationContext,
-    StructurallyValidatedMediaTokenOutcome, call_media_token_exchange, ensure_known_backend,
-    structurally_validate_media_token_outcome,
+    CallMediaTokenVerification, MediaBackendType, MediaServiceAnchors, MediaTokenError,
+    MediaTokenVerificationContext, VerifiedMediaTokenOutcome, call_media_token_exchange,
+    ensure_known_backend, verify_media_token_outcome,
 };
 pub use registration::{
     build_register_device_request, build_register_signing_context,
@@ -134,8 +140,8 @@ pub use signing::{
     content_digest_sha256,
 };
 pub use urls::{
-    cokret_api_url, push_bridge_describe_url, push_gateway_service_base_url,
-    push_integration_describe_url, redact_push_key, validate_push_gateway_url,
+    cokret_api_url, floria_push_bridge_describe_url, floria_push_integration_describe_url,
+    push_gateway_service_base_url, redact_push_key, validate_push_gateway_url,
     validate_webpush_endpoint_allowlist,
 };
 pub use wire::{

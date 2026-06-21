@@ -68,16 +68,17 @@ pub use notify::{
     PushDeliveryReceipt, PushHint, PushNotification, PushNotificationDedup, PushNotificationDevice,
     PushNotifyPolicyContext, PushNotifyPrivacyError, PushNotifyPrivacyMode,
     PushNotifyPrivacyVector, PushTargetId, ROUND_R2_R3_SENSITIVE_FIELDS, RejectedPushToken,
-    WakeupKind, assert_no_sensitive_fields, classify_agent_event_kind, evaluate_local_notification,
-    is_forbidden_field_alias, is_phase_p2_agent_typed_id, local_reason_code,
-    render_agent_lifecycle_summary, shared_push_notify_privacy_vectors,
+    SUPPORTED_ENCRYPTED_ENVELOPE_ALGORITHMS, WakeupKind, assert_no_sensitive_fields,
+    classify_agent_event_kind, evaluate_local_notification, is_forbidden_field_alias,
+    is_phase_p2_agent_typed_id, local_reason_code, render_agent_lifecycle_summary,
+    shared_push_notify_privacy_vectors,
 };
 // R3 (CALL-1 / CALL-2, spec b47ff6ec) — media token exchange surface.
 // Re-exported so chime consumers (yougen) call
 // `chime::call_media_token_exchange` +
-// `chime::structurally_validate_media_token_outcome` without depending on
-// `cokret` directly. The validation marker is structure-only; hosts must
-// perform Ed25519 signature verification before SFrame keying.
+// `chime::verify_media_token_outcome` without depending on `cokret`
+// directly. The verifier delegates to the SDK media-service signature
+// checks before returning a marker.
 pub use push::{
     COKRET_ACTOR_ID_HEADER, COKRET_AUDIENCE_HEADER, COKRET_CREATED_AT_HEADER,
     COKRET_DESTINATION_SERVICE_DID_HEADER, COKRET_DEVICE_ID_HEADER, COKRET_EXPIRES_AT_HEADER,
@@ -86,29 +87,29 @@ pub use push::{
     COKRET_SESSION_GRANT_HEADER, CONTENT_DIGEST_HEADER, ChimePushRegisterDeviceOutcome,
     ChimePushRegisterDeviceRequest, ChimePushUnregisterDeviceOutcome,
     ChimePushUnregisterDeviceRequest, CokretError, CokretErrorEnvelope, EXPECTED_SPEC_VERSION,
-    FLORIA_INTEGRATION_DESCRIBE_PATH, FLORIA_PUSH_BRIDGE_DESCRIBE_PATH, IntegrationView,
-    NonceReplayError, NonceTracker, PushBridgeDescribeGatewayDescriptor,
-    PushBridgeDescribeNotifyDescriptor, PushBridgeDescribeOutcome,
-    PushBridgeDescribePrivacyDescriptor, PushDeviceConfig, PushErrorKind,
-    PushGatewayIntegrationDependency, PushGatewayIntegrationDescribeOutcome, PushPlatform,
-    PushRegisterDeviceOutcome, PushRegisterDeviceRequestBody, PushRegistrationError,
+    IntegrationView, NonceReplayError, NonceTracker, PUSH_NOTIFY_PATH,
+    PushBridgeDescribeGatewayDescriptor, PushBridgeDescribeNotifyDescriptor,
+    PushBridgeDescribeOutcome, PushBridgeDescribePrivacyDescriptor, PushDeviceConfig,
+    PushErrorKind, PushGatewayIntegrationDependency, PushGatewayIntegrationDescribeOutcome,
+    PushPlatform, PushRegisterDeviceOutcome, PushRegisterDeviceRequestBody, PushRegistrationError,
     PushRequestSigningContext, PushRequestSigningOptions, PushUnregisterDeviceOutcome,
-    PushUnregisterDeviceRequestBody, REGISTER_DEVICE_PATH, SIGNATURE_HEADER,
-    SIGNATURE_INPUT_HEADER, UNREGISTER_DEVICE_PATH, build_register_device_request,
+    PushUnregisterDeviceRequestBody, REGISTER_DEVICE_PATH, SERVER_DESCRIBE_PATH, SIGNATURE_HEADER,
+    SIGNATURE_INPUT_HEADER, ServiceDescribe, UNREGISTER_DEVICE_PATH, build_register_device_request,
     build_register_signing_context, build_register_signing_context_with_options,
     build_unregister_device_request, build_unregister_signing_context,
     build_unregister_signing_context_with_options, cokret_api_url, content_digest_sha256,
-    push_bridge_describe_url, push_gateway_service_base_url, push_integration_describe_url,
-    redact_push_key, validate_push_gateway_url, validate_webpush_endpoint_allowlist,
+    floria_push_bridge_describe_url, floria_push_integration_describe_url,
+    push_gateway_service_base_url, redact_push_key, validate_push_gateway_url,
+    validate_webpush_endpoint_allowlist,
 };
 pub use push::{
     CallMediaParticipantBinding, CallMediaTokenExchangeOutcome, CallMediaTokenExchangeRequestBody,
-    DefaultPlatformAppIdResolver, MediaBackendType, MediaTokenError,
-    MediaTokenStructuralValidationContext, PlatformAppIdResolver, PushRoute, PushRouteCapability,
-    PushRouteError, PushRouteId, PushRouteValidationError, PushRuleEventContext, ServiceDid,
-    ShouldNotify, StructurallyValidatedMediaTokenOutcome, WatchLevel, call_media_token_exchange,
-    ensure_known_backend, evaluate_watch_level, push_rule_reason_code,
-    structurally_validate_media_token_outcome,
+    CallMediaTokenVerification, DefaultPlatformAppIdResolver, MediaBackendType,
+    MediaServiceAnchors, MediaTokenError, MediaTokenVerificationContext, PlatformAppIdResolver,
+    PushRoute, PushRouteCapability, PushRouteError, PushRouteId, PushRouteValidationError,
+    PushRuleEventContext, ServiceDid, ShouldNotify, VerifiedMediaTokenOutcome, WatchLevel,
+    call_media_token_exchange, ensure_known_backend, evaluate_watch_level, push_rule_reason_code,
+    verify_media_token_outcome,
 };
 #[cfg(feature = "http")]
 pub use push::{CokretHttpOutcome, CokretPushClient, PushRetryPolicy};

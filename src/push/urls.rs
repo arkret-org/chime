@@ -6,7 +6,7 @@ use std::net::IpAddr;
 use url::Url;
 
 use super::errors::PushRegistrationError;
-use super::{FLORIA_INTEGRATION_DESCRIBE_PATH, FLORIA_PUSH_BRIDGE_DESCRIBE_PATH};
+use super::{FLORIA_INTEGRATION_DESCRIBE_PATH, FLORIA_PUSH_BRIDGE_DESCRIBE_PATH, PUSH_NOTIFY_PATH};
 
 /// Builds a normalized Cokret API URL.
 ///
@@ -41,6 +41,16 @@ fn service_api_url(service_base_url: &str, path: &str) -> String {
 pub fn push_gateway_service_base_url(
     push_gateway_url: &str,
 ) -> Result<String, PushRegistrationError> {
+    service_base_url_from_known_suffixes(
+        push_gateway_url,
+        &[PUSH_NOTIFY_PATH, "/_cokret/edge/push", "/_cokret/edge"],
+    )
+}
+
+fn service_base_url_from_known_suffixes(
+    push_gateway_url: &str,
+    suffixes: &[&str],
+) -> Result<String, PushRegistrationError> {
     require_non_empty("push_gateway", push_gateway_url)?;
 
     let mut url = Url::parse(push_gateway_url).map_err(|error| {
@@ -69,12 +79,7 @@ pub fn push_gateway_service_base_url(
     url.set_fragment(None);
 
     let mut path = url.path().trim_end_matches('/').to_owned();
-    for suffix in [
-        "/_floria/push/bridge/describe",
-        "/_cokret/edge/push/notify",
-        "/_cokret/edge/push",
-        "/_cokret/edge",
-    ] {
+    for suffix in suffixes {
         if let Some(prefix) = path.strip_suffix(suffix) {
             path = prefix.to_owned();
             break;
@@ -95,22 +100,39 @@ pub fn push_gateway_service_base_url(
     Ok(s)
 }
 
-/// Derive the active bridge-describe URL from a configured push gateway URL.
-pub fn push_bridge_describe_url(push_gateway_url: &str) -> Result<String, PushRegistrationError> {
+/// Derive floria's product-local bridge-describe URL from a configured gateway URL.
+pub fn floria_push_bridge_describe_url(
+    push_gateway_url: &str,
+) -> Result<String, PushRegistrationError> {
     Ok(service_api_url(
-        &push_gateway_service_base_url(push_gateway_url)?,
+        &floria_push_gateway_service_base_url(push_gateway_url)?,
         FLORIA_PUSH_BRIDGE_DESCRIBE_PATH,
     ))
 }
 
-/// Derive the active integration-describe URL from a configured push gateway URL.
-pub fn push_integration_describe_url(
+/// Derive floria's product-local integration-describe URL from a configured gateway URL.
+pub fn floria_push_integration_describe_url(
     push_gateway_url: &str,
 ) -> Result<String, PushRegistrationError> {
     Ok(service_api_url(
-        &push_gateway_service_base_url(push_gateway_url)?,
+        &floria_push_gateway_service_base_url(push_gateway_url)?,
         FLORIA_INTEGRATION_DESCRIBE_PATH,
     ))
+}
+
+fn floria_push_gateway_service_base_url(
+    push_gateway_url: &str,
+) -> Result<String, PushRegistrationError> {
+    service_base_url_from_known_suffixes(
+        push_gateway_url,
+        &[
+            FLORIA_PUSH_BRIDGE_DESCRIBE_PATH,
+            FLORIA_INTEGRATION_DESCRIBE_PATH,
+            PUSH_NOTIFY_PATH,
+            "/_cokret/edge/push",
+            "/_cokret/edge",
+        ],
+    )
 }
 
 /// Validate a Cokret push gateway endpoint.

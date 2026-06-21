@@ -407,19 +407,36 @@ impl fmt::Debug for PushRegistrationError {
                 body,
                 retry_after,
                 request_id,
-            } => f
-                .debug_struct("HttpStatus")
-                .field("status", status)
-                .field("kind", kind)
-                .field("error", error)
-                .field("body_len", &body.len())
-                .field("retry_after", retry_after)
-                .field("request_id", request_id)
-                .finish(),
+            } => {
+                let redacted_error = error.as_deref().map(RedactedCokretErrorEnvelope);
+                f.debug_struct("HttpStatus")
+                    .field("status", status)
+                    .field("kind", kind)
+                    .field("error", &redacted_error)
+                    .field("body_len", &body.len())
+                    .field("retry_after", retry_after)
+                    .field("request_id", request_id)
+                    .finish()
+            }
             #[cfg(feature = "http")]
             Self::Http(error) => f.debug_tuple("Http").field(error).finish(),
             Self::Json(error) => f.debug_tuple("Json").field(error).finish(),
         }
+    }
+}
+
+struct RedactedCokretErrorEnvelope<'a>(&'a CokretErrorEnvelope);
+
+impl fmt::Debug for RedactedCokretErrorEnvelope<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("CokretErrorEnvelope")
+            .field("ok", &self.0.ok)
+            .field("code", &self.0.error.code)
+            .field("message_present", &(!self.0.error.message.is_empty()))
+            .field("retry_after_ms", &self.0.error.retry_after_ms)
+            .field("details_present", &(!self.0.error.details.is_empty()))
+            .field("request_id", &self.0.request_id)
+            .finish()
     }
 }
 

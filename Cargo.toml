@@ -24,10 +24,9 @@ rustdoc-args = ["--cfg", "docsrs"]
 [dependencies]
 # R3 CALL-1 (spec b47ff6ec) — the SDK's `CallMediaTokenExchangeOutcome.expires_at`
 # is `chrono::DateTime<Utc>`. Chime needs the type at its public surface
-# (chime exposes the SDK outcome through
-# `structurally_validate_media_token_response` /
-# `MediaTokenStructuralValidationContext`) so we pull chrono in directly
-# with the default features stripped to keep the wasm32 build slim.
+# (`MediaTokenVerificationContext` and `verify_media_token_outcome`) so we
+# pull chrono in directly with the default features stripped to keep the
+# wasm32 build slim.
 # CH-1: pin chime's RFC 9530 content-digest computation to the SDK's
 # `http_signature::ContentDigest` so the wire bytes stay byte-identical
 # to what floria's verifier and soland's fanout signer emit. The SDK is
@@ -84,6 +83,7 @@ http = ["dep:reqwest", "dep:tokio", "dep:gloo-timers", "dep:zeroize"]
 notify = []
 
 [dev-dependencies]
+ed25519-dalek = {workspace = true}
 proptest = {workspace = true,default-features = false,features = ["std"]}
 tokio = {workspace = true,features = ["io-util", "macros", "net", "rt-multi-thread", "time"]}
 
@@ -94,6 +94,7 @@ resolver = "3"
 base64 = "0.22"
 chrono = {version = "0.4",default-features = false}
 cokret = {version = "0.3.0",path = "../cokret-rust-sdk/crates/sdk",default-features = false}
+ed25519-dalek = {version = "2.2.0",default-features = false,features = ["std", "rand_core"]}
 gloo-timers = "0.4"
 httpdate = "1"
 proptest = {version = "1",default-features = false}

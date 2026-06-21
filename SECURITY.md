@@ -133,8 +133,10 @@ body for plaintext-visible destination services), the host MUST:
 2. Maintain a per-`(recipient, key_id)` nonce-seen set for the
    envelope's key lifetime. A repeated nonce under the same key is a
    protocol break and MUST cause the frame to be dropped with an alert.
-3. Refuse envelopes whose `algorithm` field is not on the host's
-   allowlist of accepted AEAD suites — never trust the wire value.
+3. Refuse envelopes whose `algorithm` field is not in chime's active
+   HPKE suite allowlist. Hosts may apply a stricter local capability
+   allowlist after that, but unknown or reserved registry rows fail
+   closed at the SDK boundary.
 
 `EncryptedEnvelope::nonce` is intentionally `Option<String>` because
 some algorithms (e.g. deterministic AEAD variants) omit it; the host

@@ -96,14 +96,28 @@ jobs:
         env:
           RUSTDOCFLAGS: -Dwarnings
 
+  examples:
+    name: Examples
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Checkout sibling Cokret Rust SDK
+        env:
+          CI_REPO_TOKEN: ${{ secrets.CI_REPO_TOKEN || github.token }}
+        run: bash .ci/checkout-sibling.sh cokret-rust-sdk ../cokret-rust-sdk
+      - uses: Swatinem/rust-cache@v2
+      - name: Build examples
+        run: cargo build --examples --no-default-features --features notify
+
   msrv:
-    name: MSRV (1.89)
+    name: MSRV (1.96)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: "1.89"
+          toolchain: "1.96"
       - name: Checkout sibling Cokret Rust SDK
         env:
           CI_REPO_TOKEN: ${{ secrets.CI_REPO_TOKEN || github.token }}

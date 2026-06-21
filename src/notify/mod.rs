@@ -47,5 +47,5 @@ pub use notification::{
 };
 pub use outcome::{
     ChimePushNotifyOutcome, EncryptedEnvelope, EncryptedEnvelopeError, ProviderRetryHint,
-    PushDeliveryReceipt, RejectedPushToken,
+    PushDeliveryReceipt, RejectedPushToken, SUPPORTED_ENCRYPTED_ENVELOPE_ALGORITHMS,
 };

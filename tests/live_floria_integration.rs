@@ -12,8 +12,8 @@
 use std::time::Duration;
 
 use chime::{
-    ChimePushNotifyOutcome, CokretPushClient, PushRetryPolicy, push_bridge_describe_url,
-    push_integration_describe_url,
+    ChimePushNotifyOutcome, CokretPushClient, PushRetryPolicy, floria_push_bridge_describe_url,
+    floria_push_integration_describe_url,
 };
 use serde_json::{Value, json};
 
@@ -64,9 +64,9 @@ async fn bridge_describe_round_trips_against_live_floria() {
 
     let client = client_for(&floria);
     let response = client
-        .bridge_describe()
+        .floria_bridge_describe()
         .await
-        .expect("bridge_describe deserializes against live floria");
+        .expect("floria_bridge_describe deserializes against live floria");
 
     assert_eq!(response.contract, "ck.push.bridge.describe");
     assert_eq!(response.notify.notify_path, "/_cokret/edge/push/notify");
@@ -81,8 +81,8 @@ async fn bridge_describe_round_trips_against_live_floria() {
         response.gateway.supported_providers
     );
 
-    let derived = push_bridge_describe_url(&floria.url("/_cokret/edge/push/notify"))
-        .expect("push_bridge_describe_url accepts the loopback gateway URL");
+    let derived = floria_push_bridge_describe_url(&floria.url("/_cokret/edge/push/notify"))
+        .expect("floria_push_bridge_describe_url accepts the loopback gateway URL");
     assert_eq!(derived, floria.url("/_floria/push/bridge/describe"));
 }
 
@@ -95,9 +95,9 @@ async fn integration_view_combines_describe_endpoints() {
 
     let client = client_for(&floria);
     let view = client
-        .integration_view()
+        .floria_integration_view()
         .await
-        .expect("integration_view round-trips against live floria");
+        .expect("floria_integration_view round-trips against live floria");
 
     let bridge_describe_present = view
         .manifest
@@ -114,8 +114,8 @@ async fn integration_view_combines_describe_endpoints() {
         chime::OPERATION_PUSH_NOTIFY
     );
 
-    let derived = push_integration_describe_url(&floria.url("/_cokret/edge/push/notify"))
-        .expect("push_integration_describe_url accepts the loopback gateway URL");
+    let derived = floria_push_integration_describe_url(&floria.url("/_cokret/edge/push/notify"))
+        .expect("floria_push_integration_describe_url accepts the loopback gateway URL");
     assert_eq!(derived, floria.url("/_floria/integration/describe"));
 }
 
