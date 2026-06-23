@@ -4,12 +4,18 @@ use serde_json::Value;
 use super::*;
 use crate::{PushRuleEventContext, ShouldNotify, WatchLevel, push_rule_reason_code};
 
+const REALM_ROUTE_TOKEN: &str = "realm_route_token_000000001";
+const SCOPE_ROUTE_TOKEN: &str = "scope_route_token_000000001";
+const ALICE_ROUTE_TOKEN: &str = "alice_route_token_000000001";
+const BOB_ROUTE_TOKEN: &str = "bob_route_token_000000001";
+const MALLORY_ROUTE_TOKEN: &str = "mallory_route_token_000000001";
+
 fn device() -> PushNotificationDevice {
     PushNotificationDevice {
         device_id: "ck:device:01JS0D000000000000000000".to_owned(),
         push_key: Some("fcm:very-secret-token".to_owned()),
         app_id: Some("app.example".to_owned()),
-        target_actor_id: None,
+        target_route_token: None,
         platform: Some("android".to_owned()),
     }
 }
@@ -23,8 +29,8 @@ fn notification() -> PushNotification {
             PushTargetId::new("ck:pseudonym:push:01HYZ8Z000000000000000").unwrap(),
         ),
         wakeup_kind: Some(WakeupKind::Message),
-        routing_metadata: Some(RoutingMetadata {
-            realm_id: Some("ck:realm:01JS0SP000000000000000000".to_owned()),
+        route_tokens: Some(RouteTokens {
+            realm_route_token: Some(REALM_ROUTE_TOKEN.to_owned()),
             ..Default::default()
         }),
         push_hint: Some(PushHint::new("new_message").unwrap()),
@@ -548,72 +554,66 @@ fn assert_no_sensitive_fields_walks_arrays() {
 // ── Round 4 (B5) — mention_redirect plaintext routing tests ───────
 
 #[test]
-fn decrypt_allowed_for_actor_no_routing_is_open() {
+fn decrypt_allowed_for_route_token_no_routing_is_open() {
     // No `mention_redirect` field → not a mention-redirect wakeup,
     // gate decision lives elsewhere, return true.
     let notification = notification();
-    let actor = Did::new("did:web:alice.example").unwrap();
-    assert!(notification.decrypt_allowed_for_actor(&actor));
+    assert!(notification.decrypt_allowed_for_route_token(ALICE_ROUTE_TOKEN));
     assert!(!notification.has_mention_redirect_routing());
 }
 
 #[test]
-fn decrypt_allowed_for_actor_in_list_passes() {
+fn decrypt_allowed_for_route_token_in_list_passes() {
     let mut notification = notification();
-    let alice = Did::new("did:web:alice.example").unwrap();
-    let bob = Did::new("did:webvh:bob.example").unwrap();
     notification
-        .routing_metadata
+        .route_tokens
         .get_or_insert_with(Default::default)
-        .mention_redirect_target_actor_ids = vec![alice.clone(), bob.clone()];
+        .mention_redirect_target_route_tokens =
+        vec![ALICE_ROUTE_TOKEN.to_owned(), BOB_ROUTE_TOKEN.to_owned()];
     assert!(notification.has_mention_redirect_routing());
-    assert!(notification.decrypt_allowed_for_actor(&alice));
-    assert!(notification.decrypt_allowed_for_actor(&bob));
+    assert!(notification.decrypt_allowed_for_route_token(ALICE_ROUTE_TOKEN));
+    assert!(notification.decrypt_allowed_for_route_token(BOB_ROUTE_TOKEN));
 }
 
 #[test]
-fn decrypt_allowed_for_actor_not_in_list_is_fail_closed() {
+fn decrypt_allowed_for_route_token_not_in_list_is_fail_closed() {
     let mut notification = notification();
-    let alice = Did::new("did:web:alice.example").unwrap();
-    let mallory = Did::new("did:web:mallory.example").unwrap();
     notification
-        .routing_metadata
+        .route_tokens
         .get_or_insert_with(Default::default)
-        .mention_redirect_target_actor_ids = vec![alice];
+        .mention_redirect_target_route_tokens = vec![ALICE_ROUTE_TOKEN.to_owned()];
     // Mallory is not in the list → fail-closed.
-    assert!(!notification.decrypt_allowed_for_actor(&mallory));
+    assert!(!notification.decrypt_allowed_for_route_token(MALLORY_ROUTE_TOKEN));
 }
 
 #[test]
-fn decrypt_allowed_for_actor_empty_list_is_fail_closed() {
-    // B5: an empty mention_redirect_target_actor_ids array means this is
+fn decrypt_allowed_for_route_token_empty_list_is_open() {
+    // B5: an empty mention_redirect_target_route_tokens array means this is
     // not a mention-redirect wakeup. Gate decisions live elsewhere.
     let mut notification = notification();
     notification
-        .routing_metadata
+        .route_tokens
         .get_or_insert_with(Default::default)
-        .mention_redirect_target_actor_ids = Vec::new();
-    let anyone = Did::new("did:web:anyone.example").unwrap();
+        .mention_redirect_target_route_tokens = Vec::new();
     assert!(!notification.has_mention_redirect_routing());
-    assert!(notification.decrypt_allowed_for_actor(&anyone));
+    assert!(notification.decrypt_allowed_for_route_token(ALICE_ROUTE_TOKEN));
 }
 
 #[test]
 fn mention_redirect_round_trips_through_json() {
     let mut notification = notification();
-    let alice = Did::new("did:web:alice.example").unwrap();
     notification
-        .routing_metadata
+        .route_tokens
         .get_or_insert_with(Default::default)
-        .mention_redirect_target_actor_ids = vec![alice.clone()];
+        .mention_redirect_target_route_tokens = vec![ALICE_ROUTE_TOKEN.to_owned()];
     let json = serde_json::to_string(&notification).unwrap();
     // Ensure the field is serialised under the canonical wire name.
     assert!(
-        json.contains("mention_redirect_target_actor_ids"),
+        json.contains("mention_redirect_target_route_tokens"),
         "wire name must survive serde: {json}",
     );
     let loaded: PushNotification = serde_json::from_str(&json).unwrap();
-    assert!(loaded.decrypt_allowed_for_actor(&alice));
+    assert!(loaded.decrypt_allowed_for_route_token(ALICE_ROUTE_TOKEN));
 }
 
 // ── Round 4 (B5) — e2ee_late_recovery banner surface tests ────────
@@ -663,81 +663,41 @@ fn late_recovery_event_id_is_none_when_payload_absent() {
     assert!(notification.late_recovery_event_id().is_none());
 }
 
-// ── CKP-0007 (Circle primitive) — circle_id / effective_scope ────────
+// ── push route-token model ───────────────────────────────────────────
 
 #[test]
-fn circle_id_and_effective_scope_round_trip_through_json() {
+fn route_tokens_round_trip_through_json() {
     let mut n = notification();
-    n.routing_metadata
+    n.route_tokens
         .get_or_insert_with(Default::default)
-        .circle_id = Some("ck:circle:01HZK9Z000000000000000000".to_owned());
-    n.routing_metadata
+        .scope_route_token = Some(SCOPE_ROUTE_TOKEN.to_owned());
+    n.route_tokens
         .get_or_insert_with(Default::default)
-        .effective_scope = Some("ck:circle:01HZK9Z000000000000000000".to_owned());
+        .delivery_binding_frontier_token = Some("frontier_route_token_000000001".to_owned());
     let json = serde_json::to_string(&n).unwrap();
-    assert!(json.contains("circle_id"));
-    assert!(json.contains("effective_scope"));
+    assert!(json.contains("route_tokens"));
+    assert!(json.contains("scope_route_token"));
+    assert!(json.contains("delivery_binding_frontier_token"));
     let loaded: PushNotification = serde_json::from_str(&json).unwrap();
-    assert_eq!(loaded.circle_id(), n.circle_id());
-    assert_eq!(loaded.effective_scope(), n.effective_scope());
-    // Wire shape validates.
+    assert_eq!(loaded.scope_route_token(), n.scope_route_token());
+    assert_eq!(
+        loaded.delivery_binding_frontier_token(),
+        n.delivery_binding_frontier_token()
+    );
     loaded.validate_wire_model().unwrap();
-    // And it passes blind-wakeup privacy (typed circle_id is allowed
-    // as opaque routing metadata).
     loaded.validate_blind_wakeup().unwrap();
 }
 
 #[test]
-fn circle_id_rejects_untyped_value() {
+fn route_token_rejects_short_value() {
     let mut n = notification();
-    n.routing_metadata
+    n.route_tokens
         .get_or_insert_with(Default::default)
-        .circle_id = Some("not-a-typed-id".to_owned());
+        .scope_route_token = Some("short".to_owned());
     assert!(matches!(
         n.validate_wire_model().unwrap_err(),
-        PushNotifyPrivacyError::InvalidFieldValue { field } if field == "circle_id"
-    ));
-}
-
-#[test]
-fn effective_scope_accepts_circle_or_realm_prefix() {
-    let mut n = notification();
-    n.routing_metadata
-        .get_or_insert_with(Default::default)
-        .effective_scope = Some("ck:realm:01HZK9Z000000000000000000".to_owned());
-    n.validate_wire_model().unwrap();
-    n.routing_metadata
-        .get_or_insert_with(Default::default)
-        .effective_scope = Some("ck:circle:01HZK9Z000000000000000000".to_owned());
-    n.validate_wire_model().unwrap();
-}
-
-#[test]
-fn effective_scope_rejects_other_prefixes() {
-    let mut n = notification();
-    n.routing_metadata
-        .get_or_insert_with(Default::default)
-        .effective_scope = Some("ck:strand:01HZK9Z000000000000000000".to_owned());
-    assert!(matches!(
-        n.validate_wire_model().unwrap_err(),
-        PushNotifyPrivacyError::InvalidFieldValue { field } if field == "effective_scope"
-    ));
-}
-
-#[test]
-fn blind_wakeup_rejects_circle_id_carrying_did_literal() {
-    let mut n = notification();
-    // Force-bypass the typed-id check at construction by skipping
-    // PushTargetId's constructor; the wire-model validator is what
-    // we want to exercise here. We set a value that satisfies the
-    // `ck:circle:` prefix but smuggles a did: literal in the tail.
-    n.routing_metadata
-        .get_or_insert_with(Default::default)
-        .circle_id = Some("ck:circle:did:web:alice.example".to_owned());
-    let err = n.validate_blind_wakeup().unwrap_err();
-    assert!(matches!(
-        err,
-        PushNotifyPrivacyError::SensitiveField { field } if field == "circle_id"
+        PushNotifyPrivacyError::InvalidFieldValue { field }
+            if field == "route_tokens.scope_route_token"
     ));
 }
 

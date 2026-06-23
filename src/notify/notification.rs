@@ -13,10 +13,9 @@ use super::agent_routing::{
 use super::errors::PushNotifyPrivacyError;
 use super::validation::{
     is_never_allowed_payload_key, is_sensitive_payload_key, run_sdk_sanitizer_over_extra,
-    validate_active_reference_extension, validate_circle_id_opaque, validate_counts,
-    validate_effective_scope, validate_extra_value, validate_optional_non_empty,
-    validate_plaintext_extra_value, validate_push_hint_value, validate_push_target_id,
-    validate_required, validate_typed_id,
+    validate_active_reference_extension, validate_counts, validate_extra_value,
+    validate_optional_non_empty, validate_plaintext_extra_value, validate_push_hint_value,
+    validate_push_route_token, validate_push_target_id, validate_required, validate_typed_id,
 };
 use crate::redact_push_key;
 
@@ -148,11 +147,10 @@ pub struct PushNotification {
     pub wakeup_kind: Option<WakeupKind>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub event_id: Option<String>,
-    /// SPEC-CR-016 (class B) — gateway-internal routing fragment
-    /// (`realm_id` / `circle_id` / `effective_scope`). Stripped before any
-    /// provider call; see [`RoutingMetadata`].
+    /// Gateway-internal route tokens. Stripped before any provider call;
+    /// see [`RouteTokens`].
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub routing_metadata: Option<RoutingMetadata>,
+    pub route_tokens: Option<RouteTokens>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub sender_actor_id: Option<Did>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -191,45 +189,29 @@ pub struct PushNotification {
     pub extra: Map<String, Value>,
 }
 
-/// SPEC-CR-016 — gateway-internal routing fragment carried under
-/// `notification.routing_metadata`. Every field here drives gateway-side
+/// Gateway-internal routing fragment carried under
+/// `notification.route_tokens`. Every field here drives gateway-side
 /// routing / dedup and MUST be stripped before any provider sees it.
-///
-/// NOTE: `routing_metadata.realm_id` is a distinct gateway-internal
-/// routing path and is NOT a client-visible top-level `realm_id`.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct RoutingMetadata {
-    /// Security-boundary identifier (`ck:realm:...`). Gateway-internal
-    /// routing; stripped before any provider call.
+pub struct RouteTokens {
+    /// Opaque Realm route token. Gateway-internal routing; stripped
+    /// before any provider call.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub realm_id: Option<String>,
-    /// CKP-0007 Circle (intra-Realm encrypted sub-boundary) typed id.
-    /// Travels as opaque routing metadata; the "no Circle member name
-    /// leak" invariant is enforced by [`validate_circle_id_opaque`].
+    pub realm_route_token: Option<String>,
+    /// Opaque scope route token. Gateway-internal routing; stripped
+    /// before any provider call.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub circle_id: Option<String>,
-    /// Round-4 gateway-internal scope Circle ID. Distinct from the
-    /// legacy `circle_id` delivery hint: this identifies the scoped
-    /// Circle boundary used by routing policy and is stripped before
-    /// provider delivery.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub scope_circle_id: Option<String>,
-    /// CKP-0007 — mirror of the event envelope's `effective_scope`
-    /// (`ck:circle:...` or `ck:realm:...`). Lets the client correlate the
-    /// wakeup with the authoring scope without a round-trip.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub effective_scope: Option<String>,
-    /// Round-4 mention-redirect routing allow-list. When present, only
-    /// actor IDs in this list may decrypt the (otherwise encrypted) body at
-    /// the push layer — see [`PushNotification::decrypt_allowed_for_actor`].
-    /// Gateway-internal; stripped before any provider call.
+    pub scope_route_token: Option<String>,
+    /// Mention-redirect allow-list. When present, only route-token
+    /// holders in this list may decrypt the encrypted body at the push
+    /// layer.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub mention_redirect_target_actor_ids: Vec<Did>,
-    /// Receiver's accepted Realm delivery-binding frontier on a federation
+    pub mention_redirect_target_route_tokens: Vec<String>,
+    /// Receiver's accepted delivery-binding frontier on a federation
     /// hop. Gateway-internal; stripped before any provider call.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub delivery_binding_frontier: Option<String>,
+    pub delivery_binding_frontier_token: Option<String>,
 }
 
 impl PushNotification {
@@ -248,46 +230,33 @@ impl PushNotification {
         }
     }
 
-    /// SPEC-CR-016 — gateway-internal routing `realm_id` (under
-    /// `routing_metadata`).
-    pub fn realm_id(&self) -> Option<&str> {
-        self.routing_metadata
+    pub fn realm_route_token(&self) -> Option<&str> {
+        self.route_tokens
             .as_ref()
-            .and_then(|routing| routing.realm_id.as_deref())
+            .and_then(|routing| routing.realm_route_token.as_deref())
     }
 
-    /// SPEC-CR-016 — gateway-internal routing `circle_id`.
-    pub fn circle_id(&self) -> Option<&str> {
-        self.routing_metadata
+    pub fn scope_route_token(&self) -> Option<&str> {
+        self.route_tokens
             .as_ref()
-            .and_then(|routing| routing.circle_id.as_deref())
+            .and_then(|routing| routing.scope_route_token.as_deref())
     }
 
-    /// SPEC-CR-016 — gateway-internal routing `scope_circle_id`.
-    pub fn scope_circle_id(&self) -> Option<&str> {
-        self.routing_metadata
+    pub fn delivery_binding_frontier_token(&self) -> Option<&str> {
+        self.route_tokens
             .as_ref()
-            .and_then(|routing| routing.scope_circle_id.as_deref())
+            .and_then(|routing| routing.delivery_binding_frontier_token.as_deref())
     }
 
-    /// SPEC-CR-016 — gateway-internal `effective_scope` mirror.
-    pub fn effective_scope(&self) -> Option<&str> {
-        self.routing_metadata
-            .as_ref()
-            .and_then(|routing| routing.effective_scope.as_deref())
-    }
-
-    /// SPEC-CR-016 — mention-redirect routing fragment (under
-    /// `routing_metadata`).
-    pub fn mention_redirect_target_actor_ids(&self) -> Option<&[Did]> {
-        let ids = &self
-            .routing_metadata
+    pub fn mention_redirect_target_route_tokens(&self) -> Option<&[String]> {
+        let tokens = &self
+            .route_tokens
             .as_ref()?
-            .mention_redirect_target_actor_ids;
-        if ids.is_empty() {
+            .mention_redirect_target_route_tokens;
+        if tokens.is_empty() {
             None
         } else {
-            Some(ids.as_slice())
+            Some(tokens.as_slice())
         }
     }
 
@@ -299,22 +268,20 @@ impl PushNotification {
         }
 
         validate_typed_id("event_id", self.event_id.as_deref(), "ck:event:")?;
-        validate_typed_id("realm_id", self.realm_id(), "ck:realm:")?;
-        validate_typed_id("scope_circle_id", self.scope_circle_id(), "ck:circle:")?;
-        // CKP-0007 — Circle primitive typed-shape validation. We don't
-        // require either to be present (Realm-scoped wakeups can set
-        // realm_id only), but when present they MUST be the
-        // canonical typed-id shape so floria/yougen don't have to
-        // re-parse arbitrary strings later.
-        //
-        // A.5 #1 — `circle_id` is the canonical opaque routing token in
-        // blind-wakeup mode. Tighten its shape from the generic
-        // `validate_typed_id` (which only checks the prefix) to a strict
-        // regex equivalent of `^ck:circle:[a-z0-9]+$` so member-name /
-        // display-label exfiltration via the tail is rejected at the
-        // wire layer.
-        validate_circle_id_opaque(self.circle_id())?;
-        validate_effective_scope(self.effective_scope())?;
+        validate_push_route_token("route_tokens.realm_route_token", self.realm_route_token())?;
+        validate_push_route_token("route_tokens.scope_route_token", self.scope_route_token())?;
+        validate_push_route_token(
+            "route_tokens.delivery_binding_frontier_token",
+            self.delivery_binding_frontier_token(),
+        )?;
+        if let Some(tokens) = self.mention_redirect_target_route_tokens() {
+            for (index, token) in tokens.iter().enumerate() {
+                validate_push_route_token(
+                    &format!("route_tokens.mention_redirect_target_route_tokens[{index}]"),
+                    Some(token),
+                )?;
+            }
+        }
         validate_optional_non_empty("realm_title", self.realm_title.as_deref())?;
         if self
             .push_hint
@@ -413,21 +380,6 @@ impl PushNotification {
                 field: "realm_title".to_owned(),
             });
         }
-        // CKP-0007 Circle metadata privacy invariant: even in blind
-        // mode where `circle_id` may travel as opaque routing metadata,
-        // the wakeup MUST NOT leak Circle membership/display fields.
-        // The strict opaque validator in `validate_wire_model` already
-        // rejects any `did:`/`:did` substring in the tail (it enforces
-        // `^ck:circle:[a-z0-9]+$`), so we keep the belt-and-braces
-        // SensitiveField mapping here for callers that bypass the
-        // wire-model validator and call `validate_blind_wakeup` directly.
-        if let Some(circle_id) = self.circle_id()
-            && (circle_id.to_ascii_lowercase().contains("did:") || circle_id.contains(":did"))
-        {
-            return Err(PushNotifyPrivacyError::SensitiveField {
-                field: "circle_id".to_owned(),
-            });
-        }
         if let Some(counts) = &self.counts {
             validate_counts("counts", None, counts)?;
         }
@@ -467,28 +419,28 @@ impl PushNotification {
         Ok(())
     }
 
-    /// Round 4 (B5) — `mention_redirect_target_actor_ids` fail-closed
-    /// gate. Returns `true` iff the (encrypted) body MAY be decrypted
-    /// at the push layer for `receiver_actor_id`.
+    /// Mention-redirect fail-closed gate. Returns `true` iff the
+    /// encrypted body MAY be decrypted at the push layer for
+    /// `receiver_route_token`.
     ///
     /// Semantics:
-    /// - When `mention_redirect_target_actor_ids` is empty, this is NOT a mention-redirect scenario
-    ///   and the call returns `true` (the normal recipient-set gate elsewhere applies).
-    /// - When it is non-empty, the receiver's actor ID MUST appear in the list to be permitted.
+    /// - When the allow-list is empty, this is NOT a mention-redirect scenario and the call returns
+    ///   `true`.
+    /// - When it is non-empty, the receiver route token MUST appear in the list to be permitted.
     ///
     /// This is the canonical accessor consumers (yougen, floria, host
     /// apps) should call before unwrapping the body. Direct reads of
-    /// `mention_redirect_target_actor_ids` are permitted for display but
-    /// MUST NOT gate decryption — the
-    /// fail-closed semantics live here, not at the call site.
-    pub fn decrypt_allowed_for_actor(&self, receiver_actor_id: &Did) -> bool {
-        let Some(allowed_ids) = self.mention_redirect_target_actor_ids() else {
+    /// `mention_redirect_target_route_tokens` are permitted for display
+    /// but MUST NOT gate decryption; the fail-closed semantics live here.
+    pub fn decrypt_allowed_for_route_token(&self, receiver_route_token: &str) -> bool {
+        let Some(allowed_tokens) = self.mention_redirect_target_route_tokens() else {
             // Not a mention-redirect wakeup; gate is decided elsewhere.
             return true;
         };
-        allowed_ids
+        let receiver_route_token = receiver_route_token.trim();
+        allowed_tokens
             .iter()
-            .any(|allowed| allowed == receiver_actor_id)
+            .any(|allowed| allowed.trim() == receiver_route_token)
     }
 
     /// Round 4 (B5) — return `true` when this wakeup carries
@@ -496,7 +448,7 @@ impl PushNotification {
     /// actor is permitted). Consumers can branch on this to render
     /// "@-mention redirected to N actors" UI.
     pub fn has_mention_redirect_routing(&self) -> bool {
-        self.mention_redirect_target_actor_ids().is_some()
+        self.mention_redirect_target_route_tokens().is_some()
     }
 
     /// B.5 #9 — build a [`crate::BackgroundFetchHint`] that mirrors the
@@ -512,14 +464,7 @@ impl PushNotification {
     pub fn background_fetch_hint(&self) -> Option<crate::BackgroundFetchHint<'_>> {
         let push_target_id = self.push_target_id.as_ref()?.as_str();
         let wakeup_kind = self.wakeup_kind.as_ref()?.as_str();
-        let mut hint = crate::BackgroundFetchHint::new(push_target_id, wakeup_kind);
-        if let Some(circle_id) = self.circle_id() {
-            hint = hint.with_circle_id(circle_id);
-        }
-        if let Some(realm_id) = self.realm_id() {
-            hint = hint.with_realm_id(realm_id);
-        }
-        Some(hint)
+        Some(crate::BackgroundFetchHint::new(push_target_id, wakeup_kind))
     }
 
     /// Round 4 (B5) — when the wakeup is a late-key-recovery audit
@@ -550,7 +495,7 @@ pub struct PushNotificationDevice {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub app_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub target_actor_id: Option<Did>,
+    pub target_route_token: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub platform: Option<String>,
 }
@@ -561,7 +506,7 @@ impl fmt::Debug for PushNotificationDevice {
             .field("device_id", &self.device_id)
             .field("push_key", &self.push_key.as_deref().map(redact_push_key))
             .field("app_id", &self.app_id)
-            .field("target_actor_id", &self.target_actor_id)
+            .field("target_route_token", &self.target_route_token)
             .field("platform", &self.platform)
             .finish()
     }
@@ -570,7 +515,11 @@ impl fmt::Debug for PushNotificationDevice {
 impl PushNotificationDevice {
     fn validate_wire_model(&self) -> Result<(), PushNotifyPrivacyError> {
         validate_required("devices[].device_id", &self.device_id)?;
-        validate_optional_non_empty("devices[].push_key", self.push_key.as_deref())
+        validate_optional_non_empty("devices[].push_key", self.push_key.as_deref())?;
+        validate_push_route_token(
+            "devices[].target_route_token",
+            self.target_route_token.as_deref(),
+        )
     }
 }
 

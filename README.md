@@ -1,6 +1,6 @@
 # chime
 
-> **Spec target**: [cokret-spec @ 5d66aeb](../cokret-spec) (R4 sync 2026-06-21)
+> **Spec target**: [cokret-spec @ 074aefee](../cokret-spec) (sync 2026-06-23)
 
 [![coverage](https://img.shields.io/badge/coverage-local%20tarpaulin-informational)](docs/production-checklist.md#local-verification)
 
@@ -27,9 +27,9 @@ Spec round 4 adds two client-SDK shape changes. See
 [`CHANGELOG.md`](CHANGELOG.md) `[Unreleased]` for the chime-facing
 wire-breaking list; the normative source remains `../cokret-spec/spec/v1/`.
 
-- **`mention_redirect_target_actor_ids` recognition** — typed
-  push-payload structs expose the field; consumers (yougen et al.)
-  decide whether the active device's actor is an authorised
+- **`mention_redirect_target_route_tokens` recognition** — typed
+  push-payload structs expose the field; consumers decide whether the
+  active device route token is an authorised
   redirect target.
 - **New floria-passthrough error reason codes** —
   `delivery_binding_stale` / `delivery_binding_handed_over` /
@@ -240,7 +240,7 @@ notification.devices = vec![PushNotificationDevice {
     device_id: "ck:device:01JS0D000000000000000000".to_owned(),
     push_key: Some("fcm:opaque-token".to_owned()),
     app_id: Some("app.example".to_owned()),
-    target_actor_id: None,
+    target_route_token: None,
     platform: None,
 }];
 let request = ChimePushNotifyEnvelope {
@@ -262,7 +262,7 @@ leaky.devices = vec![PushNotificationDevice {
     device_id: "ck:device:01JS0D000000000000000001".to_owned(),
     push_key: Some("fcm:opaque-token".to_owned()),
     app_id: Some("app.example".to_owned()),
-    target_actor_id: None,
+    target_route_token: None,
     platform: None,
 }];
 leaky.extra.insert(

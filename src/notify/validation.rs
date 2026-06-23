@@ -78,6 +78,27 @@ pub(super) fn validate_push_target_id(value: &str) -> Result<(), PushNotifyPriva
     })
 }
 
+pub(super) fn validate_push_route_token(
+    field: &str,
+    value: Option<&str>,
+) -> Result<(), PushNotifyPrivacyError> {
+    let Some(value) = value else {
+        return Ok(());
+    };
+    let value = value.trim();
+    if value.len() < 22
+        || value.len() > 512
+        || !value
+            .chars()
+            .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '.' | '_' | '~' | '-'))
+    {
+        return Err(PushNotifyPrivacyError::InvalidFieldValue {
+            field: field.to_owned(),
+        });
+    }
+    Ok(())
+}
+
 pub(super) fn validate_required(field: &str, value: &str) -> Result<(), PushNotifyPrivacyError> {
     if value.trim().is_empty() {
         return Err(PushNotifyPrivacyError::MissingField {
@@ -110,73 +131,6 @@ pub(super) fn validate_typed_id(
     if value.trim().is_empty() || !value.starts_with(prefix) {
         return Err(PushNotifyPrivacyError::InvalidFieldValue {
             field: field.to_owned(),
-        });
-    }
-    Ok(())
-}
-
-/// A.5 #1 — strict shape validator for `circle_id`.
-///
-/// Enforces the canonical opaque routing-token regex
-/// `^ck:circle:[a-z0-9]+$` (case-insensitive ASCII alphanumerics in the
-/// tail — chime allows both lowercase `ck:circle:abc123` and ULID-style
-/// uppercase `ck:circle:01HZK9Z...` because both are emitted today by
-/// floria). The validator rejects:
-///
-/// - missing / empty tail,
-/// - any non-alphanumeric byte in the tail (`:` / `-` / `_` / `.` etc.),
-/// - `did:` / `:did` infix anywhere in the value (mapped to
-///   [`PushNotifyPrivacyError::SensitiveField`] so the caller can tell "leaked DID literal" apart
-///   from "bad shape" in its observability pipeline).
-///
-/// The wire-model validator runs this on the typed `circle_id` field so
-/// member display labels, DID literals, or any other non-opaque content
-/// cannot be smuggled through the Circle routing surface even in
-/// blind-wakeup mode.
-pub(super) fn validate_circle_id_opaque(value: Option<&str>) -> Result<(), PushNotifyPrivacyError> {
-    let Some(value) = value else {
-        return Ok(());
-    };
-    if value.trim().is_empty() {
-        return Err(PushNotifyPrivacyError::InvalidFieldValue {
-            field: "circle_id".to_owned(),
-        });
-    }
-    // Reject `:did` infix (e.g. `ck:circle:did:web:alice...`) as a
-    // sensitive field rather than a shape violation so the caller can
-    // tell the difference between "bad shape" and "leaked DID literal"
-    // in its observability pipeline.
-    if value.to_ascii_lowercase().contains("did:") || value.contains(":did") {
-        return Err(PushNotifyPrivacyError::SensitiveField {
-            field: "circle_id".to_owned(),
-        });
-    }
-    let Some(tail) = value.strip_prefix("ck:circle:") else {
-        return Err(PushNotifyPrivacyError::InvalidFieldValue {
-            field: "circle_id".to_owned(),
-        });
-    };
-    if tail.is_empty() || !tail.chars().all(|ch| ch.is_ascii_alphanumeric()) {
-        return Err(PushNotifyPrivacyError::InvalidFieldValue {
-            field: "circle_id".to_owned(),
-        });
-    }
-    Ok(())
-}
-
-/// CKP-0007 — `effective_scope` is a typed reference that floria stamps on
-/// `ck.event.*` envelopes. The only two legal prefixes are `ck:circle:`
-/// (intra-Realm encrypted sub-boundary) and `ck:realm:` (Realm-scoped).
-/// Anything else is wire-broken.
-pub(super) fn validate_effective_scope(value: Option<&str>) -> Result<(), PushNotifyPrivacyError> {
-    let Some(value) = value else {
-        return Ok(());
-    };
-    if value.trim().is_empty()
-        || !(value.starts_with("ck:circle:") || value.starts_with("ck:realm:"))
-    {
-        return Err(PushNotifyPrivacyError::InvalidFieldValue {
-            field: "effective_scope".to_owned(),
         });
     }
     Ok(())

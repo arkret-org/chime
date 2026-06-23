@@ -21,7 +21,7 @@ pub use agent_routing::{
     ROUND_R2_R3_SENSITIVE_FIELDS, assert_no_sensitive_fields, classify_agent_event_kind,
     is_forbidden_field_alias, is_phase_p2_agent_typed_id, render_agent_lifecycle_summary,
 };
-// `AuditEnvelopeMetadata` and `RoutingMetadata` are `pub` field types of
+// `AuditEnvelopeMetadata` and `RouteTokens` are `pub` field types of
 // the public envelope/notification structs but are not consumed by name in
 // any non-test in-crate code path; re-exporting them keeps the types
 // publicly nameable through this module exactly as in the pre-split
@@ -40,10 +40,9 @@ pub use local::{
     local_reason_code,
 };
 #[allow(unused_imports)]
-pub use notification::RoutingMetadata;
 pub use notification::{
     PushHint, PushNotification, PushNotificationDedup, PushNotificationDevice, PushTargetId,
-    WakeupKind,
+    RouteTokens, WakeupKind,
 };
 pub use outcome::{
     ChimePushNotifyOutcome, EncryptedEnvelope, EncryptedEnvelopeError, ProviderRetryHint,
