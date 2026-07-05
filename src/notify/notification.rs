@@ -75,6 +75,8 @@ impl<'de> Deserialize<'de> for PushTargetId {
 pub enum WakeupKind {
     Message,
     Mention,
+    Assignment,
+    Schedule,
     Reaction,
     CallInvite,
     Reminder,
@@ -87,6 +89,8 @@ impl WakeupKind {
         match self {
             Self::Message => "message",
             Self::Mention => "mention",
+            Self::Assignment => "assignment",
+            Self::Schedule => "schedule",
             Self::Reaction => "reaction",
             Self::CallInvite => "call_invite",
             Self::Reminder => "reminder",
@@ -114,6 +118,8 @@ impl<'de> Deserialize<'de> for WakeupKind {
         Ok(match raw.as_str() {
             "message" => Self::Message,
             "mention" => Self::Mention,
+            "assignment" => Self::Assignment,
+            "schedule" => Self::Schedule,
             "reaction" => Self::Reaction,
             "call_invite" => Self::CallInvite,
             "reminder" => Self::Reminder,
@@ -121,7 +127,7 @@ impl<'de> Deserialize<'de> for WakeupKind {
             "expiry_invalidation" => Self::ExpiryInvalidation,
             _ => {
                 return Err(serde::de::Error::custom(
-                    "wakeup_kind must be one of message, mention, reaction, call_invite, reminder, scheduled_send, expiry_invalidation",
+                    "wakeup_kind must be one of message, mention, assignment, schedule, reaction, call_invite, reminder, scheduled_send, expiry_invalidation",
                 ));
             }
         })

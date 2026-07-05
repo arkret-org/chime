@@ -229,11 +229,19 @@ fn wakeup_kind_rejects_unknown_values() {
         .expect_err("unknown wakeup kind must fail closed");
     assert!(
         error.to_string().contains(
-            "message, mention, reaction, call_invite, reminder, scheduled_send, expiry_invalidation"
+            "message, mention, assignment, schedule, reaction, call_invite, reminder, scheduled_send, expiry_invalidation"
         ),
         "unexpected error for {value}: {error}"
     );
 
+    assert_eq!(
+        serde_json::from_value::<WakeupKind>(Value::String("assignment".to_owned())).unwrap(),
+        WakeupKind::Assignment
+    );
+    assert_eq!(
+        serde_json::from_value::<WakeupKind>(Value::String("schedule".to_owned())).unwrap(),
+        WakeupKind::Schedule
+    );
     assert_eq!(
         serde_json::from_value::<WakeupKind>(Value::String("call_invite".to_owned())).unwrap(),
         WakeupKind::CallInvite
