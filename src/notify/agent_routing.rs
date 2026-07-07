@@ -78,74 +78,17 @@ pub const ROUND_R2_R3_SENSITIVE_FIELDS: &[&str] = &[
     "shard_key",
 ];
 
-/// Phase P2 (spec 37ce729, CKP-0008 / CKP-0009) — durable Personal Agent
-/// lifecycle event kinds that floria silently consumes upstream
-/// (`AGENT_LIFECYCLE_SILENT_KINDS` in floria 6496235). chime mirrors the
-/// list so client-side notification recognizers can render a *minimal*
-/// summary (no PII, no actor identity, no payload) when the host app
-/// chooses to surface these events to a control plane UI. The default
-/// behaviour for any caller that doesn't explicitly opt in is to drop
-/// the wakeup — these kinds never raise an end-user notification.
-pub const AGENT_LIFECYCLE_DURABLE_KINDS: &[&str] = &[
-    "ck.self.agent.pause",
-    "ck.self.agent.resume",
-    "ck.self.agent.deactivate",
-];
-
-/// Phase P2 — actor-private Personal Agent event kinds. These never
-/// reach end-user devices by default: they're controller-private state
-/// transitions between the controller and its native agent runtime.
-/// chime's recognizer enforces the **blind-wakeup sanitizer** for these
-/// kinds unconditionally — no payload may surface to a UI unless the
-/// destination service DID is on a [`super::PushNotifyPolicyContext::plaintext_visible_services`]
-/// whitelist.
-pub const AGENT_ACTOR_PRIVATE_KINDS: &[&str] = &[
-    "ck.agent.draft.propose",
-    "ck.agent.action_request",
-    "ck.agent.action_approve",
-    "ck.agent.action_reject",
-];
-
-/// Phase P2 — agent/recovery typed-id prefixes registered in the v1
-/// `id-kind-registry.json`. chime uses the list to reject inbound payloads
-/// that route an agent/recovery/grant typed id into a slot reserved for a
-/// different typed-id prefix (e.g. an `agent_interop_session` id smuggled
-/// into a wakeup's `event_id` slot). `agent_principal_id` is a DID-as-id,
-/// not a `ck:*` typed id.
-pub const PHASE_P2_AGENT_TYPED_ID_PREFIXES: &[&str] = &[
-    "ck:agent_interop_session:",
-    "ck:grant:",
-    "ck:backup_series:",
-    "ck:recovery_session:",
-];
-
-/// Classification of an inbound `event_kind` against chime's Phase P2
-/// agent-routing table. Returned by [`classify_agent_event_kind`].
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum AgentEventRouting {
-    /// Durable lifecycle (`ck.agent.{pause,resume,deactivate}`). The
-    /// host MAY render a minimal summary to a control-plane UI, but
-    /// MUST NOT carry any payload onto an end-user surface.
-    DurableLifecycle,
-    /// Actor-private (`ck.agent.{draft.propose,action_request,
-    /// action_approve,action_reject}`). MUST go through the
-    /// blind-wakeup sanitizer; any plaintext payload is rejected
-    /// unless the destination service DID is explicitly whitelisted.
-    ActorPrivate,
-}
+pub use cokret::{
+    AGENT_ACTOR_PRIVATE_KINDS, AGENT_LIFECYCLE_SILENT_KINDS as AGENT_LIFECYCLE_DURABLE_KINDS,
+    AgentEventRouting, PHASE_P2_AGENT_TYPED_ID_PREFIXES,
+};
 
 /// Classify a top-level `event_kind` against chime's Phase P2 agent
 /// routing table. Returns `None` for kinds chime does not route
 /// specially (the historical default: fall through to the normal
 /// notification surface).
 pub fn classify_agent_event_kind(event_kind: &str) -> Option<AgentEventRouting> {
-    if AGENT_LIFECYCLE_DURABLE_KINDS.contains(&event_kind) {
-        return Some(AgentEventRouting::DurableLifecycle);
-    }
-    if AGENT_ACTOR_PRIVATE_KINDS.contains(&event_kind) {
-        return Some(AgentEventRouting::ActorPrivate);
-    }
-    None
+    cokret::classify_agent_event_kind(event_kind)
 }
 
 /// Return `true` if `value` starts with one of the registered typed-id
@@ -154,9 +97,7 @@ pub fn classify_agent_event_kind(event_kind: &str) -> Option<AgentEventRouting> 
 /// ids appears in a wakeup slot that should never carry an agent,
 /// grant, backup, or recovery identifier (e.g. `event_id`, `circle_id`).
 pub fn is_phase_p2_agent_typed_id(value: &str) -> bool {
-    PHASE_P2_AGENT_TYPED_ID_PREFIXES
-        .iter()
-        .any(|prefix| value.starts_with(prefix))
+    cokret::is_phase_p2_agent_typed_id(value)
 }
 
 /// Phase P2 — minimal, PII-free notification summary for a durable

@@ -38,19 +38,22 @@ pub struct ChimePushNotifyEnvelope {
     pub audit_envelope: Option<AuditEnvelopeMetadata>,
 }
 
-/// SPEC-CR-016 — top-level `ck.audit.policy_access` envelope routing
-/// fragment (mirror of floria's `AuditEnvelopeMetadata` /
-/// `cokret::AuditPolicyAccessPayload` wire fields).
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct AuditEnvelopeMetadata {
-    pub access_kind: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub late_recovery_original_event_id: Option<String>,
-}
+pub type AuditEnvelopeMetadata = cokret::PushAuditEnvelopeMetadata;
 
 impl ChimePushNotifyEnvelope {
+    fn to_sdk_request_body(&self) -> Result<cokret::PushNotifyRequestBody, PushNotifyPrivacyError> {
+        Ok(cokret::PushNotifyRequestBody {
+            notification: self.notification.to_sdk_notification()?,
+            event_kind: self.event_kind.clone(),
+            reason_code: self.reason_code.clone(),
+            audit_envelope: self.audit_envelope.clone(),
+        })
+    }
+
     pub fn validate_wire_model(&self) -> Result<(), PushNotifyPrivacyError> {
+        let sdk_request = self.to_sdk_request_body()?;
+        cokret::validate_push_notify_contract_shape(&sdk_request)
+            .map_err(push_notify_contract_error)?;
         self.notification.validate_wire_model()
     }
 
@@ -102,6 +105,36 @@ impl ChimePushNotifyEnvelope {
         let mode = policy.mode_for(destination_service_did);
         self.validate_privacy(mode)
     }
+}
+
+fn push_notify_contract_error(message: String) -> PushNotifyPrivacyError {
+    let field = push_notify_contract_error_field(&message);
+    if message.contains("is required") {
+        PushNotifyPrivacyError::MissingField { field }
+    } else if message.contains("forbidden") {
+        PushNotifyPrivacyError::SensitiveField { field }
+    } else {
+        PushNotifyPrivacyError::InvalidFieldValue { field }
+    }
+}
+
+fn push_notify_contract_error_field(message: &str) -> String {
+    for field in [
+        "notification.push_target_id",
+        "notification.wakeup_kind",
+        "notification.route_tokens.realm_route_token",
+        "notification.route_tokens.scope_route_token",
+        "notification.route_tokens.delivery_binding_frontier_token",
+        "notification.route_tokens.mention_redirect_target_route_tokens",
+    ] {
+        if message.contains(field) {
+            return field
+                .strip_prefix("notification.")
+                .unwrap_or(field)
+                .to_owned();
+        }
+    }
+    message.to_owned()
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]

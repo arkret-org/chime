@@ -36,8 +36,8 @@ fn agent_actor_private_kinds_classify_as_actor_private() {
     for kind in AGENT_ACTOR_PRIVATE_KINDS {
         assert_eq!(
             classify_agent_event_kind(kind),
-            Some(AgentEventRouting::ActorPrivate),
-            "kind `{kind}` must classify as ActorPrivate"
+            Some(AgentEventRouting::ActorPrivateDrop),
+            "kind `{kind}` must classify as ActorPrivateDrop"
         );
         assert!(
             render_agent_lifecycle_summary(kind).is_none(),
@@ -56,7 +56,7 @@ fn agent_event_kind_unknown_falls_through() {
 
 #[test]
 fn phase_p2_typed_id_prefixes_are_recognized() {
-    assert_eq!(PHASE_P2_AGENT_TYPED_ID_PREFIXES.len(), 4);
+    assert_eq!(PHASE_P2_AGENT_TYPED_ID_PREFIXES.len(), 7);
     for prefix in PHASE_P2_AGENT_TYPED_ID_PREFIXES {
         assert!(
             prefix.starts_with("ck:"),
@@ -65,10 +65,10 @@ fn phase_p2_typed_id_prefixes_are_recognized() {
         assert!(prefix.ends_with(':'), "prefix `{prefix}` must end with `:`");
     }
     assert!(is_phase_p2_agent_typed_id(
-        "ck:agent_interop_session:01HZK9Z000000000000000000"
+        "ck:agent_session:01HZK9Z000000000000000000"
     ));
     assert!(is_phase_p2_agent_typed_id(
-        "ck:grant:01HZK9Z000000000000000000"
+        "ck:accountability_grant:01HZK9Z000000000000000000"
     ));
     assert!(!is_phase_p2_agent_typed_id(
         "ck:circle:01HZK9Z000000000000000000"
@@ -84,7 +84,7 @@ fn agent_typed_id_in_event_id_slot_fails_closed() {
         "notification": {
             "push_target_id": "ck:pseudonym:push:01HYZ8Z000000000000000",
             "wakeup_kind": "message",
-            "event_id": "ck:agent_interop_session:01HZK9Z000000000000000000",
+            "event_id": "ck:agent_session:01HZK9Z000000000000000000",
             "devices": [
                 {
                     "device_id": "ck:device:01JS0D000000000000000000",
@@ -103,7 +103,7 @@ fn agent_typed_id_in_event_id_slot_fails_closed() {
     };
     assert_eq!(
         field, "event_id",
-        "an agent_interop_session typed-id smuggled into the event_id slot must be rejected"
+        "an agent_session typed-id smuggled into the event_id slot must be rejected"
     );
 }
 
@@ -113,7 +113,7 @@ fn agent_typed_id_in_extra_fails_closed() {
         "notification": {
             "push_target_id": "ck:pseudonym:push:01HYZ8Z000000000000000",
             "wakeup_kind": "message",
-            "agent_link": "ck:grant:01HZK9Z000000000000000000",
+            "agent_link": "ck:accountability_grant:01HZK9Z000000000000000000",
             "devices": [
                 {
                     "device_id": "ck:device:01JS0D000000000000000001",
