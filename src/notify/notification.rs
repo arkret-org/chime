@@ -236,6 +236,69 @@ impl PushNotification {
         }
     }
 
+    pub(super) fn to_sdk_notification(
+        &self,
+    ) -> Result<cokret::PushNotificationEnvelope, PushNotifyPrivacyError> {
+        let event_id = match self.event_id.as_ref() {
+            Some(value) => Some(EventId::new(value.clone()).map_err(|_| {
+                PushNotifyPrivacyError::InvalidFieldValue {
+                    field: "event_id".to_owned(),
+                }
+            })?),
+            None => None,
+        };
+        let counts = self.counts.as_ref().map(sdk_counts_from_value);
+        let route_tokens = self
+            .route_tokens
+            .as_ref()
+            .map(|route_tokens| cokret::PushRouteTokens {
+                realm_route_token: route_tokens.realm_route_token.clone(),
+                scope_route_token: route_tokens.scope_route_token.clone(),
+                mention_redirect_target_route_tokens: route_tokens
+                    .mention_redirect_target_route_tokens
+                    .clone(),
+                delivery_binding_frontier_token: route_tokens
+                    .delivery_binding_frontier_token
+                    .clone(),
+            });
+        let devices = self
+            .devices
+            .iter()
+            .map(sdk_device_route_from_chime)
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(cokret::PushNotificationEnvelope {
+            push_target_id: self
+                .push_target_id
+                .as_ref()
+                .map(|value| value.as_str().to_owned()),
+            wakeup_kind: self
+                .wakeup_kind
+                .as_ref()
+                .map(|value| value.as_str().to_owned()),
+            push_hint: self
+                .push_hint
+                .as_ref()
+                .map(|value| value.as_str().to_owned()),
+            push_hint_l10n_key: self.push_hint_l10n_key.clone(),
+            evaluation_locus_unresolved: None,
+            counts,
+            route_tokens,
+            devices,
+            event_id,
+            realm_id: None,
+            sender_actor_id: self.sender_actor_id.clone(),
+            sender_actor_display_name: self.sender_actor_display_name.clone(),
+            strand_id: None,
+            message_id: None,
+            strand_title: None,
+            realm_title: self.realm_title.clone(),
+            user_is_target: None,
+            priority: self.priority.clone(),
+            membership: None,
+        })
+    }
+
     pub fn realm_route_token(&self) -> Option<&str> {
         self.route_tokens
             .as_ref()
@@ -490,6 +553,29 @@ impl PushNotification {
             _ => None,
         }
     }
+}
+
+fn sdk_counts_from_value(value: &Value) -> cokret::PushCounts {
+    serde_json::from_value::<cokret::PushCounts>(value.clone()).unwrap_or_else(|_| {
+        cokret::PushCounts {
+            badge: Some(value.clone()),
+            ..cokret::PushCounts::default()
+        }
+    })
+}
+
+fn sdk_device_route_from_chime(
+    device: &PushNotificationDevice,
+) -> Result<cokret::PushDeviceRoute, PushNotifyPrivacyError> {
+    Ok(cokret::PushDeviceRoute {
+        device_id: cokret::DeviceId::new("ck:device:01904100-0000-7000-8000-000000000001")
+            .expect("SDK fixture device id is valid"),
+        push_key: device.push_key.clone(),
+        app_id: device.app_id.clone(),
+        platform: device.platform.clone(),
+        target_route_token: device.target_route_token.clone(),
+        visible_notification_opt_in: false,
+    })
 }
 
 #[derive(Clone, PartialEq, Serialize, Deserialize)]
