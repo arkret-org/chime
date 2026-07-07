@@ -1,6 +1,6 @@
 //! Persistable push registration state types and lifecycle helpers.
 
-use std::sync::RwLock;
+use std::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 use std::time::{Duration, Instant};
 
 use serde::{Deserialize, Serialize};
@@ -143,9 +143,27 @@ impl<S> MemoizingPushPreferencesStore<S> {
 
     /// Drop the cached snapshot. Safe to call from any thread.
     pub fn invalidate(&self) {
-        let mut guard = self.cache.write().expect("preferences cache poisoned");
+        let mut guard = self.cache_write();
         guard.value = None;
         guard.loaded_at = None;
+    }
+
+    fn cache_read(&self) -> RwLockReadGuard<'_, PushPreferencesCache> {
+        self.cache.read().unwrap_or_else(|poisoned| {
+            tracing::warn!(
+                "push preferences cache read lock was poisoned; continuing with cached value"
+            );
+            poisoned.into_inner()
+        })
+    }
+
+    fn cache_write(&self) -> RwLockWriteGuard<'_, PushPreferencesCache> {
+        self.cache.write().unwrap_or_else(|poisoned| {
+            tracing::warn!(
+                "push preferences cache write lock was poisoned; continuing with cached value"
+            );
+            poisoned.into_inner()
+        })
     }
 
     fn fresh(snapshot: &PushPreferencesCache, ttl: Duration) -> bool {
@@ -165,7 +183,7 @@ where
     fn load_push_preferences(&self) -> Result<Option<crate::PushPreferences>, Self::Error> {
         // Fast path: read-lock and serve from cache if still fresh.
         {
-            let guard = self.cache.read().expect("preferences cache poisoned");
+            let guard = self.cache_read();
             if Self::fresh(&guard, self.ttl) {
                 return Ok(guard.value.clone());
             }
@@ -174,7 +192,7 @@ where
         // Slow path: upgrade to write lock. We re-check freshness
         // under the write lock to absorb the race where two readers
         // simultaneously found the cache stale.
-        let mut guard = self.cache.write().expect("preferences cache poisoned");
+        let mut guard = self.cache_write();
         if Self::fresh(&guard, self.ttl) {
             return Ok(guard.value.clone());
         }
@@ -189,7 +207,7 @@ where
         // Write-through: refresh the cache so the immediately-following
         // read returns the value we just wrote, without round-tripping
         // through the inner store.
-        let mut guard = self.cache.write().expect("preferences cache poisoned");
+        let mut guard = self.cache_write();
         guard.value = Some(prefs.clone());
         guard.loaded_at = Some(Instant::now());
         Ok(())

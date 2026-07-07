@@ -566,20 +566,39 @@ impl CokretPushClient {
         let response = match strategy {
             crate::PushTokenRotationStrategy::UnregisterOldFirst => {
                 if plan.unregister_old.is_some() {
-                    self.unregister_device(config, binding, prefs).await.ok();
+                    self.unregister_old_token_for_rotation(config, binding, prefs)
+                        .await;
                 }
                 self.register_device(config, binding, prefs).await?
             }
             crate::PushTokenRotationStrategy::RegisterNewFirst => {
                 let response = self.register_device(config, binding, prefs).await?;
                 if plan.unregister_old.is_some() {
-                    self.unregister_device(config, binding, prefs).await.ok();
+                    self.unregister_old_token_for_rotation(config, binding, prefs)
+                        .await;
                 }
                 response
             }
         };
 
         Ok(Some(response))
+    }
+
+    async fn unregister_old_token_for_rotation(
+        &self,
+        config: &PushDeviceConfig<'_>,
+        binding: &GatewayBinding,
+        prefs: &PushPreferences,
+    ) {
+        if let Err(error) = self.unregister_device(config, binding, prefs).await {
+            tracing::warn!(
+                error_kind = ?error.kind(),
+                status = error.status(),
+                request_id = error.request_id(),
+                gateway = binding.gateway_type.display_name(),
+                "Cokret push old token unregister failed during token rotation"
+            );
+        }
     }
 
     pub(super) fn assert_session_grant_if_required(&self) -> Result<(), PushRegistrationError> {

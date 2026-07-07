@@ -60,20 +60,10 @@ fn service_base_url_from_known_suffixes(
         }
     })?;
 
-    if !url.username().is_empty() || url.password().is_some() {
-        return Err(PushRegistrationError::InvalidPushGatewayUrl {
-            url: push_gateway_url.to_owned(),
-            reason: "embedded credentials are not allowed".to_owned(),
-        });
-    }
-
-    for (param, _) in url.query_pairs() {
-        if is_forbidden_secret_query_param(&param) {
-            return Err(PushRegistrationError::ForbiddenPushGatewayQueryParam {
-                param: param.into_owned(),
-            });
-        }
-    }
+    reject_credentials_and_secret_params(&url, || PushRegistrationError::InvalidPushGatewayUrl {
+        url: push_gateway_url.to_owned(),
+        reason: "embedded credentials are not allowed".to_owned(),
+    })?;
 
     url.set_query(None);
     url.set_fragment(None);
@@ -98,6 +88,28 @@ fn service_base_url_from_known_suffixes(
     let new_len = s.trim_end_matches('/').len();
     s.truncate(new_len);
     Ok(s)
+}
+
+fn reject_credentials_and_secret_params<F>(
+    url: &Url,
+    embedded_credentials_error: F,
+) -> Result<(), PushRegistrationError>
+where
+    F: FnOnce() -> PushRegistrationError,
+{
+    if !url.username().is_empty() || url.password().is_some() {
+        return Err(embedded_credentials_error());
+    }
+
+    for (param, _) in url.query_pairs() {
+        if is_forbidden_secret_query_param(&param) {
+            return Err(PushRegistrationError::ForbiddenPushGatewayQueryParam {
+                param: param.into_owned(),
+            });
+        }
+    }
+
+    Ok(())
 }
 
 /// Derive floria's product-local bridge-describe URL from a configured gateway URL.
@@ -150,20 +162,10 @@ pub fn validate_push_gateway_url(
         reason: error.to_string(),
     })?;
 
-    if !url.username().is_empty() || url.password().is_some() {
-        return Err(PushRegistrationError::InvalidPushGatewayUrl {
-            url: value.to_owned(),
-            reason: "embedded credentials are not allowed".to_owned(),
-        });
-    }
-
-    for (param, _) in url.query_pairs() {
-        if is_forbidden_secret_query_param(&param) {
-            return Err(PushRegistrationError::ForbiddenPushGatewayQueryParam {
-                param: param.into_owned(),
-            });
-        }
-    }
+    reject_credentials_and_secret_params(&url, || PushRegistrationError::InvalidPushGatewayUrl {
+        url: value.to_owned(),
+        reason: "embedded credentials are not allowed".to_owned(),
+    })?;
 
     match url.scheme() {
         "https" => Ok(()),
@@ -206,20 +208,10 @@ pub fn validate_webpush_endpoint_allowlist(
             reason: error.to_string(),
         })?;
 
-    if !url.username().is_empty() || url.password().is_some() {
-        return Err(PushRegistrationError::InvalidWebPushEndpoint {
-            endpoint: push_key.to_owned(),
-            reason: "embedded credentials are not allowed".to_owned(),
-        });
-    }
-
-    for (param, _) in url.query_pairs() {
-        if is_forbidden_secret_query_param(&param) {
-            return Err(PushRegistrationError::ForbiddenPushGatewayQueryParam {
-                param: param.into_owned(),
-            });
-        }
-    }
+    reject_credentials_and_secret_params(&url, || PushRegistrationError::InvalidWebPushEndpoint {
+        endpoint: push_key.to_owned(),
+        reason: "embedded credentials are not allowed".to_owned(),
+    })?;
 
     if url.scheme() != "https" {
         return Err(PushRegistrationError::InvalidWebPushEndpoint {
@@ -284,20 +276,10 @@ fn validate_service_base_url(value: &str) -> Result<(), PushRegistrationError> {
         reason: error.to_string(),
     })?;
 
-    if !url.username().is_empty() || url.password().is_some() {
-        return Err(PushRegistrationError::InvalidPushGatewayUrl {
-            url: value.to_owned(),
-            reason: "embedded credentials are not allowed".to_owned(),
-        });
-    }
-
-    for (param, _) in url.query_pairs() {
-        if is_forbidden_secret_query_param(&param) {
-            return Err(PushRegistrationError::ForbiddenPushGatewayQueryParam {
-                param: param.into_owned(),
-            });
-        }
-    }
+    reject_credentials_and_secret_params(&url, || PushRegistrationError::InvalidPushGatewayUrl {
+        url: value.to_owned(),
+        reason: "embedded credentials are not allowed".to_owned(),
+    })?;
 
     if url.query().is_some() {
         return Err(PushRegistrationError::InvalidPushGatewayUrl {

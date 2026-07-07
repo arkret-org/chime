@@ -6,15 +6,17 @@
 //! Every binding is exercised independently (independent token,
 //! independent app_id, independent register/unregister fault tolerance).
 
+use std::fmt;
+
 use serde::{Deserialize, Serialize};
 
-use crate::{PushGatewayType, PushPlatform};
+use crate::{PushGatewayType, PushPlatform, redact_push_key};
 
 /// Binding of a single push gateway target.
 ///
 /// Stability: `1.0`-stable. New optional fields are added with
 /// `#[serde(default)]` so older persisted JSON keeps deserializing.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct GatewayBinding {
     /// Which downstream push gateway type to ask the Cokret service
@@ -37,6 +39,17 @@ pub struct GatewayBinding {
     /// Android) from `PushDeviceConfig` is used.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub app_id: Option<String>,
+}
+
+impl fmt::Debug for GatewayBinding {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("GatewayBinding")
+            .field("gateway_type", &self.gateway_type)
+            .field("push_gateway", &self.push_gateway)
+            .field("push_key", &self.push_key.as_deref().map(redact_push_key))
+            .field("app_id", &self.app_id)
+            .finish()
+    }
 }
 
 impl GatewayBinding {
@@ -114,6 +127,21 @@ mod tests {
         assert!(json.contains("app.example.android.cn"));
         let back: GatewayBinding = serde_json::from_str(&json).unwrap();
         assert_eq!(back, binding);
+    }
+
+    #[test]
+    fn binding_debug_redacts_push_key_override() {
+        let binding = GatewayBinding::new(
+            PushGatewayType::Bugle,
+            "https://push.palpo.im/_cokret/edge/push/notify",
+        )
+        .with_push_key("vendor-token-cn-aaaaaaaaaa")
+        .with_app_id("app.example.android.cn");
+
+        let rendered = format!("{binding:?}");
+        assert!(!rendered.contains("vendor-token-cn-aaaaaaaaaa"));
+        assert!(rendered.contains("<redacted"));
+        assert!(rendered.contains("app.example.android.cn"));
     }
 
     #[test]

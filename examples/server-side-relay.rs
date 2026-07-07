@@ -62,7 +62,7 @@ mod inner {
                         "wakeup_kind": "message",
                         "push_target_id": "ck:pseudonym:push:abcdefghijklmnopqrstuv",
                         "devices": [{
-                            "device_id": "ck:device:01JS0D000000000000000000",
+                            "device_id": "ck:device:01904100-0000-7000-8000-000000000010",
                             "push_key": "fcm:opaque-token",
                             "app_id": "app.example"
                         }]
@@ -77,7 +77,7 @@ mod inner {
                         "wakeup_kind": "message",
                         "push_target_id": "ck:pseudonym:push:abcdefghijklmnopqrstuv",
                         "devices": [{
-                            "device_id": "ck:device:01JS0D000000000000000000",
+                            "device_id": "ck:device:01904100-0000-7000-8000-000000000010",
                             "push_key": "fcm:opaque-token",
                             "app_id": "app.example"
                         }]

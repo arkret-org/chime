@@ -237,7 +237,7 @@ let mut notification = PushNotification::new_blind_wakeup(
     WakeupKind::Message,
 );
 notification.devices = vec![PushNotificationDevice {
-    device_id: "ck:device:01JS0D000000000000000000".to_owned(),
+    device_id: "ck:device:01904100-0000-7000-8000-000000000010".to_owned(),
     push_key: Some("fcm:opaque-token".to_owned()),
     app_id: Some("app.example".to_owned()),
     target_route_token: None,
@@ -259,7 +259,7 @@ let mut leaky = PushNotification::new_blind_wakeup(
     WakeupKind::Message,
 );
 leaky.devices = vec![PushNotificationDevice {
-    device_id: "ck:device:01JS0D000000000000000001".to_owned(),
+    device_id: "ck:device:01904100-0000-7000-8000-000000000011".to_owned(),
     push_key: Some("fcm:opaque-token".to_owned()),
     app_id: Some("app.example".to_owned()),
     target_route_token: None,

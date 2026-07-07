@@ -87,7 +87,7 @@ fn agent_typed_id_in_event_id_slot_fails_closed() {
             "event_id": "ck:agent_session:01HZK9Z000000000000000000",
             "devices": [
                 {
-                    "device_id": "ck:device:01JS0D000000000000000000",
+                    "device_id": "ck:device:01904100-0000-7000-8000-000000000010",
                     "push_key": "fcm:opaque-token",
                     "app_id": "app.example"
                 }
@@ -116,7 +116,7 @@ fn agent_typed_id_in_extra_fails_closed() {
             "agent_link": "ck:accountability_grant:01HZK9Z000000000000000000",
             "devices": [
                 {
-                    "device_id": "ck:device:01JS0D000000000000000001",
+                    "device_id": "ck:device:01904100-0000-7000-8000-000000000011",
                     "push_key": "fcm:opaque-token",
                     "app_id": "app.example"
                 }

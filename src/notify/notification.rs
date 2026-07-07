@@ -568,8 +568,7 @@ fn sdk_device_route_from_chime(
     device: &PushNotificationDevice,
 ) -> Result<cokret::PushDeviceRoute, PushNotifyPrivacyError> {
     Ok(cokret::PushDeviceRoute {
-        device_id: cokret::DeviceId::new("ck:device:01904100-0000-7000-8000-000000000001")
-            .expect("SDK fixture device id is valid"),
+        device_id: sdk_device_id_from_chime("devices[].device_id", &device.device_id)?,
         push_key: device.push_key.clone(),
         app_id: device.app_id.clone(),
         platform: device.platform.clone(),
@@ -606,13 +605,23 @@ impl fmt::Debug for PushNotificationDevice {
 
 impl PushNotificationDevice {
     fn validate_wire_model(&self) -> Result<(), PushNotifyPrivacyError> {
-        validate_required("devices[].device_id", &self.device_id)?;
+        sdk_device_id_from_chime("devices[].device_id", &self.device_id)?;
         validate_optional_non_empty("devices[].push_key", self.push_key.as_deref())?;
         validate_push_route_token(
             "devices[].target_route_token",
             self.target_route_token.as_deref(),
         )
     }
+}
+
+fn sdk_device_id_from_chime(
+    field: &str,
+    value: &str,
+) -> Result<cokret::DeviceId, PushNotifyPrivacyError> {
+    validate_required(field, value)?;
+    cokret::DeviceId::new(value.to_owned()).map_err(|_| PushNotifyPrivacyError::InvalidFieldValue {
+        field: field.to_owned(),
+    })
 }
 
 /// B.5 #7 — client-facing summary of the push gateway's deduplication

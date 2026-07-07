@@ -9,10 +9,11 @@ const SCOPE_ROUTE_TOKEN: &str = "scope_route_token_000000001";
 const ALICE_ROUTE_TOKEN: &str = "alice_route_token_000000001";
 const BOB_ROUTE_TOKEN: &str = "bob_route_token_000000001";
 const MALLORY_ROUTE_TOKEN: &str = "mallory_route_token_000000001";
+const DEVICE_ID: &str = "ck:device:01904100-0000-7000-8000-000000000010";
 
 fn device() -> PushNotificationDevice {
     PushNotificationDevice {
-        device_id: "ck:device:01JS0D000000000000000000".to_owned(),
+        device_id: DEVICE_ID.to_owned(),
         push_key: Some("fcm:very-secret-token".to_owned()),
         app_id: Some("app.example".to_owned()),
         target_route_token: None,
@@ -328,7 +329,7 @@ fn deserialized_extra_fields_require_runtime_validation() {
         "wakeup_kind": "message",
         "kind": "captured-extra-field",
         "devices": [{
-            "device_id": "ck:device:01JS0D000000000000000000",
+            "device_id": DEVICE_ID,
             "push_key": "fcm:very-secret-token",
             "app_id": "app.example"
         }]
@@ -706,6 +707,25 @@ fn route_token_rejects_short_value() {
         n.validate_wire_model().unwrap_err(),
         PushNotifyPrivacyError::InvalidFieldValue { field }
             if field == "route_tokens.scope_route_token"
+    ));
+}
+
+#[test]
+fn device_id_must_be_sdk_typed_uuidv7() {
+    let mut n = notification();
+    n.devices[0].device_id = "not-a-device-id".to_owned();
+    assert!(matches!(
+        n.validate_wire_model().unwrap_err(),
+        PushNotifyPrivacyError::InvalidFieldValue { field } if field == "devices[].device_id"
+    ));
+
+    let request = ChimePushNotifyEnvelope {
+        notification: n,
+        ..Default::default()
+    };
+    assert!(matches!(
+        request.validate_wire_model().unwrap_err(),
+        PushNotifyPrivacyError::InvalidFieldValue { field } if field == "devices[].device_id"
     ));
 }
 

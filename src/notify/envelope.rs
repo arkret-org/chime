@@ -200,7 +200,7 @@ pub fn shared_push_notify_privacy_vectors() -> Vec<PushNotifyPrivacyVector> {
                     "push_hint": "new_message",
                     "counts": { "badge": "2-5" },
                     "devices": [{
-                        "device_id": "ck:device:01JS0D000000000000000000",
+                        "device_id": "ck:device:01904100-0000-7000-8000-000000000010",
                         "push_key": "fcm:opaque-token",
                         "app_id": "app.example"
                     }]
@@ -218,7 +218,7 @@ pub fn shared_push_notify_privacy_vectors() -> Vec<PushNotifyPrivacyVector> {
                     "wakeup_kind": "message",
                     "title": "Secret",
                     "devices": [{
-                        "device_id": "ck:device:01JS0D000000000000000000",
+                        "device_id": "ck:device:01904100-0000-7000-8000-000000000010",
                         "push_key": "fcm:opaque-token",
                         "app_id": "app.example"
                     }]

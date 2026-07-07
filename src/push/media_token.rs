@@ -277,22 +277,44 @@ fn map_sdk_media_error(
     err: cokret::Error,
     response: &CallMediaTokenExchangeOutcome,
 ) -> MediaTokenError {
-    let reason = err.to_string();
-    if reason.contains("token_issuer_unauthorised") {
-        let observed_kid = if response.participant_binding.issuer_kid.trim().is_empty() {
-            response.service_signature.kid.clone()
-        } else {
-            response.participant_binding.issuer_kid.clone()
-        };
-        return MediaTokenError::TokenIssuerUnauthorised {
-            observed_kid,
-            expected_service_id: "realm media-service anchors".to_owned(),
-        };
+    match sdk_media_reason(err) {
+        SdkMediaReason::TokenIssuerUnauthorised => {
+            let observed_kid = if response.participant_binding.issuer_kid.trim().is_empty() {
+                response.service_signature.kid.clone()
+            } else {
+                response.participant_binding.issuer_kid.clone()
+            };
+            MediaTokenError::TokenIssuerUnauthorised {
+                observed_kid,
+                expected_service_id: "realm media-service anchors".to_owned(),
+            }
+        }
+        SdkMediaReason::UnknownFocusType => MediaTokenError::UnknownFocusType,
+        SdkMediaReason::Other(reason) => MediaTokenError::ParticipantBindingInvalid { reason },
     }
-    if reason.contains("unknown_focus_type") {
-        return MediaTokenError::UnknownFocusType;
+}
+
+enum SdkMediaReason {
+    TokenIssuerUnauthorised,
+    UnknownFocusType,
+    Other(String),
+}
+
+fn sdk_media_reason(err: cokret::Error) -> SdkMediaReason {
+    match err {
+        cokret::Error::Protocol(message) => {
+            let reason_code = message
+                .split_once(':')
+                .map_or(message.as_str(), |(code, _)| code)
+                .trim();
+            match reason_code {
+                cokret::REASON_TOKEN_ISSUER_UNAUTHORISED => SdkMediaReason::TokenIssuerUnauthorised,
+                cokret::REASON_UNKNOWN_FOCUS_TYPE => SdkMediaReason::UnknownFocusType,
+                _ => SdkMediaReason::Other(message),
+            }
+        }
+        other => SdkMediaReason::Other(other.to_string()),
     }
-    MediaTokenError::ParticipantBindingInvalid { reason }
 }
 
 #[cfg(test)]
@@ -423,6 +445,31 @@ mod tests {
         let ctx = good_ctx(now, &request, &anchors);
         let err = verify_media_token_outcome(&response, &ctx).unwrap_err();
         assert_eq!(err.kind(), PushErrorKind::TokenIssuerUnauthorised);
+    }
+
+    #[test]
+    fn sdk_protocol_reason_constants_map_to_media_error_kinds() {
+        let now = Utc::now();
+        let key = issuer_key();
+        let response = good_response(now, &key);
+
+        let err = map_sdk_media_error(
+            cokret::Error::Protocol(format!(
+                "{}: wording after the reason code may change",
+                cokret::REASON_TOKEN_ISSUER_UNAUTHORISED
+            )),
+            &response,
+        );
+        assert_eq!(err.kind(), PushErrorKind::TokenIssuerUnauthorised);
+
+        let err = map_sdk_media_error(
+            cokret::Error::Protocol(format!(
+                "{}: wording after the reason code may change",
+                cokret::REASON_UNKNOWN_FOCUS_TYPE
+            )),
+            &response,
+        );
+        assert_eq!(err.kind(), PushErrorKind::UnknownFocusType);
     }
 
     #[test]
