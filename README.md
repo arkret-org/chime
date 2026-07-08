@@ -91,7 +91,7 @@ hosts that need the standalone resolver trait can use
 > `ROUND_R2_R3_SENSITIVE_FIELDS`) are not compiled in — a wakeup that
 > would otherwise be rejected by the validator will pass straight through
 > to the device. Local-only smoke tests can leave it off, but any
-> integration that touches real floria / yougen / soland traffic must
+> integration that touches real floria / inkson / soland traffic must
 > compile with `--features http,notify`.
 >
 > Deserializing `ChimePushNotifyEnvelope` or `PushNotification` is not enough:

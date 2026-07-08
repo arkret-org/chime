@@ -175,7 +175,7 @@ pub struct PushNotification {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub counts: Option<Value>,
     /// Round 4 (B5) — typed `ck.audit.policy_access` payload surfaced to
-    /// consumers (e.g. yougen) so the late-key-recovery banner can read
+    /// consumers (e.g. inkson) so the late-key-recovery banner can read
     /// `late_recovery_original_event_id` directly off the wakeup. This
     /// is diagnostic context — push layer never decrypts on the
     /// strength of this field alone. The SDK validates the
@@ -497,7 +497,7 @@ impl PushNotification {
     ///   `true`.
     /// - When it is non-empty, the receiver route token MUST appear in the list to be permitted.
     ///
-    /// This is the canonical accessor consumers (yougen, floria, host
+    /// This is the canonical accessor consumers (inkson, floria, host
     /// apps) should call before unwrapping the body. Direct reads of
     /// `mention_redirect_target_route_tokens` are permitted for display
     /// but MUST NOT gate decryption; the fail-closed semantics live here.

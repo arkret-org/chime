@@ -1,4 +1,4 @@
-# yougen 集成指南
+# inkson 集成指南
 
 ## 注册 push 设备
 

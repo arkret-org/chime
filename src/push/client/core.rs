@@ -39,7 +39,7 @@ pub struct CokretPushClient {
     pub(super) require_session_grant: bool,
     // Bridge-discovered path overrides. When the gateway advertises a
     // non-default register/unregister path through `bridge/describe`,
-    // hosts (e.g. yougen) need to route through it instead of the
+    // hosts (e.g. inkson) need to route through it instead of the
     // baked-in `REGISTER_DEVICE_PATH` constant.
     pub(super) register_device_path: Option<String>,
     pub(super) unregister_device_path: Option<String>,
@@ -363,7 +363,7 @@ impl CokretPushClient {
     /// caller-supplied headers, register-device path override all
     /// honored). Use this when callers already constructed the wire
     /// body — typically because they cached it for retry or built it
-    /// in one place and post in another (yougen's bridge-discovered
+    /// in one place and post in another (inkson's bridge-discovered
     /// register strand does this) — and would otherwise have to rebuild
     /// it via `build_register_device_request`.
     pub async fn register_device_with_request(

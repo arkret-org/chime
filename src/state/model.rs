@@ -61,7 +61,7 @@ pub struct PushRegistrationLastError {
 /// gateway URL, allowlists, dnd flags, …) that callers will typically
 /// keep next to their other application settings — a config file, a
 /// keychain entry, an encrypted blob in the host app's database, etc.
-/// Defining it as a trait lets `chime` consumers (yougen, soland test
+/// Defining it as a trait lets `chime` consumers (inkson, soland test
 /// harnesses, …) reuse the same lifecycle helpers without re-rolling
 /// the file IO each time.
 ///

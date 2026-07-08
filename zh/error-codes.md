@@ -17,7 +17,7 @@ chime 将网关/协议失败归一到 `PushErrorKind`。调用方应优先按 ki
 
 ## media token / CKP-0010
 
-`is_media_token_rejection()` 覆盖 yougen call UI 最常见的五类失败：
+`is_media_token_rejection()` 覆盖 inkson call UI 最常见的五类失败：
 
 | Kind | 含义 |
 | --- | --- |

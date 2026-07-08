@@ -1,8 +1,8 @@
-//! Local chime <-> yougen-style push-registration smoke tests.
+//! Local chime <-> inkson-style push-registration smoke tests.
 //!
-//! Chime owns the wire DTO/client behavior; yougen owns platform token
+//! Chime owns the wire DTO/client behavior; inkson owns platform token
 //! acquisition. These tests exercise the chime side with the token shapes
-//! yougen supplies in production.
+//! inkson supplies in production.
 
 use chime::{
     GatewayBinding, PushDeviceConfig, PushGatewayType, PushPreferences,
@@ -12,20 +12,20 @@ use chime::{
 const PUSH_GATEWAY: &str = "https://push.example.com/_cokret/edge/push/notify";
 
 #[test]
-fn yougen_style_fcm_and_apns_tokens_build_chime_register_requests() {
+fn inkson_style_fcm_and_apns_tokens_build_chime_register_requests() {
     for (platform, token, app_id) in [
         (
             "android",
             "fcm:real-local-fcm-token-0123456789abcdef",
-            "dev.cokret.yougen.android",
+            "dev.cokret.inkson.android",
         ),
         (
             "ios",
             "apns:0123456789abcdef0123456789abcdef0123456789abcdef",
-            "dev.cokret.yougen.ios",
+            "dev.cokret.inkson.ios",
         ),
     ] {
-        let request = yougen_register_request(platform, token, app_id);
+        let request = inkson_register_request(platform, token, app_id);
 
         assert_eq!(request.operation_id, chime::OPERATION_PUSH_REGISTER_DEVICE);
         assert_eq!(request.push_gateway, PUSH_GATEWAY);
@@ -43,11 +43,11 @@ fn yougen_style_fcm_and_apns_tokens_build_chime_register_requests() {
 
 #[cfg(feature = "http")]
 #[tokio::test(flavor = "multi_thread")]
-async fn chime_client_requires_session_grant_before_yougen_can_register() {
-    let request = yougen_register_request(
+async fn chime_client_requires_session_grant_before_inkson_can_register() {
+    let request = inkson_register_request(
         "android",
         "fcm:real-local-fcm-token-for-grant-check",
-        "dev.cokret.yougen.android",
+        "dev.cokret.inkson.android",
     );
     let error = chime::CokretPushClient::new("https://principal.example")
         .register_device_with_request(&request, None, None)
@@ -63,7 +63,7 @@ async fn chime_client_requires_session_grant_before_yougen_can_register() {
     );
 }
 
-fn yougen_register_request(
+fn inkson_register_request(
     platform: &'static str,
     token: &'static str,
     app_id: &'static str,
@@ -74,19 +74,19 @@ fn yougen_register_request(
         ..Default::default()
     };
     let config = PushDeviceConfig {
-        principal_id: Some("did:web:yougen.local"),
-        device_id: "did:web:yougen.local#device-smoke",
+        principal_id: Some("did:web:inkson.local"),
+        device_id: "did:web:inkson.local#device-smoke",
         push_key: Some(token),
         platform: Some(platform),
         app_id: Some(app_id),
         domestic_app_id: None,
         registration_id: None,
-        display_name: Some("yougen smoke device"),
-        idempotency_key: Some("chime-yougen-smoke"),
-        request_id: Some("ck:request:yougen-smoke"),
+        display_name: Some("inkson smoke device"),
+        idempotency_key: Some("chime-inkson-smoke"),
+        request_id: Some("ck:request:inkson-smoke"),
         proof: None,
     };
 
     build_register_device_request(&config, &binding, &prefs)
-        .expect("yougen-style platform token should build a chime register request")
+        .expect("inkson-style platform token should build a chime register request")
 }

@@ -29,7 +29,7 @@
 //!   (they are out of scope for this struct).
 //!
 //! `PushRoute` therefore MUST NOT be serialized directly as a
-//! `ck.device.push_route` event payload. Consumers (yougen, soland) that
+//! `ck.device.push_route` event payload. Consumers (inkson, soland) that
 //! emit the event MUST construct `DevicePushRoutePayload` from the SDK;
 //! `PushRoute`'s `Serialize`/`Deserialize` exist only for chime's own
 //! local persistence and for round-tripping the state machine in tests.

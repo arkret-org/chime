@@ -4,7 +4,7 @@
 //! This module is intentionally transport-agnostic: it builds the
 //! request body via the SDK's [`call_media_token_exchange`] helper and
 //! exposes [`verify_media_token_outcome`] that performs the checks chime
-//! owes its consumer (yougen):
+//! owes its consumer (inkson):
 //!
 //! - `participant_binding.issuer_kid` matches the realm's current
 //!   `ck.realm.media_service.service_id` anchors supplied by the host and ties together the call-id
@@ -25,7 +25,7 @@
 //! is the caller's responsibility — the rationale is that chime's
 //! `CokretPushClient` is push-registration scoped and may live on
 //! wasm32 without a tokio runtime, while the RTC token exchange is
-//! typically driven by the in-app call surface (yougen).
+//! typically driven by the in-app call surface (inkson).
 use std::fmt;
 
 use chrono::{DateTime, Utc};

@@ -1,6 +1,6 @@
 //! Server-side push relay sample.
 //!
-//! Models the slice of code a backend service (yougen, an SRE-owned
+//! Models the slice of code a backend service (inkson, an SRE-owned
 //! fan-out proxy, an on-prem connector) runs when it receives a
 //! `ck.edge.push.command.notify` frame from floria and wants to forward it onto an
 //! internal queue (Kafka topic, Redis stream, MQ exchange, …) for

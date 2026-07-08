@@ -264,7 +264,7 @@ impl AccountDeactivationSink for NoopAccountDeactivationSink {
 
 /// Closure-backed deactivation sink.
 ///
-/// Host apps such as yougen can wire their concrete push-outbox flush,
+/// Host apps such as inkson can wire their concrete push-outbox flush,
 /// keypackage-cache clear, and session-invalidation functions into chime
 /// without defining a bespoke adapter type.
 pub struct ClosureAccountDeactivationSink<D, C, I> {

@@ -10,7 +10,7 @@ use serde_json::Value;
 /// governance identifiers that should never enter a device push wakeup.
 ///
 /// Kept as a flat slice (rather than a `match`) so the array is itself
-/// public API — tests in chime / floria / yougen can iterate it to
+/// public API — tests in chime / floria / inkson can iterate it to
 /// build negative-vector fixtures.
 pub const ROUND_R2_R3_SENSITIVE_FIELDS: &[&str] = &[
     // T07 — moderation appeals

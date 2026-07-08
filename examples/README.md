@@ -12,7 +12,7 @@ example code can be reviewed in isolation.
 | Example | Audience | Demonstrates |
 |---------|----------|--------------|
 | [`desktop-tauri.rs`](desktop-tauri.rs) | Desktop client integrators (Tauri / Electron / native Cocoa or Win32 shells). | Building a `RegisterDeviceRequest` from a platform push token and validating an inbound blind-wakeup payload via `assert_payload_safe`. |
-| [`server-side-relay.rs`](server-side-relay.rs) | Backend service authors (yougen, on-prem connectors, SRE-owned fan-out proxies). | Decoding inbound `ck.edge.push.command.notify` frames, asserting they are blind-wakeup safe, and rejecting replays with `NonceTracker` before forwarding to an internal queue. |
+| [`server-side-relay.rs`](server-side-relay.rs) | Backend service authors (inkson, on-prem connectors, SRE-owned fan-out proxies). | Decoding inbound `ck.edge.push.command.notify` frames, asserting they are blind-wakeup safe, and rejecting replays with `NonceTracker` before forwarding to an internal queue. |
 
 ## Running
 

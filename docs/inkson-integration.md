@@ -1,19 +1,19 @@
-# yougen ↔ chime integration
+# inkson ↔ chime integration
 
-This document maps the surface yougen needs from chime so the two crates
+This document maps the surface inkson needs from chime so the two crates
 can be wired without re-deriving the contract every release. It is
-deliberately implementation-focused: the goal is "what does yougen pass
+deliberately implementation-focused: the goal is "what does inkson pass
 into chime, and what does it get back".
 
 ## Push-token shape mapping
 
-yougen receives raw push tokens from the host platform's push subsystem
+inkson receives raw push tokens from the host platform's push subsystem
 (or its UnifiedPush distributor on platforms without a vendor push) and
 forwards them to chime as a `push_key` string plus a `PushPlatform`
 enum value. The string carries its own scheme prefix so the gateway
 side never has to guess.
 
-| yougen `Platform`                       | Vendor / transport            | `push_key` prefix       | `chime::PushPlatform` |
+| inkson `Platform`                       | Vendor / transport            | `push_key` prefix       | `chime::PushPlatform` |
 | --------------------------------------- | ----------------------------- | ----------------------- | --------------------- |
 | `Platform::Android`                     | Firebase Cloud Messaging      | `fcm:<opaque-token>`    | `PushPlatform::Android` |
 | `Platform::Android` (degooglified)      | UnifiedPush distributor       | `unifiedpush:<endpoint>`| `PushPlatform::Android` |
@@ -28,10 +28,10 @@ Notes:
 - The `fcm:` / `apns:` / `unifiedpush:` prefix is the gateway's primary
   routing signal. chime's `PushRouteId` validators (see
   `chime/src/push_route.rs`) enforce that the scheme matches an
-  expected transport — yougen MUST NOT strip it.
+  expected transport — inkson MUST NOT strip it.
 - The `PushPlatform` enum currently has four variants: `Android`,
   `Ios`, `Web`, `Desktop`. `Linux` / `macOS` / `Windows` all collapse
-  into `Desktop`. yougen keeps the finer-grained `Platform` for its own
+  into `Desktop`. inkson keeps the finer-grained `Platform` for its own
   telemetry but downgrades when calling chime.
 - Web Push endpoints SHOULD be wrapped in `unifiedpush:` rather than a
   bare HTTPS URL so the gateway router treats them as the same
@@ -47,7 +47,7 @@ deployed gateway advertises; the SDK provides
 `warn_on_spec_version_mismatch()` so drift surfaces in logs without
 crashing existing devices.
 
-yougen's smoke-test harness MUST:
+inkson's smoke-test harness MUST:
 
 1. Call `server_describe()` against the target Cokret service.
 2. If the deployment is floria-specific, call
@@ -61,23 +61,23 @@ The crate-level audited spec target is `cokret-spec @ 5d66aeb`; older
 SHAs in changelog history are retained only as round-by-round audit
 records.
 
-## chime APIs yougen calls
+## chime APIs inkson calls
 
-These are the only public chime entry points the yougen integration
+These are the only public chime entry points the inkson integration
 needs. Anything else is implementation-detail and may move between
 releases.
 
 - `chime::build_register_device_request(&device_config, &binding, &prefs)`
   — assembles the canonical `RegisterDeviceRequest` from the
-  yougen-side device descriptor, the gateway binding (account/route
+  inkson-side device descriptor, the gateway binding (account/route
   binding cached locally), and the user's notification preferences.
   Returns a request struct the caller serialises via the chime HTTP
-  client (or hands off to whatever transport yougen prefers).
+  client (or hands off to whatever transport inkson prefers).
 - `chime::build_unregister_device_request(...)` — symmetric tear-down call
   for device deregistration / sign-out strands.
 - `chime::PushNotificationDedup::from_descriptor(&notify_descriptor)`
   — constructs the dedup key used to suppress duplicate notification
-  deliveries. yougen's local-notification scheduler MUST run every
+  deliveries. inkson's local-notification scheduler MUST run every
   inbound push through this helper before raising a system
   notification; otherwise re-delivered pushes (common on flaky
   cellular) appear twice in the user's tray.
@@ -100,7 +100,7 @@ trait surface:
   inbound push carries a `BackgroundFetchHint`. The host returns a
   `BackgroundFetchOutcome` (success / deferred / failed) so chime can
   decide whether to ack the push.
-- `NoopBackgroundFetchDriver` — the stock no-op implementation. yougen
+- `NoopBackgroundFetchDriver` — the stock no-op implementation. inkson
   ships this by default on platforms where there is no
   background-fetch scheduler (current Linux desktop builds), and swaps
   it out per-platform as the integrations land:
@@ -110,5 +110,5 @@ trait surface:
     today; tracked in the platform stub roadmap).
 
 The driver is stashed in an `Arc<dyn BackgroundFetchDriver<Error = _>>`
-on the chime lifecycle, so yougen can hand chime a single shared
+on the chime lifecycle, so inkson can hand chime a single shared
 instance at boot and let chime route hints to it from any thread.

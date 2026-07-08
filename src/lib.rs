@@ -47,7 +47,7 @@ mod state;
 
 pub use bugle::BugleAppIdResolver;
 // Round 4 (B5, spec a77b995) — re-export the SDK round-4 audit surfaces
-// chime consumers (yougen, host apps) need for the late-key-recovery banner
+// chime consumers (inkson, host apps) need for the late-key-recovery banner
 // without having to depend on `cokret` directly.
 #[cfg(feature = "notify")]
 pub use cokret::{AccessKind, AuditPolicyAccessPayload, PushNotifyOutcome, PushNotifyRequestBody};
@@ -74,7 +74,7 @@ pub use notify::{
     shared_push_notify_privacy_vectors,
 };
 // R3 (CALL-1 / CALL-2, spec b47ff6ec) — media token exchange surface.
-// Re-exported so chime consumers (yougen) call
+// Re-exported so chime consumers (inkson) call
 // `chime::call_media_token_exchange` +
 // `chime::verify_media_token_outcome` without depending on `cokret`
 // directly. The verifier delegates to the SDK media-service signature
