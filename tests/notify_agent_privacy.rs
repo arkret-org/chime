@@ -49,7 +49,7 @@ fn agent_actor_private_kinds_classify_as_actor_private() {
 
 #[test]
 fn agent_event_kind_unknown_falls_through() {
-    assert!(classify_agent_event_kind("ck.message.send").is_none());
+    assert!(classify_agent_event_kind("ak.message.send").is_none());
     assert!(classify_agent_event_kind("cx.agent.unknown").is_none());
     assert!(classify_agent_event_kind("").is_none());
 }

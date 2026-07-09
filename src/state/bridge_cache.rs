@@ -45,7 +45,7 @@ pub enum BridgeContractCacheError {
 pub struct BridgeContractCache {
     /// Hex-encoded SHA-256 of the canonical JSON of the cached response.
     pub digest: String,
-    /// Contract identifier from the cached response (e.g. `"ck.push.bridge.v1"`).
+    /// Contract identifier from the cached response (e.g. `"ak.push.bridge.v1"`).
     pub contract: String,
     /// Version string from the cached response.
     pub version: String,
@@ -155,7 +155,7 @@ mod tests {
 
     fn baseline_response() -> PushBridgeDescribeOutcome {
         PushBridgeDescribeOutcome {
-            contract: "ck.push.bridge.v1".to_owned(),
+            contract: "ak.push.bridge.v1".to_owned(),
             version: "1.0.0".to_owned(),
             api_base_path: "/_arkret/edge/push".to_owned(),
             ..Default::default()
@@ -213,7 +213,7 @@ mod tests {
     fn cache_detects_contract_drift() {
         let cache = BridgeContractCache::from_response(&baseline_response(), None).unwrap();
         let mut fresh = baseline_response();
-        fresh.contract = "ck.push.bridge.unknown-drift-test".to_owned();
+        fresh.contract = "ak.push.bridge.unknown-drift-test".to_owned();
 
         let verdict = cache.evaluate(&fresh).unwrap();
         assert!(verdict.is_drift());

@@ -122,10 +122,10 @@ pub struct AgentLifecycleSummary {
 /// is PII-free by construction — no actor, no payload, no grant id.
 pub fn render_agent_lifecycle_summary(event_kind: &str) -> Option<AgentLifecycleSummary> {
     let (kind, l10n_key) = match event_kind {
-        "ck.self.agent.pause" => ("ck.self.agent.pause", "l10n_key:agent.lifecycle.pause"),
-        "ck.self.agent.resume" => ("ck.self.agent.resume", "l10n_key:agent.lifecycle.resume"),
-        "ck.self.agent.deactivate" => (
-            "ck.self.agent.deactivate",
+        "ak.self.agent.pause" => ("ck.self.agent.pause", "l10n_key:agent.lifecycle.pause"),
+        "ak.self.agent.resume" => ("ck.self.agent.resume", "l10n_key:agent.lifecycle.resume"),
+        "ak.self.agent.deactivate" => (
+            "ak.self.agent.deactivate",
             "l10n_key:agent.lifecycle.deactivate",
         ),
         _ => return None,

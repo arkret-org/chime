@@ -13,10 +13,10 @@ use crate::redact_push_key;
 /// Reserved registry rows are intentionally excluded until the spec marks them
 /// active and the SDK exposes a generated registry view.
 pub const SUPPORTED_ENCRYPTED_ENVELOPE_ALGORITHMS: &[&str] = &[
-    "ck.hpke_x25519_aead_xchacha20poly1305.v1",
-    "ck.hpke_x25519_aead_aes256gcm.v1",
-    "ck.hpke_x25519_aead_chacha20poly1305.v1",
-    "ck.hpke_p256_aead_aes256gcm.v1",
+    "ak.hpke_x25519_aead_xchacha20poly1305.v1",
+    "ak.hpke_x25519_aead_aes256gcm.v1",
+    "ak.hpke_x25519_aead_chacha20poly1305.v1",
+    "ak.hpke_p256_aead_aes256gcm.v1",
 ];
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]

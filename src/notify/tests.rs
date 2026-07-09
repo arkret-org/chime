@@ -450,7 +450,7 @@ fn encrypted_envelope_validates_base64_payloads() {
     .with_nonce("bm9uY2VfYWJj")
     .unwrap()
     .with_key_id("kid-1")
-    .with_aad("ck.edge.push.command.notify");
+    .with_aad("ak.edge.push.command.notify");
 
     envelope.validate().unwrap();
     assert!(
@@ -810,9 +810,9 @@ fn agent_lifecycle_summary_is_pii_free() {
     // payload, or grant identifier. The host MUST be able to
     // surface the summary to a control-plane UI without leaking PII.
     for (kind, expected_suffix) in [
-        ("ck.self.agent.pause", "pause"),
-        ("ck.self.agent.resume", "resume"),
-        ("ck.self.agent.deactivate", "deactivate"),
+        ("ak.self.agent.pause", "pause"),
+        ("ak.self.agent.resume", "resume"),
+        ("ak.self.agent.deactivate", "deactivate"),
     ] {
         let summary = render_agent_lifecycle_summary(kind).expect("renders");
         assert_eq!(summary.event_kind, kind);
@@ -821,8 +821,8 @@ fn agent_lifecycle_summary_is_pii_free() {
             format!("l10n_key:agent.lifecycle.{expected_suffix}")
         );
     }
-    assert!(render_agent_lifecycle_summary("ck.agent.draft.propose").is_none());
-    assert!(render_agent_lifecycle_summary("ck.message.create").is_none());
+    assert!(render_agent_lifecycle_summary("ak.agent.draft.propose").is_none());
+    assert!(render_agent_lifecycle_summary("ak.message.create").is_none());
 }
 
 #[test]
