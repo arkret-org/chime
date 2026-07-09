@@ -366,11 +366,11 @@ mod tests {
             gateways: vec![
                 GatewayBinding::new(
                     PushGatewayType::Standard,
-                    "https://gw-a.example.com/_cokret/edge/push/notify",
+                    "https://gw-a.example.com/_arkret/edge/push/notify",
                 ),
                 GatewayBinding::new(
                     PushGatewayType::Bugle,
-                    "https://gw-b.example.com/_cokret/edge/push/notify",
+                    "https://gw-b.example.com/_arkret/edge/push/notify",
                 )
                 .with_push_key("vendor-token-cn-aaaaaaaaaa")
                 .with_app_id("app.example.android.cn"),
@@ -386,7 +386,7 @@ mod tests {
             "did:web:alice.example#device-phone",
             "fcm:current-token",
             "reg-a",
-            "https://gw-a.example.com/_cokret/edge/push/notify".to_owned(),
+            "https://gw-a.example.com/_arkret/edge/push/notify".to_owned(),
         );
         // gw-b binding overrides push_key to vendor-token-cn-aaaaaaaaaa
         // and app_id to app.example.android.cn (Bugle on Android), so the
@@ -395,7 +395,7 @@ mod tests {
             "did:web:alice.example#device-phone",
             "vendor-token-cn-aaaaaaaaaa",
             "reg-b",
-            "https://gw-b.example.com/_cokret/edge/push/notify".to_owned(),
+            "https://gw-b.example.com/_arkret/edge/push/notify".to_owned(),
             PushGatewayType::Bugle,
             Some("app.example.android.cn"),
         );
@@ -429,7 +429,7 @@ mod tests {
             "did:web:alice.example#device-phone",
             "fcm:current-token",
             "reg-orphan",
-            "https://gw-removed.example.com/_cokret/edge/push/notify".to_owned(),
+            "https://gw-removed.example.com/_arkret/edge/push/notify".to_owned(),
         );
         let plan =
             plan_multi_gateway_repair(&[orphan], &config("fcm:current-token"), &prefs).unwrap();
@@ -446,7 +446,7 @@ mod tests {
         );
         assert_eq!(
             plan.unregister_orphans[0].push_gateway.as_deref(),
-            Some("https://gw-removed.example.com/_cokret/edge/push/notify")
+            Some("https://gw-removed.example.com/_arkret/edge/push/notify")
         );
         assert!(plan.stale_state_detected());
     }
@@ -461,11 +461,11 @@ mod tests {
             gateways: vec![
                 GatewayBinding::new(
                     PushGatewayType::Standard,
-                    "https://gw-a.example.com/_cokret/edge/push/notify",
+                    "https://gw-a.example.com/_arkret/edge/push/notify",
                 ),
                 GatewayBinding::new(
                     PushGatewayType::Standard,
-                    "https://gw-b.example.com/_cokret/edge/push/notify",
+                    "https://gw-b.example.com/_arkret/edge/push/notify",
                 ),
             ],
             ..Default::default()
@@ -474,13 +474,13 @@ mod tests {
             "did:web:alice.example#device-phone",
             "fcm:shared-token",
             "reg-a",
-            "https://gw-a.example.com/_cokret/edge/push/notify".to_owned(),
+            "https://gw-a.example.com/_arkret/edge/push/notify".to_owned(),
         );
         let state_b = state_for_gateway(
             "did:web:alice.example#device-phone",
             "fcm:shared-token",
             "reg-b",
-            "https://gw-b.example.com/_cokret/edge/push/notify".to_owned(),
+            "https://gw-b.example.com/_arkret/edge/push/notify".to_owned(),
         );
         let plan =
             plan_multi_gateway_repair(&[state_a, state_b], &config("fcm:shared-token"), &prefs)

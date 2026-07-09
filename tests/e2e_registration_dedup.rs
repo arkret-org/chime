@@ -20,7 +20,7 @@ use chime::{
     PushDeviceConfig, PushGatewayType, PushPreferences, build_register_device_request,
 };
 
-const GATEWAY_URL: &str = "https://push.gateway.example/_cokret/edge/push/notify";
+const GATEWAY_URL: &str = "https://push.gateway.example/_arkret/edge/push/notify";
 
 fn fixture_device_config<'a>(idempotency: &'a str) -> PushDeviceConfig<'a> {
     PushDeviceConfig {

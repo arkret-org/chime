@@ -5,7 +5,7 @@ use serde_json::Value;
 use super::errors::PushNotifyPrivacyError;
 use super::notification::PushNotification;
 
-/// Request body for `POST /_cokret/edge/push/notify`.
+/// Request body for `POST /_arkret/edge/push/notify`.
 ///
 /// SPEC-CR-016: the canonical `push_notify_request_body` is
 /// `{notification, event_kind?, reason_code?, audit_envelope?}` with

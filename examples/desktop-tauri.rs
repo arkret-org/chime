@@ -54,7 +54,7 @@ mod inner {
 
         let binding = GatewayBinding::new(
             PushGatewayType::Standard,
-            "https://push.example.com/_cokret/edge/push/notify",
+            "https://push.example.com/_arkret/edge/push/notify",
         );
 
         let prefs = PushPreferences {

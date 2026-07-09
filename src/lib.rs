@@ -20,7 +20,7 @@
 //! ## Features
 //!
 //! - `http` - enables `CokretPushClient`, a small reqwest-based helper for `POST
-//!   /_cokret/edge/push/register-device` and `POST /_cokret/edge/push/unregister-device`.
+//!   /_arkret/edge/push/register-device` and `POST /_arkret/edge/push/unregister-device`.
 
 use std::collections::BTreeSet;
 
@@ -97,7 +97,7 @@ pub use push::{
     SIGNATURE_INPUT_HEADER, ServiceDescribe, UNREGISTER_DEVICE_PATH, build_register_device_request,
     build_register_signing_context, build_register_signing_context_with_options,
     build_unregister_device_request, build_unregister_signing_context,
-    build_unregister_signing_context_with_options, cokret_api_url, content_digest_sha256,
+    build_unregister_signing_context_with_options, arkret_api_url, content_digest_sha256,
     floria_push_bridge_describe_url, floria_push_integration_describe_url,
     push_gateway_service_base_url, redact_push_key, validate_push_gateway_url,
     validate_webpush_endpoint_allowlist,
@@ -143,7 +143,7 @@ pub const OPERATION_PUSH_NOTIFY: &str = "ck.edge.push.command.notify";
 pub const DEFAULT_ARKRET_PUSH_GATEWAY_URL: &str = "";
 
 /// Default Bugle push gateway URL using the Arkret push notify binding.
-pub const DEFAULT_BUGLE_PUSH_GATEWAY_URL: &str = "https://push.palpo.im/_cokret/edge/push/notify";
+pub const DEFAULT_BUGLE_PUSH_GATEWAY_URL: &str = "https://push.palpo.im/_arkret/edge/push/notify";
 
 // -- PushGatewayType ---------------------------------------------------------
 
@@ -371,7 +371,7 @@ mod tests {
             webpush_endpoint_allowlist: vec!["https://fcm.googleapis.com".to_owned()],
             gateways: vec![GatewayBinding::new(
                 PushGatewayType::Bugle,
-                "https://example.com/_cokret/edge/push/notify",
+                "https://example.com/_arkret/edge/push/notify",
             )],
             ..Default::default()
         };
@@ -406,11 +406,11 @@ mod tests {
             gateways: vec![
                 GatewayBinding::new(
                     PushGatewayType::Standard,
-                    "https://push-a.example.com/_cokret/edge/push/notify",
+                    "https://push-a.example.com/_arkret/edge/push/notify",
                 ),
                 GatewayBinding::new(
                     PushGatewayType::Bugle,
-                    "https://push.palpo.im/_cokret/edge/push/notify",
+                    "https://push.palpo.im/_arkret/edge/push/notify",
                 )
                 .with_push_key("vendor-token-cn-aaaaaaaaaa"),
             ],

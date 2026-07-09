@@ -22,7 +22,7 @@ use sha2::{Digest, Sha256};
 
 const DEVICE_ID: &str = "did:web:rotation.test#device-phone";
 const APP_ID: &str = "test.rotation.app";
-const GATEWAY: &str = "https://push.gateway.example/_cokret/edge/push/notify";
+const GATEWAY: &str = "https://push.gateway.example/_arkret/edge/push/notify";
 
 fn config_for_token<'a>(token: &'a str, idempotency: &'a str) -> PushDeviceConfig<'a> {
     PushDeviceConfig {

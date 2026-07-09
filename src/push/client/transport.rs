@@ -3,7 +3,7 @@ use std::time::Duration;
 use serde::{Deserialize, Serialize};
 
 use super::super::errors::{PushRegistrationError, classify_http_error};
-use super::super::urls::try_cokret_api_url;
+use super::super::urls::try_arkret_api_url;
 use super::super::wire::CokretErrorEnvelope;
 use super::super::{ARKRET_REQUEST_ID_HEADER, RETRY_AFTER_HEADER};
 use super::core::CokretPushClient;
@@ -136,7 +136,7 @@ impl CokretPushClient {
         T: Serialize + ?Sized,
         R: for<'de> Deserialize<'de>,
     {
-        let url = try_cokret_api_url(&self.service_base_url, path)?;
+        let url = try_arkret_api_url(&self.service_base_url, path)?;
         let mut request = self
             .http
             .post(url)
@@ -208,7 +208,7 @@ impl CokretPushClient {
     where
         R: for<'de> Deserialize<'de>,
     {
-        let url = try_cokret_api_url(&self.service_base_url, path)?;
+        let url = try_arkret_api_url(&self.service_base_url, path)?;
         let mut request = self
             .http
             .get(url)

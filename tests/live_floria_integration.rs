@@ -70,7 +70,7 @@ async fn bridge_describe_round_trips_against_live_floria() {
         .expect("floria_bridge_describe deserializes against live floria");
 
     assert_eq!(response.contract, "ck.push.bridge.describe");
-    assert_eq!(response.notify.notify_path, "/_cokret/edge/push/notify");
+    assert_eq!(response.notify.notify_path, "/_arkret/edge/push/notify");
     assert_eq!(response.notify.operation_id, chime::OPERATION_PUSH_NOTIFY);
     assert!(
         response
@@ -82,7 +82,7 @@ async fn bridge_describe_round_trips_against_live_floria() {
         response.gateway.supported_providers
     );
 
-    let derived = floria_push_bridge_describe_url(&floria.url("/_cokret/edge/push/notify"))
+    let derived = floria_push_bridge_describe_url(&floria.url("/_arkret/edge/push/notify"))
         .expect("floria_push_bridge_describe_url accepts the loopback gateway URL");
     assert_eq!(derived, floria.url("/_floria/push/bridge/describe"));
 }
@@ -115,7 +115,7 @@ async fn integration_view_combines_describe_endpoints() {
         chime::OPERATION_PUSH_NOTIFY
     );
 
-    let derived = floria_push_integration_describe_url(&floria.url("/_cokret/edge/push/notify"))
+    let derived = floria_push_integration_describe_url(&floria.url("/_arkret/edge/push/notify"))
         .expect("floria_push_integration_describe_url accepts the loopback gateway URL");
     assert_eq!(derived, floria.url("/_floria/integration/describe"));
 }
@@ -134,7 +134,7 @@ async fn push_notify_delivery_receipt_round_trips_into_chime_wire_types() {
         .build()
         .expect("reqwest client builds");
     let response = http
-        .post(floria.url("/_cokret/edge/push/notify"))
+        .post(floria.url("/_arkret/edge/push/notify"))
         .json(&notify_payload("chime-live-notify-001"))
         .send()
         .await
@@ -177,7 +177,7 @@ async fn repeated_notify_advances_floria_request_id() {
         .build()
         .expect("reqwest client builds");
     let first_raw = http
-        .post(floria.url("/_cokret/edge/push/notify"))
+        .post(floria.url("/_arkret/edge/push/notify"))
         .json(&notify_payload("chime-live-rotation-A"))
         .send()
         .await
@@ -189,7 +189,7 @@ async fn repeated_notify_advances_floria_request_id() {
         serde_json::from_str(&first_raw).expect("first ChimePushNotifyOutcome decodes");
 
     let second_raw = http
-        .post(floria.url("/_cokret/edge/push/notify"))
+        .post(floria.url("/_arkret/edge/push/notify"))
         .json(&notify_payload("chime-live-rotation-B"))
         .send()
         .await

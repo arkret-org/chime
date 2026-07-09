@@ -29,16 +29,16 @@ pub use platform_app_id::{DefaultPlatformAppIdResolver, PlatformAppIdResolver};
 // -- Path constants ---------------------------------------------------------
 
 /// Arkret HTTP path for `ck.edge.push.command.register_device`.
-pub const REGISTER_DEVICE_PATH: &str = "/_cokret/edge/push/register-device";
+pub const REGISTER_DEVICE_PATH: &str = "/_arkret/edge/push/register-device";
 
 /// Arkret HTTP path for `ck.edge.push.command.unregister_device`.
-pub const UNREGISTER_DEVICE_PATH: &str = "/_cokret/edge/push/unregister-device";
+pub const UNREGISTER_DEVICE_PATH: &str = "/_arkret/edge/push/unregister-device";
 
 /// Arkret HTTP path for `ck.edge.push.command.notify`.
-pub const PUSH_NOTIFY_PATH: &str = "/_cokret/edge/push/notify";
+pub const PUSH_NOTIFY_PATH: &str = "/_arkret/edge/push/notify";
 
 /// Arkret HTTP path for `ck.server.query.describe`.
-pub const SERVER_DESCRIBE_PATH: &str = "/_cokret/describe";
+pub const SERVER_DESCRIBE_PATH: &str = "/_arkret/describe";
 
 /// Floria product path for discovering the active push gateway bridge contract.
 pub(crate) const FLORIA_PUSH_BRIDGE_DESCRIBE_PATH: &str = "/_floria/push/bridge/describe";
@@ -140,7 +140,7 @@ pub use signing::{
     content_digest_sha256,
 };
 pub use urls::{
-    cokret_api_url, floria_push_bridge_describe_url, floria_push_integration_describe_url,
+    arkret_api_url, floria_push_bridge_describe_url, floria_push_integration_describe_url,
     push_gateway_service_base_url, redact_push_key, validate_push_gateway_url,
     validate_webpush_endpoint_allowlist,
 };

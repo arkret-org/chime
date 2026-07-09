@@ -41,7 +41,7 @@ use crate::{GatewayBinding, PushPreferences, hash_push_key};
 /// };
 /// let binding = GatewayBinding::new(
 ///     PushGatewayType::Standard,
-///     "https://push.example.com/_cokret/edge/push/notify",
+///     "https://push.example.com/_arkret/edge/push/notify",
 /// );
 /// let prefs = PushPreferences {
 ///     enabled: true,
@@ -116,7 +116,7 @@ pub fn build_register_device_request(
 /// };
 /// let binding = GatewayBinding::new(
 ///     PushGatewayType::Standard,
-///     "https://push.example.com/_cokret/edge/push/notify",
+///     "https://push.example.com/_arkret/edge/push/notify",
 /// );
 /// let request =
 ///     build_unregister_device_request(&config, &binding, &PushPreferences::default()).unwrap();
@@ -190,7 +190,7 @@ pub fn build_unregister_device_request(
 /// };
 /// let binding = GatewayBinding::new(
 ///     PushGatewayType::Standard,
-///     "https://push.example.com/_cokret/edge/push/notify",
+///     "https://push.example.com/_arkret/edge/push/notify",
 /// );
 /// let prefs = PushPreferences {
 ///     enabled: true,
@@ -318,7 +318,7 @@ mod tests {
     }
 
     #[test]
-    fn register_request_matches_cokret_schema() {
+    fn register_request_matches_arkret_schema() {
         let binding = binding(PushGatewayType::Bugle, DEFAULT_BUGLE_PUSH_GATEWAY_URL);
         let request =
             build_register_device_request(&config(Some("android")), &binding, &enabled_prefs())
@@ -349,7 +349,7 @@ mod tests {
     fn unregister_request_supports_registration_id() {
         let binding = binding(
             PushGatewayType::Standard,
-            "https://push.example.com/_cokret/edge/push/notify",
+            "https://push.example.com/_arkret/edge/push/notify",
         );
         let request = build_unregister_device_request(
             &config(Some("ios")),
@@ -408,7 +408,7 @@ mod tests {
         config.push_key = None;
         let binding = binding(
             PushGatewayType::Standard,
-            "https://push.example.com/_cokret/edge/push/notify",
+            "https://push.example.com/_arkret/edge/push/notify",
         );
         let err = build_register_device_request(&config, &binding, &enabled_prefs()).unwrap_err();
         assert_eq!(err.kind(), PushErrorKind::MissingField);
@@ -420,7 +420,7 @@ mod tests {
         config.device_id = " ";
         let binding = binding(
             PushGatewayType::Standard,
-            "https://push.example.com/_cokret/edge/push/notify",
+            "https://push.example.com/_arkret/edge/push/notify",
         );
         let err = build_register_device_request(&config, &binding, &enabled_prefs()).unwrap_err();
         assert_eq!(err.kind(), PushErrorKind::MissingField);
@@ -433,7 +433,7 @@ mod tests {
             Some("webpush:https://updates.push.services.mozilla.com/wpush/v2/token-secret");
         let binding = binding(
             PushGatewayType::Standard,
-            "https://push.example.com/_cokret/edge/push/notify",
+            "https://push.example.com/_arkret/edge/push/notify",
         );
         let prefs = PushPreferences {
             enabled: true,
@@ -459,7 +459,7 @@ mod tests {
     fn redacts_push_tokens_from_debug_output() {
         let plain_binding = binding(
             PushGatewayType::Standard,
-            "https://push.example.com/_cokret/edge/push/notify",
+            "https://push.example.com/_arkret/edge/push/notify",
         );
         let request = build_register_device_request(
             &config(Some("android")),
@@ -477,7 +477,7 @@ mod tests {
 
         let debug_binding = binding(
             PushGatewayType::Standard,
-            "https://push.example.com/_cokret/edge/push/notify?debug=true",
+            "https://push.example.com/_arkret/edge/push/notify?debug=true",
         );
         let unregister = build_unregister_device_request(
             &config(Some("android")),
@@ -494,7 +494,7 @@ mod tests {
     fn builds_register_signing_context() {
         let binding = binding(
             PushGatewayType::Standard,
-            "https://push.example.com/_cokret/edge/push/notify",
+            "https://push.example.com/_arkret/edge/push/notify",
         );
         let request =
             build_register_device_request(&config(Some("android")), &binding, &enabled_prefs())
@@ -513,7 +513,7 @@ mod tests {
         assert_eq!(context.path, REGISTER_DEVICE_PATH);
         assert_eq!(
             context.target_uri,
-            "https://principal.example/_cokret/edge/push/register-device"
+            "https://principal.example/_arkret/edge/push/register-device"
         );
         assert_eq!(
             context.device_id,
@@ -527,7 +527,7 @@ mod tests {
     fn builds_signing_context_with_actor_expiry_and_signature_headers() {
         let binding = binding(
             PushGatewayType::Standard,
-            "https://push.example.com/_cokret/edge/push/notify",
+            "https://push.example.com/_arkret/edge/push/notify",
         );
         let request =
             build_register_device_request(&config(Some("android")), &binding, &enabled_prefs())
@@ -605,7 +605,7 @@ mod tests {
     fn rejects_invalid_signature_header_inputs() {
         let binding = binding(
             PushGatewayType::Standard,
-            "https://push.example.com/_cokret/edge/push/notify",
+            "https://push.example.com/_arkret/edge/push/notify",
         );
         let request =
             build_register_device_request(&config(Some("android")), &binding, &enabled_prefs())
@@ -637,7 +637,7 @@ mod tests {
     fn signing_context_rejects_url_tokens() {
         let binding = binding(
             PushGatewayType::Standard,
-            "https://push.example.com/_cokret/edge/push/notify",
+            "https://push.example.com/_arkret/edge/push/notify",
         );
         let request =
             build_register_device_request(&config(Some("android")), &binding, &enabled_prefs())

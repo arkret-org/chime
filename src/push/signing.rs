@@ -32,7 +32,7 @@ use thiserror::Error;
 
 use super::errors::PushRegistrationError;
 use super::urls::{
-    redact_url, require_optional_owned_non_empty, require_owned_non_empty, try_cokret_api_url,
+    redact_url, require_optional_owned_non_empty, require_owned_non_empty, try_arkret_api_url,
 };
 use super::{
     ARKRET_ACTOR_ID_HEADER, ARKRET_AUDIENCE_HEADER, ARKRET_CREATED_AT_HEADER,
@@ -392,7 +392,7 @@ where
         operation_id: operation_id.to_owned(),
         method: "POST".to_owned(),
         path: path.to_owned(),
-        target_uri: try_cokret_api_url(service_base_url, path)?,
+        target_uri: try_arkret_api_url(service_base_url, path)?,
         content_digest: content_digest_sha256(body)?,
         device_id: device_id.to_owned(),
         created_at,

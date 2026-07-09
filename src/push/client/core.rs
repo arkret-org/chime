@@ -212,7 +212,7 @@ impl CokretPushClient {
         Ok(self)
     }
 
-    /// Discover the Arkret service through the protocol `/_cokret/describe` surface.
+    /// Discover the Arkret service through the protocol `/_arkret/describe` surface.
     pub async fn server_describe(&self) -> Result<arkret::ServiceDescribe, PushRegistrationError> {
         Ok(self.server_describe_with_context().await?.body)
     }
@@ -282,7 +282,7 @@ impl CokretPushClient {
     /// # };
     /// # let binding = GatewayBinding::new(
     /// #     PushGatewayType::Standard,
-    /// #     "https://push.example.com/_cokret/edge/push/notify",
+    /// #     "https://push.example.com/_arkret/edge/push/notify",
     /// # );
     /// # let prefs = PushPreferences {
     /// #     enabled: true,

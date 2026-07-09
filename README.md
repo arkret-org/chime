@@ -80,7 +80,7 @@ hosts that need the standalone resolver trait can use
 | Feature | Description |
 | --- | --- |
 | _(default)_ | Core types, JSON serialization helpers, and Arkret register/unregister request builders. No network dependencies. |
-| `http` | Adds `CokretPushClient`, a small `reqwest` helper for `POST /_cokret/edge/push/register-device` and `POST /_cokret/edge/push/unregister-device`. |
+| `http` | Adds `CokretPushClient`, a small `reqwest` helper for `POST /_arkret/edge/push/register-device` and `POST /_arkret/edge/push/unregister-device`. |
 | `notify` | Adds server/gateway-side `ck.edge.push.command.notify` wire types and blind-wakeup privacy validation. |
 
 > **Production deployments MUST enable the `notify` feature.** Without it,
@@ -157,7 +157,7 @@ let prefs = PushPreferences {
     gateways: vec![
         GatewayBinding::new(
             PushGatewayType::Bugle,
-            "https://push.palpo.im/_cokret/edge/push/notify",
+            "https://push.palpo.im/_arkret/edge/push/notify",
         )
         .with_app_id("app.example.android.cn"),
     ],
@@ -201,7 +201,7 @@ let config = PushDeviceConfig {
 
 let binding = GatewayBinding::new(
     PushGatewayType::Standard,
-    "https://push.example.com/_cokret/edge/push/notify",
+    "https://push.example.com/_arkret/edge/push/notify",
 );
 let prefs = PushPreferences {
     enabled: true,
@@ -305,7 +305,7 @@ assert!(msg.contains("title"), "error should name the leaking field: {msg}");
 # };
 # let binding = GatewayBinding::new(
 #     PushGatewayType::Standard,
-#     "https://push.example.com/_cokret/edge/push/notify",
+#     "https://push.example.com/_arkret/edge/push/notify",
 # );
 # let prefs = PushPreferences {
 #     enabled: true,
@@ -363,7 +363,7 @@ Production notes:
 # };
 # let binding = GatewayBinding::new(
 #     PushGatewayType::Standard,
-#     "https://push.example.com/_cokret/edge/push/notify",
+#     "https://push.example.com/_arkret/edge/push/notify",
 # );
 # let prefs = PushPreferences {
 #     enabled: true,
@@ -428,7 +428,7 @@ After a successful register, `merge_registration_state()` drops stale logical du
 # };
 # let binding = GatewayBinding::new(
 #     PushGatewayType::Standard,
-#     "https://push.example.com/_cokret/edge/push/notify",
+#     "https://push.example.com/_arkret/edge/push/notify",
 # );
 # let prefs = PushPreferences {
 #     enabled: true,
@@ -541,9 +541,9 @@ The crate maps to the Arkret v1 push HTTP binding:
 
 | Operation ID | HTTP Binding | Request builder |
 | --- | --- | --- |
-| `ck.edge.push.command.register_device` | `POST /_cokret/edge/push/register-device` | `build_register_device_request()` |
-| `ck.edge.push.command.unregister_device` | `POST /_cokret/edge/push/unregister-device` | `build_unregister_device_request()` |
-| `ck.edge.push.command.notify` | `POST /_cokret/edge/push/notify` | Gateway/server-side operation, not a client registration call. |
+| `ck.edge.push.command.register_device` | `POST /_arkret/edge/push/register-device` | `build_register_device_request()` |
+| `ck.edge.push.command.unregister_device` | `POST /_arkret/edge/push/unregister-device` | `build_unregister_device_request()` |
+| `ck.edge.push.command.notify` | `POST /_arkret/edge/push/notify` | Gateway/server-side operation, not a client registration call. |
 
 Register/unregister builders carry the canonical operation id, optional `principal_id`, `device_id`, app id, gateway URL, idempotency key, request id, and caller-supplied proof. Register responses expose only the spec response body fields (`ok`, `registration_id`, and `expires_at`); response headers carry transport metadata such as request id.
 

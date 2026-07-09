@@ -57,7 +57,7 @@ pub enum PushErrorKind {
     HistoricalOnly,
     // ── R3 (CKP-0010 media binding + agent lifecycle, spec b47ff6ec) ─────
     // The variants below mirror the 20 new error codes added in the SDK
-    // (see `cokret_core::error`). Chime mirrors the media-binding,
+    // (see `arkret_core::error`). Chime mirrors the media-binding,
     // agent-lifecycle, and handle-homograph subsets because those are
     // the codes a push-SDK consumer can plausibly observe — either while
     // calling `ck.self.call.media.exchange.issue_token` directly (`Media*`) or
@@ -469,7 +469,7 @@ impl PushRegistrationError {
         }
     }
 
-    pub fn cokret_error(&self) -> Option<&CokretErrorEnvelope> {
+    pub fn arkret_error(&self) -> Option<&CokretErrorEnvelope> {
         match self {
             Self::HttpStatus { error, .. } => error.as_deref(),
             _ => None,
@@ -554,7 +554,7 @@ mod tests {
     use crate::push::wire::CokretError;
 
     #[test]
-    fn classifies_cokret_error_codes() {
+    fn classifies_arkret_error_codes() {
         let envelope = CokretErrorEnvelope {
             ok: false,
             error: CokretError {

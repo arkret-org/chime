@@ -11,17 +11,17 @@ use super::{FLORIA_INTEGRATION_DESCRIBE_PATH, FLORIA_PUSH_BRIDGE_DESCRIBE_PATH, 
 /// Builds a normalized Arkret API URL.
 ///
 /// `service_base_url` may be either an origin (`https://server.example`) or a
-/// negative-space root (`https://server.example/_cokret`). Arkret paths are
-/// absolute under the `/_cokret/` root and carry no version segment.
-pub fn cokret_api_url(service_base_url: &str, path: &str) -> String {
+/// negative-space root (`https://server.example/_arkret`). Arkret paths are
+/// absolute under the `/_arkret/` root and carry no version segment.
+pub fn arkret_api_url(service_base_url: &str, path: &str) -> String {
     let base = service_base_url.trim_end_matches('/');
     let path = path.trim_start_matches('/');
-    let path = path.strip_prefix("_cokret/").unwrap_or(path);
+    let path = path.strip_prefix("_arkret/").unwrap_or(path);
 
-    if base.ends_with("/_cokret") {
+    if base.ends_with("/_arkret") {
         format!("{base}/{path}")
     } else {
-        format!("{base}/_cokret/{path}")
+        format!("{base}/_arkret/{path}")
     }
 }
 
@@ -29,11 +29,11 @@ fn service_api_url(service_base_url: &str, path: &str) -> String {
     let base = service_base_url.trim_end_matches('/');
     let path = path.trim_start_matches('/');
 
-    if path.starts_with("_cokret/") {
-        return cokret_api_url(base, path);
+    if path.starts_with("_arkret/") {
+        return arkret_api_url(base, path);
     }
 
-    let base = base.strip_suffix("/_cokret").unwrap_or(base);
+    let base = base.strip_suffix("/_arkret").unwrap_or(base);
     format!("{base}/{path}")
 }
 
@@ -43,7 +43,7 @@ pub fn push_gateway_service_base_url(
 ) -> Result<String, PushRegistrationError> {
     service_base_url_from_known_suffixes(
         push_gateway_url,
-        &[PUSH_NOTIFY_PATH, "/_cokret/edge/push", "/_cokret/edge"],
+        &[PUSH_NOTIFY_PATH, "/_arkret/edge/push", "/_arkret/edge"],
     )
 }
 
@@ -141,8 +141,8 @@ fn floria_push_gateway_service_base_url(
             FLORIA_PUSH_BRIDGE_DESCRIBE_PATH,
             FLORIA_INTEGRATION_DESCRIBE_PATH,
             PUSH_NOTIFY_PATH,
-            "/_cokret/edge/push",
-            "/_cokret/edge",
+            "/_arkret/edge/push",
+            "/_arkret/edge",
         ],
     )
 }
@@ -260,7 +260,7 @@ pub fn redact_push_key(value: &str) -> String {
     format!("<redacted,len={len}>")
 }
 
-pub(super) fn try_cokret_api_url(
+pub(super) fn try_arkret_api_url(
     service_base_url: &str,
     path: &str,
 ) -> Result<String, PushRegistrationError> {
@@ -458,19 +458,19 @@ mod tests {
     #[test]
     fn url_builder_accepts_origin_or_api_root() {
         assert_eq!(
-            cokret_api_url("https://server.example", REGISTER_DEVICE_PATH),
-            "https://server.example/_cokret/edge/push/register-device"
+            arkret_api_url("https://server.example", REGISTER_DEVICE_PATH),
+            "https://server.example/_arkret/edge/push/register-device"
         );
         assert_eq!(
-            cokret_api_url("https://server.example/_cokret", REGISTER_DEVICE_PATH),
-            "https://server.example/_cokret/edge/push/register-device"
+            arkret_api_url("https://server.example/_arkret", REGISTER_DEVICE_PATH),
+            "https://server.example/_arkret/edge/push/register-device"
         );
     }
 
     #[test]
     fn rejects_query_secret_in_push_gateway_url() {
         let err = validate_push_gateway_url(
-            "https://push.example.com/_cokret/edge/push/notify?access_token=secret",
+            "https://push.example.com/_arkret/edge/push/notify?access_token=secret",
             false,
         )
         .unwrap_err();
@@ -491,14 +491,14 @@ mod tests {
     #[test]
     fn rejects_non_loopback_http_push_gateway_url() {
         let err =
-            validate_push_gateway_url("http://push.example.com/_cokret/edge/push/notify", true)
+            validate_push_gateway_url("http://push.example.com/_arkret/edge/push/notify", true)
                 .unwrap_err();
         assert_eq!(err.kind(), PushErrorKind::InvalidPushGatewayUrl);
     }
 
     #[test]
     fn allows_loopback_http_push_gateway_when_enabled() {
-        validate_push_gateway_url("http://127.0.0.1:8080/_cokret/edge/push/notify", true).unwrap();
-        validate_push_gateway_url("http://localhost:8080/_cokret/edge/push/notify", true).unwrap();
+        validate_push_gateway_url("http://127.0.0.1:8080/_arkret/edge/push/notify", true).unwrap();
+        validate_push_gateway_url("http://localhost:8080/_arkret/edge/push/notify", true).unwrap();
     }
 }

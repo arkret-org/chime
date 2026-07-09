@@ -195,7 +195,7 @@ impl ChimePushRegisterDeviceRequest {
     }
 }
 
-/// Response body for `POST /_cokret/edge/push/register-device`.
+/// Response body for `POST /_arkret/edge/push/register-device`.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[non_exhaustive]
@@ -302,7 +302,7 @@ impl ChimePushUnregisterDeviceRequest {
     }
 }
 
-/// Response body for `POST /_cokret/edge/push/unregister-device`.
+/// Response body for `POST /_arkret/edge/push/unregister-device`.
 ///
 /// Stability: 1.0-stable. New optional fields may be added in a minor release.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]

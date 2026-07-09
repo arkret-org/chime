@@ -79,7 +79,7 @@ fn prefs() -> PushPreferences {
 fn binding() -> crate::GatewayBinding {
     crate::GatewayBinding::new(
         crate::PushGatewayType::Standard,
-        "https://push.example.com/_cokret/edge/push/notify",
+        "https://push.example.com/_arkret/edge/push/notify",
     )
 }
 
@@ -119,7 +119,7 @@ async fn register_success_exposes_response_context_and_headers() {
     assert_eq!(response.request_id.as_deref(), Some("ak:request:server"));
 
     let request = requests.lock().unwrap().join("\n");
-    assert!(request.contains("POST /_cokret/edge/push/register-device HTTP/1.1"));
+    assert!(request.contains("POST /_arkret/edge/push/register-device HTTP/1.1"));
     assert!(request.contains("authorization: Bearer session-secret"));
     // CHIME-01: idempotency key, request id, operation id, and proof are
     // header / path / signing-context concerns — they ride the headers,
@@ -191,7 +191,7 @@ async fn unregister_success() {
 
     assert!(response.ok);
     let request = requests.lock().unwrap().join("\n");
-    assert!(request.contains("POST /_cokret/edge/push/unregister-device HTTP/1.1"));
+    assert!(request.contains("POST /_arkret/edge/push/unregister-device HTTP/1.1"));
     let body = request
         .rsplit("\r\n\r\n")
         .next()
@@ -317,7 +317,7 @@ async fn error_debug_redacts_envelope_message_and_details() {
     let debug = format!("{err:?}");
     assert_eq!(err.kind(), PushErrorKind::CapabilityDenied);
     assert!(
-        err.cokret_error()
+        err.arkret_error()
             .is_some_and(|envelope| !envelope.error.details.is_empty())
     );
     assert!(!debug.contains("very-secret-token"));
@@ -575,11 +575,11 @@ async fn register_device_all_exercises_each_binding_independently() {
         gateways: vec![
             crate::GatewayBinding::new(
                 crate::PushGatewayType::Standard,
-                "https://push.example.com/_cokret/edge/push/notify",
+                "https://push.example.com/_arkret/edge/push/notify",
             ),
             crate::GatewayBinding::new(
                 crate::PushGatewayType::Bugle,
-                "https://push.palpo.im/_cokret/edge/push/notify",
+                "https://push.palpo.im/_arkret/edge/push/notify",
             )
             .with_push_key("vendor-token-cn-aaaaaaaaaa")
             .with_app_id("app.example.android.cn"),

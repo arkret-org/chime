@@ -130,7 +130,7 @@ import Chime
 let request = try Chime.buildRegisterDeviceRequest(
     config: .init(deviceId: "did:web:alice.example#ios", /* … */),
     binding: .init(gatewayType: .standard,
-                   pushGateway: "https://push.example.com/_cokret/edge/push/notify"),
+                   pushGateway: "https://push.example.com/_arkret/edge/push/notify"),
     prefs: .init(enabled: true))
 
 try Chime.assertPayloadSafe(payloadJson, policy: .blindWakeupOnly)
