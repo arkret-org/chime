@@ -30,6 +30,7 @@ fn notification() -> PushNotification {
             PushTargetId::new("ck:pseudonym:push:01HYZ8Z000000000000000").unwrap(),
         ),
         wakeup_kind: Some(WakeupKind::Message),
+        timing_profile_hint: Some(cokret::PushTimingProfileHint::Default),
         route_tokens: Some(RouteTokens {
             realm_route_token: Some(REALM_ROUTE_TOKEN.to_owned()),
             ..Default::default()
@@ -327,6 +328,7 @@ fn deserialized_extra_fields_require_runtime_validation() {
     let loaded: PushNotification = serde_json::from_value(serde_json::json!({
         "push_target_id": "ck:pseudonym:push:01HYZ8Z000000000000000",
         "wakeup_kind": "message",
+        "timing_profile_hint": "default",
         "kind": "captured-extra-field",
         "devices": [{
             "device_id": DEVICE_ID,

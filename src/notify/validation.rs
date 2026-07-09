@@ -27,6 +27,7 @@ pub(super) fn run_sdk_sanitizer_over_extra(
         "notification": {
             "push_target_id": "ck:pseudonym:push:0000000000000000000000",
             "wakeup_kind": "message",
+            "timing_profile_hint": "default",
         },
     });
     let mut envelope = envelope;

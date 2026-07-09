@@ -84,6 +84,7 @@ fn agent_typed_id_in_event_id_slot_fails_closed() {
         "notification": {
             "push_target_id": "ck:pseudonym:push:01HYZ8Z000000000000000",
             "wakeup_kind": "message",
+            "timing_profile_hint": "default",
             "event_id": "ck:agent_session:01HZK9Z000000000000000000",
             "devices": [
                 {
@@ -113,6 +114,7 @@ fn agent_typed_id_in_extra_fails_closed() {
         "notification": {
             "push_target_id": "ck:pseudonym:push:01HYZ8Z000000000000000",
             "wakeup_kind": "message",
+            "timing_profile_hint": "default",
             "agent_link": "ck:accountability_grant:01HZK9Z000000000000000000",
             "devices": [
                 {

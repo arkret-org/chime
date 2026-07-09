@@ -152,6 +152,8 @@ pub struct PushNotification {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub wakeup_kind: Option<WakeupKind>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub timing_profile_hint: Option<cokret::PushTimingProfileHint>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub event_id: Option<String>,
     /// Gateway-internal route tokens. Stripped before any provider call;
     /// see [`RouteTokens`].
@@ -223,15 +225,16 @@ pub struct RouteTokens {
 impl PushNotification {
     /// Construct a minimal blind-wakeup `PushNotification`.
     ///
-    /// Equivalent to `PushNotification::default()` plus the only two
-    /// fields the SDK / floria treat as mandatory (`wakeup_kind`,
-    /// `push_target_id`). Provided as a constructor so external
+    /// Equivalent to `PushNotification::default()` plus the fields the
+    /// SDK / floria treat as mandatory (`push_target_id`, `wakeup_kind`,
+    /// `timing_profile_hint`). Provided as a constructor so external
     /// consumers can build instances despite the `#[non_exhaustive]`
     /// attribute on the struct.
     pub fn new_blind_wakeup(push_target_id: PushTargetId, wakeup_kind: WakeupKind) -> Self {
         Self {
             push_target_id: Some(push_target_id),
             wakeup_kind: Some(wakeup_kind),
+            timing_profile_hint: Some(cokret::PushTimingProfileHint::Default),
             ..Self::default()
         }
     }
@@ -276,6 +279,7 @@ impl PushNotification {
                 .wakeup_kind
                 .as_ref()
                 .map(|value| value.as_str().to_owned()),
+            timing_profile_hint: self.timing_profile_hint,
             push_hint: self
                 .push_hint
                 .as_ref()
@@ -333,6 +337,11 @@ impl PushNotification {
         if self.wakeup_kind.is_none() {
             return Err(PushNotifyPrivacyError::MissingField {
                 field: "wakeup_kind".to_owned(),
+            });
+        }
+        if self.timing_profile_hint.is_none() {
+            return Err(PushNotifyPrivacyError::MissingField {
+                field: "timing_profile_hint".to_owned(),
             });
         }
 
@@ -525,8 +534,9 @@ impl PushNotification {
     /// into [`crate::BackgroundFetchDriver::dispatch_background_fetch`]
     /// to schedule the platform background-fetch job.
     ///
-    /// Returns `None` when the wakeup is missing the two required
-    /// fields (`push_target_id`, `wakeup_kind`). The wire-model
+    /// Returns `None` when the wakeup is missing the routing fields
+    /// consumed by the platform fetch layer (`push_target_id`,
+    /// `wakeup_kind`). The wire-model
     /// validator rejects that shape upstream, so a `None` return at
     /// this point means an integrator constructed an out-of-spec
     /// notification manually — the safe default is "do not dispatch".

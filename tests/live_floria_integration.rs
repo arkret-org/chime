@@ -44,6 +44,7 @@ fn notify_payload(idempotency_key: &str) -> Value {
             "realm_id": "ck:realm:01JS0SP000000000000000000",
             "push_target_id": "ck:pseudonym:push:01HYZ8Z000000000000000",
             "wakeup_kind": "message",
+            "timing_profile_hint": "default",
             "push_hint": "new_message",
             "devices": [{
                 "device_id": "ck:device:01904100-0000-7000-8000-000000000010",

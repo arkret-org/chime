@@ -122,6 +122,7 @@ fn push_notify_contract_error_field(message: &str) -> String {
     for field in [
         "notification.push_target_id",
         "notification.wakeup_kind",
+        "notification.timing_profile_hint",
         "notification.route_tokens.realm_route_token",
         "notification.route_tokens.scope_route_token",
         "notification.route_tokens.delivery_binding_frontier_token",
@@ -197,6 +198,7 @@ pub fn shared_push_notify_privacy_vectors() -> Vec<PushNotifyPrivacyVector> {
                 "notification": {
                     "push_target_id": "ck:pseudonym:push:01HYZ8Z000000000000000",
                     "wakeup_kind": "message",
+                    "timing_profile_hint": "default",
                     "push_hint": "new_message",
                     "counts": { "badge": "2-5" },
                     "devices": [{
@@ -216,6 +218,7 @@ pub fn shared_push_notify_privacy_vectors() -> Vec<PushNotifyPrivacyVector> {
                 "notification": {
                     "push_target_id": "ck:pseudonym:push:01HYZ8Z000000000000000",
                     "wakeup_kind": "message",
+                    "timing_profile_hint": "default",
                     "title": "Secret",
                     "devices": [{
                         "device_id": "ck:device:01904100-0000-7000-8000-000000000010",
