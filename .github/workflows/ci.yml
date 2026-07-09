@@ -22,7 +22,7 @@ jobs:
           - "notify"        # ck.edge.push.command.notify wire types
           - "http,notify"   # combined (release surface)
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt
@@ -47,7 +47,7 @@ jobs:
           - "notify"
           - "http,notify"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
       - name: Checkout sibling Arkret Rust SDK
         env:
@@ -68,7 +68,7 @@ jobs:
           - "notify"
           - "http,notify"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
@@ -84,7 +84,7 @@ jobs:
     name: Documentation
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
       - name: Checkout sibling Arkret Rust SDK
         env:
@@ -100,7 +100,7 @@ jobs:
     name: Examples
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
       - name: Checkout sibling Arkret Rust SDK
         env:
@@ -114,7 +114,7 @@ jobs:
     name: MSRV (1.96)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: "1.96"
@@ -136,7 +136,7 @@ jobs:
     name: wasm32 (build + doc)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: wasm32-unknown-unknown
@@ -162,14 +162,14 @@ jobs:
     name: Typos
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: crate-ci/typos@master
 
   package:
     name: Package (cargo publish --dry-run)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
       - name: Checkout sibling Arkret Rust SDK
         env:
@@ -191,7 +191,7 @@ jobs:
       CHIME_INTEGRATION_REQUIRED: "1"
     steps:
       - name: Checkout chime
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           path: chime
       - name: Checkout sibling floria
@@ -221,7 +221,7 @@ jobs:
     name: Cargo deny
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
       - name: Checkout sibling Arkret Rust SDK
         env:
@@ -238,7 +238,7 @@ jobs:
       issues: write
       checks: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
       - name: Checkout sibling Arkret Rust SDK
         env:
