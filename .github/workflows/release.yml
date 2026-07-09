@@ -12,10 +12,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Checkout sibling Cokret Rust SDK
+      - name: Checkout sibling Arkret Rust SDK
         env:
           CI_REPO_TOKEN: ${{ secrets.CI_REPO_TOKEN || github.token }}
-        run: bash .ci/checkout-sibling.sh cokret-rust-sdk ../cokret-rust-sdk
+        run: bash .ci/checkout-sibling.sh arkret-rust-sdk ../arkret-rust-sdk
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
 

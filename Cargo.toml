@@ -4,12 +4,12 @@ version = "0.3.0"
 edition = "2024"
 rust-version = "1.96"
 license = "Apache-2.0"
-repository = "https://github.com/cokret/chime"
-homepage = "https://github.com/cokret/chime"
+repository = "https://github.com/arkret/chime"
+homepage = "https://github.com/arkret/chime"
 documentation = "https://docs.rs/chime"
 readme = "README.md"
-description = "Cokret push notification gateway types and device registration helpers, with support for domestic Chinese Android OEM providers through Bugle."
-keywords = ["cokret", "push", "notification", "fcm", "apns"]
+description = "Arkret push notification gateway types and device registration helpers, with support for domestic Chinese Android OEM providers through Bugle."
+keywords = ["arkret", "push", "notification", "fcm", "apns"]
 categories = ["api-bindings", "network-programming", "web-programming"]
 exclude = [
     "_todos.md",
@@ -39,7 +39,7 @@ rustdoc-args = ["--cfg", "docsrs"]
 # because there is no tokio runtime on the browser main thread.
 base64 = {workspace = true}
 chrono = {workspace = true,default-features = false,features = ["serde", "clock"]}
-cokret = {workspace = true,default-features = false,features = ["full-surface"]}
+arkret = {workspace = true,default-features = false,features = ["full-surface"]}
 httpdate = {workspace = true}
 serde = {workspace = true,features = ["derive"]}
 serde_json = {workspace = true}
@@ -68,7 +68,7 @@ zeroize = {workspace = true,features = ["derive"],optional = true}
 
 [features]
 default = []
-## Enable Cokret HTTP push device registration via reqwest.
+## Enable Arkret HTTP push device registration via reqwest.
 ##
 ## On native targets this enables reqwest with rustls + a tokio
 ## time driver. On wasm32 it enables reqwest's fetch backend and
@@ -93,7 +93,7 @@ resolver = "3"
 [workspace.dependencies]
 base64 = "0.22"
 chrono = {version = "0.4",default-features = false}
-cokret = {version = "0.3.0",path = "../cokret-rust-sdk/crates/sdk",default-features = false}
+arkret = {version = "0.3.0",path = "../arkret-rust-sdk/crates/sdk",default-features = false}
 ed25519-dalek = {version = "2.2.0",default-features = false,features = ["std", "rand_core"]}
 gloo-timers = "0.4"
 httpdate = "1"

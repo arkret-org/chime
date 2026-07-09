@@ -13,7 +13,7 @@ use super::wire::{
 use super::{REGISTER_DEVICE_PATH, UNREGISTER_DEVICE_PATH};
 use crate::{GatewayBinding, PushPreferences, hash_push_key};
 
-/// Build the Cokret register-device request body from app configuration,
+/// Build the Arkret register-device request body from app configuration,
 /// the target gateway binding, and stored push preferences.
 ///
 /// The `binding`'s `push_key` and `app_id` overrides take priority over
@@ -28,7 +28,7 @@ use crate::{GatewayBinding, PushPreferences, hash_push_key};
 ///
 /// let config = PushDeviceConfig {
 ///     principal_id: Some("did:web:alice.example"),
-///     device_id: "ck:device:01904100-0000-7000-8000-000000000004",
+///     device_id: "ak:device:01904100-0000-7000-8000-000000000004",
 ///     push_key: Some("fcm:token"),
 ///     platform: Some("android"),
 ///     app_id: Some("app.example.android"),
@@ -51,7 +51,7 @@ use crate::{GatewayBinding, PushPreferences, hash_push_key};
 /// let request = build_register_device_request(&config, &binding, &prefs).unwrap();
 /// assert_eq!(
 ///     request.device_id,
-///     "ck:device:01904100-0000-7000-8000-000000000004"
+///     "ak:device:01904100-0000-7000-8000-000000000004"
 /// );
 /// ```
 pub fn build_register_device_request(
@@ -92,7 +92,7 @@ pub fn build_register_device_request(
     })
 }
 
-/// Build the Cokret unregister-device request body from app configuration,
+/// Build the Arkret unregister-device request body from app configuration,
 /// the target gateway binding, and stored push preferences.
 ///
 /// ```rust
@@ -103,12 +103,12 @@ pub fn build_register_device_request(
 ///
 /// let config = PushDeviceConfig {
 ///     principal_id: Some("did:web:alice.example"),
-///     device_id: "ck:device:01904100-0000-7000-8000-000000000004",
+///     device_id: "ak:device:01904100-0000-7000-8000-000000000004",
 ///     push_key: None,
 ///     platform: Some("android"),
 ///     app_id: Some("app.example.android"),
 ///     domestic_app_id: None,
-///     registration_id: Some("ck:pushreg:01JS0KE000000000000000000"),
+///     registration_id: Some("ak:pushreg:01JS0KE000000000000000000"),
 ///     display_name: None,
 ///     idempotency_key: Some("unregister-phone-v1"),
 ///     request_id: None,
@@ -122,7 +122,7 @@ pub fn build_register_device_request(
 ///     build_unregister_device_request(&config, &binding, &PushPreferences::default()).unwrap();
 /// assert_eq!(
 ///     request.registration_id.as_deref(),
-///     Some("ck:pushreg:01JS0KE000000000000000000")
+///     Some("ak:pushreg:01JS0KE000000000000000000")
 /// );
 /// ```
 pub fn build_unregister_device_request(
@@ -177,7 +177,7 @@ pub fn build_unregister_device_request(
 ///
 /// let config = PushDeviceConfig {
 ///     principal_id: Some("did:web:alice.example"),
-///     device_id: "ck:device:01904100-0000-7000-8000-000000000004",
+///     device_id: "ak:device:01904100-0000-7000-8000-000000000004",
 ///     push_key: Some("fcm:token"),
 ///     platform: Some("android"),
 ///     app_id: Some("app.example.android"),
@@ -284,8 +284,8 @@ mod tests {
     use super::*;
     use crate::push::errors::PushErrorKind;
     use crate::push::{
-        COKRET_ACTOR_ID_HEADER, COKRET_DESTINATION_SERVICE_DID_HEADER, COKRET_EXPIRES_AT_HEADER,
-        COKRET_ORIGIN_SERVICE_DID_HEADER, COKRET_SESSION_GRANT_HEADER, SIGNATURE_HEADER,
+        ARKRET_ACTOR_ID_HEADER, ARKRET_DESTINATION_SERVICE_DID_HEADER, ARKRET_EXPIRES_AT_HEADER,
+        ARKRET_ORIGIN_SERVICE_DID_HEADER, ARKRET_SESSION_GRANT_HEADER, SIGNATURE_HEADER,
         SIGNATURE_INPUT_HEADER,
     };
     use crate::{DEFAULT_BUGLE_PUSH_GATEWAY_URL, PushGatewayType};
@@ -293,15 +293,15 @@ mod tests {
     fn config<'a>(platform: Option<&'a str>) -> PushDeviceConfig<'a> {
         PushDeviceConfig {
             principal_id: Some("did:web:alice.example"),
-            device_id: "ck:device:01904100-0000-7000-8000-000000000004",
+            device_id: "ak:device:01904100-0000-7000-8000-000000000004",
             push_key: Some("fcm:very-secret-token"),
             platform,
             app_id: Some("app.example.android"),
             domestic_app_id: Some("app.example.android.cn"),
-            registration_id: Some("ck:pushreg:01JS0KE000000000000000000"),
+            registration_id: Some("ak:pushreg:01JS0KE000000000000000000"),
             display_name: Some("Alice Phone"),
             idempotency_key: Some("idem-1"),
-            request_id: Some("ck:request:01JS0KE000000000000000000"),
+            request_id: Some("ak:request:01JS0KE000000000000000000"),
             proof: None,
         }
     }
@@ -331,7 +331,7 @@ mod tests {
         );
         assert_eq!(
             request.device_id,
-            "ck:device:01904100-0000-7000-8000-000000000004"
+            "ak:device:01904100-0000-7000-8000-000000000004"
         );
         assert_eq!(request.push_gateway, DEFAULT_BUGLE_PUSH_GATEWAY_URL);
         assert_eq!(request.push_key, "fcm:very-secret-token");
@@ -341,7 +341,7 @@ mod tests {
         assert_eq!(request.idempotency_key.as_deref(), Some("idem-1"));
         assert_eq!(
             request.request_id.as_deref(),
-            Some("ck:request:01JS0KE000000000000000000")
+            Some("ak:request:01JS0KE000000000000000000")
         );
     }
 
@@ -368,11 +368,11 @@ mod tests {
         );
         assert_eq!(
             request.device_id,
-            "ck:device:01904100-0000-7000-8000-000000000004"
+            "ak:device:01904100-0000-7000-8000-000000000004"
         );
         assert_eq!(
             request.registration_id.as_deref(),
-            Some("ck:pushreg:01JS0KE000000000000000000")
+            Some("ak:pushreg:01JS0KE000000000000000000")
         );
         assert_eq!(request.push_key.as_deref(), Some("fcm:very-secret-token"));
         assert!(
@@ -389,7 +389,7 @@ mod tests {
         assert_eq!(request.idempotency_key.as_deref(), Some("idem-1"));
         assert_eq!(
             request.request_id.as_deref(),
-            Some("ck:request:01JS0KE000000000000000000")
+            Some("ak:request:01JS0KE000000000000000000")
         );
     }
 
@@ -517,7 +517,7 @@ mod tests {
         );
         assert_eq!(
             context.device_id,
-            "ck:device:01904100-0000-7000-8000-000000000004"
+            "ak:device:01904100-0000-7000-8000-000000000004"
         );
         assert!(context.content_digest.starts_with("sha-256=:"));
         assert!(context.content_digest.ends_with(':'));
@@ -564,31 +564,31 @@ mod tests {
         let metadata_headers = context.signed_metadata_headers();
         assert!(
             metadata_headers
-                .contains(&(COKRET_ACTOR_ID_HEADER, "did:web:alice.example".to_owned()))
+                .contains(&(ARKRET_ACTOR_ID_HEADER, "did:web:alice.example".to_owned()))
         );
         assert!(
             metadata_headers
-                .contains(&(COKRET_EXPIRES_AT_HEADER, "2026-04-29T00:05:00Z".to_owned()))
+                .contains(&(ARKRET_EXPIRES_AT_HEADER, "2026-04-29T00:05:00Z".to_owned()))
         );
         assert!(metadata_headers.contains(&(
-            COKRET_ORIGIN_SERVICE_DID_HEADER,
+            ARKRET_ORIGIN_SERVICE_DID_HEADER,
             "did:web:sync.example.com".to_owned()
         )));
         assert!(metadata_headers.contains(&(
-            COKRET_DESTINATION_SERVICE_DID_HEADER,
+            ARKRET_DESTINATION_SERVICE_DID_HEADER,
             "did:web:principal.example".to_owned()
         )));
         assert!(metadata_headers.contains(&(
-            COKRET_SESSION_GRANT_HEADER,
+            ARKRET_SESSION_GRANT_HEADER,
             "coauth-grant-secret".to_owned()
         )));
 
         let signature_input = context.http_message_signature_input("sig1").unwrap();
-        assert!(signature_input.contains("\"x-cokret-actor-id\""));
-        assert!(signature_input.contains("\"x-cokret-expires-at\""));
-        assert!(signature_input.contains("\"x-cokret-origin-service-did\""));
-        assert!(signature_input.contains("\"x-cokret-destination-service-did\""));
-        assert!(signature_input.contains("\"x-cokret-session-grant\""));
+        assert!(signature_input.contains("\"x-arkret-actor-id\""));
+        assert!(signature_input.contains("\"x-arkret-expires-at\""));
+        assert!(signature_input.contains("\"x-arkret-origin-service-did\""));
+        assert!(signature_input.contains("\"x-arkret-destination-service-did\""));
+        assert!(signature_input.contains("\"x-arkret-session-grant\""));
 
         let debug = format!("{context:?}");
         assert!(debug.contains("session_grant"));

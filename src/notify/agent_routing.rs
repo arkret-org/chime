@@ -78,7 +78,7 @@ pub const ROUND_R2_R3_SENSITIVE_FIELDS: &[&str] = &[
     "shard_key",
 ];
 
-pub use cokret::{
+pub use arkret::{
     AGENT_ACTOR_PRIVATE_KINDS, AGENT_LIFECYCLE_SILENT_KINDS as AGENT_LIFECYCLE_DURABLE_KINDS,
     AgentEventRouting, PHASE_P2_AGENT_TYPED_ID_PREFIXES,
 };
@@ -88,7 +88,7 @@ pub use cokret::{
 /// specially (the historical default: fall through to the normal
 /// notification surface).
 pub fn classify_agent_event_kind(event_kind: &str) -> Option<AgentEventRouting> {
-    cokret::classify_agent_event_kind(event_kind)
+    arkret::classify_agent_event_kind(event_kind)
 }
 
 /// Return `true` if `value` starts with one of the registered typed-id
@@ -97,7 +97,7 @@ pub fn classify_agent_event_kind(event_kind: &str) -> Option<AgentEventRouting> 
 /// ids appears in a wakeup slot that should never carry an agent,
 /// grant, backup, or recovery identifier (e.g. `event_id`, `circle_id`).
 pub fn is_phase_p2_agent_typed_id(value: &str) -> bool {
-    cokret::is_phase_p2_agent_typed_id(value)
+    arkret::is_phase_p2_agent_typed_id(value)
 }
 
 /// Phase P2 — minimal, PII-free notification summary for a durable

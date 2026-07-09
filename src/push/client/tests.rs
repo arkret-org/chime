@@ -6,7 +6,7 @@ use std::time::Duration;
 
 use super::super::errors::PushErrorKind;
 use super::super::wire::PushDeviceConfig;
-use super::super::{COKRET_REQUEST_ID_HEADER, RETRY_AFTER_HEADER};
+use super::super::{ARKRET_REQUEST_ID_HEADER, RETRY_AFTER_HEADER};
 use super::core::CokretPushClient;
 use super::retry::PushRetryPolicy;
 use crate::PushPreferences;
@@ -56,15 +56,15 @@ fn spawn_mock_server(responses: Vec<MockHttpOutcome>) -> (String, Arc<Mutex<Vec<
 fn config<'a>() -> PushDeviceConfig<'a> {
     PushDeviceConfig {
         principal_id: Some("did:web:alice.example"),
-        device_id: "ck:device:01904100-0000-7000-8000-000000000005",
+        device_id: "ak:device:01904100-0000-7000-8000-000000000005",
         push_key: Some("fcm:very-secret-token"),
         platform: Some("android"),
         app_id: Some("app.example.android"),
         domestic_app_id: None,
-        registration_id: Some("ck:pushreg:01JS0KE000000000000000000"),
+        registration_id: Some("ak:pushreg:01JS0KE000000000000000000"),
         display_name: Some("Alice Phone"),
         idempotency_key: Some("idem-1"),
-        request_id: Some("ck:request:test"),
+        request_id: Some("ak:request:test"),
         proof: None,
     }
 }
@@ -98,7 +98,7 @@ fn client(base_url: impl Into<String>) -> CokretPushClient {
 async fn register_success_exposes_response_context_and_headers() {
     let (base_url, requests) = spawn_mock_server(vec![MockHttpOutcome {
         status: "200 OK",
-        headers: vec![(COKRET_REQUEST_ID_HEADER, "ck:request:server")],
+        headers: vec![(ARKRET_REQUEST_ID_HEADER, "ak:request:server")],
         body: r#"{"ok":true,"registration_id":"reg-1","expires_at":"2026-04-29T00:00:00Z"}"#,
     }]);
 
@@ -116,7 +116,7 @@ async fn register_success_exposes_response_context_and_headers() {
 
     assert!(response.body.ok);
     assert_eq!(response.body.registration_id.as_deref(), Some("reg-1"));
-    assert_eq!(response.request_id.as_deref(), Some("ck:request:server"));
+    assert_eq!(response.request_id.as_deref(), Some("ak:request:server"));
 
     let request = requests.lock().unwrap().join("\n");
     assert!(request.contains("POST /_cokret/edge/push/register-device HTTP/1.1"));
@@ -125,7 +125,7 @@ async fn register_success_exposes_response_context_and_headers() {
     // header / path / signing-context concerns — they ride the headers,
     // never the canonical wire body.
     assert!(request.contains("idempotency-key: idem-1"));
-    assert!(request.contains("x-cokret-request-id: ck:request:test"));
+    assert!(request.contains("x-arkret-request-id: ck:request:test"));
     assert!(request.contains("user-agent: test-agent"));
 
     // CHIME-01: the POSTed body is the canonical
@@ -163,7 +163,7 @@ async fn client_default_headers_fill_request_metadata() {
 
     CokretPushClient::new(base_url)
         .with_default_idempotency_key("client-idem")
-        .with_default_request_id("ck:request:client")
+        .with_default_request_id("ak:request:client")
         .with_session_grant("coauth-grant-secret")
         .unwrap()
         .register_device(&config, &binding(), &prefs())
@@ -172,8 +172,8 @@ async fn client_default_headers_fill_request_metadata() {
 
     let request = requests.lock().unwrap().join("\n");
     assert!(request.contains("idempotency-key: client-idem"));
-    assert!(request.contains("x-cokret-request-id: ck:request:client"));
-    assert!(request.contains("x-cokret-session-grant: coauth-grant-secret"));
+    assert!(request.contains("x-arkret-request-id: ck:request:client"));
+    assert!(request.contains("x-arkret-session-grant: coauth-grant-secret"));
 }
 
 #[tokio::test]
@@ -196,7 +196,7 @@ async fn unregister_success() {
         .rsplit("\r\n\r\n")
         .next()
         .expect("request has a body");
-    assert!(body.contains("\"device_id\":\"ck:device:01904100-0000-7000-8000-000000000005\""));
+    assert!(body.contains("\"device_id\":\"ak:device:01904100-0000-7000-8000-000000000005\""));
     assert!(body.contains("\"push_key\":\"fcm:very-secret-token\""));
     assert!(body.contains("\"app_id\":\"app.example.android\""));
     assert!(
@@ -209,7 +209,7 @@ async fn unregister_success() {
 async fn unregister_not_found_is_idempotent_success() {
     let (base_url, _) = spawn_mock_server(vec![MockHttpOutcome {
         status: "404 Not Found",
-        headers: vec![(COKRET_REQUEST_ID_HEADER, "ck:request:not-found")],
+        headers: vec![(ARKRET_REQUEST_ID_HEADER, "ak:request:not-found")],
         body: r#"{"ok":false,"error":{"code":"not_found","message":"missing"}}"#,
     }]);
 
@@ -219,7 +219,7 @@ async fn unregister_not_found_is_idempotent_success() {
         .unwrap();
 
     assert!(response.body.ok);
-    assert_eq!(response.request_id.as_deref(), Some("ck:request:not-found"));
+    assert_eq!(response.request_id.as_deref(), Some("ak:request:not-found"));
 }
 
 #[tokio::test]
@@ -249,7 +249,7 @@ async fn classifies_json_error_responses() {
 
     for (status, code, expected) in cases {
         let body = format!(
-            r#"{{"ok":false,"error":{{"code":"{code}","message":"x"}},"request_id":"ck:request:error"}}"#
+            r#"{{"ok":false,"error":{{"code":"{code}","message":"x"}},"request_id":"ak:request:error"}}"#
         );
         let (base_url, _) = spawn_mock_server(vec![MockHttpOutcome {
             status,
@@ -263,7 +263,7 @@ async fn classifies_json_error_responses() {
             .unwrap_err();
 
         assert_eq!(err.kind(), expected);
-        assert_eq!(err.request_id(), Some("ck:request:error"));
+        assert_eq!(err.request_id(), Some("ak:request:error"));
     }
 }
 
@@ -306,7 +306,7 @@ async fn error_debug_redacts_envelope_message_and_details() {
     let (base_url, _) = spawn_mock_server(vec![MockHttpOutcome {
         status: "403 Forbidden",
         headers: vec![],
-        body: r#"{"ok":false,"error":{"code":"capability_denied","message":"token fcm:very-secret-token proof super-secret-proof","details":{"proof":"super-secret-proof","push_key":"fcm:very-secret-token"}},"request_id":"ck:request:denied"}"#,
+        body: r#"{"ok":false,"error":{"code":"capability_denied","message":"token fcm:very-secret-token proof super-secret-proof","details":{"proof":"super-secret-proof","push_key":"fcm:very-secret-token"}},"request_id":"ak:request:denied"}"#,
     }]);
 
     let err = client(base_url)
@@ -385,7 +385,7 @@ async fn default_register_allows_with_session_grant_header() {
 
     assert!(response.ok);
     let raw = requests.lock().unwrap().join("\n");
-    assert!(raw.contains("x-cokret-session-grant: coauth-grant-secret"));
+    assert!(raw.contains("x-arkret-session-grant: coauth-grant-secret"));
 }
 
 #[tokio::test]

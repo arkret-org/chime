@@ -106,13 +106,13 @@ fn arb_unicode_string() -> impl Strategy<Value = String> {
 
 fn make_request() -> ChimePushNotifyEnvelope {
     let device: PushNotificationDevice = serde_json::from_value(json!({
-        "device_id": "ck:device:01904100-0000-7000-8000-000000000010",
+        "device_id": "ak:device:01904100-0000-7000-8000-000000000010",
         "push_key": "fcm:token-aaaaaaaaaa",
         "app_id": "app.example",
     }))
     .unwrap();
     let mut notification = PushNotification::new_blind_wakeup(
-        PushTargetId::new("ck:pseudonym:push:01HYZ8Z000000000000000").unwrap(),
+        PushTargetId::new("ak:pseudonym:push:01HYZ8Z000000000000000").unwrap(),
         WakeupKind::Message,
     );
     notification.devices = vec![device];

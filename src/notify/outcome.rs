@@ -1,6 +1,6 @@
 use std::fmt;
 
-use cokret::Did;
+use arkret::Did;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 

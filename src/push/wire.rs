@@ -16,7 +16,7 @@ use serde_json::Value;
 use super::errors::PushRegistrationError;
 use super::urls::{redact_push_key, redact_url};
 
-/// Supported Cokret push platform values.
+/// Supported Arkret push platform values.
 ///
 /// Stability: `1.0`-stable. New variants are additive; renaming or
 /// removing a variant requires a major SemVer bump.
@@ -62,9 +62,9 @@ impl TryFrom<&str> for PushPlatform {
 /// major SemVer bump.
 #[derive(Clone, Copy)]
 pub struct PushDeviceConfig<'a> {
-    /// Cokret principal ID that owns this device registration.
+    /// Arkret principal ID that owns this device registration.
     pub principal_id: Option<&'a str>,
-    /// Cokret device id, usually a `ck:device:*` typed id.
+    /// Arkret device id, usually a `ck:device:*` typed id.
     pub device_id: &'a str,
     /// Platform push token, e.g. `fcm:...`, `apns:...`, `webpush:...`.
     pub push_key: Option<&'a str>,
@@ -81,7 +81,7 @@ pub struct PushDeviceConfig<'a> {
     /// Idempotency key sent both as request metadata and, for services that
     /// persist it, as an optional request body field.
     pub idempotency_key: Option<&'a str>,
-    /// Request id sent as `X-Cokret-Request-Id`.
+    /// Request id sent as `X-Arkret-Request-Id`.
     pub request_id: Option<&'a str>,
     /// Optional caller-supplied DID proof or canonical proof body.
     ///
@@ -111,7 +111,7 @@ impl fmt::Debug for PushDeviceConfig<'_> {
 /// Internal builder/config for a `register-device` call.
 ///
 /// **This is NOT a wire body.** The canonical `register-device` request
-/// body is [`cokret::PushRegisterDeviceRequestBody`] and is the only thing
+/// body is [`arkret::PushRegisterDeviceRequestBody`] and is the only thing
 /// ever serialized onto the wire — chime derives it from this builder via
 /// [`Self::to_sdk_request`]. The transport-only fields carried here
 /// (`operation_id`, `principal_id`, `idempotency_key`, `request_id`,
@@ -177,9 +177,9 @@ impl fmt::Debug for ChimePushRegisterDeviceRequest {
 impl ChimePushRegisterDeviceRequest {
     pub fn to_sdk_request(
         &self,
-    ) -> Result<cokret::PushRegisterDeviceRequestBody, PushRegistrationError> {
-        Ok(cokret::PushRegisterDeviceRequestBody {
-            device_id: cokret::DeviceId::new(self.device_id.clone()).map_err(|error| {
+    ) -> Result<arkret::PushRegisterDeviceRequestBody, PushRegistrationError> {
+        Ok(arkret::PushRegisterDeviceRequestBody {
+            device_id: arkret::DeviceId::new(self.device_id.clone()).map_err(|error| {
                 PushRegistrationError::InvalidField {
                     field: "device_id",
                     reason: error.to_string(),
@@ -207,8 +207,8 @@ pub struct ChimePushRegisterDeviceOutcome {
     pub expires_at: Option<String>,
 }
 
-impl From<cokret::PushRegisterDeviceOutcome> for ChimePushRegisterDeviceOutcome {
-    fn from(value: cokret::PushRegisterDeviceOutcome) -> Self {
+impl From<arkret::PushRegisterDeviceOutcome> for ChimePushRegisterDeviceOutcome {
+    fn from(value: arkret::PushRegisterDeviceOutcome) -> Self {
         Self {
             ok: value.ok,
             registration_id: value.registration_id,
@@ -220,7 +220,7 @@ impl From<cokret::PushRegisterDeviceOutcome> for ChimePushRegisterDeviceOutcome 
 /// Internal builder/config for an `unregister-device` call.
 ///
 /// **This is NOT a wire body.** The canonical `unregister-device` request
-/// body is [`cokret::PushUnregisterDeviceRequestBody`] and is the only
+/// body is [`arkret::PushUnregisterDeviceRequestBody`] and is the only
 /// thing serialized onto the wire — chime derives it from this builder via
 /// [`Self::to_sdk_request`], which keeps only `{device_id, push_key?,
 /// app_id?}`. The remaining fields here (`operation_id`, `principal_id`,
@@ -288,9 +288,9 @@ impl fmt::Debug for ChimePushUnregisterDeviceRequest {
 impl ChimePushUnregisterDeviceRequest {
     pub fn to_sdk_request(
         &self,
-    ) -> Result<cokret::PushUnregisterDeviceRequestBody, PushRegistrationError> {
-        Ok(cokret::PushUnregisterDeviceRequestBody {
-            device_id: cokret::DeviceId::new(self.device_id.clone()).map_err(|error| {
+    ) -> Result<arkret::PushUnregisterDeviceRequestBody, PushRegistrationError> {
+        Ok(arkret::PushUnregisterDeviceRequestBody {
+            device_id: arkret::DeviceId::new(self.device_id.clone()).map_err(|error| {
                 PushRegistrationError::InvalidField {
                     field: "device_id",
                     reason: error.to_string(),
@@ -317,8 +317,8 @@ pub struct ChimePushUnregisterDeviceOutcome {
     pub request_id: Option<String>,
 }
 
-impl From<cokret::PushUnregisterDeviceOutcome> for ChimePushUnregisterDeviceOutcome {
-    fn from(value: cokret::PushUnregisterDeviceOutcome) -> Self {
+impl From<arkret::PushUnregisterDeviceOutcome> for ChimePushUnregisterDeviceOutcome {
+    fn from(value: arkret::PushUnregisterDeviceOutcome) -> Self {
         Self {
             ok: value.ok,
             already_removed: false,
@@ -328,8 +328,8 @@ impl From<cokret::PushUnregisterDeviceOutcome> for ChimePushUnregisterDeviceOutc
     }
 }
 
-pub type CokretError = cokret::ErrorDetail;
-pub type CokretErrorEnvelope = cokret::ErrorEnvelope;
+pub type CokretError = arkret::ErrorDetail;
+pub type CokretErrorEnvelope = arkret::ErrorEnvelope;
 
 #[cfg(test)]
 mod tests {
@@ -367,7 +367,7 @@ mod tests {
         serde_json::from_value::<ChimePushRegisterDeviceOutcome>(serde_json::json!({
             "ok": true,
             "registration_id": "reg-1",
-            "request_id": "ck:request:123"
+            "request_id": "ak:request:123"
         }))
         .expect_err("register outcome must reject non-spec response fields");
 
@@ -376,13 +376,13 @@ mod tests {
                 "ok": true,
                 "already_removed": true,
                 "removed_registration_id": "reg-1",
-                "request_id": "ck:request:456"
+                "request_id": "ak:request:456"
             }))
             .unwrap();
 
         assert!(unregister.ok);
         assert!(unregister.already_removed);
         assert_eq!(unregister.removed_registration_id.as_deref(), Some("reg-1"));
-        assert_eq!(unregister.request_id.as_deref(), Some("ck:request:456"));
+        assert_eq!(unregister.request_id.as_deref(), Some("ak:request:456"));
     }
 }

@@ -1,4 +1,4 @@
-//! Cokret push device registration request types and HTTP helper.
+//! Arkret push device registration request types and HTTP helper.
 //!
 //! This module is split into:
 //! - [`wire`]: register/unregister request/response DTOs + `CokretError`
@@ -28,16 +28,16 @@ pub use platform_app_id::{DefaultPlatformAppIdResolver, PlatformAppIdResolver};
 
 // -- Path constants ---------------------------------------------------------
 
-/// Cokret HTTP path for `ck.edge.push.command.register_device`.
+/// Arkret HTTP path for `ck.edge.push.command.register_device`.
 pub const REGISTER_DEVICE_PATH: &str = "/_cokret/edge/push/register-device";
 
-/// Cokret HTTP path for `ck.edge.push.command.unregister_device`.
+/// Arkret HTTP path for `ck.edge.push.command.unregister_device`.
 pub const UNREGISTER_DEVICE_PATH: &str = "/_cokret/edge/push/unregister-device";
 
-/// Cokret HTTP path for `ck.edge.push.command.notify`.
+/// Arkret HTTP path for `ck.edge.push.command.notify`.
 pub const PUSH_NOTIFY_PATH: &str = "/_cokret/edge/push/notify";
 
-/// Cokret HTTP path for `ck.server.query.describe`.
+/// Arkret HTTP path for `ck.server.query.describe`.
 pub const SERVER_DESCRIBE_PATH: &str = "/_cokret/describe";
 
 /// Floria product path for discovering the active push gateway bridge contract.
@@ -48,47 +48,47 @@ pub(crate) const FLORIA_INTEGRATION_DESCRIBE_PATH: &str = "/_floria/integration/
 
 // -- Header constants -------------------------------------------------------
 
-/// Header used to correlate Cokret requests across clients and services.
-pub const COKRET_REQUEST_ID_HEADER: &str = "X-Cokret-Request-Id";
+/// Header used to correlate Arkret requests across clients and services.
+pub const ARKRET_REQUEST_ID_HEADER: &str = "X-Arkret-Request-Id";
 
 /// RFC 9530 content digest header covered by request signatures.
 pub const CONTENT_DIGEST_HEADER: &str = "Content-Digest";
 
-/// Cokret operation id header covered by request signatures.
-pub const COKRET_OPERATION_ID_HEADER: &str = "X-Cokret-Operation-Id";
+/// Arkret operation id header covered by request signatures.
+pub const ARKRET_OPERATION_ID_HEADER: &str = "X-Arkret-Operation-Id";
 
-/// Cokret device id header covered by request signatures.
-pub const COKRET_DEVICE_ID_HEADER: &str = "X-Cokret-Device-Id";
+/// Arkret device id header covered by request signatures.
+pub const ARKRET_DEVICE_ID_HEADER: &str = "X-Arkret-Device-Id";
 
-/// Cokret request creation timestamp header covered by request signatures.
-pub const COKRET_CREATED_AT_HEADER: &str = "X-Cokret-Created-At";
+/// Arkret request creation timestamp header covered by request signatures.
+pub const ARKRET_CREATED_AT_HEADER: &str = "X-Arkret-Created-At";
 
-/// Cokret request audience header covered by request signatures.
-pub const COKRET_AUDIENCE_HEADER: &str = "X-Cokret-Audience";
+/// Arkret request audience header covered by request signatures.
+pub const ARKRET_AUDIENCE_HEADER: &str = "X-Arkret-Audience";
 
-/// Cokret actor ID header covered by request signatures.
-pub const COKRET_ACTOR_ID_HEADER: &str = "X-Cokret-Actor-Id";
+/// Arkret actor ID header covered by request signatures.
+pub const ARKRET_ACTOR_ID_HEADER: &str = "X-Arkret-Actor-Id";
 
-/// Cokret request expiry timestamp header covered by request signatures.
-pub const COKRET_EXPIRES_AT_HEADER: &str = "X-Cokret-Expires-At";
+/// Arkret request expiry timestamp header covered by request signatures.
+pub const ARKRET_EXPIRES_AT_HEADER: &str = "X-Arkret-Expires-At";
 
-/// Cokret request origin URL header covered by request signatures.
-pub const COKRET_ORIGIN_HEADER: &str = "X-Cokret-Origin";
+/// Arkret request origin URL header covered by request signatures.
+pub const ARKRET_ORIGIN_HEADER: &str = "X-Arkret-Origin";
 
-/// Cokret origin service DID header covered by request signatures.
-pub const COKRET_ORIGIN_SERVICE_DID_HEADER: &str = "X-Cokret-Origin-Service-Did";
+/// Arkret origin service DID header covered by request signatures.
+pub const ARKRET_ORIGIN_SERVICE_DID_HEADER: &str = "X-Arkret-Origin-Service-Did";
 
-/// Cokret destination service DID header covered by request signatures.
-pub const COKRET_DESTINATION_SERVICE_DID_HEADER: &str = "X-Cokret-Destination-Service-Did";
+/// Arkret destination service DID header covered by request signatures.
+pub const ARKRET_DESTINATION_SERVICE_DID_HEADER: &str = "X-Arkret-Destination-Service-Did";
 
-/// Cokret nonce header covered by request signatures.
-pub const COKRET_NONCE_HEADER: &str = "X-Cokret-Nonce";
+/// Arkret nonce header covered by request signatures.
+pub const ARKRET_NONCE_HEADER: &str = "X-Arkret-Nonce";
 
-/// Cokret idempotency key metadata header covered by request signatures.
-pub const COKRET_IDEMPOTENCY_KEY_HEADER: &str = "X-Cokret-Idempotency-Key";
+/// Arkret idempotency key metadata header covered by request signatures.
+pub const ARKRET_IDEMPOTENCY_KEY_HEADER: &str = "X-Arkret-Idempotency-Key";
 
 /// Header used to carry an externally supplied coauth/soland session grant.
-pub const COKRET_SESSION_GRANT_HEADER: &str = "X-Cokret-Session-Grant";
+pub const ARKRET_SESSION_GRANT_HEADER: &str = "X-Arkret-Session-Grant";
 
 /// HTTP Message Signatures input header.
 pub const SIGNATURE_INPUT_HEADER: &str = "Signature-Input";
@@ -111,7 +111,7 @@ pub use bridge_describe::{
 };
 #[cfg(feature = "http")]
 pub use client::{CokretHttpOutcome, CokretPushClient, PushRetryPolicy};
-pub use cokret::{
+pub use arkret::{
     PushRegisterDeviceOutcome, PushRegisterDeviceRequestBody, PushUnregisterDeviceOutcome,
     PushUnregisterDeviceRequestBody, ServiceDescribe,
 };

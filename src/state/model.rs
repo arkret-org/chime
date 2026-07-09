@@ -257,7 +257,7 @@ fn default_state_schema_version() -> u16 {
 
 /// Return a stable SHA-256 fingerprint for local token comparison.
 pub fn hash_push_key(push_key: &str) -> String {
-    cokret::canonical::sha256_digest(push_key.as_bytes())
+    arkret::canonical::sha256_digest(push_key.as_bytes())
 }
 
 pub fn token_rotation_required(
@@ -532,7 +532,7 @@ mod tests {
 
         let with_error = state.mark_last_error(
             "temporarily_unavailable",
-            Some("ck:request:1"),
+            Some("ak:request:1"),
             Some("1"),
             Some("2026-05-02T00:00:00Z"),
         );

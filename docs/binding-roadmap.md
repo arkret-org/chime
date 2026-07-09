@@ -60,7 +60,7 @@ The header would be generated via `cbindgen` from a separate
 `chime-ffi` crate so the core crate stays free of `extern "C"`
 attributes.
 
-### 2. WASM npm package (`@cokret/chime`)
+### 2. WASM npm package (`@arkret/chime`)
 
 **Status:** future work.
 **Audience:** browser-side web hosts and Electron renderers that need
@@ -71,7 +71,7 @@ Rust process.
 
 ```ts
 import { buildRegisterDeviceRequest, assertPayloadSafe,
-         PushGatewayType, PushNotifyPolicyMode } from "@cokret/chime";
+         PushGatewayType, PushNotifyPolicyMode } from "@arkret/chime";
 
 const request = buildRegisterDeviceRequest({
     config: { deviceId: "did:web:alice.example#web", /* … */ },
@@ -86,7 +86,7 @@ Build path: `wasm-pack build --target bundler` on a `chime-wasm`
 crate that re-exports the same validators via `wasm-bindgen`. The
 package would publish both `bundler` and `nodejs` targets.
 
-### 3. JNI binding (`im.cokret.chime`) — Android / JVM
+### 3. JNI binding (`im.arkret.chime`) — Android / JVM
 
 **Status:** future work.
 **Audience:** Android host applications that need to validate inbound
@@ -96,7 +96,7 @@ handing the result to Kotlin/Java UI code.
 **Shape (illustrative, not stable):**
 
 ```kotlin
-package im.cokret.chime
+package im.arkret.chime
 
 object Chime {
     @JvmStatic

@@ -60,9 +60,9 @@ mod inner {
                 r#"{
                     "notification": {
                         "wakeup_kind": "message",
-                        "push_target_id": "ck:pseudonym:push:abcdefghijklmnopqrstuv",
+                        "push_target_id": "ak:pseudonym:push:abcdefghijklmnopqrstuv",
                         "devices": [{
-                            "device_id": "ck:device:01904100-0000-7000-8000-000000000010",
+                            "device_id": "ak:device:01904100-0000-7000-8000-000000000010",
                             "push_key": "fcm:opaque-token",
                             "app_id": "app.example"
                         }]
@@ -75,9 +75,9 @@ mod inner {
                 r#"{
                     "notification": {
                         "wakeup_kind": "message",
-                        "push_target_id": "ck:pseudonym:push:abcdefghijklmnopqrstuv",
+                        "push_target_id": "ak:pseudonym:push:abcdefghijklmnopqrstuv",
                         "devices": [{
-                            "device_id": "ck:device:01904100-0000-7000-8000-000000000010",
+                            "device_id": "ak:device:01904100-0000-7000-8000-000000000010",
                             "push_key": "fcm:opaque-token",
                             "app_id": "app.example"
                         }]

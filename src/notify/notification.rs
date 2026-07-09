@@ -2,7 +2,7 @@ use std::fmt;
 
 // Round 4 (B5, spec a77b995) — pull typed audit surfaces from the SDK so
 // chime stays byte-aligned with what soland/floria emit.
-use cokret::{AccessKind, AuditPolicyAccessPayload, Did, EventId};
+use arkret::{AccessKind, AuditPolicyAccessPayload, Did, EventId};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
@@ -152,7 +152,7 @@ pub struct PushNotification {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub wakeup_kind: Option<WakeupKind>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub timing_profile_hint: Option<cokret::PushTimingProfileHint>,
+    pub timing_profile_hint: Option<arkret::PushTimingProfileHint>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub event_id: Option<String>,
     /// Gateway-internal route tokens. Stripped before any provider call;
@@ -182,7 +182,7 @@ pub struct PushNotification {
     /// is diagnostic context — push layer never decrypts on the
     /// strength of this field alone. The SDK validates the
     /// `(access_kind, late_recovery_original_event_id)` pairing via
-    /// [`cokret::AuditPolicyAccessPayload::validate_minimal`].
+    /// [`arkret::AuditPolicyAccessPayload::validate_minimal`].
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub policy_access: Option<AuditPolicyAccessPayload>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -234,14 +234,14 @@ impl PushNotification {
         Self {
             push_target_id: Some(push_target_id),
             wakeup_kind: Some(wakeup_kind),
-            timing_profile_hint: Some(cokret::PushTimingProfileHint::Default),
+            timing_profile_hint: Some(arkret::PushTimingProfileHint::Default),
             ..Self::default()
         }
     }
 
     pub(super) fn to_sdk_notification(
         &self,
-    ) -> Result<cokret::PushNotificationEnvelope, PushNotifyPrivacyError> {
+    ) -> Result<arkret::PushNotificationEnvelope, PushNotifyPrivacyError> {
         let event_id = match self.event_id.as_ref() {
             Some(value) => Some(EventId::new(value.clone()).map_err(|_| {
                 PushNotifyPrivacyError::InvalidFieldValue {
@@ -254,7 +254,7 @@ impl PushNotification {
         let route_tokens = self
             .route_tokens
             .as_ref()
-            .map(|route_tokens| cokret::PushRouteTokens {
+            .map(|route_tokens| arkret::PushRouteTokens {
                 realm_route_token: route_tokens.realm_route_token.clone(),
                 scope_route_token: route_tokens.scope_route_token.clone(),
                 mention_redirect_target_route_tokens: route_tokens
@@ -270,7 +270,7 @@ impl PushNotification {
             .map(sdk_device_route_from_chime)
             .collect::<Result<Vec<_>, _>>()?;
 
-        Ok(cokret::PushNotificationEnvelope {
+        Ok(arkret::PushNotificationEnvelope {
             push_target_id: self
                 .push_target_id
                 .as_ref()
@@ -345,7 +345,7 @@ impl PushNotification {
             });
         }
 
-        validate_typed_id("event_id", self.event_id.as_deref(), "ck:event:")?;
+        validate_typed_id("event_id", self.event_id.as_deref(), "ak:event:")?;
         validate_push_route_token("route_tokens.realm_route_token", self.realm_route_token())?;
         validate_push_route_token("route_tokens.scope_route_token", self.scope_route_token())?;
         validate_push_route_token(
@@ -565,19 +565,19 @@ impl PushNotification {
     }
 }
 
-fn sdk_counts_from_value(value: &Value) -> cokret::PushCounts {
-    serde_json::from_value::<cokret::PushCounts>(value.clone()).unwrap_or_else(|_| {
-        cokret::PushCounts {
+fn sdk_counts_from_value(value: &Value) -> arkret::PushCounts {
+    serde_json::from_value::<arkret::PushCounts>(value.clone()).unwrap_or_else(|_| {
+        arkret::PushCounts {
             badge: Some(value.clone()),
-            ..cokret::PushCounts::default()
+            ..arkret::PushCounts::default()
         }
     })
 }
 
 fn sdk_device_route_from_chime(
     device: &PushNotificationDevice,
-) -> Result<cokret::PushDeviceRoute, PushNotifyPrivacyError> {
-    Ok(cokret::PushDeviceRoute {
+) -> Result<arkret::PushDeviceRoute, PushNotifyPrivacyError> {
+    Ok(arkret::PushDeviceRoute {
         device_id: sdk_device_id_from_chime("devices[].device_id", &device.device_id)?,
         push_key: device.push_key.clone(),
         app_id: device.app_id.clone(),
@@ -627,9 +627,9 @@ impl PushNotificationDevice {
 fn sdk_device_id_from_chime(
     field: &str,
     value: &str,
-) -> Result<cokret::DeviceId, PushNotifyPrivacyError> {
+) -> Result<arkret::DeviceId, PushNotifyPrivacyError> {
     validate_required(field, value)?;
-    cokret::DeviceId::new(value.to_owned()).map_err(|_| PushNotifyPrivacyError::InvalidFieldValue {
+    arkret::DeviceId::new(value.to_owned()).map_err(|_| PushNotifyPrivacyError::InvalidFieldValue {
         field: field.to_owned(),
     })
 }

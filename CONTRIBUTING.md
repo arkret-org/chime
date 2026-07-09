@@ -1,7 +1,7 @@
 # Contributing to chime
 
 Thanks for taking the time to contribute. `chime` is a small, focused
-Rust SDK that ships Cokret push gateway types, registration helpers,
+Rust SDK that ships Arkret push gateway types, registration helpers,
 and an optional HTTP client. The project value is in being _boring and
 correct_ — we trade bells and whistles for stable wire shapes and
 strict privacy validators.
@@ -17,7 +17,7 @@ git config core.hooksPath .githooks
 The hook runs `cargo fmt --all -- --check` plus `cargo clippy --no-deps
 -- -D warnings` on staged Rust changes. If `.githooks/pre-commit` is
 missing, copy it from
-[`cokret-rust-sdk`](https://github.com/cokret/cokret-rust-sdk)
+[`arkret-rust-sdk`](https://github.com/arkret/arkret-rust-sdk)
 and adapt to your local toolchain.
 
 ## Development environment
@@ -28,7 +28,7 @@ and adapt to your local toolchain.
 - Editor: any. The repo enforces formatting via `rustfmt`.
 
 ```bash
-git clone https://github.com/cokret/chime
+git clone https://github.com/arkret/chime
 cd chime
 cargo build
 ```

@@ -1,4 +1,4 @@
-use cokret::{AuditPolicyAccessPayload, Did, EventId};
+use arkret::{AuditPolicyAccessPayload, Did, EventId};
 use serde_json::Value;
 
 use super::*;
@@ -9,7 +9,7 @@ const SCOPE_ROUTE_TOKEN: &str = "scope_route_token_000000001";
 const ALICE_ROUTE_TOKEN: &str = "alice_route_token_000000001";
 const BOB_ROUTE_TOKEN: &str = "bob_route_token_000000001";
 const MALLORY_ROUTE_TOKEN: &str = "mallory_route_token_000000001";
-const DEVICE_ID: &str = "ck:device:01904100-0000-7000-8000-000000000010";
+const DEVICE_ID: &str = "ak:device:01904100-0000-7000-8000-000000000010";
 
 fn device() -> PushNotificationDevice {
     PushNotificationDevice {
@@ -27,10 +27,10 @@ fn notification() -> PushNotification {
     // does not require touching every test fixture.
     PushNotification {
         push_target_id: Some(
-            PushTargetId::new("ck:pseudonym:push:01HYZ8Z000000000000000").unwrap(),
+            PushTargetId::new("ak:pseudonym:push:01HYZ8Z000000000000000").unwrap(),
         ),
         wakeup_kind: Some(WakeupKind::Message),
-        timing_profile_hint: Some(cokret::PushTimingProfileHint::Default),
+        timing_profile_hint: Some(arkret::PushTimingProfileHint::Default),
         route_tokens: Some(RouteTokens {
             realm_route_token: Some(REALM_ROUTE_TOKEN.to_owned()),
             ..Default::default()
@@ -300,7 +300,7 @@ fn blind_wakeup_rejects_audience_mention_expansion_metadata() {
 #[test]
 fn blind_wakeup_rejects_top_level_event_id() {
     let mut notification = notification();
-    notification.event_id = Some("ck:event:01JS0EV000000000000000000".to_owned());
+    notification.event_id = Some("ak:event:01JS0EV000000000000000000".to_owned());
 
     assert_eq!(
         notification.validate_blind_wakeup().unwrap_err(),
@@ -326,7 +326,7 @@ fn blind_wakeup_rejects_top_level_sender() {
 #[test]
 fn deserialized_extra_fields_require_runtime_validation() {
     let loaded: PushNotification = serde_json::from_value(serde_json::json!({
-        "push_target_id": "ck:pseudonym:push:01HYZ8Z000000000000000",
+        "push_target_id": "ak:pseudonym:push:01HYZ8Z000000000000000",
         "wakeup_kind": "message",
         "timing_profile_hint": "default",
         "kind": "captured-extra-field",
@@ -432,10 +432,10 @@ fn shared_privacy_vectors_match_wire_model() {
 
 #[test]
 fn push_target_id_accepts_typed_and_raw_tokens() {
-    PushTargetId::new("ck:pseudonym:push:01HYZ8Z000000000000000").unwrap();
+    PushTargetId::new("ak:pseudonym:push:01HYZ8Z000000000000000").unwrap();
     PushTargetId::new("01HYZ8Z000000000000000").unwrap();
 
-    assert!(PushTargetId::new("ck:device:01HYZ8Z000000000000000").is_err());
+    assert!(PushTargetId::new("ak:device:01HYZ8Z000000000000000").is_err());
     assert!(PushTargetId::new("did:web:alice.example").is_err());
 }
 
@@ -495,7 +495,7 @@ fn debug_redacts_push_tokens() {
 #[test]
 fn assert_no_sensitive_fields_accepts_clean_payload() {
     let payload = serde_json::json!({
-        "push_target_id": "ck:pseudonym:push:01HYZ8Z000000000000000",
+        "push_target_id": "ak:pseudonym:push:01HYZ8Z000000000000000",
         "wakeup_kind": "message",
         "counts": {"unread": 1},
     });
@@ -506,7 +506,7 @@ fn assert_no_sensitive_fields_accepts_clean_payload() {
 fn assert_no_sensitive_fields_rejects_round23_governance_fields() {
     for field in ROUND_R2_R3_SENSITIVE_FIELDS {
         let payload = serde_json::json!({
-            "push_target_id": "ck:pseudonym:push:01HYZ8Z000000000000000",
+            "push_target_id": "ak:pseudonym:push:01HYZ8Z000000000000000",
             "wakeup_kind": "message",
             *field: "leaked-value",
         });
@@ -531,10 +531,10 @@ fn assert_no_sensitive_fields_rejects_round23_governance_fields() {
 #[test]
 fn assert_no_sensitive_fields_walks_nested_objects() {
     let payload = serde_json::json!({
-        "push_target_id": "ck:pseudonym:push:01HYZ8Z000000000000000",
+        "push_target_id": "ak:pseudonym:push:01HYZ8Z000000000000000",
         "metadata": {
             "deep": {
-                "appeal_id": "ck:appeal:01ABC"
+                "appeal_id": "ak:appeal:01ABC"
             }
         }
     });
@@ -551,7 +551,7 @@ fn assert_no_sensitive_fields_walks_arrays() {
     let payload = serde_json::json!({
         "items": [
             {"ok": 1},
-            {"trust_domain": "ck:trust_domain:example.net"}
+            {"trust_domain": "ak:trust_domain:example.net"}
         ]
     });
     let outcome = std::panic::catch_unwind(|| assert_no_sensitive_fields(&payload));
@@ -634,18 +634,18 @@ fn late_recovery_event_id_is_some_for_e2ee_late_recovery() {
     // Parse the SDK shape via JSON so chime doesn't need to depend
     // on `chrono` directly to construct timestamps in tests.
     let payload: AuditPolicyAccessPayload = serde_json::from_value(serde_json::json!({
-        "realm_id": "ck:realm:01904100-0000-7000-8000-000000000001",
+        "realm_id": "ak:realm:01904100-0000-7000-8000-000000000001",
         "actor": "did:web:alice.example",
         "access_kind": "e2ee_late_recovery",
         "late_recovery_original_event_id":
-            "ck:event:01904100-0000-7000-8000-000000000002",
+            "ak:event:01904100-0000-7000-8000-000000000002",
         "observed_at": "2026-05-20T00:00:00Z",
     }))
     .unwrap();
     // Sanity-check the SDK validator agrees.
     payload.validate_minimal().unwrap();
 
-    let expected_event_id = EventId::new("ck:event:01904100-0000-7000-8000-000000000002").unwrap();
+    let expected_event_id = EventId::new("ak:event:01904100-0000-7000-8000-000000000002").unwrap();
     let mut notification = notification();
     notification.policy_access = Some(payload);
     assert_eq!(
@@ -657,7 +657,7 @@ fn late_recovery_event_id_is_some_for_e2ee_late_recovery() {
 #[test]
 fn late_recovery_event_id_is_none_for_other_access_kinds() {
     let payload: AuditPolicyAccessPayload = serde_json::from_value(serde_json::json!({
-        "realm_id": "ck:realm:01904100-0000-7000-8000-000000000001",
+        "realm_id": "ak:realm:01904100-0000-7000-8000-000000000001",
         "actor": "did:web:alice.example",
         "access_kind": "audit",
         "observed_at": "2026-05-20T00:00:00Z",
@@ -869,7 +869,7 @@ fn round23_sensitive_fields_cover_agent_governance_set() {
             "field `{field}` must be in ROUND_R2_R3_SENSITIVE_FIELDS"
         );
         let payload = serde_json::json!({
-            "push_target_id": "ck:pseudonym:push:01HYZ8Z000000000000000",
+            "push_target_id": "ak:pseudonym:push:01HYZ8Z000000000000000",
             "wakeup_kind": "message",
             field: "leaked-value",
         });
@@ -909,7 +909,7 @@ fn round23_sensitive_fields_cover_private_productivity_and_search_set() {
             "field `{field}` must be in ROUND_R2_R3_SENSITIVE_FIELDS"
         );
         let payload = serde_json::json!({
-            "push_target_id": "ck:pseudonym:push:01HYZ8Z000000000000000",
+            "push_target_id": "ak:pseudonym:push:01HYZ8Z000000000000000",
             "wakeup_kind": "reminder",
             field: "leaked-value",
         });

@@ -35,7 +35,7 @@ fn config_for_token<'a>(token: &'a str, idempotency: &'a str) -> PushDeviceConfi
         registration_id: None,
         display_name: Some("Rotation Test Phone"),
         idempotency_key: Some(idempotency),
-        request_id: Some("ck:request:rotation-test-001"),
+        request_id: Some("ak:request:rotation-test-001"),
         proof: None,
     }
 }

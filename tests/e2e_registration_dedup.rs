@@ -33,7 +33,7 @@ fn fixture_device_config<'a>(idempotency: &'a str) -> PushDeviceConfig<'a> {
         registration_id: None,
         display_name: Some("Dedup Test Phone"),
         idempotency_key: Some(idempotency),
-        request_id: Some("ck:request:dedup-test-001"),
+        request_id: Some("ak:request:dedup-test-001"),
         proof: None,
     }
 }

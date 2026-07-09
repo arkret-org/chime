@@ -2,19 +2,19 @@
 
 //! # chime
 //!
-//! Cokret push notification gateway types, preferences, and device
+//! Arkret push notification gateway types, preferences, and device
 //! registration helpers.
 //!
-//! This crate provides the shared data types and logic used by Cokret
-//! clients to register push-capable devices with a Cokret Principal Server,
+//! This crate provides the shared data types and logic used by Arkret
+//! clients to register push-capable devices with a Arkret Principal Server,
 //! Sync Service, or delegated Push Gateway.
 //!
 //! ## Gateway support
 //!
 //! | Gateway | Description |
 //! |---------|-------------|
-//! | **Standard** | Cokret Push Gateway using platform adapters such as FCM, APNs, Web Push, or desktop notification bridges. |
-//! | **Bugle** | Cokret Push Gateway with domestic Chinese Android OEM provider support through JPush, Huawei, Xiaomi, OPPO, vivo, HONOR, and HarmonyOS routes. |
+//! | **Standard** | Arkret Push Gateway using platform adapters such as FCM, APNs, Web Push, or desktop notification bridges. |
+//! | **Bugle** | Arkret Push Gateway with domestic Chinese Android OEM provider support through JPush, Huawei, Xiaomi, OPPO, vivo, HONOR, and HarmonyOS routes. |
 //! | **Custom** | User-provided gateway URL. |
 //!
 //! ## Features
@@ -48,9 +48,9 @@ mod state;
 pub use bugle::BugleAppIdResolver;
 // Round 4 (B5, spec a77b995) — re-export the SDK round-4 audit surfaces
 // chime consumers (inkson, host apps) need for the late-key-recovery banner
-// without having to depend on `cokret` directly.
+// without having to depend on `arkret` directly.
 #[cfg(feature = "notify")]
-pub use cokret::{AccessKind, AuditPolicyAccessPayload, PushNotifyOutcome, PushNotifyRequestBody};
+pub use arkret::{AccessKind, AuditPolicyAccessPayload, PushNotifyOutcome, PushNotifyRequestBody};
 pub use gateway_binding::GatewayBinding;
 pub use lifecycle::{
     AccountDeactivationError, AccountDeactivationReceipt, AccountDeactivationSink,
@@ -76,15 +76,15 @@ pub use notify::{
 // R3 (CALL-1 / CALL-2, spec b47ff6ec) — media token exchange surface.
 // Re-exported so chime consumers (inkson) call
 // `chime::call_media_token_exchange` +
-// `chime::verify_media_token_outcome` without depending on `cokret`
+// `chime::verify_media_token_outcome` without depending on `arkret`
 // directly. The verifier delegates to the SDK media-service signature
 // checks before returning a marker.
 pub use push::{
-    COKRET_ACTOR_ID_HEADER, COKRET_AUDIENCE_HEADER, COKRET_CREATED_AT_HEADER,
-    COKRET_DESTINATION_SERVICE_DID_HEADER, COKRET_DEVICE_ID_HEADER, COKRET_EXPIRES_AT_HEADER,
-    COKRET_IDEMPOTENCY_KEY_HEADER, COKRET_NONCE_HEADER, COKRET_OPERATION_ID_HEADER,
-    COKRET_ORIGIN_HEADER, COKRET_ORIGIN_SERVICE_DID_HEADER, COKRET_REQUEST_ID_HEADER,
-    COKRET_SESSION_GRANT_HEADER, CONTENT_DIGEST_HEADER, ChimePushRegisterDeviceOutcome,
+    ARKRET_ACTOR_ID_HEADER, ARKRET_AUDIENCE_HEADER, ARKRET_CREATED_AT_HEADER,
+    ARKRET_DESTINATION_SERVICE_DID_HEADER, ARKRET_DEVICE_ID_HEADER, ARKRET_EXPIRES_AT_HEADER,
+    ARKRET_IDEMPOTENCY_KEY_HEADER, ARKRET_NONCE_HEADER, ARKRET_OPERATION_ID_HEADER,
+    ARKRET_ORIGIN_HEADER, ARKRET_ORIGIN_SERVICE_DID_HEADER, ARKRET_REQUEST_ID_HEADER,
+    ARKRET_SESSION_GRANT_HEADER, CONTENT_DIGEST_HEADER, ChimePushRegisterDeviceOutcome,
     ChimePushRegisterDeviceRequest, ChimePushUnregisterDeviceOutcome,
     ChimePushUnregisterDeviceRequest, CokretError, CokretErrorEnvelope, EXPECTED_SPEC_VERSION,
     IntegrationView, NonceReplayError, NonceTracker, PUSH_NOTIFY_PATH,
@@ -127,34 +127,34 @@ pub use state::{
 
 // -- Constants ---------------------------------------------------------------
 
-/// Canonical Cokret operation id for push device registration.
+/// Canonical Arkret operation id for push device registration.
 pub const OPERATION_PUSH_REGISTER_DEVICE: &str = "ck.edge.push.command.register_device";
 
-/// Canonical Cokret operation id for push device unregistration.
+/// Canonical Arkret operation id for push device unregistration.
 pub const OPERATION_PUSH_UNREGISTER_DEVICE: &str = "ck.edge.push.command.unregister_device";
 
-/// Canonical Cokret operation id for push wakeup delivery.
+/// Canonical Arkret operation id for push wakeup delivery.
 pub const OPERATION_PUSH_NOTIFY: &str = "ck.edge.push.command.notify";
 
-/// Default standard Cokret push gateway URL.
+/// Default standard Arkret push gateway URL.
 ///
-/// Cokret does not define a single global push gateway. Consumers should set
+/// Arkret does not define a single global push gateway. Consumers should set
 /// this from service discovery or application configuration before registering.
-pub const DEFAULT_COKRET_PUSH_GATEWAY_URL: &str = "";
+pub const DEFAULT_ARKRET_PUSH_GATEWAY_URL: &str = "";
 
-/// Default Bugle push gateway URL using the Cokret push notify binding.
+/// Default Bugle push gateway URL using the Arkret push notify binding.
 pub const DEFAULT_BUGLE_PUSH_GATEWAY_URL: &str = "https://push.palpo.im/_cokret/edge/push/notify";
 
 // -- PushGatewayType ---------------------------------------------------------
 
-/// Which downstream push gateway to ask the Cokret service to use.
+/// Which downstream push gateway to ask the Arkret service to use.
 ///
 /// Stability: `1.0`-stable. New variants are additive; renaming or
 /// removing a variant requires a major SemVer bump.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum PushGatewayType {
-    /// Standard Cokret push gateway using FCM, APNs, Web Push, or desktop
+    /// Standard Arkret push gateway using FCM, APNs, Web Push, or desktop
     /// notification adapters.
     #[default]
     Standard,
@@ -171,16 +171,16 @@ impl PushGatewayType {
     /// Default push gateway URL for this type.
     pub fn default_url(&self) -> &'static str {
         match self {
-            Self::Standard => DEFAULT_COKRET_PUSH_GATEWAY_URL,
+            Self::Standard => DEFAULT_ARKRET_PUSH_GATEWAY_URL,
             Self::Bugle => DEFAULT_BUGLE_PUSH_GATEWAY_URL,
-            Self::Custom => DEFAULT_COKRET_PUSH_GATEWAY_URL,
+            Self::Custom => DEFAULT_ARKRET_PUSH_GATEWAY_URL,
         }
     }
 
     /// Human-readable display name.
     pub fn display_name(&self) -> &'static str {
         match self {
-            Self::Standard => "Cokret Standard",
+            Self::Standard => "Arkret Standard",
             Self::Bugle => "Bugle (China domestic)",
             Self::Custom => "Custom",
         }
@@ -190,7 +190,7 @@ impl PushGatewayType {
     pub fn description(&self) -> &'static str {
         match self {
             Self::Standard => {
-                "Standard Cokret push via platform adapters such as FCM, APNs, Web Push, or desktop bridges."
+                "Standard Arkret push via platform adapters such as FCM, APNs, Web Push, or desktop bridges."
             }
             Self::Bugle => {
                 "Domestic push for mainland China via JPush, Huawei, Xiaomi, OPPO, vivo, and HONOR providers."
@@ -219,7 +219,7 @@ impl PushGatewayType {
 
 // -- PushPreferences ---------------------------------------------------------
 
-/// Persisted Cokret push notification preferences.
+/// Persisted Arkret push notification preferences.
 ///
 /// Serializable to JSON. The file path and persistence strategy are left to
 /// the consumer application — see [`PushPreferencesStore`] for a minimal
@@ -239,7 +239,7 @@ pub struct PushPreferences {
     pub allow_insecure_loopback_push_gateway: bool,
     /// Whether a sender-provided, body-free `push_hint` may be used.
     ///
-    /// Cokret push hints are blind wakeup metadata. They must not contain
+    /// Arkret push hints are blind wakeup metadata. They must not contain
     /// plaintext message bodies for E2EE Spaces.
     pub allow_push_hint: bool,
     /// Optional allowlist for WebPush endpoint origins.
@@ -446,13 +446,13 @@ mod tests {
         };
         prefs
             .muted_circle_ids
-            .insert("ck:circle:01HZK9Z000000000000000001".to_owned());
+            .insert("ak:circle:01HZK9Z000000000000000001".to_owned());
         prefs
             .muted_circle_ids
-            .insert("ck:circle:01HZK9Z000000000000000002".to_owned());
+            .insert("ak:circle:01HZK9Z000000000000000002".to_owned());
         prefs
             .muted_realm_ids
-            .insert("ck:realm:01HZK9Z000000000000000003".to_owned());
+            .insert("ak:realm:01HZK9Z000000000000000003".to_owned());
 
         let json = to_json(&prefs).unwrap();
         assert!(json.contains("muted_circle_ids"));

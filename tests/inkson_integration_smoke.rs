@@ -17,12 +17,12 @@ fn inkson_style_fcm_and_apns_tokens_build_chime_register_requests() {
         (
             "android",
             "fcm:real-local-fcm-token-0123456789abcdef",
-            "dev.cokret.inkson.android",
+            "dev.arkret.inkson.android",
         ),
         (
             "ios",
             "apns:0123456789abcdef0123456789abcdef0123456789abcdef",
-            "dev.cokret.inkson.ios",
+            "dev.arkret.inkson.ios",
         ),
     ] {
         let request = inkson_register_request(platform, token, app_id);
@@ -47,7 +47,7 @@ async fn chime_client_requires_session_grant_before_inkson_can_register() {
     let request = inkson_register_request(
         "android",
         "fcm:real-local-fcm-token-for-grant-check",
-        "dev.cokret.inkson.android",
+        "dev.arkret.inkson.android",
     );
     let error = chime::CokretPushClient::new("https://principal.example")
         .register_device_with_request(&request, None, None)
@@ -83,7 +83,7 @@ fn inkson_register_request(
         registration_id: None,
         display_name: Some("inkson smoke device"),
         idempotency_key: Some("chime-inkson-smoke"),
-        request_id: Some("ck:request:inkson-smoke"),
+        request_id: Some("ak:request:inkson-smoke"),
         proof: None,
     };
 

@@ -1,6 +1,6 @@
 # chime
 
-> **Spec target**: [cokret-spec @ 074aefee](../cokret-spec) (sync 2026-06-23)
+> **Spec target**: [arkret-spec @ 074aefee](../arkret-spec) (sync 2026-06-23)
 
 [![coverage](https://img.shields.io/badge/coverage-local%20tarpaulin-informational)](docs/production-checklist.md#local-verification)
 
@@ -10,9 +10,9 @@
 > carry `#[non_exhaustive]` so server-driven field additions do not break
 > downstream consumers.
 
-Cokret push notification gateway types, preferences, and device registration helpers.
+Arkret push notification gateway types, preferences, and device registration helpers.
 
-**chime** provides shared data types and request-building logic for Cokret clients that need to register push-capable devices with a Principal Server, Sync Service, or delegated Push Gateway.
+**chime** provides shared data types and request-building logic for Arkret clients that need to register push-capable devices with a Principal Server, Sync Service, or delegated Push Gateway.
 
 ## Realm vs Space
 
@@ -25,7 +25,7 @@ Cokret push notification gateway types, preferences, and device registration hel
 
 Spec round 4 adds two client-SDK shape changes. See
 [`CHANGELOG.md`](CHANGELOG.md) `[Unreleased]` for the chime-facing
-wire-breaking list; the normative source remains `../cokret-spec/spec/v1/`.
+wire-breaking list; the normative source remains `../arkret-spec/spec/v1/`.
 
 - **`mention_redirect_target_route_tokens` recognition** — typed
   push-payload structs expose the field; consumers decide whether the
@@ -45,12 +45,12 @@ host integration hook (T07 — 4-step local push cleanup) and the
 blind-wakeup forbidden-field surface. Ephemeral kinds (`ck.presence`,
 `ck.typing`, `ck.receipt.read`, `ck.call.signal`) are confirmed not
 consumed by chime. See [`CHANGELOG.md`](CHANGELOG.md) `[Unreleased]`;
-the normative source remains `../cokret-spec/spec/v1/`.
+the normative source remains `../arkret-spec/spec/v1/`.
 
 ## Protocol Baseline
 
 The current audited protocol pin for this crate is
-`cokret-spec @ 5d66aeb`; older SHAs in `CHANGELOG.md` are historical
+`arkret-spec @ 5d66aeb`; older SHAs in `CHANGELOG.md` are historical
 round entries, not the active completion gate.
 
 ## Chinese docs
@@ -64,8 +64,8 @@ round entries, not the active completion gate.
 
 | Gateway | Description |
 | --- | --- |
-| **Standard** | Cokret Push Gateway using platform adapters such as FCM, APNs, Web Push, or desktop notification bridges. |
-| **Bugle** | Cokret Push Gateway with domestic Chinese Android OEM provider support through JPush, Huawei, Xiaomi, OPPO, vivo, HONOR, and HarmonyOS routes. |
+| **Standard** | Arkret Push Gateway using platform adapters such as FCM, APNs, Web Push, or desktop notification bridges. |
+| **Bugle** | Arkret Push Gateway with domestic Chinese Android OEM provider support through JPush, Huawei, Xiaomi, OPPO, vivo, HONOR, and HarmonyOS routes. |
 | **Custom** | User-provided gateway URL for self-hosted or third-party gateways. |
 
 Bugle host integrations still own provider SDK setup and token
@@ -79,7 +79,7 @@ hosts that need the standalone resolver trait can use
 
 | Feature | Description |
 | --- | --- |
-| _(default)_ | Core types, JSON serialization helpers, and Cokret register/unregister request builders. No network dependencies. |
+| _(default)_ | Core types, JSON serialization helpers, and Arkret register/unregister request builders. No network dependencies. |
 | `http` | Adds `CokretPushClient`, a small `reqwest` helper for `POST /_cokret/edge/push/register-device` and `POST /_cokret/edge/push/unregister-device`. |
 | `notify` | Adds server/gateway-side `ck.edge.push.command.notify` wire types and blind-wakeup privacy validation. |
 
@@ -102,7 +102,7 @@ hosts that need the standalone resolver trait can use
 
 ## CKP-0007 Circle subscriptions
 
-[CKP-0007 Circle primitive](../cokret-spec/specs/protocol/circle.md)
+[CKP-0007 Circle primitive](../arkret-spec/specs/protocol/circle.md)
 introduces an encrypted sub-boundary inside a Realm. chime exposes the
 client-side surface so a wakeup can carry the Circle context end-to-end:
 
@@ -136,7 +136,7 @@ Add to your `Cargo.toml`:
 ```toml
 [dependencies]
 chime = "1.0.0"
-# or with Cokret HTTP registration and gateway notify wire types:
+# or with Arkret HTTP registration and gateway notify wire types:
 # chime = { version = "1.0.0", features = ["http"] }
 # chime = { version = "1.0.0", features = ["http", "notify"] }
 ```
@@ -177,7 +177,7 @@ let loaded = chime::from_json(&json).unwrap();
 assert_eq!(loaded.gateways[0].gateway_type, PushGatewayType::Bugle);
 ```
 
-### Build a Cokret registration body
+### Build a Arkret registration body
 
 ```rust
 use chime::{
@@ -187,7 +187,7 @@ use chime::{
 
 let config = PushDeviceConfig {
     principal_id: Some("did:web:alice.example"),
-    device_id: "ck:device:01904100-0000-7000-8000-000000000004",
+    device_id: "ak:device:01904100-0000-7000-8000-000000000004",
     push_key: Some("fcm-or-apns-device-token"),
     platform: Some("android"),
     app_id: Some("app.example.android"),
@@ -195,7 +195,7 @@ let config = PushDeviceConfig {
     registration_id: None,
     display_name: Some("Alice Phone"),
     idempotency_key: Some("device-phone-register-v1"),
-    request_id: Some("ck:request:01JS0KE000000000000000000"),
+    request_id: Some("ak:request:01JS0KE000000000000000000"),
     proof: None,
 };
 
@@ -211,7 +211,7 @@ let prefs = PushPreferences {
 let request = build_register_device_request(&config, &binding, &prefs).unwrap();
 assert_eq!(
     request.device_id,
-    "ck:device:01904100-0000-7000-8000-000000000004"
+    "ak:device:01904100-0000-7000-8000-000000000004"
 );
 ```
 
@@ -233,11 +233,11 @@ use chime::{
 // fields cannot break downstream constructors. Build through
 // `new_blind_wakeup` plus field-update from the returned value.
 let mut notification = PushNotification::new_blind_wakeup(
-    PushTargetId::new("ck:pseudonym:push:01HYZ8Z000000000000000")?,
+    PushTargetId::new("ak:pseudonym:push:01HYZ8Z000000000000000")?,
     WakeupKind::Message,
 );
 notification.devices = vec![PushNotificationDevice {
-    device_id: "ck:device:01904100-0000-7000-8000-000000000010".to_owned(),
+    device_id: "ak:device:01904100-0000-7000-8000-000000000010".to_owned(),
     push_key: Some("fcm:opaque-token".to_owned()),
     app_id: Some("app.example".to_owned()),
     target_route_token: None,
@@ -255,11 +255,11 @@ request.assert_payload_safe(&PushNotifyPolicyContext::blind_wakeup_only(), None)
 // otherwise looks innocent. This is the exact path that protects
 // against an integrator accidentally bypassing the SDK sanitizer.
 let mut leaky = PushNotification::new_blind_wakeup(
-    PushTargetId::new("ck:pseudonym:push:01HYZ8Z000000000000001")?,
+    PushTargetId::new("ak:pseudonym:push:01HYZ8Z000000000000001")?,
     WakeupKind::Message,
 );
 leaky.devices = vec![PushNotificationDevice {
-    device_id: "ck:device:01904100-0000-7000-8000-000000000011".to_owned(),
+    device_id: "ak:device:01904100-0000-7000-8000-000000000011".to_owned(),
     push_key: Some("fcm:opaque-token".to_owned()),
     app_id: Some("app.example".to_owned()),
     target_route_token: None,
@@ -292,7 +292,7 @@ assert!(msg.contains("title"), "error should name the leaking field: {msg}");
 # use chime::{GatewayBinding, PushDeviceConfig, PushGatewayType, PushPreferences};
 # let config = PushDeviceConfig {
 #     principal_id: None,
-#     device_id: "ck:device:01904100-0000-7000-8000-000000000004",
+#     device_id: "ak:device:01904100-0000-7000-8000-000000000004",
 #     push_key: Some("fcm-or-apns-device-token"),
 #     platform: None,
 #     app_id: None,
@@ -317,7 +317,7 @@ let client = CokretPushClient::new("https://principal.example")
     .with_bearer_token("session-token")
     .with_timeout(std::time::Duration::from_secs(10))
     .with_retry_policy(chime::PushRetryPolicy::conservative())
-    .with_default_request_id("ck:request:01JS0KE000000000000000000");
+    .with_default_request_id("ak:request:01JS0KE000000000000000000");
 
 let response = client
     .register_device_with_context(&config, &binding, &prefs)
@@ -355,7 +355,7 @@ Production notes:
 # use chime::{GatewayBinding, PushDeviceConfig, PushGatewayType, PushPreferences};
 # let config = PushDeviceConfig {
 #     principal_id: None,
-#     device_id: "ck:device:01904100-0000-7000-8000-000000000004",
+#     device_id: "ak:device:01904100-0000-7000-8000-000000000004",
 #     push_key: Some("fcm-or-apns-device-token"),
 #     platform: None, app_id: None, domestic_app_id: None,
 #     registration_id: None, display_name: None,
@@ -403,7 +403,7 @@ let headers = context.http_message_signature_headers("sig1", &signature)?;
 # }
 ```
 
-`proof_body` is caller-signed and passed back through `PushDeviceConfig::proof`. The returned HTTP signature headers include `Content-Digest`, Cokret device/audience/actor/expiry/origin/destination metadata, nonce/idempotency context, `Signature-Input`, and `Signature`; attach them with your HTTP stack or `CokretPushClient::with_header`. `chime` can carry an externally supplied coauth/soland grant, but it never owns private keys or mints grants.
+`proof_body` is caller-signed and passed back through `PushDeviceConfig::proof`. The returned HTTP signature headers include `Content-Digest`, Arkret device/audience/actor/expiry/origin/destination metadata, nonce/idempotency context, `Signature-Input`, and `Signature`; attach them with your HTTP stack or `CokretPushClient::with_header`. `chime` can carry an externally supplied coauth/soland grant, but it never owns private keys or mints grants.
 
 ### Local registration state
 
@@ -420,7 +420,7 @@ After a successful register, `merge_registration_state()` drops stale logical du
 # use chime::{GatewayBinding, PushDeviceConfig, PushGatewayType, PushPreferences};
 # let config = PushDeviceConfig {
 #     principal_id: None,
-#     device_id: "ck:device:01904100-0000-7000-8000-000000000004",
+#     device_id: "ak:device:01904100-0000-7000-8000-000000000004",
 #     push_key: Some("fcm-or-apns-device-token"),
 #     platform: None, app_id: None, domestic_app_id: None,
 #     registration_id: None, display_name: None,
@@ -463,7 +463,7 @@ if let Some(unregister_old) = plan.unregister_old {
 `chime` is a library, not a service — it has no daemon, no config file
 of its own, and no environment variables it reads. Operational concerns
 live entirely in the host application that wires `CokretPushClient`
-into a Cokret Principal Server / Sync Service deployment.
+into a Arkret Principal Server / Sync Service deployment.
 
 ### Build profile
 
@@ -489,7 +489,7 @@ into a Cokret Principal Server / Sync Service deployment.
   them in a binding's `push_gateway` query string is rejected.
 - **Session grant fail-closed.** `CokretPushClient::new(...)` defaults
   to `with_required_session_grant(true)`. Always attach
-  `X-Cokret-Session-Grant` via `with_session_grant("...")` (or
+  `X-Arkret-Session-Grant` via `with_session_grant("...")` (or
   `with_header(...)`) before calling register/unregister. Dev sandboxes
   that need to skip this can flip the flag.
 - **Idempotency.** If you do not provide an idempotency key, the
@@ -519,7 +519,7 @@ into a Cokret Principal Server / Sync Service deployment.
 `chime` emits `tracing` events with the target prefix `chime`:
 
 ```text
-INFO  chime::push::client  Cokret push device registered  platform=android gateway="Cokret Standard" operation_id=ck.edge.push.command.register_device request_id=ck:request:01JS0KE000000000000000000
+INFO  chime::push::client  Arkret push device registered  platform=android gateway="Arkret Standard" operation_id=ck.edge.push.command.register_device request_id=ck:request:01JS0KE000000000000000000
 ```
 
 Subscribe with any `tracing-subscriber` layer; Sentry / OpenTelemetry
@@ -529,7 +529,7 @@ exporters work without further glue.
 
 | Symptom | Likely cause |
 | ------- | ------------ |
-| `MissingField("session_grant")` returned before any HTTP request | `with_required_session_grant(true)` is on but no `X-Cokret-Session-Grant` header is attached. |
+| `MissingField("session_grant")` returned before any HTTP request | `with_required_session_grant(true)` is on but no `X-Arkret-Session-Grant` header is attached. |
 | `InvalidPushGatewayUrl { reason: "scheme must be https" }` | HTTP push gateway URL in production. Allow loopback only if you're testing locally. |
 | `WebPushEndpointNotAllowed` | The browser-issued endpoint origin is not in `webpush_endpoint_allowlist`. Add the origin or host pattern. |
 | `Gone` (HTTP 410) | The push token was retired. Drop the local registration and let the device generate a new token before re-registering. |
@@ -537,7 +537,7 @@ exporters work without further glue.
 
 ## Protocol Mapping
 
-The crate maps to the Cokret v1 push HTTP binding:
+The crate maps to the Arkret v1 push HTTP binding:
 
 | Operation ID | HTTP Binding | Request builder |
 | --- | --- | --- |
@@ -556,7 +556,7 @@ With the `notify` feature, `ChimePushNotifyEnvelope::validate_wire_model()` and 
 ## Architecture
 
 ```text
-Cokret Client
+Arkret Client
         |
         v
    +---------+     PushPreferences { gateways: Vec<GatewayBinding> }
@@ -567,7 +567,7 @@ Cokret Client
 Principal Server / Sync Service
         |
         v
-Cokret Push Gateway
+Arkret Push Gateway
         |
         +-- FCM / APNs / Web Push / Desktop
         +-- Bugle domestic providers:

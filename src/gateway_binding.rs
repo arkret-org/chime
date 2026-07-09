@@ -19,7 +19,7 @@ use crate::{PushGatewayType, PushPlatform, redact_push_key};
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct GatewayBinding {
-    /// Which downstream push gateway type to ask the Cokret service
+    /// Which downstream push gateway type to ask the Arkret service
     /// to use for this binding.
     pub gateway_type: PushGatewayType,
     /// Push gateway URL sent as `push_gateway` during registration.

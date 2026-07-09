@@ -1,6 +1,6 @@
 use base64::Engine as _;
 use base64::engine::general_purpose;
-use cokret::blind_payload_sanitizer::{
+use arkret::blind_payload_sanitizer::{
     self as sdk_sanitizer, ALLOWED_PUSH_HINTS, is_forbidden_payload_key, is_valid_push_target_id,
 };
 use serde_json::{Map, Value};
@@ -25,7 +25,7 @@ pub(super) fn run_sdk_sanitizer_over_extra(
     // keys + literals, ignore wrapper's own allow-list" branch.
     let envelope = serde_json::json!({
         "notification": {
-            "push_target_id": "ck:pseudonym:push:0000000000000000000000",
+            "push_target_id": "ak:pseudonym:push:0000000000000000000000",
             "wakeup_kind": "message",
             "timing_profile_hint": "default",
         },
@@ -148,10 +148,10 @@ pub(super) fn validate_active_reference_extension(
     }
 
     match key {
-        "strand_id" => validate_extra_typed_string(key, value, "ck:strand:"),
-        "message_id" => validate_extra_typed_string(key, value, "ck:message:"),
+        "strand_id" => validate_extra_typed_string(key, value, "ak:strand:"),
+        "message_id" => validate_extra_typed_string(key, value, "ak:message:"),
         "notification_projection_id" => {
-            validate_extra_typed_string(key, value, "ck:notification_projection:")
+            validate_extra_typed_string(key, value, "ak:notification_projection:")
         }
         _ => Ok(()),
     }

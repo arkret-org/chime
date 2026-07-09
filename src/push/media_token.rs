@@ -10,7 +10,7 @@
 //!   `ck.realm.media_service.service_id` anchors supplied by the host and ties together the call-id
 //!   / focus-id / actor-id / device-id tuple that the caller asked for,
 //! - the token TTL is within the spec ceiling
-//!   ([`MEDIA_TOKEN_TTL_MAX_SECS`](cokret::MEDIA_TOKEN_TTL_MAX_SECS)) via the SDK's
+//!   ([`MEDIA_TOKEN_TTL_MAX_SECS`](arkret::MEDIA_TOKEN_TTL_MAX_SECS)) via the SDK's
 //!   [`validate_token_ttl`],
 //! - `service_signature` and `participant_binding.sig` verify through the SDK's media-service
 //!   verifier before the returned marker can be used for SFrame keying.
@@ -30,8 +30,8 @@ use std::fmt;
 
 use chrono::{DateTime, Utc};
 // Re-export the SDK types so chime consumers can pull the full media
-// token surface through `chime::` without a second `cokret` dep.
-pub use cokret::{
+// token surface through `chime::` without a second `arkret` dep.
+pub use arkret::{
     CallMediaParticipantBinding, CallMediaServiceSignature, CallMediaTokenExchangeOutcome,
     CallMediaTokenExchangeRequestBody, CallMediaTokenVerification, MediaBackendType,
     MediaServiceAnchors, call_media_token_exchange,
@@ -237,7 +237,7 @@ pub fn verify_media_token_outcome<'response>(
         });
     }
 
-    let verification = cokret::verify_call_media_token_outcome(
+    let verification = arkret::verify_call_media_token_outcome(
         ctx.request,
         response,
         ctx.media_service_anchors,
@@ -255,7 +255,7 @@ pub fn verify_media_token_outcome<'response>(
 /// label. Surfaces as CALL-2 [`MediaTokenError::UnknownFocusType`].
 ///
 /// Wraps the SDK's [`MediaBackendType::ensure_known`] so chime
-/// consumers can perform the check without depending on `cokret`
+/// consumers can perform the check without depending on `arkret`
 /// directly.
 pub fn ensure_known_backend(backend: &MediaBackendType) -> Result<(), MediaTokenError> {
     backend
@@ -274,7 +274,7 @@ fn ensure_known_backend_label(label: &str) -> Result<(), MediaTokenError> {
 }
 
 fn map_sdk_media_error(
-    err: cokret::Error,
+    err: arkret::Error,
     response: &CallMediaTokenExchangeOutcome,
 ) -> MediaTokenError {
     match sdk_media_reason(err) {
@@ -300,16 +300,16 @@ enum SdkMediaReason {
     Other(String),
 }
 
-fn sdk_media_reason(err: cokret::Error) -> SdkMediaReason {
+fn sdk_media_reason(err: arkret::Error) -> SdkMediaReason {
     match err {
-        cokret::Error::Protocol(message) => {
+        arkret::Error::Protocol(message) => {
             let reason_code = message
                 .split_once(':')
                 .map_or(message.as_str(), |(code, _)| code)
                 .trim();
             match reason_code {
-                cokret::REASON_TOKEN_ISSUER_UNAUTHORISED => SdkMediaReason::TokenIssuerUnauthorised,
-                cokret::REASON_UNKNOWN_FOCUS_TYPE => SdkMediaReason::UnknownFocusType,
+                arkret::REASON_TOKEN_ISSUER_UNAUTHORISED => SdkMediaReason::TokenIssuerUnauthorised,
+                arkret::REASON_UNKNOWN_FOCUS_TYPE => SdkMediaReason::UnknownFocusType,
                 _ => SdkMediaReason::Other(message),
             }
         }
@@ -322,7 +322,7 @@ mod tests {
     use base64::Engine as _;
     use base64::engine::general_purpose::URL_SAFE_NO_PAD;
     use chrono::Duration;
-    use cokret::{CallId, DeviceId, Did, RealmId};
+    use arkret::{CallId, DeviceId, Did, RealmId};
     use ed25519_dalek::{Signer, SigningKey};
 
     use super::*;
@@ -330,16 +330,16 @@ mod tests {
     const ISSUER_KID: &str = "did:web:media.example:media#kid-1";
 
     fn realm() -> RealmId {
-        RealmId::new("ck:realm:01904100-0000-7000-8000-000000000001".to_owned()).unwrap()
+        RealmId::new("ak:realm:01904100-0000-7000-8000-000000000001".to_owned()).unwrap()
     }
     fn call() -> CallId {
-        CallId::new("ck:call:01904100-0000-7000-8000-000000000002".to_owned()).unwrap()
+        CallId::new("ak:call:01904100-0000-7000-8000-000000000002".to_owned()).unwrap()
     }
     fn actor() -> Did {
         Did::new("did:web:alice.example".to_owned()).unwrap()
     }
     fn device() -> DeviceId {
-        DeviceId::new("ck:device:01904100-0000-7000-8000-000000000004".to_owned()).unwrap()
+        DeviceId::new("ak:device:01904100-0000-7000-8000-000000000004".to_owned()).unwrap()
     }
     fn issuer_did() -> Did {
         Did::new("did:web:media.example:media".to_owned()).unwrap()
@@ -352,16 +352,16 @@ mod tests {
             .with_keys([(ISSUER_KID.to_owned(), key.verifying_key())])
     }
     fn token_request() -> CallMediaTokenExchangeRequestBody {
-        call_media_token_exchange(realm(), call(), actor(), device(), "ck:focus:01".to_owned())
+        call_media_token_exchange(realm(), call(), actor(), device(), "ak:focus:01".to_owned())
     }
 
     fn unsigned_response(expires_at: DateTime<Utc>) -> CallMediaTokenExchangeOutcome {
         CallMediaTokenExchangeOutcome {
-            focus_id: "ck:focus:01".to_owned(),
+            focus_id: "ak:focus:01".to_owned(),
             backend_type: "livekit".to_owned(),
             connect_url: "wss://media.example/livekit".to_owned(),
             backend_token: "livekit-jwt-token".to_owned(),
-            participant_identity: "ck:rtc_participant:01904100-0000-7000-8000-000000000003"
+            participant_identity: "ak:rtc_participant:01904100-0000-7000-8000-000000000003"
                 .to_owned(),
             participant_binding: CallMediaParticipantBinding {
                 scheme: CallMediaParticipantBinding::SCHEME.to_owned(),
@@ -369,10 +369,10 @@ mod tests {
                 issuer_kid: ISSUER_KID.to_owned(),
                 realm_id: realm(),
                 call_id: call(),
-                focus_id: "ck:focus:01".to_owned(),
+                focus_id: "ak:focus:01".to_owned(),
                 actor_id: actor(),
                 device_id: device(),
-                participant_identity: "ck:rtc_participant:01904100-0000-7000-8000-000000000003"
+                participant_identity: "ak:rtc_participant:01904100-0000-7000-8000-000000000003"
                     .to_owned(),
                 issued_at: expires_at - Duration::minutes(5),
                 expires_at,
@@ -386,7 +386,7 @@ mod tests {
     }
 
     fn sign_response(response: &mut CallMediaTokenExchangeOutcome, key: &SigningKey) {
-        let input = cokret::participant_binding_signing_input(&response.participant_binding)
+        let input = arkret::participant_binding_signing_input(&response.participant_binding)
             .expect("participant binding signing input builds");
         let sig = URL_SAFE_NO_PAD.encode(key.sign(&input).to_bytes());
         response.participant_binding.sig = sig.clone();
@@ -407,7 +407,7 @@ mod tests {
         MediaTokenVerificationContext {
             request,
             media_service_anchors: anchors,
-            committed_session_focus: Some("ck:focus:01"),
+            committed_session_focus: Some("ak:focus:01"),
             now,
         }
     }
@@ -454,18 +454,18 @@ mod tests {
         let response = good_response(now, &key);
 
         let err = map_sdk_media_error(
-            cokret::Error::Protocol(format!(
+            arkret::Error::Protocol(format!(
                 "{}: wording after the reason code may change",
-                cokret::REASON_TOKEN_ISSUER_UNAUTHORISED
+                arkret::REASON_TOKEN_ISSUER_UNAUTHORISED
             )),
             &response,
         );
         assert_eq!(err.kind(), PushErrorKind::TokenIssuerUnauthorised);
 
         let err = map_sdk_media_error(
-            cokret::Error::Protocol(format!(
+            arkret::Error::Protocol(format!(
                 "{}: wording after the reason code may change",
-                cokret::REASON_UNKNOWN_FOCUS_TYPE
+                arkret::REASON_UNKNOWN_FOCUS_TYPE
             )),
             &response,
         );
@@ -492,7 +492,7 @@ mod tests {
         let anchors = anchors_with_issuer_key(&key);
         let response = good_response(now, &key);
         let request =
-            call_media_token_exchange(realm(), call(), actor(), device(), "ck:focus:02".to_owned());
+            call_media_token_exchange(realm(), call(), actor(), device(), "ak:focus:02".to_owned());
         let ctx = good_ctx(now, &request, &anchors);
         let err = verify_media_token_outcome(&response, &ctx).unwrap_err();
         assert_eq!(err.kind(), PushErrorKind::FocusMismatch);
@@ -502,7 +502,7 @@ mod tests {
                 requested_focus_id,
                 binding_focus_id,
                 committed_focus_id: None,
-            } if requested_focus_id == "ck:focus:02" && binding_focus_id == "ck:focus:01"
+            } if requested_focus_id == "ak:focus:02" && binding_focus_id == "ak:focus:01"
         ));
     }
 
@@ -514,7 +514,7 @@ mod tests {
         let anchors = anchors_with_issuer_key(&key);
         let response = good_response(now, &key);
         let mut ctx = good_ctx(now, &request, &anchors);
-        ctx.committed_session_focus = Some("ck:focus:committed-other");
+        ctx.committed_session_focus = Some("ak:focus:committed-other");
         let err = verify_media_token_outcome(&response, &ctx).unwrap_err();
         assert!(matches!(
             err,
@@ -522,9 +522,9 @@ mod tests {
                 requested_focus_id,
                 binding_focus_id,
                 committed_focus_id: Some(committed_focus_id),
-            } if requested_focus_id == "ck:focus:01"
-                && binding_focus_id == "ck:focus:01"
-                && committed_focus_id == "ck:focus:committed-other"
+            } if requested_focus_id == "ak:focus:01"
+                && binding_focus_id == "ak:focus:01"
+                && committed_focus_id == "ak:focus:committed-other"
         ));
     }
 
@@ -536,7 +536,7 @@ mod tests {
         let anchors = anchors_with_issuer_key(&key);
         let mut response = unsigned_response(now + Duration::seconds(300));
         response.participant_binding.device_id =
-            DeviceId::new("ck:device:01904100-0000-7000-8000-000000000099".to_owned()).unwrap();
+            DeviceId::new("ak:device:01904100-0000-7000-8000-000000000099".to_owned()).unwrap();
         sign_response(&mut response, &key);
         let ctx = good_ctx(now, &request, &anchors);
         let err = verify_media_token_outcome(&response, &ctx).unwrap_err();
@@ -593,10 +593,10 @@ mod tests {
     #[test]
     fn helper_builds_request_with_provided_focus_id() {
         // CALL-1: chime exposes the SDK request-builder so consumers
-        // don't need their own `cokret` dep.
+        // don't need their own `arkret` dep.
         let req =
-            call_media_token_exchange(realm(), call(), actor(), device(), "ck:focus:01".to_owned());
-        assert_eq!(req.focus_id, "ck:focus:01");
+            call_media_token_exchange(realm(), call(), actor(), device(), "ak:focus:01".to_owned());
+        assert_eq!(req.focus_id, "ak:focus:01");
         assert_eq!(req.realm_id, realm());
     }
 

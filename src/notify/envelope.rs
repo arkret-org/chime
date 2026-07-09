@@ -1,4 +1,4 @@
-use cokret::blind_payload_sanitizer as sdk_sanitizer;
+use arkret::blind_payload_sanitizer as sdk_sanitizer;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -38,11 +38,11 @@ pub struct ChimePushNotifyEnvelope {
     pub audit_envelope: Option<AuditEnvelopeMetadata>,
 }
 
-pub type AuditEnvelopeMetadata = cokret::PushAuditEnvelopeMetadata;
+pub type AuditEnvelopeMetadata = arkret::PushAuditEnvelopeMetadata;
 
 impl ChimePushNotifyEnvelope {
-    fn to_sdk_request_body(&self) -> Result<cokret::PushNotifyRequestBody, PushNotifyPrivacyError> {
-        Ok(cokret::PushNotifyRequestBody {
+    fn to_sdk_request_body(&self) -> Result<arkret::PushNotifyRequestBody, PushNotifyPrivacyError> {
+        Ok(arkret::PushNotifyRequestBody {
             notification: self.notification.to_sdk_notification()?,
             event_kind: self.event_kind.clone(),
             reason_code: self.reason_code.clone(),
@@ -52,7 +52,7 @@ impl ChimePushNotifyEnvelope {
 
     pub fn validate_wire_model(&self) -> Result<(), PushNotifyPrivacyError> {
         let sdk_request = self.to_sdk_request_body()?;
-        cokret::validate_push_notify_contract_shape(&sdk_request)
+        arkret::validate_push_notify_contract_shape(&sdk_request)
             .map_err(push_notify_contract_error)?;
         self.notification.validate_wire_model()
     }
@@ -196,13 +196,13 @@ pub fn shared_push_notify_privacy_vectors() -> Vec<PushNotifyPrivacyVector> {
             // carries no `operation_id` (see `service-http-binding.md:213`).
             payload: serde_json::json!({
                 "notification": {
-                    "push_target_id": "ck:pseudonym:push:01HYZ8Z000000000000000",
+                    "push_target_id": "ak:pseudonym:push:01HYZ8Z000000000000000",
                     "wakeup_kind": "message",
                     "timing_profile_hint": "default",
                     "push_hint": "new_message",
                     "counts": { "badge": "2-5" },
                     "devices": [{
-                        "device_id": "ck:device:01904100-0000-7000-8000-000000000010",
+                        "device_id": "ak:device:01904100-0000-7000-8000-000000000010",
                         "push_key": "fcm:opaque-token",
                         "app_id": "app.example"
                     }]
@@ -216,12 +216,12 @@ pub fn shared_push_notify_privacy_vectors() -> Vec<PushNotifyPrivacyVector> {
             mode: PushNotifyPrivacyMode::E2eeBlindWakeup,
             payload: serde_json::json!({
                 "notification": {
-                    "push_target_id": "ck:pseudonym:push:01HYZ8Z000000000000000",
+                    "push_target_id": "ak:pseudonym:push:01HYZ8Z000000000000000",
                     "wakeup_kind": "message",
                     "timing_profile_hint": "default",
                     "title": "Secret",
                     "devices": [{
-                        "device_id": "ck:device:01904100-0000-7000-8000-000000000010",
+                        "device_id": "ak:device:01904100-0000-7000-8000-000000000010",
                         "push_key": "fcm:opaque-token",
                         "app_id": "app.example"
                     }]

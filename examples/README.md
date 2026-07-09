@@ -1,7 +1,7 @@
 # chime examples
 
 Runnable integration samples that show host applications how to wire
-`chime` into the two halves of the Cokret push surface: outbound
+`chime` into the two halves of the Arkret push surface: outbound
 device registration and inbound `ck.edge.push.command.notify` handling.
 
 All examples are deliberately dependency-free at runtime — they print

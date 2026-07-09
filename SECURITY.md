@@ -18,15 +18,15 @@ Do **not** open a public GitHub issue for security-sensitive bug reports.
 Use one of the following private channels:
 
 1. **GitHub Security Advisories** — preferred. Open a draft advisory at
-   <https://github.com/cokret/chime/security/advisories/new>. We
+   <https://github.com/arkret/chime/security/advisories/new>. We
    acknowledge new advisories within 5 working days.
 2. **Direct contact** — if you cannot use GitHub Security Advisories,
    email the maintainers via the address listed under
-   <https://github.com/cokret>.
+   <https://github.com/arkret>.
 
 When you report, please include:
 
-- a description of the issue and its impact in the Cokret push surface
+- a description of the issue and its impact in the Arkret push surface
   (`register-device`, `unregister-device`, `bridge/describe`,
   `ck.edge.push.command.notify` validators, or local `PushRegistrationStore` state);
 - a minimal reproduction (test fixture, JSON payload, request strand);
@@ -80,7 +80,7 @@ it as a security report and use the private channels above.
 
 ## What is out of scope
 
-- Vulnerabilities in upstream Cokret services (Sync Service, Principal
+- Vulnerabilities in upstream Arkret services (Sync Service, Principal
   Server, soland, floria, …) — please report those to the respective
   service maintainers.
 - Vulnerabilities in third-party crates listed in `Cargo.toml`. Report
@@ -145,7 +145,7 @@ MUST treat the absence as algorithm-dependent rather than as a default
 
 ### Stale-timestamp frame handling
 
-Inbound frames carry a `COKRET_CREATED_AT_HEADER`. The host MUST
+Inbound frames carry a `ARKRET_CREATED_AT_HEADER`. The host MUST
 enforce a freshness window on that header:
 
 - **Recommended window: 5 minutes** (matches the default
@@ -172,7 +172,7 @@ different invariants and SHOULD NOT share state:
 - **Inbound (gateway → chime relay).** The window protects against an
   attacker (or a buggy upstream) re-injecting an old frame to fan it
   out twice. The window MUST be at least as long as the host's
-  `COKRET_CREATED_AT_HEADER` freshness window plus the host's broker
+  `ARKRET_CREATED_AT_HEADER` freshness window plus the host's broker
   retry budget; **5 minutes is the recommended floor**. A short
   inbound window opens a re-fanout vector — when in doubt, lean long.
 

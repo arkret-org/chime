@@ -28,13 +28,13 @@ mod inner {
         PushNotifyPolicyContext, PushPreferences, build_register_device_request,
     };
 
-    /// Registers the desktop shell's WebPush endpoint with a Cokret push
+    /// Registers the desktop shell's WebPush endpoint with a Arkret push
     /// gateway. The host owns the actual HTTP call; `chime` only builds
     /// the validated request body.
     pub fn register_desktop_device() -> Result<(), Box<dyn std::error::Error>> {
         // Tauri-style: the host shell has subscribed to a browser
         // WebPush endpoint and now needs to hand the resulting token
-        // to Cokret.
+        // to Arkret.
         let config = PushDeviceConfig {
             principal_id: Some("did:web:alice.example"),
             device_id: "did:web:alice.example#tauri-desktop",
@@ -43,7 +43,7 @@ mod inner {
             // browser engine.
             push_key: Some("webpush:https://fcm.googleapis.com/wp/AAA-fake-endpoint-aaaaaaaa"),
             platform: Some("desktop"),
-            app_id: Some("im.cokret.desktop"),
+            app_id: Some("im.arkret.desktop"),
             domestic_app_id: None,
             registration_id: None,
             display_name: Some("Alice — Tauri Desktop"),
@@ -108,11 +108,11 @@ mod inner {
         let raw_payload = r#"{
             "notification": {
                 "wakeup_kind": "message",
-                "push_target_id": "ck:pseudonym:push:abcdefghijklmnopqrstuv",
+                "push_target_id": "ak:pseudonym:push:abcdefghijklmnopqrstuv",
                 "devices": [{
-                    "device_id": "ck:device:01904100-0000-7000-8000-000000000010",
+                    "device_id": "ak:device:01904100-0000-7000-8000-000000000010",
                     "push_key": "webpush:https://fcm.googleapis.com/wp/AAA-fake-endpoint-aaaaaaaa",
-                    "app_id": "im.cokret.desktop"
+                    "app_id": "im.arkret.desktop"
                 }]
             }
         }"#;

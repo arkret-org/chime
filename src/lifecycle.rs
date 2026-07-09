@@ -47,7 +47,7 @@ use crate::PushPreferencesStore;
 
 /// B.5 #9 — host-supplied driver for the background-fetch wakeup path.
 ///
-/// When a Cokret push gateway delivers a blind wakeup, the device's
+/// When a Arkret push gateway delivers a blind wakeup, the device's
 /// integration code typically needs to:
 ///
 /// 1. Hand control to the host app (iOS BGAppRefreshTask, Android WorkManager job, Web Push
@@ -655,13 +655,13 @@ mod tests {
         };
         seeded
             .muted_circle_ids
-            .insert("ck:circle:01HZK9Z000000000000000001".to_owned());
+            .insert("ak:circle:01HZK9Z000000000000000001".to_owned());
         seeded
             .muted_circle_ids
-            .insert("ck:circle:01HZK9Z000000000000000002".to_owned());
+            .insert("ak:circle:01HZK9Z000000000000000002".to_owned());
         seeded
             .muted_realm_ids
-            .insert("ck:realm:01HZK9Z000000000000000099".to_owned());
+            .insert("ak:realm:01HZK9Z000000000000000099".to_owned());
         prefs.save_push_preferences(&seeded).unwrap();
 
         let receipt =

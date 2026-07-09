@@ -12,7 +12,7 @@ use super::super::wire::{
     ChimePushUnregisterDeviceOutcome, ChimePushUnregisterDeviceRequest, PushDeviceConfig,
 };
 use super::super::{
-    COKRET_SESSION_GRANT_HEADER, FLORIA_INTEGRATION_DESCRIBE_PATH,
+    ARKRET_SESSION_GRANT_HEADER, FLORIA_INTEGRATION_DESCRIBE_PATH,
     FLORIA_PUSH_BRIDGE_DESCRIBE_PATH, REGISTER_DEVICE_PATH, SDK_USER_AGENT, SERVER_DESCRIBE_PATH,
     UNREGISTER_DEVICE_PATH,
 };
@@ -93,7 +93,7 @@ impl CokretPushClient {
     /// On native targets, the injected client SHOULD disable redirect-following
     /// (`reqwest::redirect::Policy::none()`). Otherwise a cross-host 3xx from
     /// a compromised or misconfigured service can re-send the credential-bearing
-    /// `x-cokret-session-grant` and HTTP Message Signature headers to the
+    /// `x-arkret-session-grant` and HTTP Message Signature headers to the
     /// redirect target (reqwest does not strip custom headers across redirects).
     /// The default native client built by [`Self::new`] already disables
     /// redirects. On wasm32, reqwest delegates to browser Fetch and exposes no
@@ -142,7 +142,7 @@ impl CokretPushClient {
         self,
         session_grant: impl AsRef<str>,
     ) -> Result<Self, PushRegistrationError> {
-        self.with_header(COKRET_SESSION_GRANT_HEADER, session_grant)
+        self.with_header(ARKRET_SESSION_GRANT_HEADER, session_grant)
     }
 
     /// Override the `register-device` path. Use this when the active
@@ -178,7 +178,7 @@ impl CokretPushClient {
     /// **Default is `true`.** When required, the client fail-closes with
     /// [`PushRegistrationError::MissingField`] (with field
     /// `"session_grant"`) before sending any request unless an
-    /// `X-Cokret-Session-Grant` header has been attached via
+    /// `X-Arkret-Session-Grant` header has been attached via
     /// [`with_session_grant`](Self::with_session_grant) or
     /// [`with_header`](Self::with_header).
     ///
@@ -212,15 +212,15 @@ impl CokretPushClient {
         Ok(self)
     }
 
-    /// Discover the Cokret service through the protocol `/_cokret/describe` surface.
-    pub async fn server_describe(&self) -> Result<cokret::ServiceDescribe, PushRegistrationError> {
+    /// Discover the Arkret service through the protocol `/_cokret/describe` surface.
+    pub async fn server_describe(&self) -> Result<arkret::ServiceDescribe, PushRegistrationError> {
         Ok(self.server_describe_with_context().await?.body)
     }
 
-    /// Discover the Cokret service and return response metadata.
+    /// Discover the Arkret service and return response metadata.
     pub async fn server_describe_with_context(
         &self,
-    ) -> Result<CokretHttpOutcome<cokret::ServiceDescribe>, PushRegistrationError> {
+    ) -> Result<CokretHttpOutcome<arkret::ServiceDescribe>, PushRegistrationError> {
         self.get_json(SERVER_DESCRIBE_PATH).await
     }
 
@@ -263,7 +263,7 @@ impl CokretPushClient {
         Ok(IntegrationView::new(manifest, bridge))
     }
 
-    /// Register a push-capable device with a Cokret service against
+    /// Register a push-capable device with a Arkret service against
     /// a specific gateway binding.
     ///
     /// When `prefs.enabled` is false, this method performs an idempotent
@@ -337,7 +337,7 @@ impl CokretPushClient {
 
         let body = build_register_device_request(config, binding, prefs)?;
         let sdk_body = body.to_sdk_request()?;
-        let response: CokretHttpOutcome<cokret::PushRegisterDeviceOutcome> = self
+        let response: CokretHttpOutcome<arkret::PushRegisterDeviceOutcome> = self
             .post_json(
                 self.effective_register_device_path(),
                 &sdk_body,
@@ -352,7 +352,7 @@ impl CokretPushClient {
             gateway = binding.gateway_type.display_name(),
             operation_id = crate::OPERATION_PUSH_REGISTER_DEVICE,
             request_id = response.request_id.as_deref(),
-            "Cokret push device registered"
+            "Arkret push device registered"
         );
 
         Ok(response)
@@ -374,7 +374,7 @@ impl CokretPushClient {
     ) -> Result<CokretHttpOutcome<ChimePushRegisterDeviceOutcome>, PushRegistrationError> {
         self.assert_session_grant_if_required()?;
         let sdk_body = body.to_sdk_request()?;
-        let response: CokretHttpOutcome<cokret::PushRegisterDeviceOutcome> = self
+        let response: CokretHttpOutcome<arkret::PushRegisterDeviceOutcome> = self
             .post_json(
                 self.effective_register_device_path(),
                 &sdk_body,
@@ -388,7 +388,7 @@ impl CokretPushClient {
             platform = body.platform.as_deref().unwrap_or("unspecified"),
             operation_id = crate::OPERATION_PUSH_REGISTER_DEVICE,
             request_id = response.request_id.as_deref(),
-            "Cokret push device registered (prebuilt body)"
+            "Arkret push device registered (prebuilt body)"
         );
 
         Ok(response)
@@ -415,7 +415,7 @@ impl CokretPushClient {
             .await
         {
             Ok(response) => {
-                let response: CokretHttpOutcome<cokret::PushUnregisterDeviceOutcome> = response;
+                let response: CokretHttpOutcome<arkret::PushUnregisterDeviceOutcome> = response;
                 let response_request_id = response.request_id.clone();
                 response.map_body(|body| {
                     let mut body = ChimePushUnregisterDeviceOutcome::from(body);
@@ -439,7 +439,7 @@ impl CokretPushClient {
         Ok(response)
     }
 
-    /// Unregister a push-capable device from a Cokret service against
+    /// Unregister a push-capable device from a Arkret service against
     /// a specific gateway binding.
     pub async fn unregister_device(
         &self,
@@ -473,7 +473,7 @@ impl CokretPushClient {
             .await
         {
             Ok(response) => {
-                let response: CokretHttpOutcome<cokret::PushUnregisterDeviceOutcome> = response;
+                let response: CokretHttpOutcome<arkret::PushUnregisterDeviceOutcome> = response;
                 let response_request_id = response.request_id.clone();
                 response.map_body(|body| {
                     let mut body = ChimePushUnregisterDeviceOutcome::from(body);
@@ -498,7 +498,7 @@ impl CokretPushClient {
             platform = config.platform.unwrap_or("unspecified"),
             operation_id = crate::OPERATION_PUSH_UNREGISTER_DEVICE,
             request_id = response.request_id.as_deref(),
-            "Cokret push device unregistered"
+            "Arkret push device unregistered"
         );
 
         Ok(response)
@@ -596,13 +596,13 @@ impl CokretPushClient {
                 status = error.status(),
                 request_id = error.request_id(),
                 gateway = binding.gateway_type.display_name(),
-                "Cokret push old token unregister failed during token rotation"
+                "Arkret push old token unregister failed during token rotation"
             );
         }
     }
 
     pub(super) fn assert_session_grant_if_required(&self) -> Result<(), PushRegistrationError> {
-        if self.require_session_grant && !self.has_header(COKRET_SESSION_GRANT_HEADER) {
+        if self.require_session_grant && !self.has_header(ARKRET_SESSION_GRANT_HEADER) {
             return Err(PushRegistrationError::MissingField("session_grant"));
         }
         Ok(())

@@ -38,16 +38,16 @@ fn notify_payload(idempotency_key: &str) -> Value {
         "idempotency_key": idempotency_key,
         "origin_service_did": ORIGIN_DID,
         "notification": {
-            "event_id": "ck:event:01JS0EV000000000000000000",
-            "message_id": "ck:message:01JS0MSG0000000000000000",
-            "strand_id": "ck:strand:019640f9-8000-7000-8000-000000000000",
-            "realm_id": "ck:realm:01JS0SP000000000000000000",
-            "push_target_id": "ck:pseudonym:push:01HYZ8Z000000000000000",
+            "event_id": "ak:event:01JS0EV000000000000000000",
+            "message_id": "ak:message:01JS0MSG0000000000000000",
+            "strand_id": "ak:strand:019640f9-8000-7000-8000-000000000000",
+            "realm_id": "ak:realm:01JS0SP000000000000000000",
+            "push_target_id": "ak:pseudonym:push:01HYZ8Z000000000000000",
             "wakeup_kind": "message",
             "timing_profile_hint": "default",
             "push_hint": "new_message",
             "devices": [{
-                "device_id": "ck:device:01904100-0000-7000-8000-000000000010",
+                "device_id": "ak:device:01904100-0000-7000-8000-000000000010",
                 "app_id": APP_ID,
                 "push_key": "chime-live-token-01"
             }]

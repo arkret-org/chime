@@ -5,7 +5,7 @@
 - 生产构建启用 `--features http,notify`。
 - 协议发现走 `server_describe()`；floria 适配层的
   `floria_bridge_describe().spec_version` 必须匹配 `chime::EXPECTED_SPEC_VERSION`。
-- 当前 chime 审计目标是 `cokret-spec @ 5d66aeb`；升级协议头前需要重新跑
+- 当前 chime 审计目标是 `arkret-spec @ 5d66aeb`；升级协议头前需要重新跑
   drift gate 和集成 smoke test。
 
 ## push payload 安全

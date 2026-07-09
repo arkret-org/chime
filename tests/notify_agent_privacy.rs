@@ -59,22 +59,22 @@ fn phase_p2_typed_id_prefixes_are_recognized() {
     assert_eq!(PHASE_P2_AGENT_TYPED_ID_PREFIXES.len(), 7);
     for prefix in PHASE_P2_AGENT_TYPED_ID_PREFIXES {
         assert!(
-            prefix.starts_with("ck:"),
+            prefix.starts_with("ak:"),
             "prefix `{prefix}` must be a typed-id"
         );
         assert!(prefix.ends_with(':'), "prefix `{prefix}` must end with `:`");
     }
     assert!(is_phase_p2_agent_typed_id(
-        "ck:agent_session:01HZK9Z000000000000000000"
+        "ak:agent_session:01HZK9Z000000000000000000"
     ));
     assert!(is_phase_p2_agent_typed_id(
-        "ck:accountability_grant:01HZK9Z000000000000000000"
+        "ak:accountability_grant:01HZK9Z000000000000000000"
     ));
     assert!(!is_phase_p2_agent_typed_id(
-        "ck:circle:01HZK9Z000000000000000000"
+        "ak:circle:01HZK9Z000000000000000000"
     ));
     assert!(!is_phase_p2_agent_typed_id(
-        "ck:realm:01HZK9Z000000000000000000"
+        "ak:realm:01HZK9Z000000000000000000"
     ));
 }
 
@@ -82,13 +82,13 @@ fn phase_p2_typed_id_prefixes_are_recognized() {
 fn agent_typed_id_in_event_id_slot_fails_closed() {
     let frame = serde_json::json!({
         "notification": {
-            "push_target_id": "ck:pseudonym:push:01HYZ8Z000000000000000",
+            "push_target_id": "ak:pseudonym:push:01HYZ8Z000000000000000",
             "wakeup_kind": "message",
             "timing_profile_hint": "default",
-            "event_id": "ck:agent_session:01HZK9Z000000000000000000",
+            "event_id": "ak:agent_session:01HZK9Z000000000000000000",
             "devices": [
                 {
-                    "device_id": "ck:device:01904100-0000-7000-8000-000000000010",
+                    "device_id": "ak:device:01904100-0000-7000-8000-000000000010",
                     "push_key": "fcm:opaque-token",
                     "app_id": "app.example"
                 }
@@ -112,13 +112,13 @@ fn agent_typed_id_in_event_id_slot_fails_closed() {
 fn agent_typed_id_in_extra_fails_closed() {
     let frame = serde_json::json!({
         "notification": {
-            "push_target_id": "ck:pseudonym:push:01HYZ8Z000000000000000",
+            "push_target_id": "ak:pseudonym:push:01HYZ8Z000000000000000",
             "wakeup_kind": "message",
             "timing_profile_hint": "default",
-            "agent_link": "ck:accountability_grant:01HZK9Z000000000000000000",
+            "agent_link": "ak:accountability_grant:01HZK9Z000000000000000000",
             "devices": [
                 {
-                    "device_id": "ck:device:01904100-0000-7000-8000-000000000011",
+                    "device_id": "ak:device:01904100-0000-7000-8000-000000000011",
                     "push_key": "fcm:opaque-token",
                     "app_id": "app.example"
                 }

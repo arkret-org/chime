@@ -88,7 +88,7 @@ pub enum PushErrorKind {
     /// CKP-0010 — backend cloud attempted to supply the SFrame key
     /// material; MLS-Exporter is the only authorised source.
     E2eeKeySourceUnauthorised,
-    /// CKP-0010 — recording artifact bypassed the Cokret blob upload
+    /// CKP-0010 — recording artifact bypassed the Arkret blob upload
     /// pipeline (e.g. LiveKit Egress direct-to-S3).
     RecordingArtifactPipelineBypassed,
     /// CKP-0010 — chosen focus is unavailable to this client (e.g. the
@@ -249,7 +249,7 @@ impl PushErrorKind {
         )
     }
 
-    /// Map a Cokret `bridge/describe.failure_codes` string to a stable kind.
+    /// Map a Arkret `bridge/describe.failure_codes` string to a stable kind.
     ///
     /// Returns `None` when the code is not part of the contract, so callers can
     /// decide between treating it as `HttpStatus` or surfacing the raw code.
@@ -257,71 +257,71 @@ impl PushErrorKind {
         // Canonical wire codes sourced from the SDK constants so chime's
         // classification stays byte-aligned with what soland/floria emit.
         // Top-level error codes are glob-reexported at the crate root;
-        // reason-code classifications use SDK `cokret::error::REASON_*`
+        // reason-code classifications use SDK `arkret::error::REASON_*`
         // constants when the SDK exposes them.
         const CODE_MAP: &[(&str, PushErrorKind)] = &[
             (
-                cokret::ERROR_CODE_UNAUTHENTICATED,
+                arkret::ERROR_CODE_UNAUTHENTICATED,
                 PushErrorKind::Unauthenticated,
             ),
             (
-                cokret::ERROR_CODE_AUTH_EXPIRED,
+                arkret::ERROR_CODE_AUTH_EXPIRED,
                 PushErrorKind::Unauthenticated,
             ),
             (
-                cokret::ERROR_CODE_SOFT_LOGGED_OUT,
+                arkret::ERROR_CODE_SOFT_LOGGED_OUT,
                 PushErrorKind::Unauthenticated,
             ),
             (
-                cokret::ERROR_CODE_CAPABILITY_DENIED,
+                arkret::ERROR_CODE_CAPABILITY_DENIED,
                 PushErrorKind::CapabilityDenied,
             ),
-            (cokret::ERROR_CODE_RATE_LIMITED, PushErrorKind::RateLimited),
+            (arkret::ERROR_CODE_RATE_LIMITED, PushErrorKind::RateLimited),
             (
-                cokret::ERROR_CODE_TEMPORARILY_UNAVAILABLE,
+                arkret::ERROR_CODE_TEMPORARILY_UNAVAILABLE,
                 PushErrorKind::TemporarilyUnavailable,
             ),
             (
-                cokret::ERROR_CODE_DUPLICATE_CONFLICT,
+                arkret::ERROR_CODE_DUPLICATE_CONFLICT,
                 PushErrorKind::DuplicateConflict,
             ),
-            (cokret::ERROR_CODE_NOT_FOUND, PushErrorKind::NotFound),
+            (arkret::ERROR_CODE_NOT_FOUND, PushErrorKind::NotFound),
             (
-                cokret::ERROR_CODE_SCHEMA_VIOLATION,
+                arkret::ERROR_CODE_SCHEMA_VIOLATION,
                 PushErrorKind::SchemaViolation,
             ),
-            (cokret::ERROR_CODE_BAD_JSON, PushErrorKind::SchemaViolation),
-            (cokret::ERROR_CODE_BAD_QUERY, PushErrorKind::SchemaViolation),
+            (arkret::ERROR_CODE_BAD_JSON, PushErrorKind::SchemaViolation),
+            (arkret::ERROR_CODE_BAD_QUERY, PushErrorKind::SchemaViolation),
             (
-                cokret::ERROR_CODE_MISSING_PARAM,
-                PushErrorKind::SchemaViolation,
-            ),
-            (
-                cokret::ERROR_CODE_INVALID_PARAM,
+                arkret::ERROR_CODE_MISSING_PARAM,
                 PushErrorKind::SchemaViolation,
             ),
             (
-                cokret::ERROR_CODE_DELIVERY_BINDING_STALE,
+                arkret::ERROR_CODE_INVALID_PARAM,
+                PushErrorKind::SchemaViolation,
+            ),
+            (
+                arkret::ERROR_CODE_DELIVERY_BINDING_STALE,
                 PushErrorKind::DeliveryBindingStale,
             ),
             (
-                cokret::ERROR_CODE_DELIVERY_BINDING_HANDED_OVER,
+                arkret::ERROR_CODE_DELIVERY_BINDING_HANDED_OVER,
                 PushErrorKind::DeliveryBindingHandedOver,
             ),
             (
-                cokret::ERROR_CODE_HISTORICAL_ONLY,
+                arkret::ERROR_CODE_HISTORICAL_ONLY,
                 PushErrorKind::HistoricalOnly,
             ),
             (
-                cokret::error::REASON_TOKEN_ISSUER_UNAUTHORISED,
+                arkret::error::REASON_TOKEN_ISSUER_UNAUTHORISED,
                 PushErrorKind::TokenIssuerUnauthorised,
             ),
             (
-                cokret::error::REASON_E2EE_KEY_SOURCE_UNAUTHORISED,
+                arkret::error::REASON_E2EE_KEY_SOURCE_UNAUTHORISED,
                 PushErrorKind::E2eeKeySourceUnauthorised,
             ),
             (
-                cokret::error::REASON_RECORDING_ARTIFACT_PIPELINE_BYPASSED,
+                arkret::error::REASON_RECORDING_ARTIFACT_PIPELINE_BYPASSED,
                 PushErrorKind::RecordingArtifactPipelineBypassed,
             ),
         ];
@@ -334,7 +334,7 @@ impl PushErrorKind {
 
 #[derive(Error)]
 pub enum PushRegistrationError {
-    #[error("missing required Cokret push field: {0}")]
+    #[error("missing required Arkret push field: {0}")]
     MissingField(&'static str),
     #[error("unsupported push platform: {0}")]
     InvalidPlatform(String),
@@ -348,9 +348,9 @@ pub enum PushRegistrationError {
     ForbiddenPushGatewayQueryParam { param: String },
     #[error("invalid HTTP header `{name}`")]
     InvalidHeader { name: String },
-    #[error("invalid Cokret push field `{field}`: {reason}")]
+    #[error("invalid Arkret push field `{field}`: {reason}")]
     InvalidField { field: &'static str, reason: String },
-    #[error("Cokret service returned HTTP {status}")]
+    #[error("Arkret service returned HTTP {status}")]
     HttpStatus {
         status: u16,
         kind: PushErrorKind,
@@ -558,12 +558,12 @@ mod tests {
         let envelope = CokretErrorEnvelope {
             ok: false,
             error: CokretError {
-                code: cokret::ERROR_CODE_CAPABILITY_DENIED.to_owned(),
+                code: arkret::ERROR_CODE_CAPABILITY_DENIED.to_owned(),
                 message: "denied".to_owned(),
                 retry_after_ms: None,
                 details: BTreeMap::new(),
             },
-            request_id: "ck:request:test".to_owned(),
+            request_id: "ak:request:test".to_owned(),
         };
 
         assert_eq!(
@@ -580,7 +580,7 @@ mod tests {
     #[test]
     fn from_failure_code_covers_contract() {
         assert_eq!(
-            PushErrorKind::from_failure_code(cokret::ERROR_CODE_RATE_LIMITED),
+            PushErrorKind::from_failure_code(arkret::ERROR_CODE_RATE_LIMITED),
             Some(PushErrorKind::RateLimited)
         );
         assert_eq!(PushErrorKind::from_failure_code("registration_gone"), None);
@@ -592,15 +592,15 @@ mod tests {
         // B5: chime must recognise the three round-4 wire codes that
         // floria/soland forward so consumers can branch on them.
         assert_eq!(
-            PushErrorKind::from_failure_code(cokret::ERROR_CODE_DELIVERY_BINDING_STALE),
+            PushErrorKind::from_failure_code(arkret::ERROR_CODE_DELIVERY_BINDING_STALE),
             Some(PushErrorKind::DeliveryBindingStale)
         );
         assert_eq!(
-            PushErrorKind::from_failure_code(cokret::ERROR_CODE_DELIVERY_BINDING_HANDED_OVER),
+            PushErrorKind::from_failure_code(arkret::ERROR_CODE_DELIVERY_BINDING_HANDED_OVER),
             Some(PushErrorKind::DeliveryBindingHandedOver)
         );
         assert_eq!(
-            PushErrorKind::from_failure_code(cokret::ERROR_CODE_HISTORICAL_ONLY),
+            PushErrorKind::from_failure_code(arkret::ERROR_CODE_HISTORICAL_ONLY),
             Some(PushErrorKind::HistoricalOnly)
         );
     }
@@ -682,12 +682,12 @@ mod tests {
         let envelope = CokretErrorEnvelope {
             ok: false,
             error: CokretError {
-                code: cokret::ERROR_CODE_DELIVERY_BINDING_STALE.to_owned(),
+                code: arkret::ERROR_CODE_DELIVERY_BINDING_STALE.to_owned(),
                 message: "stale".to_owned(),
                 retry_after_ms: None,
                 details: BTreeMap::new(),
             },
-            request_id: "ck:request:test".to_owned(),
+            request_id: "ak:request:test".to_owned(),
         };
         assert_eq!(
             classify_http_error(409, Some(&envelope)),
@@ -697,12 +697,12 @@ mod tests {
         let envelope = CokretErrorEnvelope {
             ok: false,
             error: CokretError {
-                code: cokret::ERROR_CODE_HISTORICAL_ONLY.to_owned(),
+                code: arkret::ERROR_CODE_HISTORICAL_ONLY.to_owned(),
                 message: "diagnostic".to_owned(),
                 retry_after_ms: None,
                 details: BTreeMap::new(),
             },
-            request_id: "ck:request:test".to_owned(),
+            request_id: "ak:request:test".to_owned(),
         };
         assert_eq!(
             classify_http_error(200, Some(&envelope)),

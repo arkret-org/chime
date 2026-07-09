@@ -5,12 +5,12 @@
 //! Wire-level primitives (RFC 9530 `Content-Digest` computation, the
 //! base64 alphabet used for the `Signature` value, the covered-component
 //! lookup keys) are now sourced from
-//! [`cokret::http_signature`](cokret::http_signature) so chime, floria
+//! [`arkret::http_signature`](arkret::http_signature) so chime, floria
 //! and soland share a single canonicalization implementation. The
 //! `PushRequestSigningContext` type itself stays in chime because:
 //!
 //! 1. chime's covered-component set differs from floria's notify set — it covers
-//!    `x-cokret-operation-id`, `x-cokret-device-id`, `x-cokret-created-at`, `x-cokret-audience`
+//!    `x-arkret-operation-id`, `x-arkret-device-id`, `x-arkret-created-at`, `x-arkret-audience`
 //!    (the device- registration strand), not the two service-DID headers floria's `/notify`
 //!    verifier requires.
 //! 2. chime never owned a private key; it only canonicalizes context so an external signer (the
@@ -22,7 +22,7 @@ use std::collections::HashMap;
 use std::fmt;
 use std::time::{Duration, SystemTime, SystemTimeError};
 
-use cokret::http_signature::{
+use arkret::http_signature::{
     Component, ContentDigest, ContentDigestAlgorithm, format_signature_header,
     format_signature_input_component_list,
 };
@@ -35,10 +35,10 @@ use super::urls::{
     redact_url, require_optional_owned_non_empty, require_owned_non_empty, try_cokret_api_url,
 };
 use super::{
-    COKRET_ACTOR_ID_HEADER, COKRET_AUDIENCE_HEADER, COKRET_CREATED_AT_HEADER,
-    COKRET_DESTINATION_SERVICE_DID_HEADER, COKRET_DEVICE_ID_HEADER, COKRET_EXPIRES_AT_HEADER,
-    COKRET_IDEMPOTENCY_KEY_HEADER, COKRET_NONCE_HEADER, COKRET_OPERATION_ID_HEADER,
-    COKRET_ORIGIN_HEADER, COKRET_ORIGIN_SERVICE_DID_HEADER, COKRET_SESSION_GRANT_HEADER,
+    ARKRET_ACTOR_ID_HEADER, ARKRET_AUDIENCE_HEADER, ARKRET_CREATED_AT_HEADER,
+    ARKRET_DESTINATION_SERVICE_DID_HEADER, ARKRET_DEVICE_ID_HEADER, ARKRET_EXPIRES_AT_HEADER,
+    ARKRET_IDEMPOTENCY_KEY_HEADER, ARKRET_NONCE_HEADER, ARKRET_OPERATION_ID_HEADER,
+    ARKRET_ORIGIN_HEADER, ARKRET_ORIGIN_SERVICE_DID_HEADER, ARKRET_SESSION_GRANT_HEADER,
     CONTENT_DIGEST_HEADER, SIGNATURE_HEADER, SIGNATURE_INPUT_HEADER,
 };
 
@@ -110,37 +110,37 @@ impl PushRequestSigningContext {
         // small grows as the optional headers are appended below.
         let mut headers: Vec<(&'static str, String)> = Vec::with_capacity(13);
         headers.push((CONTENT_DIGEST_HEADER, self.content_digest.clone()));
-        headers.push((COKRET_OPERATION_ID_HEADER, self.operation_id.clone()));
-        headers.push((COKRET_DEVICE_ID_HEADER, self.device_id.clone()));
-        headers.push((COKRET_CREATED_AT_HEADER, self.created_at.clone()));
-        headers.push((COKRET_AUDIENCE_HEADER, self.audience.clone()));
+        headers.push((ARKRET_OPERATION_ID_HEADER, self.operation_id.clone()));
+        headers.push((ARKRET_DEVICE_ID_HEADER, self.device_id.clone()));
+        headers.push((ARKRET_CREATED_AT_HEADER, self.created_at.clone()));
+        headers.push((ARKRET_AUDIENCE_HEADER, self.audience.clone()));
 
         if let Some(actor_id) = &self.actor_id {
-            headers.push((COKRET_ACTOR_ID_HEADER, actor_id.clone()));
+            headers.push((ARKRET_ACTOR_ID_HEADER, actor_id.clone()));
         }
         if let Some(expires_at) = &self.expires_at {
-            headers.push((COKRET_EXPIRES_AT_HEADER, expires_at.clone()));
+            headers.push((ARKRET_EXPIRES_AT_HEADER, expires_at.clone()));
         }
         if let Some(origin) = &self.origin {
-            headers.push((COKRET_ORIGIN_HEADER, origin.clone()));
+            headers.push((ARKRET_ORIGIN_HEADER, origin.clone()));
         }
         if let Some(origin_service_did) = &self.origin_service_did {
-            headers.push((COKRET_ORIGIN_SERVICE_DID_HEADER, origin_service_did.clone()));
+            headers.push((ARKRET_ORIGIN_SERVICE_DID_HEADER, origin_service_did.clone()));
         }
         if let Some(destination_service_did) = &self.destination_service_did {
             headers.push((
-                COKRET_DESTINATION_SERVICE_DID_HEADER,
+                ARKRET_DESTINATION_SERVICE_DID_HEADER,
                 destination_service_did.clone(),
             ));
         }
         if let Some(nonce) = &self.nonce {
-            headers.push((COKRET_NONCE_HEADER, nonce.clone()));
+            headers.push((ARKRET_NONCE_HEADER, nonce.clone()));
         }
         if let Some(idempotency_key) = &self.idempotency_key {
-            headers.push((COKRET_IDEMPOTENCY_KEY_HEADER, idempotency_key.clone()));
+            headers.push((ARKRET_IDEMPOTENCY_KEY_HEADER, idempotency_key.clone()));
         }
         if let Some(session_grant) = &self.session_grant {
-            headers.push((COKRET_SESSION_GRANT_HEADER, session_grant.clone()));
+            headers.push((ARKRET_SESSION_GRANT_HEADER, session_grant.clone()));
         }
 
         headers
@@ -149,7 +149,7 @@ impl PushRequestSigningContext {
     /// Build the `Signature-Input` header value for this request context.
     ///
     /// Covered-component header names are derived from the same
-    /// `COKRET_*_HEADER` constants emitted by
+    /// `ARKRET_*_HEADER` constants emitted by
     /// [`Self::signed_metadata_headers`] (lowercased per RFC 9421), so the
     /// declared `Signature-Input` set can never drift from the headers
     /// actually placed on the wire.
@@ -165,52 +165,52 @@ impl PushRequestSigningContext {
             CONTENT_DIGEST_HEADER.to_ascii_lowercase(),
         ));
         components.push(Component::Header(
-            COKRET_OPERATION_ID_HEADER.to_ascii_lowercase(),
+            ARKRET_OPERATION_ID_HEADER.to_ascii_lowercase(),
         ));
         components.push(Component::Header(
-            COKRET_DEVICE_ID_HEADER.to_ascii_lowercase(),
+            ARKRET_DEVICE_ID_HEADER.to_ascii_lowercase(),
         ));
         components.push(Component::Header(
-            COKRET_CREATED_AT_HEADER.to_ascii_lowercase(),
+            ARKRET_CREATED_AT_HEADER.to_ascii_lowercase(),
         ));
         components.push(Component::Header(
-            COKRET_AUDIENCE_HEADER.to_ascii_lowercase(),
+            ARKRET_AUDIENCE_HEADER.to_ascii_lowercase(),
         ));
 
         if self.actor_id.is_some() {
             components.push(Component::Header(
-                COKRET_ACTOR_ID_HEADER.to_ascii_lowercase(),
+                ARKRET_ACTOR_ID_HEADER.to_ascii_lowercase(),
             ));
         }
         if self.expires_at.is_some() {
             components.push(Component::Header(
-                COKRET_EXPIRES_AT_HEADER.to_ascii_lowercase(),
+                ARKRET_EXPIRES_AT_HEADER.to_ascii_lowercase(),
             ));
         }
         if self.origin.is_some() {
-            components.push(Component::Header(COKRET_ORIGIN_HEADER.to_ascii_lowercase()));
+            components.push(Component::Header(ARKRET_ORIGIN_HEADER.to_ascii_lowercase()));
         }
         if self.origin_service_did.is_some() {
             components.push(Component::Header(
-                COKRET_ORIGIN_SERVICE_DID_HEADER.to_ascii_lowercase(),
+                ARKRET_ORIGIN_SERVICE_DID_HEADER.to_ascii_lowercase(),
             ));
         }
         if self.destination_service_did.is_some() {
             components.push(Component::Header(
-                COKRET_DESTINATION_SERVICE_DID_HEADER.to_ascii_lowercase(),
+                ARKRET_DESTINATION_SERVICE_DID_HEADER.to_ascii_lowercase(),
             ));
         }
         if self.nonce.is_some() {
-            components.push(Component::Header(COKRET_NONCE_HEADER.to_ascii_lowercase()));
+            components.push(Component::Header(ARKRET_NONCE_HEADER.to_ascii_lowercase()));
         }
         if self.idempotency_key.is_some() {
             components.push(Component::Header(
-                COKRET_IDEMPOTENCY_KEY_HEADER.to_ascii_lowercase(),
+                ARKRET_IDEMPOTENCY_KEY_HEADER.to_ascii_lowercase(),
             ));
         }
         if self.session_grant.is_some() {
             components.push(Component::Header(
-                COKRET_SESSION_GRANT_HEADER.to_ascii_lowercase(),
+                ARKRET_SESSION_GRANT_HEADER.to_ascii_lowercase(),
             ));
         }
 
@@ -348,7 +348,7 @@ impl PushRequestSigningOptions {
 ///
 /// ## CH-1 wire shape
 ///
-/// The output is produced by [`cokret::http_signature::ContentDigest::compute`]
+/// The output is produced by [`arkret::http_signature::ContentDigest::compute`]
 /// with [`ContentDigestAlgorithm::Sha256`]. That guarantees byte-equivalent
 /// wire output (same `sha-256=:BASE64STANDARD_32B:` form, same base64
 /// alphabet) with floria's verifier and soland's fanout signer, which
@@ -411,7 +411,7 @@ where
 /// A.5 #4 — per-`(device_id, nonce)` replay-window tracker.
 ///
 /// The chime push device registration / unregistration strand stamps a
-/// random `X-Cokret-Nonce` value on every signed request so floria's
+/// random `X-Arkret-Nonce` value on every signed request so floria's
 /// verifier can reject replays. The signed transcript would otherwise
 /// stay valid forever, which means an attacker who recorded one
 /// `register-device` request can resubmit it from any vantage point
@@ -491,7 +491,7 @@ impl NonceTracker {
     /// `Err(NonceReplayError::DuplicateNonce)` if the same pair has
     /// already been recorded within the active window.
     ///
-    /// Use the value of [`crate::COKRET_NONCE_HEADER`] for `nonce`.
+    /// Use the value of [`crate::ARKRET_NONCE_HEADER`] for `nonce`.
     pub fn observe(&mut self, device_id: &str, nonce: &str) -> Result<(), NonceReplayError> {
         self.observe_at(device_id, nonce, SystemTime::now())
     }
@@ -548,13 +548,13 @@ impl NonceTracker {
 mod tests {
     //! CH-1 wire-equivalence tests for the SDK-routed `content_digest_sha256`.
     //!
-    //! The whole point of routing through `cokret::http_signature::ContentDigest`
+    //! The whole point of routing through `arkret::http_signature::ContentDigest`
     //! is that chime, floria's verifier, and soland's fanout signer all
     //! agree on the wire bytes. These tests pin that agreement so a
     //! future SDK bump can't silently change the wire shape without
     //! also tripping chime's CI.
 
-    use cokret::http_signature::{ContentDigest, ContentDigestAlgorithm, verify_content_digest};
+    use arkret::http_signature::{ContentDigest, ContentDigestAlgorithm, verify_content_digest};
 
     use super::*;
 
@@ -566,7 +566,7 @@ mod tests {
     fn ch1_content_digest_matches_sdk_byte_for_byte() {
         let body = serde_json::json!({
             "operation_id": "ck.edge.push.command.register_device",
-            "device_id": "ck:device:01HYZ8Z000000000000000",
+            "device_id": "ak:device:01HYZ8Z000000000000000",
         });
         let chime_value = content_digest_sha256(&body).expect("chime digest computes");
 
@@ -609,7 +609,7 @@ mod tests {
         let err = verify_content_digest(&parsed, b"different body").unwrap_err();
         assert!(matches!(
             err,
-            cokret::http_signature::SignatureError::ContentDigestMismatch
+            arkret::http_signature::SignatureError::ContentDigestMismatch
         ));
     }
 

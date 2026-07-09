@@ -5,11 +5,11 @@ use serde::{Deserialize, Serialize};
 use super::super::errors::{PushRegistrationError, classify_http_error};
 use super::super::urls::try_cokret_api_url;
 use super::super::wire::CokretErrorEnvelope;
-use super::super::{COKRET_REQUEST_ID_HEADER, RETRY_AFTER_HEADER};
+use super::super::{ARKRET_REQUEST_ID_HEADER, RETRY_AFTER_HEADER};
 use super::core::CokretPushClient;
 use super::retry::{generate_idempotency_key, retry_jitter_seed, sleep_for};
 
-/// HTTP response body plus Cokret response metadata.
+/// HTTP response body plus Arkret response metadata.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CokretHttpOutcome<T> {
     pub body: T,
@@ -34,7 +34,7 @@ pub(super) fn default_http_client() -> reqwest::Client {
     // client redirect. reqwest only strips the standard
     // Authorization/Cookie/Proxy-Authorization headers on a cross-host
     // redirect, NOT custom headers — so following a 3xx would re-send
-    // the credential-bearing `x-cokret-session-grant` and HTTP Message
+    // the credential-bearing `x-arkret-session-grant` and HTTP Message
     // Signature headers to the redirect target. We fail-close on any
     // 3xx instead. Hosts injecting their own client via
     // `with_http_client` should apply the same policy.
@@ -162,10 +162,10 @@ impl CokretPushClient {
         if let Some(request_id) = request_id {
             let request_id = reqwest::header::HeaderValue::from_str(request_id).map_err(|_| {
                 PushRegistrationError::InvalidHeader {
-                    name: COKRET_REQUEST_ID_HEADER.to_owned(),
+                    name: ARKRET_REQUEST_ID_HEADER.to_owned(),
                 }
             })?;
-            request = request.header(COKRET_REQUEST_ID_HEADER, request_id);
+            request = request.header(ARKRET_REQUEST_ID_HEADER, request_id);
         }
 
         for (name, value) in &self.headers {
@@ -176,7 +176,7 @@ impl CokretPushClient {
         let status = response.status();
         let headers = response.headers().clone();
         let retry_after = header_value(&headers, RETRY_AFTER_HEADER);
-        let request_id = header_value(&headers, COKRET_REQUEST_ID_HEADER);
+        let request_id = header_value(&headers, ARKRET_REQUEST_ID_HEADER);
         let body = response.text().await?;
 
         if !status.is_success() {
@@ -229,10 +229,10 @@ impl CokretPushClient {
         if let Some(request_id) = self.default_request_id.as_deref() {
             let request_id = reqwest::header::HeaderValue::from_str(request_id).map_err(|_| {
                 PushRegistrationError::InvalidHeader {
-                    name: COKRET_REQUEST_ID_HEADER.to_owned(),
+                    name: ARKRET_REQUEST_ID_HEADER.to_owned(),
                 }
             })?;
-            request = request.header(COKRET_REQUEST_ID_HEADER, request_id);
+            request = request.header(ARKRET_REQUEST_ID_HEADER, request_id);
         }
 
         for (name, value) in &self.headers {
@@ -243,7 +243,7 @@ impl CokretPushClient {
         let status = response.status();
         let headers = response.headers().clone();
         let retry_after = header_value(&headers, RETRY_AFTER_HEADER);
-        let request_id = header_value(&headers, COKRET_REQUEST_ID_HEADER);
+        let request_id = header_value(&headers, ARKRET_REQUEST_ID_HEADER);
         let body = response.text().await?;
 
         if !status.is_success() {

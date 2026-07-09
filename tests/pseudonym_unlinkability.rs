@@ -1,6 +1,6 @@
 //! `push_target_id` unlinkability gate tests.
 //!
-//! Spec: `cokret-spec/spec/v1/zh/crypto-media/device-lifecycle.md` §5a.3.
+//! Spec: `arkret-spec/spec/v1/zh/crypto-media/device-lifecycle.md` §5a.3.
 //! These tests lock the SDK side of the privacy contract: chime never
 //! lets `device_id`, `push_key`, `principal_id`, `email`, or phone
 //! number leak into a `PushTargetId`. The actual entropy / randomness
@@ -24,10 +24,10 @@ fn target_id_rejects_principal_or_device_identifiers() {
         "DID:web:alice.example",
         // device DID URLs
         "did:web:alice.example#device-phone",
-        // cokret typed ids
-        "ck:device:01HYZ8Z000000000000000",
-        "ck:realm:01HYZ8Z000000000000000",
-        "ck:space:01HYZ8Z000000000000000",
+        // arkret typed ids
+        "ak:device:01HYZ8Z000000000000000",
+        "ak:realm:01HYZ8Z000000000000000",
+        "ak:space:01HYZ8Z000000000000000",
     ];
     for value in identifiers {
         assert!(
@@ -44,9 +44,9 @@ fn target_id_rejects_principal_or_device_identifiers() {
 /// rotations.
 #[test]
 fn rotated_target_ids_compare_strictly_byte_equal() {
-    let route_a = PushTargetId::new("ck:pseudonym:push:01HYZ8Z000000000000000").unwrap();
-    let route_b = PushTargetId::new("ck:pseudonym:push:01HYZ8Z000000000000001").unwrap();
-    let route_a_again = PushTargetId::new("ck:pseudonym:push:01HYZ8Z000000000000000").unwrap();
+    let route_a = PushTargetId::new("ak:pseudonym:push:01HYZ8Z000000000000000").unwrap();
+    let route_b = PushTargetId::new("ak:pseudonym:push:01HYZ8Z000000000000001").unwrap();
+    let route_a_again = PushTargetId::new("ak:pseudonym:push:01HYZ8Z000000000000000").unwrap();
 
     assert_eq!(route_a, route_a_again);
     assert_ne!(
@@ -72,7 +72,7 @@ fn target_id_rejects_strings_carrying_device_or_token_material() {
         // APNs token shapes
         "apns:01abcdef01abcdef01abcdef01abcdef",
         // Random typed-id with device-like substring
-        "ck:device:fcm:eJx9k2-aaaaaaaaaaaaa",
+        "ak:device:fcm:eJx9k2-aaaaaaaaaaaaa",
     ];
     for value in leaks {
         assert!(
@@ -98,14 +98,14 @@ fn multiple_routes_per_device_keep_distinct_pseudonyms() {
     let main = PushRoute::active(
         recipient.clone(),
         PushRouteId::new("apns_main").unwrap(),
-        PushTargetId::new("ck:pseudonym:push:01HYZ8Z000000000000ABC").unwrap(),
+        PushTargetId::new("ak:pseudonym:push:01HYZ8Z000000000000ABC").unwrap(),
         "did:web:gateway.example",
     );
     let voip = {
         let mut r = PushRoute::active(
             recipient,
             PushRouteId::new("fcm_voip").unwrap(),
-            PushTargetId::new("ck:pseudonym:push:01HYZ8Z000000000000XYZ").unwrap(),
+            PushTargetId::new("ak:pseudonym:push:01HYZ8Z000000000000XYZ").unwrap(),
             "did:web:gateway.example",
         );
         r.capabilities.push(PushRouteCapability::Voip);
@@ -128,7 +128,7 @@ fn multiple_routes_per_device_keep_distinct_pseudonyms() {
 /// devices' pseudonyms.
 #[test]
 fn target_id_serde_round_trip_preserves_byte_form() {
-    let value = "ck:pseudonym:push:abc-DEF_ghi-JKL_mno-PQR_stu";
+    let value = "ak:pseudonym:push:abc-DEF_ghi-JKL_mno-PQR_stu";
     let id = PushTargetId::new(value).unwrap();
     let json = serde_json::to_string(&id).unwrap();
     assert_eq!(json, format!("\"{value}\""));
@@ -148,6 +148,6 @@ fn wakeup_kind_serializes_to_opaque_vocabulary_only() {
     ] {
         let json = serde_json::to_string(&kind).unwrap();
         assert!(!json.contains("did:"), "wakeup_kind leaked DID: {json}");
-        assert!(!json.contains("ck:"), "wakeup_kind leaked typed id: {json}");
+        assert!(!json.contains("ak:"), "wakeup_kind leaked typed id: {json}");
     }
 }

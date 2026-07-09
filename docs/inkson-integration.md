@@ -49,7 +49,7 @@ crashing existing devices.
 
 inkson's smoke-test harness MUST:
 
-1. Call `server_describe()` against the target Cokret service.
+1. Call `server_describe()` against the target Arkret service.
 2. If the deployment is floria-specific, call
    `floria_bridge_describe()` as an adapter check and compare the returned `spec_version` to
    `chime::EXPECTED_SPEC_VERSION`.
@@ -57,7 +57,7 @@ inkson's smoke-test harness MUST:
    common cause of "registrations succeed but notifications never
    arrive" bugs and is cheap to catch up-front.
 
-The crate-level audited spec target is `cokret-spec @ 5d66aeb`; older
+The crate-level audited spec target is `arkret-spec @ 5d66aeb`; older
 SHAs in changelog history are retained only as round-by-round audit
 records.
 

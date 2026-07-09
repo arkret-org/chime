@@ -1,4 +1,4 @@
-use cokret::blind_payload_sanitizer::{BlindPayloadError, BlindPayloadReasonCode};
+use arkret::blind_payload_sanitizer::{BlindPayloadError, BlindPayloadReasonCode};
 use thiserror::Error;
 
 #[derive(Clone, Debug, Error, PartialEq, Eq)]

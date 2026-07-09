@@ -1,4 +1,4 @@
-//! Async HTTP client for the Cokret push register/unregister/describe endpoints.
+//! Async HTTP client for the Arkret push register/unregister/describe endpoints.
 //!
 //! Available only when the `http` feature is enabled.
 //!

@@ -8,10 +8,10 @@ use url::Url;
 use super::errors::PushRegistrationError;
 use super::{FLORIA_INTEGRATION_DESCRIBE_PATH, FLORIA_PUSH_BRIDGE_DESCRIBE_PATH, PUSH_NOTIFY_PATH};
 
-/// Builds a normalized Cokret API URL.
+/// Builds a normalized Arkret API URL.
 ///
 /// `service_base_url` may be either an origin (`https://server.example`) or a
-/// negative-space root (`https://server.example/_cokret`). Cokret paths are
+/// negative-space root (`https://server.example/_cokret`). Arkret paths are
 /// absolute under the `/_cokret/` root and carry no version segment.
 pub fn cokret_api_url(service_base_url: &str, path: &str) -> String {
     let base = service_base_url.trim_end_matches('/');
@@ -147,7 +147,7 @@ fn floria_push_gateway_service_base_url(
     )
 }
 
-/// Validate a Cokret push gateway endpoint.
+/// Validate a Arkret push gateway endpoint.
 ///
 /// Production gateway URLs must be HTTPS. Plain HTTP is accepted only for
 /// loopback hosts when `allow_insecure_loopback` is true.
