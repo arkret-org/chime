@@ -79,7 +79,7 @@ default = []
 ## dependency is feature-gated because the bearer-token surface only
 ## exists when the `http` client is compiled.
 http = ["dep:reqwest", "dep:tokio", "dep:gloo-timers", "dep:zeroize"]
-## Enable server/gateway-side ck.edge.push.command.notify wire types.
+## Enable server/gateway-side ak.edge.push.command.notify wire types.
 notify = []
 
 [dev-dependencies]

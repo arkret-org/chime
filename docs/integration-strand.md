@@ -87,7 +87,7 @@ Notes:
 soland                  floria (server)         chime (server)    provider (APNS/FCM)    chime (device)        inkson (device)
    │                        │                       │                    │                       │                    │
    │ (1) emit               │                       │                    │                       │                    │
-   │  ck.edge.push.command.notify        │                       │                    │                       │                    │
+   │  ak.edge.push.command.notify        │                       │                    │                       │                    │
    │───────────────────────►│                       │                    │                       │                    │
    │                        │                       │                    │                       │                    │
    │                        │ (2) chime validates   │                    │                       │                    │
@@ -127,7 +127,7 @@ soland                  floria (server)         chime (server)    provider (APNS
 soland                  floria (server)         chime (server)    provider             chime (device)        inkson (device)
    │                        │                       │                    │                       │                    │
    │ (1) emit               │                       │                    │                       │                    │
-   │  ck.edge.push.command.notify        │                       │                    │                       │                    │
+   │  ak.edge.push.command.notify        │                       │                    │                       │                    │
    │  wakeup_kind=blind     │                       │                    │                       │                    │
    │───────────────────────►│                       │                    │                       │                    │
    │                        │                       │                    │                       │                    │
