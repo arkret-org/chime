@@ -24,7 +24,7 @@ use super::notification::PushNotification;
 pub struct ChimePushNotifyEnvelope {
     pub notification: PushNotification,
     /// SPEC-CR-016 (class D) — originating Event kind used by the gateway
-    /// to route Phase-P2 `ck.agent.*` kinds. Coarse routing selector.
+    /// to route Phase-P2 `ak.agent.*` kinds. Coarse routing selector.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub event_kind: Option<String>,
     /// SPEC-CR-016 (class D) — caller-supplied wire-safe reason code

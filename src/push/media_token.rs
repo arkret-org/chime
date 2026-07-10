@@ -23,7 +23,7 @@
 //! whose [`MediaTokenError::kind`] aligns one-to-one with the AKP-0010
 //! variants surfaced through [`PushErrorKind`] (CALL-2). HTTP transport
 //! is the caller's responsibility — the rationale is that chime's
-//! `CokretPushClient` is push-registration scoped and may live on
+//! `ArkretPushClient` is push-registration scoped and may live on
 //! wasm32 without a tokio runtime, while the RTC token exchange is
 //! typically driven by the in-app call surface (inkson).
 use std::fmt;
@@ -319,10 +319,10 @@ fn sdk_media_reason(err: arkret::Error) -> SdkMediaReason {
 
 #[cfg(test)]
 mod tests {
+    use arkret::{CallId, DeviceId, Did, RealmId};
     use base64::Engine as _;
     use base64::engine::general_purpose::URL_SAFE_NO_PAD;
     use chrono::Duration;
-    use arkret::{CallId, DeviceId, Did, RealmId};
     use ed25519_dalek::{Signer, SigningKey};
 
     use super::*;
@@ -587,7 +587,7 @@ mod tests {
         let err = ensure_known_backend(&MediaBackendType::Unknown).unwrap_err();
         assert_eq!(err.kind(), PushErrorKind::UnknownFocusType);
         assert!(ensure_known_backend(&MediaBackendType::Livekit).is_ok());
-        assert!(ensure_known_backend(&MediaBackendType::CokretNative).is_ok());
+        assert!(ensure_known_backend(&MediaBackendType::ArkretNative).is_ok());
     }
 
     #[test]

@@ -18,11 +18,11 @@ use super::super::{
 };
 use super::retry::{PushRetryPolicy, retry_jitter_seed};
 use super::secret::SecretString;
-use super::transport::{CokretHttpOutcome, default_http_client};
+use super::transport::{ArkretHttpOutcome, default_http_client};
 use crate::{GatewayBinding, PushPreferences};
 
 #[derive(Clone)]
-pub struct CokretPushClient {
+pub struct ArkretPushClient {
     pub(super) http: reqwest::Client,
     pub(super) service_base_url: String,
     // A.5 #2 — bearer token is held in a zeroize-on-drop wrapper so
@@ -45,14 +45,14 @@ pub struct CokretPushClient {
     pub(super) unregister_device_path: Option<String>,
 }
 
-impl fmt::Debug for CokretPushClient {
+impl fmt::Debug for ArkretPushClient {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         // A.5 #2 — `SecretString::Debug` already prints `<redacted>`,
         // so handing the `Option<SecretString>` straight to
         // `debug_struct` cannot leak the token. The explicit cast to
         // `Option<&SecretString>` makes that contract grep-able.
         let bearer: Option<&SecretString> = self.bearer_token.as_ref();
-        f.debug_struct("CokretPushClient")
+        f.debug_struct("ArkretPushClient")
             .field("service_base_url", &redact_url(&self.service_base_url))
             .field("bearer_token", &bearer)
             .field("timeout", &self.timeout)
@@ -66,7 +66,7 @@ impl fmt::Debug for CokretPushClient {
     }
 }
 
-impl CokretPushClient {
+impl ArkretPushClient {
     pub fn new(service_base_url: impl Into<String>) -> Self {
         Self {
             http: default_http_client(),
@@ -220,7 +220,7 @@ impl CokretPushClient {
     /// Discover the Arkret service and return response metadata.
     pub async fn server_describe_with_context(
         &self,
-    ) -> Result<CokretHttpOutcome<arkret::ServiceDescribe>, PushRegistrationError> {
+    ) -> Result<ArkretHttpOutcome<arkret::ServiceDescribe>, PushRegistrationError> {
         self.get_json(SERVER_DESCRIBE_PATH).await
     }
 
@@ -234,7 +234,7 @@ impl CokretPushClient {
     /// Discover floria's bridge contract and return response metadata.
     pub async fn floria_bridge_describe_with_context(
         &self,
-    ) -> Result<CokretHttpOutcome<PushBridgeDescribeOutcome>, PushRegistrationError> {
+    ) -> Result<ArkretHttpOutcome<PushBridgeDescribeOutcome>, PushRegistrationError> {
         self.get_json(FLORIA_PUSH_BRIDGE_DESCRIBE_PATH).await
     }
 
@@ -248,7 +248,7 @@ impl CokretPushClient {
     /// Discover floria's service-level integration manifest and return response metadata.
     pub async fn floria_integration_describe_with_context(
         &self,
-    ) -> Result<CokretHttpOutcome<PushGatewayIntegrationDescribeOutcome>, PushRegistrationError>
+    ) -> Result<ArkretHttpOutcome<PushGatewayIntegrationDescribeOutcome>, PushRegistrationError>
     {
         self.get_json(FLORIA_INTEGRATION_DESCRIBE_PATH).await
     }
@@ -290,9 +290,9 @@ impl CokretPushClient {
     /// # };
     /// use std::time::Duration;
     ///
-    /// use chime::{CokretPushClient, PushRetryPolicy};
+    /// use chime::{ArkretPushClient, PushRetryPolicy};
     ///
-    /// let client = CokretPushClient::new("https://principal.example")
+    /// let client = ArkretPushClient::new("https://principal.example")
     ///     .with_bearer_token("session-token")
     ///     .with_timeout(Duration::from_secs(10))
     ///     .with_retry_policy(PushRetryPolicy::conservative());
@@ -322,7 +322,7 @@ impl CokretPushClient {
         config: &PushDeviceConfig<'_>,
         binding: &GatewayBinding,
         prefs: &PushPreferences,
-    ) -> Result<CokretHttpOutcome<ChimePushRegisterDeviceOutcome>, PushRegistrationError> {
+    ) -> Result<ArkretHttpOutcome<ChimePushRegisterDeviceOutcome>, PushRegistrationError> {
         self.assert_session_grant_if_required()?;
         if !prefs.enabled {
             let response = self
@@ -337,7 +337,7 @@ impl CokretPushClient {
 
         let body = build_register_device_request(config, binding, prefs)?;
         let sdk_body = body.to_sdk_request()?;
-        let response: CokretHttpOutcome<arkret::PushRegisterDeviceOutcome> = self
+        let response: ArkretHttpOutcome<arkret::PushRegisterDeviceOutcome> = self
             .post_json(
                 self.effective_register_device_path(),
                 &sdk_body,
@@ -371,10 +371,10 @@ impl CokretPushClient {
         body: &ChimePushRegisterDeviceRequest,
         idempotency_key: Option<&str>,
         request_id: Option<&str>,
-    ) -> Result<CokretHttpOutcome<ChimePushRegisterDeviceOutcome>, PushRegistrationError> {
+    ) -> Result<ArkretHttpOutcome<ChimePushRegisterDeviceOutcome>, PushRegistrationError> {
         self.assert_session_grant_if_required()?;
         let sdk_body = body.to_sdk_request()?;
-        let response: CokretHttpOutcome<arkret::PushRegisterDeviceOutcome> = self
+        let response: ArkretHttpOutcome<arkret::PushRegisterDeviceOutcome> = self
             .post_json(
                 self.effective_register_device_path(),
                 &sdk_body,
@@ -402,7 +402,7 @@ impl CokretPushClient {
         body: &ChimePushUnregisterDeviceRequest,
         idempotency_key: Option<&str>,
         request_id: Option<&str>,
-    ) -> Result<CokretHttpOutcome<ChimePushUnregisterDeviceOutcome>, PushRegistrationError> {
+    ) -> Result<ArkretHttpOutcome<ChimePushUnregisterDeviceOutcome>, PushRegistrationError> {
         self.assert_session_grant_if_required()?;
         let sdk_body = body.to_sdk_request()?;
         let response = match self
@@ -415,7 +415,7 @@ impl CokretPushClient {
             .await
         {
             Ok(response) => {
-                let response: CokretHttpOutcome<arkret::PushUnregisterDeviceOutcome> = response;
+                let response: ArkretHttpOutcome<arkret::PushUnregisterDeviceOutcome> = response;
                 let response_request_id = response.request_id.clone();
                 response.map_body(|body| {
                     let mut body = ChimePushUnregisterDeviceOutcome::from(body);
@@ -423,7 +423,7 @@ impl CokretPushClient {
                     body
                 })
             }
-            Err(error) if error.kind() == PushErrorKind::NotFound => CokretHttpOutcome {
+            Err(error) if error.kind() == PushErrorKind::NotFound => ArkretHttpOutcome {
                 body: ChimePushUnregisterDeviceOutcome {
                     ok: true,
                     already_removed: true,
@@ -459,7 +459,7 @@ impl CokretPushClient {
         config: &PushDeviceConfig<'_>,
         binding: &GatewayBinding,
         prefs: &PushPreferences,
-    ) -> Result<CokretHttpOutcome<ChimePushUnregisterDeviceOutcome>, PushRegistrationError> {
+    ) -> Result<ArkretHttpOutcome<ChimePushUnregisterDeviceOutcome>, PushRegistrationError> {
         self.assert_session_grant_if_required()?;
         let body = build_unregister_device_request(config, binding, prefs)?;
         let sdk_body = body.to_sdk_request()?;
@@ -473,7 +473,7 @@ impl CokretPushClient {
             .await
         {
             Ok(response) => {
-                let response: CokretHttpOutcome<arkret::PushUnregisterDeviceOutcome> = response;
+                let response: ArkretHttpOutcome<arkret::PushUnregisterDeviceOutcome> = response;
                 let response_request_id = response.request_id.clone();
                 response.map_body(|body| {
                     let mut body = ChimePushUnregisterDeviceOutcome::from(body);
@@ -481,7 +481,7 @@ impl CokretPushClient {
                     body
                 })
             }
-            Err(error) if error.kind() == PushErrorKind::NotFound => CokretHttpOutcome {
+            Err(error) if error.kind() == PushErrorKind::NotFound => ArkretHttpOutcome {
                 body: ChimePushUnregisterDeviceOutcome {
                     ok: true,
                     already_removed: true,

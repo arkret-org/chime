@@ -75,7 +75,7 @@ default = []
 ## gloo-timers (browser `setTimeout`) for the retry backoff.
 ##
 ## A.5 #2 — also pulls in `zeroize` so bearer tokens stored on
-## `CokretPushClient` zero their heap allocation on drop. The
+## `ArkretPushClient` zero their heap allocation on drop. The
 ## dependency is feature-gated because the bearer-token surface only
 ## exists when the `http` client is compiled.
 http = ["dep:reqwest", "dep:tokio", "dep:gloo-timers", "dep:zeroize"]

@@ -6,7 +6,7 @@ use std::time::{Duration, SystemTime};
 use thiserror::Error;
 
 use super::urls::{redact_url, redact_webpush_endpoint};
-use super::wire::CokretErrorEnvelope;
+use super::wire::ArkretErrorEnvelope;
 
 /// Stable high-level category for push registration failures.
 ///
@@ -354,7 +354,7 @@ pub enum PushRegistrationError {
     HttpStatus {
         status: u16,
         kind: PushErrorKind,
-        error: Option<Box<CokretErrorEnvelope>>,
+        error: Option<Box<ArkretErrorEnvelope>>,
         body: String,
         retry_after: Option<String>,
         request_id: Option<String>,
@@ -408,7 +408,7 @@ impl fmt::Debug for PushRegistrationError {
                 retry_after,
                 request_id,
             } => {
-                let redacted_error = error.as_deref().map(RedactedCokretErrorEnvelope);
+                let redacted_error = error.as_deref().map(RedactedArkretErrorEnvelope);
                 f.debug_struct("HttpStatus")
                     .field("status", status)
                     .field("kind", kind)
@@ -425,11 +425,11 @@ impl fmt::Debug for PushRegistrationError {
     }
 }
 
-struct RedactedCokretErrorEnvelope<'a>(&'a CokretErrorEnvelope);
+struct RedactedArkretErrorEnvelope<'a>(&'a ArkretErrorEnvelope);
 
-impl fmt::Debug for RedactedCokretErrorEnvelope<'_> {
+impl fmt::Debug for RedactedArkretErrorEnvelope<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("CokretErrorEnvelope")
+        f.debug_struct("ArkretErrorEnvelope")
             .field("ok", &self.0.ok)
             .field("code", &self.0.error.code)
             .field("message_present", &(!self.0.error.message.is_empty()))
@@ -469,7 +469,7 @@ impl PushRegistrationError {
         }
     }
 
-    pub fn arkret_error(&self) -> Option<&CokretErrorEnvelope> {
+    pub fn arkret_error(&self) -> Option<&ArkretErrorEnvelope> {
         match self {
             Self::HttpStatus { error, .. } => error.as_deref(),
             _ => None,
@@ -515,7 +515,7 @@ impl PushRegistrationError {
 #[cfg(any(test, feature = "http"))]
 pub(super) fn classify_http_error(
     status: u16,
-    error: Option<&CokretErrorEnvelope>,
+    error: Option<&ArkretErrorEnvelope>,
 ) -> PushErrorKind {
     if let Some(code) = error.map(|envelope| envelope.error.code.as_str())
         && let Some(kind) = PushErrorKind::from_failure_code(code)
@@ -551,13 +551,13 @@ mod tests {
     use std::collections::BTreeMap;
 
     use super::*;
-    use crate::push::wire::CokretError;
+    use crate::push::wire::ArkretError;
 
     #[test]
     fn classifies_arkret_error_codes() {
-        let envelope = CokretErrorEnvelope {
+        let envelope = ArkretErrorEnvelope {
             ok: false,
-            error: CokretError {
+            error: ArkretError {
                 code: arkret::ERROR_CODE_CAPABILITY_DENIED.to_owned(),
                 message: "denied".to_owned(),
                 retry_after_ms: None,
@@ -679,9 +679,9 @@ mod tests {
     #[test]
     fn round4_codes_classify_against_409_and_200_statuses() {
         // Spec status mapping: stale/handed_over → 409, historical_only → 200.
-        let envelope = CokretErrorEnvelope {
+        let envelope = ArkretErrorEnvelope {
             ok: false,
-            error: CokretError {
+            error: ArkretError {
                 code: arkret::ERROR_CODE_DELIVERY_BINDING_STALE.to_owned(),
                 message: "stale".to_owned(),
                 retry_after_ms: None,
@@ -694,9 +694,9 @@ mod tests {
             PushErrorKind::DeliveryBindingStale
         );
 
-        let envelope = CokretErrorEnvelope {
+        let envelope = ArkretErrorEnvelope {
             ok: false,
-            error: CokretError {
+            error: ArkretError {
                 code: arkret::ERROR_CODE_HISTORICAL_ONLY.to_owned(),
                 message: "diagnostic".to_owned(),
                 retry_after_ms: None,

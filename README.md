@@ -6,7 +6,7 @@
 
 > **Stability:** local `1.0.0` freeze candidate. Breaking public API changes
 > now require a major-version bump. Outcome wire types
-> (`PushRegisterDeviceOutcome`, `PushUnregisterDeviceOutcome`, `CokretErrorEnvelope`)
+> (`PushRegisterDeviceOutcome`, `PushUnregisterDeviceOutcome`, `ArkretErrorEnvelope`)
 > carry `#[non_exhaustive]` so server-driven field additions do not break
 > downstream consumers.
 
@@ -42,8 +42,8 @@ wire-breaking list; the normative source remains `../arkret-spec/spec/v1/`.
 Spec rounds 2+3 (2026-05-20) added the `lifecycle::on_account_deactivate`
 host integration hook (T07 — 4-step local push cleanup) and the
 `ROUND_R2_R3_SENSITIVE_FIELDS` defense-in-depth list that mirrors floria's
-blind-wakeup forbidden-field surface. Ephemeral kinds (`ck.presence`,
-`ck.typing`, `ak.receipt.read`, `ak.call.signal`) are confirmed not
+blind-wakeup forbidden-field surface. Ephemeral kinds (`ak.presence`,
+`ak.typing`, `ak.receipt.read`, `ak.call.signal`) are confirmed not
 consumed by chime. See [`CHANGELOG.md`](CHANGELOG.md) `[Unreleased]`;
 the normative source remains `../arkret-spec/spec/v1/`.
 
@@ -80,7 +80,7 @@ hosts that need the standalone resolver trait can use
 | Feature | Description |
 | --- | --- |
 | _(default)_ | Core types, JSON serialization helpers, and Arkret register/unregister request builders. No network dependencies. |
-| `http` | Adds `CokretPushClient`, a small `reqwest` helper for `POST /_arkret/edge/push/register-device` and `POST /_arkret/edge/push/unregister-device`. |
+| `http` | Adds `ArkretPushClient`, a small `reqwest` helper for `POST /_arkret/edge/push/register-device` and `POST /_arkret/edge/push/unregister-device`. |
 | `notify` | Adds server/gateway-side `ak.edge.push.command.notify` wire types and blind-wakeup privacy validation. |
 
 > **Production deployments MUST enable the `notify` feature.** Without it,
@@ -311,9 +311,9 @@ assert!(msg.contains("title"), "error should name the leaking field: {msg}");
 #     enabled: true,
 #     ..Default::default()
 # };
-use chime::CokretPushClient;
+use chime::ArkretPushClient;
 
-let client = CokretPushClient::new("https://principal.example")
+let client = ArkretPushClient::new("https://principal.example")
     .with_bearer_token("session-token")
     .with_timeout(std::time::Duration::from_secs(10))
     .with_retry_policy(chime::PushRetryPolicy::conservative())
@@ -329,7 +329,7 @@ assert!(response.body.ok);
 
 > Live coverage of this strand lives in `tests/live_floria_integration.rs`,
 > which spawns a real `floria` push gateway on a loopback port and exercises
-> the discovery + notify side of the same `CokretPushClient`.
+> the discovery + notify side of the same `ArkretPushClient`.
 
 Production notes:
 
@@ -343,7 +343,7 @@ Production notes:
 - Each binding's `push_gateway` must be HTTPS unless `allow_insecure_loopback_push_gateway` is enabled for localhost development.
 - WebPush registrations can set `webpush_endpoint_allowlist` to restrict accepted endpoint origins or host patterns before a browser endpoint is sent to the service.
 - `push_key` is redacted in debug output and logs; callers should still store it as a secret.
-- `CokretPushClient` retries only safe idempotent requests: register calls need an idempotency key, while unregister is treated as idempotent. `Retry-After` is honored before exponential backoff plus bounded jitter.
+- `ArkretPushClient` retries only safe idempotent requests: register calls need an idempotency key, while unregister is treated as idempotent. `Retry-After` is honored before exponential backoff plus bounded jitter.
 - `allow_push_hint` only permits body-free wakeup hints. It does not permit plaintext message bodies for E2EE Spaces.
 
 ### Request signing helpers
@@ -403,7 +403,7 @@ let headers = context.http_message_signature_headers("sig1", &signature)?;
 # }
 ```
 
-`proof_body` is caller-signed and passed back through `PushDeviceConfig::proof`. The returned HTTP signature headers include `Content-Digest`, Arkret device/audience/actor/expiry/origin/destination metadata, nonce/idempotency context, `Signature-Input`, and `Signature`; attach them with your HTTP stack or `CokretPushClient::with_header`. `chime` can carry an externally supplied coauth/soland grant, but it never owns private keys or mints grants.
+`proof_body` is caller-signed and passed back through `PushDeviceConfig::proof`. The returned HTTP signature headers include `Content-Digest`, Arkret device/audience/actor/expiry/origin/destination metadata, nonce/idempotency context, `Signature-Input`, and `Signature`; attach them with your HTTP stack or `ArkretPushClient::with_header`. `chime` can carry an externally supplied coauth/soland grant, but it never owns private keys or mints grants.
 
 ### Local registration state
 
@@ -447,7 +447,7 @@ let plan = plan_token_rotation_with_strategy(
 )?;
 
 if let Some(register_new) = plan.register_new {
-    // Send with CokretPushClient or your own HTTP stack, then persist success.
+    // Send with ArkretPushClient or your own HTTP stack, then persist success.
     let _ = register_new;
 }
 if let Some(unregister_old) = plan.unregister_old {
@@ -462,7 +462,7 @@ if let Some(unregister_old) = plan.unregister_old {
 
 `chime` is a library, not a service — it has no daemon, no config file
 of its own, and no environment variables it reads. Operational concerns
-live entirely in the host application that wires `CokretPushClient`
+live entirely in the host application that wires `ArkretPushClient`
 into a Arkret Principal Server / Sync Service deployment.
 
 ### Build profile
@@ -487,7 +487,7 @@ into a Arkret Principal Server / Sync Service deployment.
 - **Auth in headers, not URLs.** Session tokens, bearer tokens, API
   keys, and HTTP message signatures must travel in headers. Putting
   them in a binding's `push_gateway` query string is rejected.
-- **Session grant fail-closed.** `CokretPushClient::new(...)` defaults
+- **Session grant fail-closed.** `ArkretPushClient::new(...)` defaults
   to `with_required_session_grant(true)`. Always attach
   `X-Arkret-Session-Grant` via `with_session_grant("...")` (or
   `with_header(...)`) before calling register/unregister. Dev sandboxes
@@ -562,7 +562,7 @@ Arkret Client
    +---------+     PushPreferences { gateways: Vec<GatewayBinding> }
    |  chime  | --> GatewayBinding { gateway_type, push_gateway, push_key, app_id }
    +----+----+     build_register_device_request(config, binding, prefs)
-        |          CokretPushClient (optional)
+        |          ArkretPushClient (optional)
         v
 Principal Server / Sync Service
         |

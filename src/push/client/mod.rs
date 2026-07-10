@@ -5,8 +5,8 @@
 //! This module is split into:
 //! - [`secret`]: `SecretString` zeroize-on-drop credential wrapper
 //! - [`retry`]: `PushRetryPolicy` + retry/backoff/idempotency primitives
-//! - [`transport`]: `CokretHttpOutcome` + low-level JSON request plumbing
-//! - [`core`]: the `CokretPushClient` builder + high-level register/describe API
+//! - [`transport`]: `ArkretHttpOutcome` + low-level JSON request plumbing
+//! - [`core`]: the `ArkretPushClient` builder + high-level register/describe API
 
 mod core;
 mod retry;
@@ -16,7 +16,7 @@ mod transport;
 #[cfg(test)]
 mod tests;
 
-pub use core::CokretPushClient;
+pub use core::ArkretPushClient;
 
 pub use retry::PushRetryPolicy;
-pub use transport::CokretHttpOutcome;
+pub use transport::ArkretHttpOutcome;

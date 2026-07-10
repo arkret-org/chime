@@ -7,7 +7,7 @@ use std::time::Duration;
 use super::super::errors::PushErrorKind;
 use super::super::wire::PushDeviceConfig;
 use super::super::{ARKRET_REQUEST_ID_HEADER, RETRY_AFTER_HEADER};
-use super::core::CokretPushClient;
+use super::core::ArkretPushClient;
 use super::retry::PushRetryPolicy;
 use crate::PushPreferences;
 
@@ -87,9 +87,9 @@ fn binding() -> crate::GatewayBinding {
 ///
 /// Mirrors production usage where every register/unregister call is
 /// expected to carry a soland session grant. Tests that specifically
-/// exercise the "missing grant" path use raw `CokretPushClient::new`.
-fn client(base_url: impl Into<String>) -> CokretPushClient {
-    CokretPushClient::new(base_url)
+/// exercise the "missing grant" path use raw `ArkretPushClient::new`.
+fn client(base_url: impl Into<String>) -> ArkretPushClient {
+    ArkretPushClient::new(base_url)
         .with_session_grant("test-session-grant")
         .expect("test session grant header is valid")
 }
@@ -161,7 +161,7 @@ async fn client_default_headers_fill_request_metadata() {
     config.idempotency_key = None;
     config.request_id = None;
 
-    CokretPushClient::new(base_url)
+    ArkretPushClient::new(base_url)
         .with_default_idempotency_key("client-idem")
         .with_default_request_id("ak:request:client")
         .with_session_grant("coauth-grant-secret")
@@ -360,7 +360,7 @@ async fn retries_429_and_honors_retry_after() {
 async fn default_register_rejects_without_session_grant() {
     // Default `require_session_grant = true` ⇒ no mock server needed:
     // the call fails fast before any request is sent.
-    let err = CokretPushClient::new("https://principal.example")
+    let err = ArkretPushClient::new("https://principal.example")
         .register_device(&config(), &binding(), &prefs())
         .await
         .unwrap_err();
@@ -376,7 +376,7 @@ async fn default_register_allows_with_session_grant_header() {
         body: r#"{"ok":true,"registration_id":"reg-1"}"#,
     }]);
 
-    let response = CokretPushClient::new(base_url)
+    let response = ArkretPushClient::new(base_url)
         .with_session_grant("coauth-grant-secret")
         .unwrap()
         .register_device(&config(), &binding(), &prefs())
@@ -390,7 +390,7 @@ async fn default_register_allows_with_session_grant_header() {
 
 #[tokio::test]
 async fn default_unregister_rejects_without_session_grant() {
-    let err = CokretPushClient::new("https://principal.example")
+    let err = ArkretPushClient::new("https://principal.example")
         .unregister_device(&config(), &binding(), &prefs())
         .await
         .unwrap_err();
@@ -406,7 +406,7 @@ async fn opting_out_session_grant_allows_register_without_header() {
         body: r#"{"ok":true}"#,
     }]);
 
-    let response = CokretPushClient::new(base_url)
+    let response = ArkretPushClient::new(base_url)
         .with_required_session_grant(false)
         .register_device(&config(), &binding(), &prefs())
         .await
@@ -617,7 +617,7 @@ async fn register_device_all_returns_empty_when_no_bindings_configured() {
     assert!(results.is_empty());
 }
 
-/// A.5 #2 — formatting a [`CokretPushClient`] through `{:?}` MUST
+/// A.5 #2 — formatting a [`ArkretPushClient`] through `{:?}` MUST
 /// NOT leak the bearer token. We assert the redaction marker is
 /// present and the secret is absent in both the option-empty and
 /// option-present arms so a future refactor that drops the
@@ -626,12 +626,12 @@ async fn register_device_all_returns_empty_when_no_bindings_configured() {
 fn bearer_token_is_redacted_in_debug_output() {
     let secret = "super-secret-session-bearer-do-not-log";
 
-    let no_token = CokretPushClient::new("https://principal.example");
+    let no_token = ArkretPushClient::new("https://principal.example");
     let no_token_debug = format!("{no_token:?}");
     assert!(no_token_debug.contains("bearer_token: None"));
     assert!(!no_token_debug.contains(secret));
 
-    let with_token = CokretPushClient::new("https://principal.example").with_bearer_token(secret);
+    let with_token = ArkretPushClient::new("https://principal.example").with_bearer_token(secret);
     let debug = format!("{with_token:?}");
     assert!(
         !debug.contains(secret),

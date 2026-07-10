@@ -18,7 +18,7 @@ jobs:
       matrix:
         features:
           - ""              # default (no features)
-          - "http"          # CokretPushClient HTTP helper
+          - "http"          # ArkretPushClient HTTP helper
           - "notify"        # ak.edge.push.command.notify wire types
           - "http,notify"   # combined (release surface)
     steps:

@@ -19,7 +19,7 @@
 //!
 //! ## Features
 //!
-//! - `http` - enables `CokretPushClient`, a small reqwest-based helper for `POST
+//! - `http` - enables `ArkretPushClient`, a small reqwest-based helper for `POST
 //!   /_arkret/edge/push/register-device` and `POST /_arkret/edge/push/unregister-device`.
 
 use std::collections::BTreeSet;
@@ -84,9 +84,9 @@ pub use push::{
     ARKRET_DESTINATION_SERVICE_DID_HEADER, ARKRET_DEVICE_ID_HEADER, ARKRET_EXPIRES_AT_HEADER,
     ARKRET_IDEMPOTENCY_KEY_HEADER, ARKRET_NONCE_HEADER, ARKRET_OPERATION_ID_HEADER,
     ARKRET_ORIGIN_HEADER, ARKRET_ORIGIN_SERVICE_DID_HEADER, ARKRET_REQUEST_ID_HEADER,
-    ARKRET_SESSION_GRANT_HEADER, CONTENT_DIGEST_HEADER, ChimePushRegisterDeviceOutcome,
-    ChimePushRegisterDeviceRequest, ChimePushUnregisterDeviceOutcome,
-    ChimePushUnregisterDeviceRequest, CokretError, CokretErrorEnvelope, EXPECTED_SPEC_VERSION,
+    ARKRET_SESSION_GRANT_HEADER, ArkretError, ArkretErrorEnvelope, CONTENT_DIGEST_HEADER,
+    ChimePushRegisterDeviceOutcome, ChimePushRegisterDeviceRequest,
+    ChimePushUnregisterDeviceOutcome, ChimePushUnregisterDeviceRequest, EXPECTED_SPEC_VERSION,
     IntegrationView, NonceReplayError, NonceTracker, PUSH_NOTIFY_PATH,
     PushBridgeDescribeGatewayDescriptor, PushBridgeDescribeNotifyDescriptor,
     PushBridgeDescribeOutcome, PushBridgeDescribePrivacyDescriptor, PushDeviceConfig,
@@ -94,14 +94,16 @@ pub use push::{
     PushPlatform, PushRegisterDeviceOutcome, PushRegisterDeviceRequestBody, PushRegistrationError,
     PushRequestSigningContext, PushRequestSigningOptions, PushUnregisterDeviceOutcome,
     PushUnregisterDeviceRequestBody, REGISTER_DEVICE_PATH, SERVER_DESCRIBE_PATH, SIGNATURE_HEADER,
-    SIGNATURE_INPUT_HEADER, ServiceDescribe, UNREGISTER_DEVICE_PATH, build_register_device_request,
-    build_register_signing_context, build_register_signing_context_with_options,
-    build_unregister_device_request, build_unregister_signing_context,
-    build_unregister_signing_context_with_options, arkret_api_url, content_digest_sha256,
-    floria_push_bridge_describe_url, floria_push_integration_describe_url,
+    SIGNATURE_INPUT_HEADER, ServiceDescribe, UNREGISTER_DEVICE_PATH, arkret_api_url,
+    build_register_device_request, build_register_signing_context,
+    build_register_signing_context_with_options, build_unregister_device_request,
+    build_unregister_signing_context, build_unregister_signing_context_with_options,
+    content_digest_sha256, floria_push_bridge_describe_url, floria_push_integration_describe_url,
     push_gateway_service_base_url, redact_push_key, validate_push_gateway_url,
     validate_webpush_endpoint_allowlist,
 };
+#[cfg(feature = "http")]
+pub use push::{ArkretHttpOutcome, ArkretPushClient, PushRetryPolicy};
 pub use push::{
     CallMediaParticipantBinding, CallMediaTokenExchangeOutcome, CallMediaTokenExchangeRequestBody,
     CallMediaTokenVerification, DefaultPlatformAppIdResolver, MediaBackendType,
@@ -111,8 +113,6 @@ pub use push::{
     call_media_token_exchange, ensure_known_backend, evaluate_watch_level, push_rule_reason_code,
     verify_media_token_outcome,
 };
-#[cfg(feature = "http")]
-pub use push::{CokretHttpOutcome, CokretPushClient, PushRetryPolicy};
 pub use state::{
     BridgeContractCache, BridgeContractCacheError, BridgeContractDriftVerdict,
     MemoizingPushPreferencesStore, PUSH_PREFERENCES_CACHE_TTL,
@@ -255,7 +255,7 @@ pub struct PushPreferences {
     /// Each binding carries its own gateway type, URL, and optional
     /// per-binding `push_key` / `app_id` overrides. Every binding is
     /// exercised independently — see
-    /// `CokretPushClient::register_device_all` (under the `http`
+    /// `ArkretPushClient::register_device_all` (under the `http`
     /// feature) for the multi-gateway register helper.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub gateways: Vec<GatewayBinding>,

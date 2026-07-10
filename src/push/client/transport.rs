@@ -4,22 +4,22 @@ use serde::{Deserialize, Serialize};
 
 use super::super::errors::{PushRegistrationError, classify_http_error};
 use super::super::urls::try_arkret_api_url;
-use super::super::wire::CokretErrorEnvelope;
+use super::super::wire::ArkretErrorEnvelope;
 use super::super::{ARKRET_REQUEST_ID_HEADER, RETRY_AFTER_HEADER};
-use super::core::CokretPushClient;
+use super::core::ArkretPushClient;
 use super::retry::{generate_idempotency_key, retry_jitter_seed, sleep_for};
 
 /// HTTP response body plus Arkret response metadata.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct CokretHttpOutcome<T> {
+pub struct ArkretHttpOutcome<T> {
     pub body: T,
     pub request_id: Option<String>,
     pub retry_after: Option<String>,
 }
 
-impl<T> CokretHttpOutcome<T> {
-    pub fn map_body<U>(self, f: impl FnOnce(T) -> U) -> CokretHttpOutcome<U> {
-        CokretHttpOutcome {
+impl<T> ArkretHttpOutcome<T> {
+    pub fn map_body<U>(self, f: impl FnOnce(T) -> U) -> ArkretHttpOutcome<U> {
+        ArkretHttpOutcome {
             body: f(self.body),
             request_id: self.request_id,
             retry_after: self.retry_after,
@@ -49,14 +49,14 @@ pub(super) fn default_http_client() -> reqwest::Client {
     reqwest::Client::new()
 }
 
-impl CokretPushClient {
+impl ArkretPushClient {
     pub(super) async fn post_json<T, R>(
         &self,
         path: &str,
         body: &T,
         idempotency_key: Option<&str>,
         request_id: Option<&str>,
-    ) -> Result<CokretHttpOutcome<R>, PushRegistrationError>
+    ) -> Result<ArkretHttpOutcome<R>, PushRegistrationError>
     where
         T: Serialize + ?Sized,
         R: for<'de> Deserialize<'de>,
@@ -96,7 +96,7 @@ impl CokretPushClient {
     pub(super) async fn get_json<R>(
         &self,
         path: &str,
-    ) -> Result<CokretHttpOutcome<R>, PushRegistrationError>
+    ) -> Result<ArkretHttpOutcome<R>, PushRegistrationError>
     where
         R: for<'de> Deserialize<'de>,
     {
@@ -131,7 +131,7 @@ impl CokretPushClient {
         body: &T,
         idempotency_key: Option<&str>,
         request_id: Option<&str>,
-    ) -> Result<CokretHttpOutcome<R>, PushRegistrationError>
+    ) -> Result<ArkretHttpOutcome<R>, PushRegistrationError>
     where
         T: Serialize + ?Sized,
         R: for<'de> Deserialize<'de>,
@@ -180,7 +180,7 @@ impl CokretPushClient {
         let body = response.text().await?;
 
         if !status.is_success() {
-            let error = serde_json::from_str::<CokretErrorEnvelope>(&body)
+            let error = serde_json::from_str::<ArkretErrorEnvelope>(&body)
                 .ok()
                 .map(Box::new);
             let kind = classify_http_error(status.as_u16(), error.as_deref());
@@ -194,7 +194,7 @@ impl CokretPushClient {
             });
         }
 
-        Ok(CokretHttpOutcome {
+        Ok(ArkretHttpOutcome {
             body: serde_json::from_str(&body)?,
             request_id,
             retry_after,
@@ -204,7 +204,7 @@ impl CokretPushClient {
     async fn get_json_once<R>(
         &self,
         path: &str,
-    ) -> Result<CokretHttpOutcome<R>, PushRegistrationError>
+    ) -> Result<ArkretHttpOutcome<R>, PushRegistrationError>
     where
         R: for<'de> Deserialize<'de>,
     {
@@ -247,7 +247,7 @@ impl CokretPushClient {
         let body = response.text().await?;
 
         if !status.is_success() {
-            let error = serde_json::from_str::<CokretErrorEnvelope>(&body)
+            let error = serde_json::from_str::<ArkretErrorEnvelope>(&body)
                 .ok()
                 .map(Box::new);
             let kind = classify_http_error(status.as_u16(), error.as_deref());
@@ -261,7 +261,7 @@ impl CokretPushClient {
             });
         }
 
-        Ok(CokretHttpOutcome {
+        Ok(ArkretHttpOutcome {
             body: serde_json::from_str(&body)?,
             request_id,
             retry_after,

@@ -72,7 +72,7 @@ it as a security report and use the private channels above.
 ## What is in scope
 
 - The local `chime` package artifact (`http` and `notify` features included).
-- Default `CokretPushClient` HTTPS / TLS / retry / idempotency
+- Default `ArkretPushClient` HTTPS / TLS / retry / idempotency
   behaviour.
 - Default `validate_blind_wakeup` /
   `validate_plaintext_visible_service` / `assert_payload_safe`

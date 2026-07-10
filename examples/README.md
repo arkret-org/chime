@@ -27,7 +27,7 @@ cargo run --example server-side-relay --features notify
 
 - **Live HTTP I/O.** The desktop example builds the request body and
   hands it back to the caller; the actual `POST` is the host
-  application's responsibility (typically via `CokretPushClient` under
+  application's responsibility (typically via `ArkretPushClient` under
   the `http` feature).
 - **Inbound signature verification.** chime does not verify push frame
   signatures — see `SECURITY.md` for why and where the host must do it.

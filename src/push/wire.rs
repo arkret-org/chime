@@ -328,8 +328,8 @@ impl From<arkret::PushUnregisterDeviceOutcome> for ChimePushUnregisterDeviceOutc
     }
 }
 
-pub type CokretError = arkret::ErrorDetail;
-pub type CokretErrorEnvelope = arkret::ErrorEnvelope;
+pub type ArkretError = arkret::ErrorDetail;
+pub type ArkretErrorEnvelope = arkret::ErrorEnvelope;
 
 #[cfg(test)]
 mod tests {

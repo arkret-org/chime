@@ -7,10 +7,10 @@ use zeroize::Zeroize;
 /// designed so we can extend it to other secrets later).
 ///
 /// Semantics:
-/// - `Clone` is intentionally supported so the surrounding `CokretPushClient` can remain `Clone`.
+/// - `Clone` is intentionally supported so the surrounding `ArkretPushClient` can remain `Clone`.
 ///   Each clone owns its own zeroed-on-drop allocation.
 /// - `Debug` returns the literal string `"<redacted>"`; the inner `String` is never formatted.
-/// - `Drop` zeroes the underlying allocation via the `zeroize` crate so a `CokretPushClient` going
+/// - `Drop` zeroes the underlying allocation via the `zeroize` crate so a `ArkretPushClient` going
 ///   out of scope does not leave the token sitting in the freed heap region.
 ///
 /// We do NOT implement `Display`, `PartialEq`, or `Serialize` on this
@@ -33,7 +33,7 @@ impl SecretString {
 
 impl Clone for SecretString {
     fn clone(&self) -> Self {
-        // Allocate a fresh String so each `CokretPushClient` clone gets
+        // Allocate a fresh String so each `ArkretPushClient` clone gets
         // its own zeroed-on-drop buffer.
         Self(self.0.clone())
     }

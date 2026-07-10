@@ -9,7 +9,7 @@
    `domestic_app_id`。
 3. 为每个网关构造 `GatewayBinding`，再调用
    `build_register_device_request(&config, &binding, &prefs)`。
-4. 通过 `CokretPushClient` 或 host 自己的 HTTP 栈发送请求。
+4. 通过 `ArkretPushClient` 或 host 自己的 HTTP 栈发送请求。
 
 Bugle 说明：host 仍负责华为/小米/OPPO/vivo/HONOR/HarmonyOS/JPush SDK
 接入和 token 获取。chime 只负责 wire shape。需要单独解析 app id 时可用

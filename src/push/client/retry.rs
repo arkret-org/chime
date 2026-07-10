@@ -3,7 +3,7 @@ use std::time::{Duration, SystemTime};
 
 use sha2::{Digest, Sha256};
 
-/// Retry configuration for `CokretPushClient`.
+/// Retry configuration for `ArkretPushClient`.
 ///
 /// Stability: `1.0`-stable. Stays `Copy` + `const`-constructible so
 /// callers can stash it in static config. The `disabled_kinds_mask`

@@ -1,13 +1,13 @@
 //! Arkret push device registration request types and HTTP helper.
 //!
 //! This module is split into:
-//! - [`wire`]: register/unregister request/response DTOs + `CokretError`
+//! - [`wire`]: register/unregister request/response DTOs + `ArkretError`
 //! - [`bridge_describe`]: floria `bridge/describe` + `integration/describe` DTOs
 //! - [`errors`]: `PushErrorKind` + `PushRegistrationError` + HTTP classification
 //! - [`signing`]: signing context + options + content digest helpers
 //! - [`urls`]: URL helpers, validation, redaction
 //! - [`registration`]: request body + signing context builders
-//! - [`client`]: async `CokretPushClient` (feature = "http")
+//! - [`client`]: async `ArkretPushClient` (feature = "http")
 //! - [`route`]: actor-private `ak.device.push_route` state event wire model
 //! - [`rule_core`]: T4.4 shared client-side push rule evaluator
 
@@ -103,6 +103,10 @@ const RETRY_AFTER_HEADER: &str = "Retry-After";
 
 // -- Re-exports -------------------------------------------------------------
 
+pub use arkret::{
+    PushRegisterDeviceOutcome, PushRegisterDeviceRequestBody, PushUnregisterDeviceOutcome,
+    PushUnregisterDeviceRequestBody, ServiceDescribe,
+};
 pub use bridge_describe::{
     EXPECTED_SPEC_VERSION, IntegrationView, PushBridgeDescribeGatewayDescriptor,
     PushBridgeDescribeNotifyDescriptor, PushBridgeDescribeOutcome,
@@ -110,11 +114,7 @@ pub use bridge_describe::{
     PushGatewayIntegrationDescribeOutcome,
 };
 #[cfg(feature = "http")]
-pub use client::{CokretHttpOutcome, CokretPushClient, PushRetryPolicy};
-pub use arkret::{
-    PushRegisterDeviceOutcome, PushRegisterDeviceRequestBody, PushUnregisterDeviceOutcome,
-    PushUnregisterDeviceRequestBody, ServiceDescribe,
-};
+pub use client::{ArkretHttpOutcome, ArkretPushClient, PushRetryPolicy};
 pub use errors::{PushErrorKind, PushRegistrationError};
 pub use media_token::{
     CallMediaParticipantBinding, CallMediaTokenExchangeOutcome, CallMediaTokenExchangeRequestBody,
@@ -145,7 +145,7 @@ pub use urls::{
     validate_webpush_endpoint_allowlist,
 };
 pub use wire::{
-    ChimePushRegisterDeviceOutcome, ChimePushRegisterDeviceRequest,
-    ChimePushUnregisterDeviceOutcome, ChimePushUnregisterDeviceRequest, CokretError,
-    CokretErrorEnvelope, PushDeviceConfig, PushPlatform,
+    ArkretError, ArkretErrorEnvelope, ChimePushRegisterDeviceOutcome,
+    ChimePushRegisterDeviceRequest, ChimePushUnregisterDeviceOutcome,
+    ChimePushUnregisterDeviceRequest, PushDeviceConfig, PushPlatform,
 };

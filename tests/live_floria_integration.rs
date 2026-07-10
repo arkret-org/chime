@@ -12,7 +12,7 @@
 use std::time::Duration;
 
 use chime::{
-    ChimePushNotifyOutcome, CokretPushClient, PushRetryPolicy, floria_push_bridge_describe_url,
+    ArkretPushClient, ChimePushNotifyOutcome, PushRetryPolicy, floria_push_bridge_describe_url,
     floria_push_integration_describe_url,
 };
 use serde_json::{Value, json};
@@ -25,8 +25,8 @@ use floria_spawn::{SpawnedFloria, require_floria_or_skip};
 const APP_ID: &str = "chime.live.placeholder";
 const ORIGIN_DID: &str = "did:web:chime.live.test";
 
-fn client_for(handle: &SpawnedFloria) -> CokretPushClient {
-    CokretPushClient::new(handle.base_url.clone())
+fn client_for(handle: &SpawnedFloria) -> ArkretPushClient {
+    ArkretPushClient::new(handle.base_url.clone())
         .with_required_session_grant(false)
         .with_timeout(Duration::from_secs(5))
         .with_retry_policy(PushRetryPolicy::conservative())

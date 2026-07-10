@@ -49,7 +49,7 @@ async fn chime_client_requires_session_grant_before_inkson_can_register() {
         "fcm:real-local-fcm-token-for-grant-check",
         "dev.arkret.inkson.android",
     );
-    let error = chime::CokretPushClient::new("https://principal.example")
+    let error = chime::ArkretPushClient::new("https://principal.example")
         .register_device_with_request(&request, None, None)
         .await
         .expect_err("default chime registration must fail closed without a session grant");

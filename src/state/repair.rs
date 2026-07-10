@@ -210,7 +210,7 @@ fn registration_state_rank(state: &PushRegistrationState) -> (u8, &str, &str, &s
 /// Per-binding `push_key` and `app_id` overrides on the
 /// [`GatewayBinding`](crate::GatewayBinding) take priority over the
 /// values in `config` — mirroring
-/// [`CokretPushClient::register_device_all`](crate::CokretPushClient::register_device_all)
+/// [`ArkretPushClient::register_device_all`](crate::ArkretPushClient::register_device_all)
 /// (when the `http` feature is enabled).
 ///
 /// When `prefs.gateways` is empty, the per-binding list is empty and
