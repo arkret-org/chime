@@ -1,4 +1,4 @@
-//! Optional `ck.edge.push.command.notify` wire model for Push Gateway implementations.
+//! Optional `ak.edge.push.command.notify` wire model for Push Gateway implementations.
 //!
 //! This module models the Arkret notify request/response payload and keeps
 //! blind-wakeup validation conservative. It does not implement APNs, FCM, Web

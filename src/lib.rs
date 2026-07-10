@@ -259,7 +259,7 @@ pub struct PushPreferences {
     /// feature) for the multi-gateway register helper.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub gateways: Vec<GatewayBinding>,
-    /// CKP-0007 (Circle primitive) — set of `ck:circle:` ids the user
+    /// AKP-0007 (Circle primitive) — set of `ak:circle:` ids the user
     /// has muted on this device. Wakeups whose `circle_id` is in this
     /// set MUST NOT raise a UI surface; wire-level delivery is
     /// unchanged so floria can still account for the receipt.
@@ -268,7 +268,7 @@ pub struct PushPreferences {
     /// (essential for diff-based prefs sync).
     #[serde(default, skip_serializing_if = "BTreeSet::is_empty")]
     pub muted_circle_ids: BTreeSet<String>,
-    /// Set of `ck:realm:` ids the user has muted on this device. Same
+    /// Set of `ak:realm:` ids the user has muted on this device. Same
     /// semantics as [`Self::muted_circle_ids`], scoped to the Realm
     /// (Realm-scoped wakeups + any Circle-less Realm wakeups).
     #[serde(default, skip_serializing_if = "BTreeSet::is_empty")]

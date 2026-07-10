@@ -1,7 +1,7 @@
-//! Actor-private `ck.device.push_route` state event wire model.
+//! Actor-private `ak.device.push_route` state event wire model.
 //!
 //! Spec: `arkret-spec/spec/v1/zh/crypto-media/device-lifecycle.md` §5a.2
-//! and the registry entry for `ck.device.push_route` introduced in
+//! and the registry entry for `ak.device.push_route` introduced in
 //! commit 0a5ab85 (2026-05-19), which made the cell_subject a composite
 //! `(recipient_service_did, principal_id, device_id, push_route)`. The
 //! prior wire shape only carried `(principal, device, route)`; the
@@ -13,10 +13,10 @@
 //!
 //! `chime` does not own private keys, control streams, or persistence.
 //!
-//! ## This is NOT the `ck.device.push_route` event payload
+//! ## This is NOT the `ak.device.push_route` event payload
 //!
 //! [`PushRoute`] models chime's local **activation / revocation state
-//! machine**, not the on-the-wire `ck.device.push_route` payload. The
+//! machine**, not the on-the-wire `ak.device.push_route` payload. The
 //! authoritative wire contract for that event lives in the SDK as
 //! `arkret_core::models::DevicePushRoutePayload` (mirroring
 //! `event-payload.schema.json#/$defs/device_push_route_payload`). The two
@@ -29,7 +29,7 @@
 //!   (they are out of scope for this struct).
 //!
 //! `PushRoute` therefore MUST NOT be serialized directly as a
-//! `ck.device.push_route` event payload. Consumers (inkson, soland) that
+//! `ak.device.push_route` event payload. Consumers (inkson, soland) that
 //! emit the event MUST construct `DevicePushRoutePayload` from the SDK;
 //! `PushRoute`'s `Serialize`/`Deserialize` exist only for chime's own
 //! local persistence and for round-tripping the state machine in tests.
@@ -75,7 +75,7 @@ impl<'de> Deserialize<'de> for PushRouteId {
 }
 
 /// Service DID of a recipient Principal Server, used as the first
-/// component of the `ck.device.push_route` composite cell_subject
+/// component of the `ak.device.push_route` composite cell_subject
 /// `(recipient_service_did, principal_id, device_id, push_route)`.
 ///
 /// This is a non-empty `String` newtype rather than a free-form
@@ -273,7 +273,7 @@ impl PushRoute {
     /// and typed as [`ServiceDid`]. The previous signature
     /// `active(route, push_target_id, push_gateway_did)` allowed
     /// construction of active routes with `recipient_service_did:
-    /// None`, which violated the `ck.device.push_route` cell_subject
+    /// None`, which violated the `ak.device.push_route` cell_subject
     /// contract `(recipient_service_did, principal_id, device_id,
     /// push_route)`. Callers that genuinely need a placeholder before
     /// service discovery has run should use

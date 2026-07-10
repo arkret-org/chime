@@ -31,7 +31,7 @@ pub struct ChimePushNotifyEnvelope {
     /// (e.g. `historical_only` for a diagnostic replay no-op).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason_code: Option<String>,
-    /// SPEC-CR-016 (class D) — `ck.audit.policy_access` envelope routing
+    /// SPEC-CR-016 (class D) — `ak.audit.policy_access` envelope routing
     /// fragment. When present the request is an audit-pipeline event, not a
     /// push notify.
     #[serde(default, skip_serializing_if = "Option::is_none")]

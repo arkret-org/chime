@@ -6,7 +6,7 @@ platform receivers and call into chime for validation and wire-shape handling.
 
 ## Required Host Wiring
 
-- Route every decoded `ck.edge.push.command.notify` request through
+- Route every decoded `ak.edge.push.command.notify` request through
   `PushNotifyRequestBody::assert_payload_safe` before showing UI.
 - Use `PushNotifyPolicyContext::blind_wakeup_only` unless the destination
   service DID is explicitly authorized to see plaintext.
@@ -47,7 +47,7 @@ is left to the host.
 
 | Metric | Type | What it tells you |
 |--------|------|-------------------|
-| `chime.push.notify.received_total{wakeup_kind,destination_service}` | counter | Inbound `ck.edge.push.command.notify` volume per wakeup kind. A sudden drop is usually an upstream floria / soland routing regression. |
+| `chime.push.notify.received_total{wakeup_kind,destination_service}` | counter | Inbound `ak.edge.push.command.notify` volume per wakeup kind. A sudden drop is usually an upstream floria / soland routing regression. |
 | `chime.push.notify.rejected_total{reason}` | counter | Wakeups rejected by `assert_payload_safe` / `validate_blind_wakeup`. Bucketed by `PushNotifyPrivacyError` discriminant. Non-zero is always a bug — either floria emitted a forbidden field or chime's validator drifted from the spec. |
 | `chime.push.register_device.latency_seconds{gateway_type,result}` | histogram | End-to-end `register-device` latency. `gateway_type` separates Standard from Bugle so OEM-route degradation is visible. |
 | `chime.push.register_device.retries_total{gateway_type,reason}` | counter | Retry attempts emitted by `PushRetryPolicy`. Persistent non-zero traffic on a single `reason` usually means the gateway is rate-limiting or returning a transient envelope. |

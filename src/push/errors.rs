@@ -55,43 +55,43 @@ pub enum PushErrorKind {
     /// MUST NOT trigger another push fanout from a `historical_only`
     /// response.
     HistoricalOnly,
-    // ── R3 (CKP-0010 media binding + agent lifecycle, spec b47ff6ec) ─────
+    // ── R3 (AKP-0010 media binding + agent lifecycle, spec b47ff6ec) ─────
     // The variants below mirror the 20 new error codes added in the SDK
     // (see `arkret_core::error`). Chime mirrors the media-binding,
     // agent-lifecycle, and handle-homograph subsets because those are
     // the codes a push-SDK consumer can plausibly observe — either while
-    // calling `ck.self.call.media.exchange.issue_token` directly (`Media*`) or
+    // calling `ak.self.call.media.exchange.issue_token` directly (`Media*`) or
     // while the user's agent/principal pair is in an inactive state
     // (`Agent*`) or while a handle homograph slips through wire-level
     // validation (`HandleHomographForbidden`).
-    /// CKP-0010 — focus referenced by client does not match the
-    /// committed `ck.call.state.session_focus`.
+    /// AKP-0010 — focus referenced by client does not match the
+    /// committed `ak.call.state.session_focus`.
     FocusMismatch,
-    /// CKP-0010 — media focus backend label not recognised by the SDK.
+    /// AKP-0010 — media focus backend label not recognised by the SDK.
     /// Receivers MUST fail closed instead of forwarding the focus.
     UnknownFocusType,
-    /// CKP-0010 — token issuer DID is not anchored to the current
-    /// `ck.realm.media_service.service_id` epoch.
+    /// AKP-0010 — token issuer DID is not anchored to the current
+    /// `ak.realm.media_service.service_id` epoch.
     TokenIssuerUnauthorised,
-    /// CKP-0010 — `participant_binding` signature, tuple, or TTL does
+    /// AKP-0010 — `participant_binding` signature, tuple, or TTL does
     /// not validate against the realm media-service binding. Chime's
     /// current structure-only media-token helper emits this for tuple
     /// and TTL failures; host-side Ed25519 verification remains
     /// responsible for signature failures until the SDK verifier lands.
     ParticipantBindingInvalid,
-    /// CKP-0010 — `participant_identity` returned by the focus does not
-    /// match any entry in `ck.call.state.participants[]`.
+    /// AKP-0010 — `participant_identity` returned by the focus does not
+    /// match any entry in `ak.call.state.participants[]`.
     ParticipantIdentityUnrecognised,
-    /// CKP-0010 — `ck.call.state.session_focus` is write-once; a
+    /// AKP-0010 — `ak.call.state.session_focus` is write-once; a
     /// concurrent commit attempt collided with the existing value.
     SessionFocusAlreadyCommitted,
-    /// CKP-0010 — backend cloud attempted to supply the SFrame key
+    /// AKP-0010 — backend cloud attempted to supply the SFrame key
     /// material; MLS-Exporter is the only authorised source.
     E2eeKeySourceUnauthorised,
-    /// CKP-0010 — recording artifact bypassed the Arkret blob upload
+    /// AKP-0010 — recording artifact bypassed the Arkret blob upload
     /// pipeline (e.g. LiveKit Egress direct-to-S3).
     RecordingArtifactPipelineBypassed,
-    /// CKP-0010 — chosen focus is unavailable to this client (e.g. the
+    /// AKP-0010 — chosen focus is unavailable to this client (e.g. the
     /// focus has been retired or the client is on an unsupported
     /// platform); callers MUST surface this rather than silently
     /// downgrading the media path.
@@ -178,7 +178,7 @@ impl PushErrorKind {
         }
     }
 
-    /// R3 (CALL-2) — the five CKP-0010 codes the chime SDK guarantees
+    /// R3 (CALL-2) — the five AKP-0010 codes the chime SDK guarantees
     /// will be surfaced as typed `PushErrorKind` variants when the
     /// underlying transport returns a media-token error. Consumers can
     /// use this helper to branch the call UI without listing every
@@ -193,7 +193,7 @@ impl PushErrorKind {
         )
     }
 
-    /// R3 — full set of CKP-0010 media-binding error codes (the
+    /// R3 — full set of AKP-0010 media-binding error codes (the
     /// rejection subset above plus the additional codes that may be
     /// raised by the server but are not flagged in CALL-2). Useful for
     /// telemetry that wants to label the wider media-binding bucket.

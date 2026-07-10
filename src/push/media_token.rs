@@ -1,5 +1,5 @@
 //! R3 (CALL-1, spec b47ff6ec) — client-side helper for
-//! `ck.self.call.media.exchange.issue_token` (`POST /rtc/token`).
+//! `ak.self.call.media.exchange.issue_token` (`POST /rtc/token`).
 //!
 //! This module is intentionally transport-agnostic: it builds the
 //! request body via the SDK's [`call_media_token_exchange`] helper and
@@ -7,7 +7,7 @@
 //! owes its consumer (inkson):
 //!
 //! - `participant_binding.issuer_kid` matches the realm's current
-//!   `ck.realm.media_service.service_id` anchors supplied by the host and ties together the call-id
+//!   `ak.realm.media_service.service_id` anchors supplied by the host and ties together the call-id
 //!   / focus-id / actor-id / device-id tuple that the caller asked for,
 //! - the token TTL is within the spec ceiling
 //!   ([`MEDIA_TOKEN_TTL_MAX_SECS`](arkret::MEDIA_TOKEN_TTL_MAX_SECS)) via the SDK's
@@ -20,7 +20,7 @@
 //! the wire layer.
 //!
 //! When validation fails this helper returns a typed [`MediaTokenError`]
-//! whose [`MediaTokenError::kind`] aligns one-to-one with the CKP-0010
+//! whose [`MediaTokenError::kind`] aligns one-to-one with the AKP-0010
 //! variants surfaced through [`PushErrorKind`] (CALL-2). HTTP transport
 //! is the caller's responsibility — the rationale is that chime's
 //! `CokretPushClient` is push-registration scoped and may live on
@@ -42,7 +42,7 @@ use super::errors::PushErrorKind;
 /// Chime-side error raised when a media-token exchange response fails
 /// CALL-1 / CALL-2 validation.
 ///
-/// Each variant maps to a CKP-0010 error code on the wire; the
+/// Each variant maps to a AKP-0010 error code on the wire; the
 /// [`Self::kind`] accessor returns the matching [`PushErrorKind`] so
 /// host applications can branch on a single classifier surface.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -50,7 +50,7 @@ use super::errors::PushErrorKind;
 pub enum MediaTokenError {
     /// CALL-2 — `participant_binding.issuer_kid` is not anchored to
     /// the realm's current
-    /// `ck.realm.media_service.service_id`.
+    /// `ak.realm.media_service.service_id`.
     TokenIssuerUnauthorised {
         observed_kid: String,
         expected_service_id: String,
@@ -63,7 +63,7 @@ pub enum MediaTokenError {
     ParticipantBindingInvalid { reason: String },
     /// CALL-2 — the focus id in `participant_binding` does not match
     /// either the requested focus id or the already-committed
-    /// `ck.call.state.session_focus`.
+    /// `ak.call.state.session_focus`.
     FocusMismatch {
         requested_focus_id: String,
         binding_focus_id: String,
@@ -132,10 +132,10 @@ pub struct MediaTokenVerificationContext<'a> {
     /// The SDK verifier compares the response binding against this exact
     /// tuple.
     pub request: &'a CallMediaTokenExchangeRequestBody,
-    /// Current `ck.realm.media_service.service_id` anchors plus the
+    /// Current `ak.realm.media_service.service_id` anchors plus the
     /// resolved Ed25519 verifying keys keyed by full `kid`.
     pub media_service_anchors: &'a MediaServiceAnchors,
-    /// `ck.call.state.session_focus` committed in the call state — used
+    /// `ak.call.state.session_focus` committed in the call state — used
     /// to fail-closed on `focus_mismatch`. Pass `None` when the call
     /// has no committed focus yet (the SDK does not currently model
     /// "no commit yet" as an error — it accepts the response and lets

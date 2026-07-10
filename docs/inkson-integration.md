@@ -83,7 +83,7 @@ releases.
   cellular) appear twice in the user's tray.
 - `chime::call_media_token_exchange(...)` plus
   `chime::verify_media_token_outcome(&response, &ctx)`
-  — builds and verifies a `ck.self.call.media.exchange.issue_token`
+  — builds and verifies a `ak.self.call.media.exchange.issue_token`
   response. The verification context carries the original request and
   current `MediaServiceAnchors`; success returns `VerifiedMediaTokenOutcome`
   only after issuer anchoring, tuple, TTL, `service_signature`, and

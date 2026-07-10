@@ -128,7 +128,7 @@ impl BridgeContractDriftVerdict {
 
     /// Whether the contract identifier changed across the cache boundary
     /// (i.e. the contract string no longer matches the expected
-    /// `ck.push.bridge.v1`). Such a contract change is always a strong signal
+    /// `ak.push.bridge.v1`). Such a contract change is always a strong signal
     /// that downstream state should be invalidated.
     pub fn contract_changed(&self) -> bool {
         match self {

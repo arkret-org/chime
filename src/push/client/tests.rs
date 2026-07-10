@@ -125,7 +125,7 @@ async fn register_success_exposes_response_context_and_headers() {
     // header / path / signing-context concerns — they ride the headers,
     // never the canonical wire body.
     assert!(request.contains("idempotency-key: idem-1"));
-    assert!(request.contains("x-arkret-request-id: ck:request:test"));
+    assert!(request.contains("x-arkret-request-id: ak:request:test"));
     assert!(request.contains("user-agent: test-agent"));
 
     // CHIME-01: the POSTed body is the canonical
@@ -172,7 +172,7 @@ async fn client_default_headers_fill_request_metadata() {
 
     let request = requests.lock().unwrap().join("\n");
     assert!(request.contains("idempotency-key: client-idem"));
-    assert!(request.contains("x-arkret-request-id: ck:request:client"));
+    assert!(request.contains("x-arkret-request-id: ak:request:client"));
     assert!(request.contains("x-arkret-session-grant: coauth-grant-secret"));
 }
 

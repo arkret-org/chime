@@ -28,7 +28,7 @@ When you report, please include:
 
 - a description of the issue and its impact in the Arkret push surface
   (`register-device`, `unregister-device`, `bridge/describe`,
-  `ck.edge.push.command.notify` validators, or local `PushRegistrationStore` state);
+  `ak.edge.push.command.notify` validators, or local `PushRegistrationStore` state);
 - a minimal reproduction (test fixture, JSON payload, request strand);
 - whether the issue is exploitable through the public crate API, requires
   a malicious server response, or requires local code change;
@@ -42,11 +42,11 @@ When you report, please include:
   output, or error messages.
 - DIDs (`did:*`) MUST NOT appear inside `notification.extra`,
   `push_hint`, or any token-shaped wire field.
-- `ck.edge.push.command.notify` payloads default to E2EE blind wakeup; only services
+- `ak.edge.push.command.notify` payloads default to E2EE blind wakeup; only services
   on the explicit `plaintext_visible_services` allowlist may receive
   identifying metadata.
 
-### CKP-0007 Circle metadata invariants
+### AKP-0007 Circle metadata invariants
 
 The Circle primitive introduces an encrypted sub-boundary inside a
 Realm. chime's wakeup wire MUST preserve the following invariants on
@@ -54,11 +54,11 @@ top of the generic blind-wakeup rules above:
 
 - `PushNotification.circle_id` MAY travel on the blind-wakeup wire as
   an opaque typed-id reference, but its value MUST start with the
-  literal `ck:circle:` prefix and MUST NOT contain a `did:` literal
+  literal `ak:circle:` prefix and MUST NOT contain a `did:` literal
   anywhere in its tail. Untyped or DID-bearing values are rejected by
   `validate_wire_model` / `validate_blind_wakeup`.
-- `PushNotification.effective_scope` MUST be either a `ck:circle:` or
-  `ck:realm:` typed reference; any other prefix is wire-broken.
+- `PushNotification.effective_scope` MUST be either a `ak:circle:` or
+  `ak:realm:` typed reference; any other prefix is wire-broken.
 - The display label (`circle_name` / `circle_display_name`) and any
   membership listing (`circle_members` / `circle_member_dids` /
   `circle_member_actor_ids`) are never allowed on the wakeup wire,
@@ -91,7 +91,7 @@ it as a security report and use the private channels above.
 ## Inbound push frame handling
 
 `chime` ships the wire-shape, privacy, and replay validators for inbound
-`ck.edge.push.command.notify` frames, but it deliberately stops short of cryptographic
+`ak.edge.push.command.notify` frames, but it deliberately stops short of cryptographic
 authentication of the frame itself. The host application owns the
 remaining pieces.
 

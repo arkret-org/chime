@@ -43,7 +43,7 @@ Spec rounds 2+3 (2026-05-20) added the `lifecycle::on_account_deactivate`
 host integration hook (T07 — 4-step local push cleanup) and the
 `ROUND_R2_R3_SENSITIVE_FIELDS` defense-in-depth list that mirrors floria's
 blind-wakeup forbidden-field surface. Ephemeral kinds (`ck.presence`,
-`ck.typing`, `ck.receipt.read`, `ck.call.signal`) are confirmed not
+`ck.typing`, `ak.receipt.read`, `ak.call.signal`) are confirmed not
 consumed by chime. See [`CHANGELOG.md`](CHANGELOG.md) `[Unreleased]`;
 the normative source remains `../arkret-spec/spec/v1/`.
 
@@ -81,7 +81,7 @@ hosts that need the standalone resolver trait can use
 | --- | --- |
 | _(default)_ | Core types, JSON serialization helpers, and Arkret register/unregister request builders. No network dependencies. |
 | `http` | Adds `CokretPushClient`, a small `reqwest` helper for `POST /_arkret/edge/push/register-device` and `POST /_arkret/edge/push/unregister-device`. |
-| `notify` | Adds server/gateway-side `ck.edge.push.command.notify` wire types and blind-wakeup privacy validation. |
+| `notify` | Adds server/gateway-side `ak.edge.push.command.notify` wire types and blind-wakeup privacy validation. |
 
 > **Production deployments MUST enable the `notify` feature.** Without it,
 > the blind-wakeup / plaintext-visible privacy validators
@@ -100,17 +100,17 @@ hosts that need the standalone resolver trait can use
 > `validate_blind_wakeup`, or `validate_wire_model` before the host reads
 > fields or shows UI.
 
-## CKP-0007 Circle subscriptions
+## AKP-0007 Circle subscriptions
 
-[CKP-0007 Circle primitive](../arkret-spec/specs/protocol/circle.md)
+[AKP-0007 Circle primitive](../arkret-spec/specs/protocol/circle.md)
 introduces an encrypted sub-boundary inside a Realm. chime exposes the
 client-side surface so a wakeup can carry the Circle context end-to-end:
 
 - **Receiving a Circle-scoped wakeup.** `PushNotification.circle_id`
-  carries the typed `ck:circle:` reference of the Circle the wakeup
+  carries the typed `ak:circle:` reference of the Circle the wakeup
   was authored against (when applicable). `PushNotification.effective_scope`
   mirrors the event envelope's `effective_scope` field
-  (`ck:circle:...` or `ck:realm:...`) so the client can correlate the
+  (`ak:circle:...` or `ak:realm:...`) so the client can correlate the
   wakeup with the security boundary without an extra round-trip.
   Both fields are validated by `validate_wire_model`; the Circle
   metadata privacy validator in `validate_blind_wakeup` additionally
@@ -519,7 +519,7 @@ into a Arkret Principal Server / Sync Service deployment.
 `chime` emits `tracing` events with the target prefix `chime`:
 
 ```text
-INFO  chime::push::client  Arkret push device registered  platform=android gateway="Arkret Standard" operation_id=ck.edge.push.command.register_device request_id=ck:request:01JS0KE000000000000000000
+INFO  chime::push::client  Arkret push device registered  platform=android gateway="Arkret Standard" operation_id=ak.edge.push.command.register_device request_id=ak:request:01JS0KE000000000000000000
 ```
 
 Subscribe with any `tracing-subscriber` layer; Sentry / OpenTelemetry
@@ -541,9 +541,9 @@ The crate maps to the Arkret v1 push HTTP binding:
 
 | Operation ID | HTTP Binding | Request builder |
 | --- | --- | --- |
-| `ck.edge.push.command.register_device` | `POST /_arkret/edge/push/register-device` | `build_register_device_request()` |
-| `ck.edge.push.command.unregister_device` | `POST /_arkret/edge/push/unregister-device` | `build_unregister_device_request()` |
-| `ck.edge.push.command.notify` | `POST /_arkret/edge/push/notify` | Gateway/server-side operation, not a client registration call. |
+| `ak.edge.push.command.register_device` | `POST /_arkret/edge/push/register-device` | `build_register_device_request()` |
+| `ak.edge.push.command.unregister_device` | `POST /_arkret/edge/push/unregister-device` | `build_unregister_device_request()` |
+| `ak.edge.push.command.notify` | `POST /_arkret/edge/push/notify` | Gateway/server-side operation, not a client registration call. |
 
 Register/unregister builders carry the canonical operation id, optional `principal_id`, `device_id`, app id, gateway URL, idempotency key, request id, and caller-supplied proof. Register responses expose only the spec response body fields (`ok`, `registration_id`, and `expires_at`); response headers carry transport metadata such as request id.
 

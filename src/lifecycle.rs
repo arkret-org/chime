@@ -14,7 +14,7 @@
 //! chime owns the **client-side** push surface — the device push queue,
 //! the per-device keypackage cache it consults before signing wakeups,
 //! and the local device session that lets the client speak to floria.
-//! Floria reaches us either by emitting a `ck.principal.deactivate`
+//! Floria reaches us either by emitting a `ak.principal.deactivate`
 //! event on the device's normal sync stream (in-band) or by sending a
 //! dedicated push wakeup whose `wakeup_kind` is a closed v1 token
 //! signalling deactivation. Either path funnels into [`on_account_deactivate`] —
@@ -95,7 +95,7 @@ pub trait BackgroundFetchDriver: Send + Sync {
 #[derive(Clone, Copy, Debug)]
 #[non_exhaustive]
 pub struct BackgroundFetchHint<'a> {
-    /// Opaque push target id (`ck:pseudonym:push:...`). Always present.
+    /// Opaque push target id (`ak:pseudonym:push:...`). Always present.
     pub push_target_id: &'a str,
     /// Wakeup kind (`message`, `mention`, `reaction`, `call_invite`,
     /// `reminder`, `scheduled_send`, `expiry_invalidation`).
@@ -186,7 +186,7 @@ pub enum DeactivationSource {
     /// shape on the device).
     FloriaPush,
     /// The device's sync stream surfaced an in-band
-    /// `ck.principal.deactivate` event.
+    /// `ak.principal.deactivate` event.
     InBandSync,
 }
 
@@ -354,11 +354,11 @@ pub struct AccountDeactivationReceipt {
     pub keypackage_cache_cleared: bool,
     pub session_invalidated: bool,
     pub push_preferences_cleared: bool,
-    /// CKP-0007 — `ck:circle:` ids whose chime-side subscription /
+    /// AKP-0007 — `ak:circle:` ids whose chime-side subscription /
     /// mute state was torn down as part of this deactivation. Empty
     /// when no Circle-scoped state existed for this principal.
     pub circle_bindings_cleared: Vec<String>,
-    /// CKP-0007 — same as [`Self::circle_bindings_cleared`] but for the
+    /// AKP-0007 — same as [`Self::circle_bindings_cleared`] but for the
     /// Realm-scoped mute list and Circle-less Realm wakeups.
     pub realm_bindings_cleared: Vec<String>,
 }
@@ -374,7 +374,7 @@ impl AccountDeactivationReceipt {
 }
 
 /// Client integrator entrypoint — call this on receiving a
-/// `ck.principal.deactivate` signal (either via floria push or in-band
+/// `ak.principal.deactivate` signal (either via floria push or in-band
 /// sync) for the principal currently bound to this device.
 ///
 /// Drives the three §7.1 sub-steps in a fixed order: drain queue →
@@ -427,7 +427,7 @@ where
     receipt.session_invalidated = true;
 
     if let Some(store) = preferences_store {
-        // CKP-0007 — before wiping the persisted preferences, snapshot
+        // AKP-0007 — before wiping the persisted preferences, snapshot
         // the circle-scoped and realm-scoped subscription / mute state
         // so the receipt can report which bindings were torn down
         // (the receipt is what host apps wire into telemetry; an
@@ -515,7 +515,7 @@ mod tests {
     #[derive(Default)]
     struct InMemoryPrefs {
         cleared: Cell<u32>,
-        // CKP-0007 — optional pre-loaded preferences so a test can
+        // AKP-0007 — optional pre-loaded preferences so a test can
         // assert the deactivation hook snapshots circle/realm mute
         // state before wiping.
         stored: std::cell::RefCell<Option<crate::PushPreferences>>,
@@ -642,7 +642,7 @@ mod tests {
 
     #[test]
     fn on_account_deactivate_snapshots_and_clears_circle_scoped_bindings() {
-        // CKP-0007 — deactivation MUST tear down circle-scoped state.
+        // AKP-0007 — deactivation MUST tear down circle-scoped state.
         // The wholesale `clear_push_preferences` already drops them on
         // disk; this test pins the receipt contract so host-side
         // telemetry can see which circle / realm bindings were live at

@@ -44,7 +44,7 @@ pub const ROUND_R2_R3_SENSITIVE_FIELDS: &[&str] = &[
     "tombstone_event_id",
     "successor_realm_id",
     "erasure_receipt_id",
-    // Phase P2 (spec 37ce729, CKP-0008 / CKP-0009) — Personal Agent /
+    // Phase P2 (spec 37ce729, AKP-0008 / AKP-0009) — Personal Agent /
     // Sidecar governance identifiers. None of these may appear on a push
     // wakeup wire: they identify the controller↔agent binding state and
     // the action-approval transcript. Leaking either correlates a user
@@ -106,8 +106,8 @@ pub fn is_phase_p2_agent_typed_id(value: &str) -> bool {
 /// reaching into the wire payload.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct AgentLifecycleSummary {
-    /// The matched event kind literal (`ck.self.agent.pause` /
-    /// `ck.self.agent.resume` / `ck.self.agent.deactivate`). Stable wire string.
+    /// The matched event kind literal (`ak.self.agent.pause` /
+    /// `ak.self.agent.resume` / `ak.self.agent.deactivate`). Stable wire string.
     pub event_kind: &'static str,
     /// Localisation key for the human-readable summary, e.g.
     /// `l10n_key:agent.lifecycle.pause`. Hosts SHOULD render this

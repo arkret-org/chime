@@ -1,4 +1,4 @@
-//! Wire DTOs for `ck.edge.push.command.register_device` / `ck.edge.push.command.unregister_device`.
+//! Wire DTOs for `ak.edge.push.command.register_device` / `ak.edge.push.command.unregister_device`.
 //!
 //! ## Stability
 //!
@@ -64,7 +64,7 @@ impl TryFrom<&str> for PushPlatform {
 pub struct PushDeviceConfig<'a> {
     /// Arkret principal ID that owns this device registration.
     pub principal_id: Option<&'a str>,
-    /// Arkret device id, usually a `ck:device:*` typed id.
+    /// Arkret device id, usually a `ak:device:*` typed id.
     pub device_id: &'a str,
     /// Platform push token, e.g. `fcm:...`, `apns:...`, `webpush:...`.
     pub push_key: Option<&'a str>,

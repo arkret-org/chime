@@ -8,7 +8,7 @@
 //! - [`urls`]: URL helpers, validation, redaction
 //! - [`registration`]: request body + signing context builders
 //! - [`client`]: async `CokretPushClient` (feature = "http")
-//! - [`route`]: actor-private `ck.device.push_route` state event wire model
+//! - [`route`]: actor-private `ak.device.push_route` state event wire model
 //! - [`rule_core`]: T4.4 shared client-side push rule evaluator
 
 mod bridge_describe;
@@ -28,16 +28,16 @@ pub use platform_app_id::{DefaultPlatformAppIdResolver, PlatformAppIdResolver};
 
 // -- Path constants ---------------------------------------------------------
 
-/// Arkret HTTP path for `ck.edge.push.command.register_device`.
+/// Arkret HTTP path for `ak.edge.push.command.register_device`.
 pub const REGISTER_DEVICE_PATH: &str = "/_arkret/edge/push/register-device";
 
-/// Arkret HTTP path for `ck.edge.push.command.unregister_device`.
+/// Arkret HTTP path for `ak.edge.push.command.unregister_device`.
 pub const UNREGISTER_DEVICE_PATH: &str = "/_arkret/edge/push/unregister-device";
 
-/// Arkret HTTP path for `ck.edge.push.command.notify`.
+/// Arkret HTTP path for `ak.edge.push.command.notify`.
 pub const PUSH_NOTIFY_PATH: &str = "/_arkret/edge/push/notify";
 
-/// Arkret HTTP path for `ck.server.query.describe`.
+/// Arkret HTTP path for `ak.server.query.describe`.
 pub const SERVER_DESCRIBE_PATH: &str = "/_arkret/describe";
 
 /// Floria product path for discovering the active push gateway bridge contract.

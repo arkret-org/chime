@@ -9,7 +9,7 @@ use super::errors::PushNotifyPrivacyError;
 use super::outcome::EncryptedEnvelopeError;
 
 /// T1.1 — feed the `extra` map of a [`super::PushNotification`] through the
-/// SDK sanitizer so the rule "no forbidden field anywhere, no `did:` / `ck:`
+/// SDK sanitizer so the rule "no forbidden field anywhere, no `did:` / `ak:`
 /// literal anywhere" stays unified across chime/floria.
 ///
 /// We wrap the extras under a `notification` envelope so the SDK
@@ -315,7 +315,7 @@ pub(super) fn is_sensitive_payload_key(key: &str) -> bool {
         // generic `*_name` rule.
         "realm_name"
             | "sender_actor_display_name"
-            // CKP-0007 — Circle display label. The typed `circle_id` may
+            // AKP-0007 — Circle display label. The typed `circle_id` may
             // travel; the human-readable label must not. Circle membership
             // surfaces (`circle_members` / `circle_member_dids` /
             // `circle_member_actor_ids`) are covered by the shared
@@ -349,7 +349,7 @@ pub(super) fn is_never_allowed_payload_key(key: &str) -> bool {
             | "ice"
             | "turn"
             | "call_setup"
-            // CKP-0007 — Circle membership surfaces are never allowed
+            // AKP-0007 — Circle membership surfaces are never allowed
             // on any wakeup wire even for plaintext-visible service DIDs.
             | "circle_members"
             | "circle_member_dids"

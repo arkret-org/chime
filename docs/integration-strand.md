@@ -16,8 +16,8 @@ Companions:
 |---|---|
 | **inkson** | Client SDK running inside the host app on the device. Owns the platform-native push token, the device identity, and the rendering of incoming notifications. |
 | **chime** | In-process contract validator, runs both in the host app (alongside inkson) and on the server (alongside floria). Enforces nonce-replay protection, payload privacy, and the bridge contract. |
-| **floria** | Server-side push gateway. Talks to APNS / FCM / OEM providers. Speaks `ck.edge.push.command.notify` to soland on one side and the provider-native push API on the other. |
-| **soland** | Upstream event store (not pictured below in the call-path; appears only as the producer of `ck.edge.push.command.notify`). |
+| **floria** | Server-side push gateway. Talks to APNS / FCM / OEM providers. Speaks `ak.edge.push.command.notify` to soland on one side and the provider-native push API on the other. |
+| **soland** | Upstream event store (not pictured below in the call-path; appears only as the producer of `ak.edge.push.command.notify`). |
 
 ## End-to-end sequence: device registration
 

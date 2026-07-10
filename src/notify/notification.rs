@@ -136,7 +136,7 @@ impl<'de> Deserialize<'de> for WakeupKind {
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[non_exhaustive]
-/// Wire notification descriptor for `ck.edge.push.command.notify`.
+/// Wire notification descriptor for `ak.edge.push.command.notify`.
 ///
 /// This type intentionally carries unknown JSON fields in [`Self::extra`]
 /// because `#[serde(flatten)]` cannot be combined with
@@ -165,7 +165,7 @@ pub struct PushNotification {
     pub sender_actor_display_name: Option<String>,
     /// SPEC-CR-016 (class C) — profile-gated client-visible priority hint
     /// (e.g. `low`). Only meaningful under
-    /// `ck.profile.push_gateway.visible_notification.v1`.
+    /// `ak.profile.push_gateway.visible_notification.v1`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub priority: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -176,7 +176,7 @@ pub struct PushNotification {
     pub push_hint_l10n_key: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub counts: Option<Value>,
-    /// Round 4 (B5) — typed `ck.audit.policy_access` payload surfaced to
+    /// Round 4 (B5) — typed `ak.audit.policy_access` payload surfaced to
     /// consumers (e.g. inkson) so the late-key-recovery banner can read
     /// `late_recovery_original_event_id` directly off the wakeup. This
     /// is diagnostic context — push layer never decrypts on the
@@ -476,7 +476,7 @@ impl PushNotification {
         // wire-model fields we already validate above; the wire-model
         // owns its own allow-list and the SDK sanitizer owns the rule
         // that says "no forbidden field anywhere in the tree, no
-        // sensitive did:/ck: literal anywhere".
+        // sensitive did:/ak: literal anywhere".
         run_sdk_sanitizer_over_extra(&self.extra)?;
 
         Ok(())
@@ -547,7 +547,7 @@ impl PushNotification {
     }
 
     /// Round 4 (B5) — when the wakeup is a late-key-recovery audit
-    /// surface (`ck.audit.policy_access.access_kind = e2ee_late_recovery`),
+    /// surface (`ak.audit.policy_access.access_kind = e2ee_late_recovery`),
     /// return the `late_recovery_original_event_id` so the consumer can
     /// render a "the system recovered an old key for event X" banner.
     ///
