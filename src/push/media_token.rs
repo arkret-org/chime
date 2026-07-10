@@ -28,7 +28,6 @@
 //! typically driven by the in-app call surface (inkson).
 use std::fmt;
 
-use chrono::{DateTime, Utc};
 // Re-export the SDK types so chime consumers can pull the full media
 // token surface through `chime::` without a second `arkret` dep.
 pub use arkret::{
@@ -36,6 +35,7 @@ pub use arkret::{
     CallMediaTokenExchangeRequestBody, CallMediaTokenVerification, MediaBackendType,
     MediaServiceAnchors, call_media_token_exchange,
 };
+use chrono::{DateTime, Utc};
 
 use super::errors::PushErrorKind;
 

@@ -45,12 +45,12 @@ mod notify;
 mod push;
 mod state;
 
-pub use bugle::BugleAppIdResolver;
 // Round 4 (B5, spec a77b995) — re-export the SDK round-4 audit surfaces
 // chime consumers (inkson, host apps) need for the late-key-recovery banner
 // without having to depend on `arkret` directly.
 #[cfg(feature = "notify")]
 pub use arkret::{AccessKind, AuditPolicyAccessPayload, PushNotifyOutcome, PushNotifyRequestBody};
+pub use bugle::BugleAppIdResolver;
 pub use gateway_binding::GatewayBinding;
 pub use lifecycle::{
     AccountDeactivationError, AccountDeactivationReceipt, AccountDeactivationSink,
