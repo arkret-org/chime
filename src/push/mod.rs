@@ -75,11 +75,11 @@ pub const ARKRET_EXPIRES_AT_HEADER: &str = "X-Arkret-Expires-At";
 /// Arkret request origin URL header covered by request signatures.
 pub const ARKRET_ORIGIN_HEADER: &str = "X-Arkret-Origin";
 
-/// Arkret origin service DID header covered by request signatures.
-pub const ARKRET_ORIGIN_SERVICE_ID_HEADER: &str = "X-Arkret-Origin-Service-Did";
+/// Arkret origin service ID header covered by request signatures.
+pub const ARKRET_ORIGIN_SERVICE_ID_HEADER: &str = "X-Arkret-Origin-Service-Id";
 
-/// Arkret destination service DID header covered by request signatures.
-pub const ARKRET_DESTINATION_SERVICE_ID_HEADER: &str = "X-Arkret-Destination-Service-Did";
+/// Arkret destination service ID header covered by request signatures.
+pub const ARKRET_DESTINATION_SERVICE_ID_HEADER: &str = "X-Arkret-Destination-Service-Id";
 
 /// Arkret nonce header covered by request signatures.
 pub const ARKRET_NONCE_HEADER: &str = "X-Arkret-Nonce";

@@ -586,8 +586,8 @@ mod tests {
         let signature_input = context.http_message_signature_input("sig1").unwrap();
         assert!(signature_input.contains("\"x-arkret-actor-id\""));
         assert!(signature_input.contains("\"x-arkret-expires-at\""));
-        assert!(signature_input.contains("\"x-arkret-origin-service-did\""));
-        assert!(signature_input.contains("\"x-arkret-destination-service-did\""));
+        assert!(signature_input.contains("\"x-arkret-origin-service-id\""));
+        assert!(signature_input.contains("\"x-arkret-destination-service-id\""));
         assert!(signature_input.contains("\"x-arkret-session-grant\""));
 
         let debug = format!("{context:?}");

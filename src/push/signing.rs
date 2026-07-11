@@ -11,8 +11,8 @@
 //!
 //! 1. chime's covered-component set differs from floria's notify set — it covers
 //!    `x-arkret-operation-id`, `x-arkret-device-id`, `x-arkret-created-at`, `x-arkret-audience`
-//!    (the device- registration strand), not the two service-DID headers floria's `/notify`
-//!    verifier requires.
+//!    (the device- registration strand), not the two service ID headers floria's `/notify` verifier
+//!    requires.
 //! 2. chime never owned a private key; it only canonicalizes context so an external signer (the
 //!    host application's DID proof or HSM) can attach a pre-computed `Signature` header. The SDK's
 //!    `sign_message` helper is therefore not called here — callers that have a `SigningKey` should
