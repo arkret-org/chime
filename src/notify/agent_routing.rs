@@ -51,6 +51,7 @@ pub const ROUND_R2_R3_SENSITIVE_FIELDS: &[&str] = &[
     // device with their native agent runtime endpoint.
     "accountability_grant_id",
     "controller_did",
+    "controller_principal_id",
     "agent_principal_id",
     "agent_session_id",
     "agent_key_id",
