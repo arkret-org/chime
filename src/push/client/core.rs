@@ -2,7 +2,7 @@ use std::fmt;
 use std::time::Duration;
 
 use super::super::bridge_describe::{
-    IntegrationView, PushBridgeDescribeOutcome, PushGatewayIntegrationDescribeOutcome,
+    IntegrationDescribeOutcome, IntegrationView, PushBridgeDescribeOutcome,
 };
 use super::super::errors::{PushErrorKind, PushRegistrationError};
 use super::super::registration::{build_register_device_request, build_unregister_device_request};
@@ -241,15 +241,14 @@ impl ArkretPushClient {
     /// Discover floria's service-level push gateway integration manifest.
     pub async fn floria_integration_describe(
         &self,
-    ) -> Result<PushGatewayIntegrationDescribeOutcome, PushRegistrationError> {
+    ) -> Result<IntegrationDescribeOutcome, PushRegistrationError> {
         Ok(self.floria_integration_describe_with_context().await?.body)
     }
 
     /// Discover floria's service-level integration manifest and return response metadata.
     pub async fn floria_integration_describe_with_context(
         &self,
-    ) -> Result<ArkretHttpOutcome<PushGatewayIntegrationDescribeOutcome>, PushRegistrationError>
-    {
+    ) -> Result<ArkretHttpOutcome<IntegrationDescribeOutcome>, PushRegistrationError> {
         self.get_json(FLORIA_INTEGRATION_DESCRIBE_PATH).await
     }
 

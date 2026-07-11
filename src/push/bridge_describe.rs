@@ -5,9 +5,9 @@
 //! public API. Keeping the producer/consumer contract in the SDK prevents
 //! floria and chime from carrying divergent copies.
 
+pub use arkret::integration_api::{IntegrationDependencyDescriptor, IntegrationDescribeOutcome};
 pub use arkret::push_gateway_api::{
     EXPECTED_SPEC_VERSION, IntegrationView, PushBridgeDescribeGatewayDescriptor,
     PushBridgeDescribeNotifyDescriptor, PushBridgeDescribeOutcome,
-    PushBridgeDescribePrivacyDescriptor, PushGatewayIntegrationDependency,
-    PushGatewayIntegrationDescribeOutcome,
+    PushBridgeDescribePrivacyDescriptor,
 };

@@ -108,10 +108,9 @@ pub use arkret::{
     PushUnregisterDeviceRequestBody, ServiceDescribe,
 };
 pub use bridge_describe::{
-    EXPECTED_SPEC_VERSION, IntegrationView, PushBridgeDescribeGatewayDescriptor,
-    PushBridgeDescribeNotifyDescriptor, PushBridgeDescribeOutcome,
-    PushBridgeDescribePrivacyDescriptor, PushGatewayIntegrationDependency,
-    PushGatewayIntegrationDescribeOutcome,
+    EXPECTED_SPEC_VERSION, IntegrationDependencyDescriptor, IntegrationDescribeOutcome,
+    IntegrationView, PushBridgeDescribeGatewayDescriptor, PushBridgeDescribeNotifyDescriptor,
+    PushBridgeDescribeOutcome, PushBridgeDescribePrivacyDescriptor,
 };
 #[cfg(feature = "http")]
 pub use client::{ArkretHttpOutcome, ArkretPushClient, PushRetryPolicy};
