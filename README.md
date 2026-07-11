@@ -388,8 +388,8 @@ let context = build_register_signing_context_with_options(
         .with_actor_id("did:web:alice.example")
         .with_expires_at("2026-04-29T00:05:00Z")
         .with_origin("https://app.example")
-        .with_origin_service_did("did:web:sync.example.com")
-        .with_destination_service_did("did:web:principal.example")
+        .with_origin_service_id("did:web:sync.example.com")
+        .with_destination_service_id("did:web:principal.example")
         .with_nonce("device-phone-register-v1")
         .with_idempotency_key("device-phone-register-v1")
         .with_session_grant("externally-issued-coauth-or-soland-grant"),

@@ -53,6 +53,8 @@ pub const ROUND_R2_R3_SENSITIVE_FIELDS: &[&str] = &[
     "controller_did",
     "controller_principal_id",
     "agent_principal_id",
+    "controller_id",
+    "agent_id",
     "agent_session_id",
     "agent_key_id",
     "sidecar_circle_id",

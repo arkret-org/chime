@@ -10,9 +10,9 @@ use super::notification::PushNotification;
 /// SPEC-CR-016: the canonical `push_notify_request_body` is
 /// `{notification, event_kind?, reason_code?, audit_envelope?}` with
 /// `additionalProperties:false`. The former envelope-level transport
-/// fields (`operation_id` / `idempotency_key` / `origin_service_did` /
-/// `destination_service_did`) ride HTTP headers
-/// (`Idempotency-Key` / `Source-Service-DID` / `Destination-Service-DID`)
+/// fields (`operation_id` / `idempotency_key` / `origin_service_id` /
+/// `destination_service_id`) ride HTTP headers
+/// (`Idempotency-Key` / `Source-Service-ID` / `Destination-Service-ID`)
 /// or are determined by the URL path (`operationId`) and are no longer
 /// body fields. The provider-collapse hints (`app_id` / `ttl_seconds` /
 /// `collapse_key`) and `priority` were never part of the canonical body;
@@ -94,15 +94,15 @@ impl ChimePushNotifyEnvelope {
     }
 
     /// SPEC-CR-016: the destination service DID rides the
-    /// `Destination-Service-DID` HTTP header, not the body, so callers pass
+    /// `Destination-Service-ID` HTTP header, not the body, so callers pass
     /// it in explicitly (the value they put on / read from the header) to
     /// select the privacy mode.
     pub fn assert_payload_safe(
         &self,
         policy: &PushNotifyPolicyContext,
-        destination_service_did: Option<&str>,
+        destination_service_id: Option<&str>,
     ) -> Result<(), PushNotifyPrivacyError> {
-        let mode = policy.mode_for(destination_service_did);
+        let mode = policy.mode_for(destination_service_id);
         self.validate_privacy(mode)
     }
 }
@@ -157,14 +157,14 @@ impl PushNotifyPolicyContext {
         Self::default()
     }
 
-    pub fn allows_plaintext_for(&self, destination_service_did: &str) -> bool {
+    pub fn allows_plaintext_for(&self, destination_service_id: &str) -> bool {
         self.plaintext_visible_services
             .iter()
-            .any(|service| service == destination_service_did)
+            .any(|service| service == destination_service_id)
     }
 
-    pub fn mode_for(&self, destination_service_did: Option<&str>) -> PushNotifyPrivacyMode {
-        match destination_service_did {
+    pub fn mode_for(&self, destination_service_id: Option<&str>) -> PushNotifyPrivacyMode {
+        match destination_service_id {
             Some(did) if self.allows_plaintext_for(did) => {
                 PushNotifyPrivacyMode::PlaintextVisibleService
             }

@@ -81,9 +81,9 @@ pub use notify::{
 // checks before returning a marker.
 pub use push::{
     ARKRET_ACTOR_ID_HEADER, ARKRET_AUDIENCE_HEADER, ARKRET_CREATED_AT_HEADER,
-    ARKRET_DESTINATION_SERVICE_DID_HEADER, ARKRET_DEVICE_ID_HEADER, ARKRET_EXPIRES_AT_HEADER,
+    ARKRET_DESTINATION_SERVICE_ID_HEADER, ARKRET_DEVICE_ID_HEADER, ARKRET_EXPIRES_AT_HEADER,
     ARKRET_IDEMPOTENCY_KEY_HEADER, ARKRET_NONCE_HEADER, ARKRET_OPERATION_ID_HEADER,
-    ARKRET_ORIGIN_HEADER, ARKRET_ORIGIN_SERVICE_DID_HEADER, ARKRET_REQUEST_ID_HEADER,
+    ARKRET_ORIGIN_HEADER, ARKRET_ORIGIN_SERVICE_ID_HEADER, ARKRET_REQUEST_ID_HEADER,
     ARKRET_SESSION_GRANT_HEADER, ArkretError, ArkretErrorEnvelope, CONTENT_DIGEST_HEADER,
     ChimePushRegisterDeviceOutcome, ChimePushRegisterDeviceRequest,
     ChimePushUnregisterDeviceOutcome, ChimePushUnregisterDeviceRequest, EXPECTED_SPEC_VERSION,
@@ -109,7 +109,7 @@ pub use push::{
     CallMediaTokenVerification, DefaultPlatformAppIdResolver, MediaBackendType,
     MediaServiceAnchors, MediaTokenError, MediaTokenVerificationContext, PlatformAppIdResolver,
     PushRoute, PushRouteCapability, PushRouteError, PushRouteId, PushRouteValidationError,
-    PushRuleEventContext, ServiceDid, ShouldNotify, VerifiedMediaTokenOutcome, WatchLevel,
+    PushRuleEventContext, ServiceId, ShouldNotify, VerifiedMediaTokenOutcome, WatchLevel,
     call_media_token_exchange, ensure_known_backend, evaluate_watch_level, push_rule_reason_code,
     verify_media_token_outcome,
 };

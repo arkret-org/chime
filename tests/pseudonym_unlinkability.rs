@@ -10,7 +10,7 @@
 
 #![cfg(feature = "notify")]
 
-use chime::{PushRoute, PushRouteCapability, PushRouteId, PushTargetId, ServiceDid, WakeupKind};
+use chime::{PushRoute, PushRouteCapability, PushRouteId, PushTargetId, ServiceId, WakeupKind};
 
 /// `PushTargetId::new` must reject anything that looks like a DID, a
 /// device handle, an email, or a phone number — regardless of how the
@@ -92,9 +92,9 @@ fn target_id_rejects_strings_carrying_device_or_token_material() {
 fn multiple_routes_per_device_keep_distinct_pseudonyms() {
     // T4.1: active routes are scoped to a recipient Principal Server
     // by their cell_subject quadruple, so the constructor now requires
-    // a `recipient_service_did`. We use the same DID for both routes
+    // a `recipient_service_id`. We use the same DID for both routes
     // because both belong to the same device on the same server.
-    let recipient = ServiceDid::new("did:web:principal.example").unwrap();
+    let recipient = ServiceId::new("did:web:principal.example").unwrap();
     let main = PushRoute::active(
         recipient.clone(),
         PushRouteId::new("apns_main").unwrap(),

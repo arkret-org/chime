@@ -40,11 +40,11 @@ pub enum PushErrorKind {
     HttpStatus,
     /// Round 4 (spec a77b995) — federation sender used an obsolete member
     /// delivery binding frontier. The response carries
-    /// `new_recipient_service_did` + `handover_frontier`; chime
+    /// `new_recipient_service_id` + `handover_frontier`; chime
     /// consumers MUST resolve the current binding and retry against the
     /// new recipient rather than re-issuing the same wakeup.
     DeliveryBindingStale,
-    /// Round 4 — sender continued using a previous `recipient_service_did`
+    /// Round 4 — sender continued using a previous `recipient_service_id`
     /// after the handover grace window expired. Sender MUST resolve the
     /// current binding and retry there. Treat as terminal for the old
     /// recipient.

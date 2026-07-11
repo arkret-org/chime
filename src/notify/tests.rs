@@ -369,6 +369,9 @@ fn shared_privacy_vectors_match_wire_model() {
     const FORBIDDEN_BODY_KEYS: &[&str] = &[
         "operation_id",
         "idempotency_key",
+        "origin_service_id",
+        "destination_service_id",
+        "service_id",
         "origin_service_did",
         "destination_service_did",
         "service_did",
@@ -856,6 +859,8 @@ fn round23_sensitive_fields_cover_agent_governance_set() {
         "accountability_grant_id",
         "controller_did",
         "agent_principal_id",
+        "controller_id",
+        "agent_id",
         "agent_session_id",
         "agent_key_id",
         "sidecar_circle_id",

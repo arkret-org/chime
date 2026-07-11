@@ -28,7 +28,7 @@
 
 - `NonceTracker` 是内存、单实例 tracker。
 - 服务端 relay、集群 worker、重启后仍接收 inbound frame 的 host 必须把
-  `(origin_service_did, nonce)` 或 `(device_id, nonce)` 写入共享持久化存储，
+  `(origin_service_id, nonce)` 或 `(device_id, nonce)` 写入共享持久化存储，
   保存时间至少覆盖 replay window。
 - 时钟回拨按 duplicate 等价处理，应该 fail-closed 并报警。
 

@@ -36,7 +36,7 @@ fn notify_payload(idempotency_key: &str) -> Value {
     json!({
         "operation_id": chime::OPERATION_PUSH_NOTIFY,
         "idempotency_key": idempotency_key,
-        "origin_service_did": ORIGIN_DID,
+        "origin_service_id": ORIGIN_DID,
         "notification": {
             "event_id": "ak:event:01JS0EV000000000000000000",
             "message_id": "ak:message:01JS0MSG0000000000000000",

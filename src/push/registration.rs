@@ -284,8 +284,8 @@ mod tests {
     use super::*;
     use crate::push::errors::PushErrorKind;
     use crate::push::{
-        ARKRET_ACTOR_ID_HEADER, ARKRET_DESTINATION_SERVICE_DID_HEADER, ARKRET_EXPIRES_AT_HEADER,
-        ARKRET_ORIGIN_SERVICE_DID_HEADER, ARKRET_SESSION_GRANT_HEADER, SIGNATURE_HEADER,
+        ARKRET_ACTOR_ID_HEADER, ARKRET_DESTINATION_SERVICE_ID_HEADER, ARKRET_EXPIRES_AT_HEADER,
+        ARKRET_ORIGIN_SERVICE_ID_HEADER, ARKRET_SESSION_GRANT_HEADER, SIGNATURE_HEADER,
         SIGNATURE_INPUT_HEADER,
     };
     use crate::{DEFAULT_BUGLE_PUSH_GATEWAY_URL, PushGatewayType};
@@ -540,8 +540,8 @@ mod tests {
                 .with_actor_id("did:web:alice.example")
                 .with_expires_at("2026-04-29T00:05:00Z")
                 .with_origin("https://app.example")
-                .with_origin_service_did("did:web:sync.example.com")
-                .with_destination_service_did("did:web:principal.example")
+                .with_origin_service_id("did:web:sync.example.com")
+                .with_destination_service_id("did:web:principal.example")
                 .with_nonce("idem-1")
                 .with_idempotency_key("idem-1")
                 .with_session_grant("coauth-grant-secret"),
@@ -571,11 +571,11 @@ mod tests {
                 .contains(&(ARKRET_EXPIRES_AT_HEADER, "2026-04-29T00:05:00Z".to_owned()))
         );
         assert!(metadata_headers.contains(&(
-            ARKRET_ORIGIN_SERVICE_DID_HEADER,
+            ARKRET_ORIGIN_SERVICE_ID_HEADER,
             "did:web:sync.example.com".to_owned()
         )));
         assert!(metadata_headers.contains(&(
-            ARKRET_DESTINATION_SERVICE_DID_HEADER,
+            ARKRET_DESTINATION_SERVICE_ID_HEADER,
             "did:web:principal.example".to_owned()
         )));
         assert!(metadata_headers.contains(&(

@@ -107,7 +107,7 @@ nonce window.
   config change; do NOT hot-swap the window without a flush, as nonces
   recorded under the prior window may collide with the new window's
   ordering assumptions.
-- Server-side relay deployments MUST store `(origin_service_did,
+- Server-side relay deployments MUST store `(origin_service_id,
   nonce)` or `(device_id, nonce)` in a shared persistent store for at
   least the active replay window. A process-local `NonceTracker` alone
   does not prevent replay after restart or across workers.

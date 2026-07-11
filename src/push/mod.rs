@@ -76,10 +76,10 @@ pub const ARKRET_EXPIRES_AT_HEADER: &str = "X-Arkret-Expires-At";
 pub const ARKRET_ORIGIN_HEADER: &str = "X-Arkret-Origin";
 
 /// Arkret origin service DID header covered by request signatures.
-pub const ARKRET_ORIGIN_SERVICE_DID_HEADER: &str = "X-Arkret-Origin-Service-Did";
+pub const ARKRET_ORIGIN_SERVICE_ID_HEADER: &str = "X-Arkret-Origin-Service-Did";
 
 /// Arkret destination service DID header covered by request signatures.
-pub const ARKRET_DESTINATION_SERVICE_DID_HEADER: &str = "X-Arkret-Destination-Service-Did";
+pub const ARKRET_DESTINATION_SERVICE_ID_HEADER: &str = "X-Arkret-Destination-Service-Did";
 
 /// Arkret nonce header covered by request signatures.
 pub const ARKRET_NONCE_HEADER: &str = "X-Arkret-Nonce";
@@ -128,7 +128,7 @@ pub use registration::{
 };
 pub use route::{
     PushRoute, PushRouteCapability, PushRouteError, PushRouteId, PushRouteValidationError,
-    ServiceDid,
+    ServiceId,
 };
 pub use rule_core::{
     EventContext as PushRuleEventContext, ShouldNotify, WatchLevel, evaluate_watch_level,

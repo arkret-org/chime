@@ -36,9 +36,9 @@ use super::urls::{
 };
 use super::{
     ARKRET_ACTOR_ID_HEADER, ARKRET_AUDIENCE_HEADER, ARKRET_CREATED_AT_HEADER,
-    ARKRET_DESTINATION_SERVICE_DID_HEADER, ARKRET_DEVICE_ID_HEADER, ARKRET_EXPIRES_AT_HEADER,
+    ARKRET_DESTINATION_SERVICE_ID_HEADER, ARKRET_DEVICE_ID_HEADER, ARKRET_EXPIRES_AT_HEADER,
     ARKRET_IDEMPOTENCY_KEY_HEADER, ARKRET_NONCE_HEADER, ARKRET_OPERATION_ID_HEADER,
-    ARKRET_ORIGIN_HEADER, ARKRET_ORIGIN_SERVICE_DID_HEADER, ARKRET_SESSION_GRANT_HEADER,
+    ARKRET_ORIGIN_HEADER, ARKRET_ORIGIN_SERVICE_ID_HEADER, ARKRET_SESSION_GRANT_HEADER,
     CONTENT_DIGEST_HEADER, SIGNATURE_HEADER, SIGNATURE_INPUT_HEADER,
 };
 
@@ -60,9 +60,9 @@ pub struct PushRequestSigningContext {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub origin: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub origin_service_did: Option<String>,
+    pub origin_service_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub destination_service_did: Option<String>,
+    pub destination_service_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub nonce: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -85,8 +85,8 @@ impl fmt::Debug for PushRequestSigningContext {
             .field("actor_id", &self.actor_id)
             .field("expires_at", &self.expires_at)
             .field("origin", &self.origin)
-            .field("origin_service_did", &self.origin_service_did)
-            .field("destination_service_did", &self.destination_service_did)
+            .field("origin_service_id", &self.origin_service_id)
+            .field("destination_service_id", &self.destination_service_id)
             .field("nonce", &self.nonce)
             .field("idempotency_key", &self.idempotency_key)
             .field(
@@ -124,13 +124,13 @@ impl PushRequestSigningContext {
         if let Some(origin) = &self.origin {
             headers.push((ARKRET_ORIGIN_HEADER, origin.clone()));
         }
-        if let Some(origin_service_did) = &self.origin_service_did {
-            headers.push((ARKRET_ORIGIN_SERVICE_DID_HEADER, origin_service_did.clone()));
+        if let Some(origin_service_id) = &self.origin_service_id {
+            headers.push((ARKRET_ORIGIN_SERVICE_ID_HEADER, origin_service_id.clone()));
         }
-        if let Some(destination_service_did) = &self.destination_service_did {
+        if let Some(destination_service_id) = &self.destination_service_id {
             headers.push((
-                ARKRET_DESTINATION_SERVICE_DID_HEADER,
-                destination_service_did.clone(),
+                ARKRET_DESTINATION_SERVICE_ID_HEADER,
+                destination_service_id.clone(),
             ));
         }
         if let Some(nonce) = &self.nonce {
@@ -190,14 +190,14 @@ impl PushRequestSigningContext {
         if self.origin.is_some() {
             components.push(Component::Header(ARKRET_ORIGIN_HEADER.to_ascii_lowercase()));
         }
-        if self.origin_service_did.is_some() {
+        if self.origin_service_id.is_some() {
             components.push(Component::Header(
-                ARKRET_ORIGIN_SERVICE_DID_HEADER.to_ascii_lowercase(),
+                ARKRET_ORIGIN_SERVICE_ID_HEADER.to_ascii_lowercase(),
             ));
         }
-        if self.destination_service_did.is_some() {
+        if self.destination_service_id.is_some() {
             components.push(Component::Header(
-                ARKRET_DESTINATION_SERVICE_DID_HEADER.to_ascii_lowercase(),
+                ARKRET_DESTINATION_SERVICE_ID_HEADER.to_ascii_lowercase(),
             ));
         }
         if self.nonce.is_some() {
@@ -265,9 +265,9 @@ pub struct PushRequestSigningOptions {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub origin: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub origin_service_did: Option<String>,
+    pub origin_service_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub destination_service_did: Option<String>,
+    pub destination_service_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub nonce: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -284,8 +284,8 @@ impl PushRequestSigningOptions {
             actor_id: None,
             expires_at: None,
             origin: None,
-            origin_service_did: None,
-            destination_service_did: None,
+            origin_service_id: None,
+            destination_service_id: None,
             nonce: None,
             idempotency_key: None,
             session_grant: None,
@@ -307,16 +307,16 @@ impl PushRequestSigningOptions {
         self
     }
 
-    pub fn with_origin_service_did(mut self, origin_service_did: impl Into<String>) -> Self {
-        self.origin_service_did = Some(origin_service_did.into());
+    pub fn with_origin_service_id(mut self, origin_service_id: impl Into<String>) -> Self {
+        self.origin_service_id = Some(origin_service_id.into());
         self
     }
 
-    pub fn with_destination_service_did(
+    pub fn with_destination_service_id(
         mut self,
-        destination_service_did: impl Into<String>,
+        destination_service_id: impl Into<String>,
     ) -> Self {
-        self.destination_service_did = Some(destination_service_did.into());
+        self.destination_service_id = Some(destination_service_id.into());
         self
     }
 
@@ -377,12 +377,10 @@ where
     let actor_id = require_optional_owned_non_empty("actor_id", options.actor_id)?;
     let expires_at = require_optional_owned_non_empty("expires_at", options.expires_at)?;
     let origin = require_optional_owned_non_empty("origin", options.origin)?;
-    let origin_service_did =
-        require_optional_owned_non_empty("origin_service_did", options.origin_service_did)?;
-    let destination_service_did = require_optional_owned_non_empty(
-        "destination_service_did",
-        options.destination_service_did,
-    )?;
+    let origin_service_id =
+        require_optional_owned_non_empty("origin_service_id", options.origin_service_id)?;
+    let destination_service_id =
+        require_optional_owned_non_empty("destination_service_id", options.destination_service_id)?;
     let nonce = require_optional_owned_non_empty("nonce", options.nonce)?;
     let idempotency_key =
         require_optional_owned_non_empty("idempotency_key", options.idempotency_key)?;
@@ -400,8 +398,8 @@ where
         actor_id,
         expires_at,
         origin,
-        origin_service_did,
-        destination_service_did,
+        origin_service_id,
+        destination_service_id,
         nonce,
         idempotency_key,
         session_grant,

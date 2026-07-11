@@ -3,9 +3,9 @@
 //! Spec: `arkret-spec/spec/v1/zh/crypto-media/device-lifecycle.md` §5a.2
 //! and the registry entry for `ak.device.push_route` introduced in
 //! commit 0a5ab85 (2026-05-19), which made the cell_subject a composite
-//! `(recipient_service_did, principal_id, device_id, push_route)`. The
+//! `(recipient_service_id, principal_id, device_id, push_route)`. The
 //! prior wire shape only carried `(principal, device, route)`; the
-//! `recipient_service_did` discriminator scopes the registration to the
+//! `recipient_service_id` discriminator scopes the registration to the
 //! current Principal Server's service DID and is part of the cell key,
 //! so a device's push route on Principal Server A is invisible to
 //! Principal Server B even when the same DID, device, and route
@@ -76,7 +76,7 @@ impl<'de> Deserialize<'de> for PushRouteId {
 
 /// Service DID of a recipient Principal Server, used as the first
 /// component of the `ak.device.push_route` composite cell_subject
-/// `(recipient_service_did, principal_id, device_id, push_route)`.
+/// `(recipient_service_id, principal_id, device_id, push_route)`.
 ///
 /// This is a non-empty `String` newtype rather than a free-form
 /// `impl Into<String>` parameter so the type system rules out the
@@ -87,9 +87,9 @@ impl<'de> Deserialize<'de> for PushRouteId {
 /// route that is explicit about being unwriteable until rebound.
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize)]
 #[serde(transparent)]
-pub struct ServiceDid(String);
+pub struct ServiceId(String);
 
-impl ServiceDid {
+impl ServiceId {
     /// Construct a service DID. Empty / whitespace-only inputs are
     /// rejected up front so an "active" route can never end up with a
     /// blank recipient service DID even when the caller forgot to
@@ -97,7 +97,7 @@ impl ServiceDid {
     pub fn new(value: impl Into<String>) -> Result<Self, PushRouteError> {
         let value = value.into();
         if value.trim().is_empty() {
-            return Err(PushRouteError::EmptyServiceDid);
+            return Err(PushRouteError::EmptyServiceId);
         }
         Ok(Self(value))
     }
@@ -114,7 +114,7 @@ impl ServiceDid {
     }
 }
 
-impl<'de> Deserialize<'de> for ServiceDid {
+impl<'de> Deserialize<'de> for ServiceId {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
@@ -179,7 +179,7 @@ pub struct PushRoute {
     /// other Principal Servers even when the same actor uses them.
     /// Spec 0a5ab85.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub recipient_service_did: Option<String>,
+    pub recipient_service_id: Option<String>,
     /// Logical channel name on the device.
     pub route: PushRouteId,
     /// Per-route pairwise pseudonym. Required when the route is
@@ -234,19 +234,19 @@ pub enum PushRouteError {
     #[error("push_route is active but missing required field `{field}`")]
     ActiveRouteMissing { field: &'static str },
     /// T4.1: active routes MUST carry a non-empty
-    /// `recipient_service_did` because it is the first leg of the
+    /// `recipient_service_id` because it is the first leg of the
     /// cell_subject quadruple.
-    #[error("recipient_service_did must not be empty")]
-    EmptyServiceDid,
+    #[error("recipient_service_id must not be empty")]
+    EmptyServiceId,
     /// T4.1: the cell_subject contract pins
-    /// `(recipient_service_did, principal_id, device_id, push_route)`,
+    /// `(recipient_service_id, principal_id, device_id, push_route)`,
     /// so `revoke()` MUST preserve those four components. If a caller
-    /// hands us a route with no `recipient_service_did` and asks us to
+    /// hands us a route with no `recipient_service_id` and asks us to
     /// revoke it, we can't honour that contract without inventing one;
     /// surfacing this variant makes the precondition explicit instead
     /// of silently writing a revoke into the wrong cell.
-    #[error("cannot revoke a route that has no recipient_service_did")]
-    RevokeMissingServiceDid,
+    #[error("cannot revoke a route that has no recipient_service_id")]
+    RevokeMissingServiceId,
     /// The `capabilities` array carried an empty-string tag. The wire
     /// schema's `string_list` items are `non_empty_string` (minLength: 1).
     #[error("capabilities must not contain an empty tag")]
@@ -270,23 +270,23 @@ impl PushRoute {
     /// Server.
     ///
     /// T4.1 (2026-05-20): the recipient service DID is now mandatory
-    /// and typed as [`ServiceDid`]. The previous signature
+    /// and typed as [`ServiceId`]. The previous signature
     /// `active(route, push_target_id, push_gateway_did)` allowed
-    /// construction of active routes with `recipient_service_did:
+    /// construction of active routes with `recipient_service_id:
     /// None`, which violated the `ak.device.push_route` cell_subject
-    /// contract `(recipient_service_did, principal_id, device_id,
+    /// contract `(recipient_service_id, principal_id, device_id,
     /// push_route)`. Callers that genuinely need a placeholder before
     /// service discovery has run should use
     /// [`PushRoute::stub_unauthenticated`].
     #[cfg(feature = "notify")]
     pub fn active(
-        recipient_service_did: ServiceDid,
+        recipient_service_id: ServiceId,
         route: PushRouteId,
         push_target_id: PushTargetId,
         push_gateway_did: impl Into<String>,
     ) -> Self {
         Self {
-            recipient_service_did: Some(recipient_service_did.into_inner()),
+            recipient_service_id: Some(recipient_service_id.into_inner()),
             route,
             push_target_id: Some(push_target_id),
             push_gateway_did: Some(push_gateway_did.into()),
@@ -302,7 +302,7 @@ impl PushRoute {
     /// tests that assert how the SDK reacts to an unauthenticated /
     /// pre-discovery route. The returned value is intentionally
     /// invalid: [`PushRoute::validate`] will reject it with
-    /// `ActiveRouteMissing { field: "recipient_service_did" }`, which
+    /// `ActiveRouteMissing { field: "recipient_service_id" }`, which
     /// is the entire point — callers can pin the negative path
     /// without hand-rolling a malformed struct literal.
     #[cfg(feature = "notify")]
@@ -312,7 +312,7 @@ impl PushRoute {
         push_gateway_did: impl Into<String>,
     ) -> Self {
         Self {
-            recipient_service_did: None,
+            recipient_service_id: None,
             route,
             push_target_id: Some(push_target_id),
             push_gateway_did: Some(push_gateway_did.into()),
@@ -324,19 +324,19 @@ impl PushRoute {
     }
 
     /// Construct a revoked route record for a known
-    /// `(recipient_service_did, route)` pair.
+    /// `(recipient_service_id, route)` pair.
     ///
     /// T4.1: the cell_subject quadruple
-    /// `(recipient_service_did, principal_id, device_id, push_route)`
+    /// `(recipient_service_id, principal_id, device_id, push_route)`
     /// MUST stay the same across active and revoked writes, otherwise
     /// the revoke lands in a different cell than the activation and
     /// the Sync Service keeps using the retired pseudonym. The other
     /// two legs (`principal_id`, `device_id`) are out of scope for
     /// this struct, but we own the first and the last leg, so we
     /// require both here.
-    pub fn revoked(recipient_service_did: ServiceDid, route: PushRouteId) -> Self {
+    pub fn revoked(recipient_service_id: ServiceId, route: PushRouteId) -> Self {
         Self {
-            recipient_service_did: Some(recipient_service_did.into_inner()),
+            recipient_service_id: Some(recipient_service_id.into_inner()),
             route,
             push_target_id: None,
             push_gateway_did: None,
@@ -348,23 +348,23 @@ impl PushRoute {
     }
 
     /// Transform an active route into its revoked counterpart while
-    /// preserving the `(recipient_service_did, push_route)` portion of
+    /// preserving the `(recipient_service_id, push_route)` portion of
     /// the cell_subject. The remaining `(principal_id, device_id)` legs
     /// are not stored on this struct, so the caller is responsible for
     /// keeping them stable across the active → revoked transition.
     ///
-    /// T4.1: returns [`PushRouteError::RevokeMissingServiceDid`] if
-    /// the input route somehow has no `recipient_service_did`, so a
+    /// T4.1: returns [`PushRouteError::RevokeMissingServiceId`] if
+    /// the input route somehow has no `recipient_service_id`, so a
     /// buggy revoke can never land in the wrong cell.
     pub fn revoke(mut self) -> Result<Self, PushRouteError> {
         if self
-            .recipient_service_did
+            .recipient_service_id
             .as_deref()
             .map(str::trim)
             .map(str::is_empty)
             .unwrap_or(true)
         {
-            return Err(PushRouteError::RevokeMissingServiceDid);
+            return Err(PushRouteError::RevokeMissingServiceId);
         }
         self.revoked = true;
         // The retired pseudonym MUST stop being honoured by the Sync
@@ -382,23 +382,23 @@ impl PushRoute {
     /// Validate the wire shape.
     ///
     /// T4.1: active routes MUST carry all three of
-    /// `recipient_service_did` (non-empty), `push_target_id`, and
+    /// `recipient_service_id` (non-empty), `push_target_id`, and
     /// `push_gateway_did`. Revoked routes only require
-    /// `recipient_service_did` so the revocation lands in the same
+    /// `recipient_service_id` so the revocation lands in the same
     /// cell as the activation.
     pub fn validate(&self) -> Result<(), PushRouteValidationError> {
-        let service_did_present = match self.recipient_service_did.as_deref() {
+        let service_id_present = match self.recipient_service_id.as_deref() {
             None => false,
             Some(value) if value.trim().is_empty() => {
-                return Err(PushRouteError::EmptyServiceDid);
+                return Err(PushRouteError::EmptyServiceId);
             }
             Some(_) => true,
         };
 
         if !self.revoked {
-            if !service_did_present {
+            if !service_id_present {
                 return Err(PushRouteError::ActiveRouteMissing {
-                    field: "recipient_service_did",
+                    field: "recipient_service_id",
                 });
             }
             if self.push_target_id.is_none() {
@@ -411,12 +411,12 @@ impl PushRoute {
                     field: "push_gateway_did",
                 });
             }
-        } else if !service_did_present {
-            // Revoked record without a recipient_service_did would
+        } else if !service_id_present {
+            // Revoked record without a recipient_service_id would
             // land in the wrong cell — reject it for the same reason
             // active records do.
             return Err(PushRouteError::ActiveRouteMissing {
-                field: "recipient_service_did",
+                field: "recipient_service_id",
             });
         }
 
@@ -507,11 +507,11 @@ mod tests {
 
     #[test]
     #[cfg(feature = "notify")]
-    fn active_route_requires_service_did_target_id_and_gateway_did() {
+    fn active_route_requires_service_id_target_id_and_gateway_did() {
         let pseudo = PushTargetId::new("ak:pseudonym:push:01HYZ8Z000000000000000").unwrap();
-        let service_did = ServiceDid::new("did:web:principal.example").unwrap();
+        let service_id = ServiceId::new("did:web:principal.example").unwrap();
         let route = PushRoute::active(
-            service_did,
+            service_id,
             PushRouteId::new("apns_main").unwrap(),
             pseudo,
             "did:web:gateway.example",
@@ -539,19 +539,19 @@ mod tests {
         ));
 
         let mut bad = route;
-        bad.recipient_service_did = None;
+        bad.recipient_service_id = None;
         let err = bad.validate().unwrap_err();
         assert!(matches!(
             err,
             PushRouteError::ActiveRouteMissing {
-                field: "recipient_service_did"
+                field: "recipient_service_id"
             }
         ));
     }
 
     #[test]
     #[cfg(feature = "notify")]
-    fn stub_unauthenticated_fails_validation_with_missing_service_did() {
+    fn stub_unauthenticated_fails_validation_with_missing_service_id() {
         // T4.1 negative test: the stub helper exists specifically so
         // tests can assert that an unbound route can't escape
         // `validate()`.
@@ -565,40 +565,40 @@ mod tests {
         assert!(matches!(
             err,
             PushRouteError::ActiveRouteMissing {
-                field: "recipient_service_did"
+                field: "recipient_service_id"
             }
         ));
     }
 
     #[test]
-    fn revoked_route_still_requires_service_did() {
+    fn revoked_route_still_requires_service_id() {
         let route = PushRoute::revoked(
-            ServiceDid::new("did:web:principal.example").unwrap(),
+            ServiceId::new("did:web:principal.example").unwrap(),
             PushRouteId::new("apns_main").unwrap(),
         );
         route.validate().unwrap();
     }
 
     #[test]
-    fn revoked_route_with_blank_service_did_is_rejected() {
-        // A record with an empty recipient_service_did must not pass
+    fn revoked_route_with_blank_service_id_is_rejected() {
+        // A record with an empty recipient_service_id must not pass
         // validation, otherwise a downstream caller could write the
         // revoke into a default ("") cell.
-        let json = r#"{"recipient_service_did": "", "route": "apns_main", "revoked": true}"#;
+        let json = r#"{"recipient_service_id": "", "route": "apns_main", "revoked": true}"#;
         let route: PushRoute = serde_json::from_str(json).unwrap();
         let err = route.validate().unwrap_err();
-        assert!(matches!(err, PushRouteError::EmptyServiceDid));
+        assert!(matches!(err, PushRouteError::EmptyServiceId));
     }
 
     #[test]
-    fn empty_service_did_is_rejected_at_newtype() {
+    fn empty_service_id_is_rejected_at_newtype() {
         assert!(matches!(
-            ServiceDid::new("").unwrap_err(),
-            PushRouteError::EmptyServiceDid
+            ServiceId::new("").unwrap_err(),
+            PushRouteError::EmptyServiceId
         ));
         assert!(matches!(
-            ServiceDid::new("   ").unwrap_err(),
-            PushRouteError::EmptyServiceDid
+            ServiceId::new("   ").unwrap_err(),
+            PushRouteError::EmptyServiceId
         ));
     }
 
@@ -606,14 +606,14 @@ mod tests {
     #[cfg(feature = "notify")]
     fn revoke_helper_preserves_cell_subject_identity() {
         let pseudo = PushTargetId::new("ak:pseudonym:push:01HYZ8Z000000000000000").unwrap();
-        let service_did = ServiceDid::new("did:web:principal.example").unwrap();
+        let service_id = ServiceId::new("did:web:principal.example").unwrap();
         let route_id = PushRouteId::new("apns_main").unwrap();
-        let active = PushRoute::active(service_did, route_id, pseudo, "did:web:gateway.example");
+        let active = PushRoute::active(service_id, route_id, pseudo, "did:web:gateway.example");
 
         let revoked = active.clone().revoke().unwrap();
-        // (recipient_service_did, push_route) leg of the cell_subject
+        // (recipient_service_id, push_route) leg of the cell_subject
         // must be byte-identical between active and revoked records.
-        assert_eq!(revoked.recipient_service_did, active.recipient_service_did);
+        assert_eq!(revoked.recipient_service_id, active.recipient_service_id);
         assert_eq!(revoked.route, active.route);
         assert!(revoked.revoked);
         assert!(revoked.push_target_id.is_none());
@@ -633,16 +633,16 @@ mod tests {
             "did:web:gateway.example",
         );
         let err = stub.revoke().unwrap_err();
-        assert!(matches!(err, PushRouteError::RevokeMissingServiceDid));
+        assert!(matches!(err, PushRouteError::RevokeMissingServiceId));
     }
 
     #[test]
     #[cfg(feature = "notify")]
     fn route_round_trips_through_json_with_capabilities() {
         let pseudo = PushTargetId::new("ak:pseudonym:push:01HYZ8Z000000000000000").unwrap();
-        let service_did = ServiceDid::new("did:web:principal.example").unwrap();
+        let service_id = ServiceId::new("did:web:principal.example").unwrap();
         let mut route = PushRoute::active(
-            service_did,
+            service_id,
             PushRouteId::new("fcm_voip").unwrap(),
             pseudo,
             "did:web:gateway.example",
@@ -663,9 +663,9 @@ mod tests {
     #[cfg(feature = "notify")]
     fn call_invite_routes_advertise_voip_capability() {
         let pseudo = PushTargetId::new("ak:pseudonym:push:01HYZ8Z000000000000000").unwrap();
-        let service_did = ServiceDid::new("did:web:principal.example").unwrap();
+        let service_id = ServiceId::new("did:web:principal.example").unwrap();
         let mut route = PushRoute::active(
-            service_did,
+            service_id,
             PushRouteId::new("apns_voip").unwrap(),
             pseudo,
             "did:web:gateway.example",
@@ -679,7 +679,7 @@ mod tests {
     #[test]
     fn validate_rejects_empty_capability_tag() {
         // `string_list` items are non_empty_string (minLength: 1).
-        let json = r#"{"recipient_service_did": "did:web:p.example", "route": "apns_main", "revoked": true, "capabilities": [""]}"#;
+        let json = r#"{"recipient_service_id": "did:web:p.example", "route": "apns_main", "revoked": true, "capabilities": [""]}"#;
         let route: PushRoute = serde_json::from_str(json).unwrap();
         assert!(matches!(
             route.validate().unwrap_err(),
@@ -690,7 +690,7 @@ mod tests {
     #[test]
     fn validate_rejects_duplicate_capability_tag() {
         // `string_list` requires uniqueItems: true.
-        let json = r#"{"recipient_service_did": "did:web:p.example", "route": "apns_main", "revoked": true, "capabilities": ["chat", "chat"]}"#;
+        let json = r#"{"recipient_service_id": "did:web:p.example", "route": "apns_main", "revoked": true, "capabilities": ["chat", "chat"]}"#;
         let route: PushRoute = serde_json::from_str(json).unwrap();
         assert!(matches!(
             route.validate().unwrap_err(),
