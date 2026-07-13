@@ -748,6 +748,21 @@ fn blind_wakeup_rejects_plaintext_absolute_unread_count() {
 }
 
 #[test]
+fn wire_model_rejects_absolute_integer_count_indicators() {
+    let mut n = notification();
+    n.counts = Some(serde_json::json!({ "missed_call": 1 }));
+    let request = ChimePushNotifyEnvelope {
+        notification: n,
+        ..Default::default()
+    };
+
+    assert!(matches!(
+        request.validate_wire_model().unwrap_err(),
+        PushNotifyPrivacyError::InvalidFieldValue { field } if field == "counts"
+    ));
+}
+
+#[test]
 fn blind_wakeup_accepts_increment_bucket_and_badge_counts() {
     // The three §5.1-permitted forms: increment delta, bucketized
     // string, and coarse boolean badge.

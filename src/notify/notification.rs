@@ -250,7 +250,11 @@ impl PushNotification {
             })?),
             None => None,
         };
-        let counts = self.counts.as_ref().map(sdk_counts_from_value);
+        let counts = self
+            .counts
+            .as_ref()
+            .map(sdk_counts_from_value)
+            .transpose()?;
         let route_tokens = self
             .route_tokens
             .as_ref()
@@ -565,11 +569,10 @@ impl PushNotification {
     }
 }
 
-fn sdk_counts_from_value(value: &Value) -> arkret::PushCounts {
-    serde_json::from_value::<arkret::PushCounts>(value.clone()).unwrap_or_else(|_| {
-        arkret::PushCounts {
-            badge: Some(value.clone()),
-            ..arkret::PushCounts::default()
+fn sdk_counts_from_value(value: &Value) -> Result<arkret::PushCounts, PushNotifyPrivacyError> {
+    serde_json::from_value::<arkret::PushCounts>(value.clone()).map_err(|_| {
+        PushNotifyPrivacyError::InvalidFieldValue {
+            field: "counts".to_owned(),
         }
     })
 }
