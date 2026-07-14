@@ -18,7 +18,7 @@ Do **not** open a public GitHub issue for security-sensitive bug reports.
 Use one of the following private channels:
 
 1. **GitHub Security Advisories** — preferred. Open a draft advisory at
-   <https://github.com/arkret/chime/security/advisories/new>. We
+   <https://github.com/arkret-org/chime/security/advisories/new>. We
    acknowledge new advisories within 5 working days.
 2. **Direct contact** — if you cannot use GitHub Security Advisories,
    email the maintainers via the address listed under
