@@ -32,25 +32,13 @@ impl LocalNotificationState {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct LocalNotificationPolicy {
     pub watch_level: WatchLevel,
     pub event_context: PushRuleEventContext,
     pub dnd_active: bool,
     pub snoozed: bool,
     pub expiry_invalidation_behavior: ExpiryInvalidationBehavior,
-}
-
-impl Default for LocalNotificationPolicy {
-    fn default() -> Self {
-        Self {
-            watch_level: WatchLevel::default(),
-            event_context: PushRuleEventContext::default(),
-            dnd_active: false,
-            snoozed: false,
-            expiry_invalidation_behavior: ExpiryInvalidationBehavior::default(),
-        }
-    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
