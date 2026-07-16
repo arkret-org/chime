@@ -71,7 +71,10 @@ async fn bridge_describe_round_trips_against_live_floria() {
 
     assert_eq!(response.contract, "ak.push.bridge.describe");
     assert_eq!(response.notify.notify_path, "/_arkret/edge/push/notify");
-    assert_eq!(response.notify.operation_id, arkret::ServiceOperationId::EDGE_PUSH_COMMAND_NOTIFY);
+    assert_eq!(
+        response.notify.operation_id,
+        arkret::ServiceOperationId::EDGE_PUSH_COMMAND_NOTIFY
+    );
     assert!(
         response
             .gateway
