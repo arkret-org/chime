@@ -27,7 +27,7 @@ fn inkson_style_fcm_and_apns_tokens_build_chime_register_requests() {
     ] {
         let request = inkson_register_request(platform, token, app_id);
 
-        assert_eq!(request.operation_id, chime::OPERATION_PUSH_REGISTER_DEVICE);
+        assert_eq!(request.operation_id, arkret::ServiceOperationId::EDGE_PUSH_COMMAND_REGISTER_DEVICE);
         assert_eq!(request.push_gateway, PUSH_GATEWAY);
         assert_eq!(request.push_key, token);
         assert_eq!(request.platform.as_deref(), Some(platform));

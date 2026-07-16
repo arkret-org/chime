@@ -34,7 +34,7 @@ fn client_for(handle: &SpawnedFloria) -> ArkretPushClient {
 
 fn notify_payload(idempotency_key: &str) -> Value {
     json!({
-        "operation_id": chime::OPERATION_PUSH_NOTIFY,
+        "operation_id": arkret::ServiceOperationId::EDGE_PUSH_COMMAND_NOTIFY,
         "idempotency_key": idempotency_key,
         "origin_service_id": ORIGIN_DID,
         "notification": {
@@ -71,7 +71,7 @@ async fn bridge_describe_round_trips_against_live_floria() {
 
     assert_eq!(response.contract, "ak.push.bridge.describe");
     assert_eq!(response.notify.notify_path, "/_arkret/edge/push/notify");
-    assert_eq!(response.notify.operation_id, chime::OPERATION_PUSH_NOTIFY);
+    assert_eq!(response.notify.operation_id, arkret::ServiceOperationId::EDGE_PUSH_COMMAND_NOTIFY);
     assert!(
         response
             .gateway
@@ -112,7 +112,7 @@ async fn integration_view_combines_describe_endpoints() {
     );
     assert_eq!(
         view.bridge.notify.operation_id,
-        chime::OPERATION_PUSH_NOTIFY
+        arkret::ServiceOperationId::EDGE_PUSH_COMMAND_NOTIFY
     );
 
     let derived = floria_push_integration_describe_url(&floria.url("/_arkret/edge/push/notify"))

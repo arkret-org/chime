@@ -349,7 +349,7 @@ impl ArkretPushClient {
         tracing::info!(
             platform = body.platform.as_deref().unwrap_or("unspecified"),
             gateway = binding.gateway_type.display_name(),
-            operation_id = crate::OPERATION_PUSH_REGISTER_DEVICE,
+            operation_id = arkret::ServiceOperationId::EDGE_PUSH_COMMAND_REGISTER_DEVICE,
             request_id = response.request_id.as_deref(),
             "Arkret push device registered"
         );
@@ -385,7 +385,7 @@ impl ArkretPushClient {
 
         tracing::info!(
             platform = body.platform.as_deref().unwrap_or("unspecified"),
-            operation_id = crate::OPERATION_PUSH_REGISTER_DEVICE,
+            operation_id = arkret::ServiceOperationId::EDGE_PUSH_COMMAND_REGISTER_DEVICE,
             request_id = response.request_id.as_deref(),
             "Arkret push device registered (prebuilt body)"
         );
@@ -495,7 +495,7 @@ impl ArkretPushClient {
 
         tracing::info!(
             platform = config.platform.unwrap_or("unspecified"),
-            operation_id = crate::OPERATION_PUSH_UNREGISTER_DEVICE,
+            operation_id = arkret::ServiceOperationId::EDGE_PUSH_COMMAND_UNREGISTER_DEVICE,
             request_id = response.request_id.as_deref(),
             "Arkret push device unregistered"
         );

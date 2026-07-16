@@ -74,7 +74,7 @@ pub fn build_register_device_request(
     }
 
     Ok(ChimePushRegisterDeviceRequest {
-        operation_id: crate::OPERATION_PUSH_REGISTER_DEVICE.to_owned(),
+        operation_id: arkret::ServiceOperationId::EDGE_PUSH_COMMAND_REGISTER_DEVICE.to_owned(),
         principal_id: config
             .principal_id
             .and_then(non_empty_str)
@@ -147,7 +147,7 @@ pub fn build_unregister_device_request(
         .and_then(non_empty_str);
 
     Ok(ChimePushUnregisterDeviceRequest {
-        operation_id: crate::OPERATION_PUSH_UNREGISTER_DEVICE.to_owned(),
+        operation_id: arkret::ServiceOperationId::EDGE_PUSH_COMMAND_UNREGISTER_DEVICE.to_owned(),
         principal_id: config
             .principal_id
             .and_then(non_empty_str)
@@ -230,7 +230,7 @@ pub fn build_register_signing_context_with_options(
     let sdk_request = request.to_sdk_request()?;
     build_signing_context(
         service_base_url,
-        crate::OPERATION_PUSH_REGISTER_DEVICE,
+        arkret::ServiceOperationId::EDGE_PUSH_COMMAND_REGISTER_DEVICE,
         REGISTER_DEVICE_PATH,
         sdk_request.device_id.as_str(),
         &sdk_request,
@@ -262,7 +262,7 @@ pub fn build_unregister_signing_context_with_options(
     let sdk_request = request.to_sdk_request()?;
     build_signing_context(
         service_base_url,
-        crate::OPERATION_PUSH_UNREGISTER_DEVICE,
+        arkret::ServiceOperationId::EDGE_PUSH_COMMAND_UNREGISTER_DEVICE,
         UNREGISTER_DEVICE_PATH,
         sdk_request.device_id.as_str(),
         &sdk_request,
@@ -324,7 +324,10 @@ mod tests {
             build_register_device_request(&config(Some("android")), &binding, &enabled_prefs())
                 .unwrap();
 
-        assert_eq!(request.operation_id, crate::OPERATION_PUSH_REGISTER_DEVICE);
+        assert_eq!(
+            request.operation_id,
+            arkret::ServiceOperationId::EDGE_PUSH_COMMAND_REGISTER_DEVICE
+        );
         assert_eq!(
             request.principal_id.as_deref(),
             Some("did:web:alice.example")
@@ -360,7 +363,7 @@ mod tests {
 
         assert_eq!(
             request.operation_id,
-            crate::OPERATION_PUSH_UNREGISTER_DEVICE
+            arkret::ServiceOperationId::EDGE_PUSH_COMMAND_UNREGISTER_DEVICE
         );
         assert_eq!(
             request.principal_id.as_deref(),
@@ -508,7 +511,10 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(context.operation_id, crate::OPERATION_PUSH_REGISTER_DEVICE);
+        assert_eq!(
+            context.operation_id,
+            arkret::ServiceOperationId::EDGE_PUSH_COMMAND_REGISTER_DEVICE
+        );
         assert_eq!(context.method, "POST");
         assert_eq!(context.path, REGISTER_DEVICE_PATH);
         assert_eq!(
@@ -554,7 +560,7 @@ mod tests {
         let proof_body = context.canonical_proof_body().unwrap();
         assert_eq!(
             proof_body["operation_id"],
-            crate::OPERATION_PUSH_REGISTER_DEVICE
+            arkret::ServiceOperationId::EDGE_PUSH_COMMAND_REGISTER_DEVICE
         );
         assert_eq!(proof_body["actor_id"], "did:web:alice.example");
         assert_eq!(proof_body["expires_at"], "2026-04-29T00:05:00Z");

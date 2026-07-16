@@ -127,15 +127,6 @@ pub use state::{
 
 // -- Constants ---------------------------------------------------------------
 
-/// Canonical Arkret operation id for push device registration.
-pub const OPERATION_PUSH_REGISTER_DEVICE: &str = "ak.edge.push.command.register_device";
-
-/// Canonical Arkret operation id for push device unregistration.
-pub const OPERATION_PUSH_UNREGISTER_DEVICE: &str = "ak.edge.push.command.unregister_device";
-
-/// Canonical Arkret operation id for push wakeup delivery.
-pub const OPERATION_PUSH_NOTIFY: &str = "ak.edge.push.command.notify";
-
 /// Default standard Arkret push gateway URL.
 ///
 /// Arkret does not define a single global push gateway. Consumers should set
