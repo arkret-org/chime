@@ -308,8 +308,10 @@ fn sdk_media_reason(err: arkret::Error) -> SdkMediaReason {
                 .map_or(message.as_str(), |(code, _)| code)
                 .trim();
             match reason_code {
-                arkret::REASON_TOKEN_ISSUER_UNAUTHORISED => SdkMediaReason::TokenIssuerUnauthorised,
-                arkret::REASON_UNKNOWN_FOCUS_TYPE => SdkMediaReason::UnknownFocusType,
+                arkret::ReasonCode::TOKEN_ISSUER_UNAUTHORISED => {
+                    SdkMediaReason::TokenIssuerUnauthorised
+                }
+                arkret::ReasonCode::UNKNOWN_FOCUS_TYPE => SdkMediaReason::UnknownFocusType,
                 _ => SdkMediaReason::Other(message),
             }
         }
@@ -456,7 +458,7 @@ mod tests {
         let err = map_sdk_media_error(
             arkret::Error::Protocol(format!(
                 "{}: wording after the reason code may change",
-                arkret::REASON_TOKEN_ISSUER_UNAUTHORISED
+                arkret::ReasonCode::TOKEN_ISSUER_UNAUTHORISED
             )),
             &response,
         );
@@ -465,7 +467,7 @@ mod tests {
         let err = map_sdk_media_error(
             arkret::Error::Protocol(format!(
                 "{}: wording after the reason code may change",
-                arkret::REASON_UNKNOWN_FOCUS_TYPE
+                arkret::ReasonCode::UNKNOWN_FOCUS_TYPE
             )),
             &response,
         );

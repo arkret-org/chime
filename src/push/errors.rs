@@ -57,7 +57,7 @@ pub enum PushErrorKind {
     HistoricalOnly,
     // ── R3 (AKP-0010 media binding + agent lifecycle, spec b47ff6ec) ─────
     // The variants below mirror the 20 new error codes added in the SDK
-    // (see `arkret_core::error`). Chime mirrors the media-binding,
+    // (see `arkret::error`). Chime mirrors the media-binding,
     // agent-lifecycle, and handle-homograph subsets because those are
     // the codes a push-SDK consumer can plausibly observe — either while
     // calling `ak.self.call.media.exchange.issue_token` directly (`Media*`) or
@@ -261,67 +261,67 @@ impl PushErrorKind {
         // constants when the SDK exposes them.
         const CODE_MAP: &[(&str, PushErrorKind)] = &[
             (
-                arkret::ERROR_CODE_UNAUTHENTICATED,
+                arkret::ErrorCode::UNAUTHENTICATED,
                 PushErrorKind::Unauthenticated,
             ),
             (
-                arkret::ERROR_CODE_AUTH_EXPIRED,
+                arkret::ErrorCode::AUTH_EXPIRED,
                 PushErrorKind::Unauthenticated,
             ),
             (
-                arkret::ERROR_CODE_SOFT_LOGGED_OUT,
+                arkret::ErrorCode::SOFT_LOGGED_OUT,
                 PushErrorKind::Unauthenticated,
             ),
             (
-                arkret::ERROR_CODE_CAPABILITY_DENIED,
+                arkret::ErrorCode::CAPABILITY_DENIED,
                 PushErrorKind::CapabilityDenied,
             ),
-            (arkret::ERROR_CODE_RATE_LIMITED, PushErrorKind::RateLimited),
+            (arkret::ErrorCode::RATE_LIMITED, PushErrorKind::RateLimited),
             (
-                arkret::ERROR_CODE_TEMPORARILY_UNAVAILABLE,
+                arkret::ErrorCode::TEMPORARILY_UNAVAILABLE,
                 PushErrorKind::TemporarilyUnavailable,
             ),
             (
-                arkret::ERROR_CODE_DUPLICATE_CONFLICT,
+                arkret::ErrorCode::DUPLICATE_CONFLICT,
                 PushErrorKind::DuplicateConflict,
             ),
-            (arkret::ERROR_CODE_NOT_FOUND, PushErrorKind::NotFound),
+            (arkret::ErrorCode::NOT_FOUND, PushErrorKind::NotFound),
             (
-                arkret::ERROR_CODE_SCHEMA_VIOLATION,
+                arkret::ErrorCode::SCHEMA_VIOLATION,
                 PushErrorKind::SchemaViolation,
             ),
-            (arkret::ERROR_CODE_BAD_JSON, PushErrorKind::SchemaViolation),
-            (arkret::ERROR_CODE_BAD_QUERY, PushErrorKind::SchemaViolation),
+            (arkret::ErrorCode::BAD_JSON, PushErrorKind::SchemaViolation),
+            (arkret::ErrorCode::BAD_QUERY, PushErrorKind::SchemaViolation),
             (
-                arkret::ERROR_CODE_MISSING_PARAM,
-                PushErrorKind::SchemaViolation,
-            ),
-            (
-                arkret::ERROR_CODE_INVALID_PARAM,
+                arkret::ErrorCode::MISSING_PARAM,
                 PushErrorKind::SchemaViolation,
             ),
             (
-                arkret::ERROR_CODE_DELIVERY_BINDING_STALE,
+                arkret::ErrorCode::INVALID_PARAM,
+                PushErrorKind::SchemaViolation,
+            ),
+            (
+                arkret::ErrorCode::DELIVERY_BINDING_STALE,
                 PushErrorKind::DeliveryBindingStale,
             ),
             (
-                arkret::ERROR_CODE_DELIVERY_BINDING_HANDED_OVER,
+                arkret::ErrorCode::DELIVERY_BINDING_HANDED_OVER,
                 PushErrorKind::DeliveryBindingHandedOver,
             ),
             (
-                arkret::ERROR_CODE_HISTORICAL_ONLY,
+                arkret::ErrorCode::HISTORICAL_ONLY,
                 PushErrorKind::HistoricalOnly,
             ),
             (
-                arkret::error::REASON_TOKEN_ISSUER_UNAUTHORISED,
+                arkret::error::ReasonCode::TOKEN_ISSUER_UNAUTHORISED,
                 PushErrorKind::TokenIssuerUnauthorised,
             ),
             (
-                arkret::error::REASON_E2EE_KEY_SOURCE_UNAUTHORISED,
+                arkret::error::ReasonCode::E2EE_KEY_SOURCE_UNAUTHORISED,
                 PushErrorKind::E2eeKeySourceUnauthorised,
             ),
             (
-                arkret::error::REASON_RECORDING_ARTIFACT_PIPELINE_BYPASSED,
+                arkret::error::ReasonCode::RECORDING_ARTIFACT_PIPELINE_BYPASSED,
                 PushErrorKind::RecordingArtifactPipelineBypassed,
             ),
         ];
@@ -558,7 +558,7 @@ mod tests {
         let envelope = ArkretErrorEnvelope {
             ok: false,
             error: ArkretError {
-                code: arkret::ERROR_CODE_CAPABILITY_DENIED.to_owned(),
+                code: arkret::ErrorCode::CAPABILITY_DENIED.to_owned(),
                 message: "denied".to_owned(),
                 retry_after_ms: None,
                 details: BTreeMap::new(),
@@ -580,7 +580,7 @@ mod tests {
     #[test]
     fn from_failure_code_covers_contract() {
         assert_eq!(
-            PushErrorKind::from_failure_code(arkret::ERROR_CODE_RATE_LIMITED),
+            PushErrorKind::from_failure_code(arkret::ErrorCode::RATE_LIMITED),
             Some(PushErrorKind::RateLimited)
         );
         assert_eq!(PushErrorKind::from_failure_code("registration_gone"), None);
@@ -592,15 +592,15 @@ mod tests {
         // B5: chime must recognise the three round-4 wire codes that
         // floria/soland forward so consumers can branch on them.
         assert_eq!(
-            PushErrorKind::from_failure_code(arkret::ERROR_CODE_DELIVERY_BINDING_STALE),
+            PushErrorKind::from_failure_code(arkret::ErrorCode::DELIVERY_BINDING_STALE),
             Some(PushErrorKind::DeliveryBindingStale)
         );
         assert_eq!(
-            PushErrorKind::from_failure_code(arkret::ERROR_CODE_DELIVERY_BINDING_HANDED_OVER),
+            PushErrorKind::from_failure_code(arkret::ErrorCode::DELIVERY_BINDING_HANDED_OVER),
             Some(PushErrorKind::DeliveryBindingHandedOver)
         );
         assert_eq!(
-            PushErrorKind::from_failure_code(arkret::ERROR_CODE_HISTORICAL_ONLY),
+            PushErrorKind::from_failure_code(arkret::ErrorCode::HISTORICAL_ONLY),
             Some(PushErrorKind::HistoricalOnly)
         );
     }
@@ -682,7 +682,7 @@ mod tests {
         let envelope = ArkretErrorEnvelope {
             ok: false,
             error: ArkretError {
-                code: arkret::ERROR_CODE_DELIVERY_BINDING_STALE.to_owned(),
+                code: arkret::ErrorCode::DELIVERY_BINDING_STALE.to_owned(),
                 message: "stale".to_owned(),
                 retry_after_ms: None,
                 details: BTreeMap::new(),
@@ -697,7 +697,7 @@ mod tests {
         let envelope = ArkretErrorEnvelope {
             ok: false,
             error: ArkretError {
-                code: arkret::ERROR_CODE_HISTORICAL_ONLY.to_owned(),
+                code: arkret::ErrorCode::HISTORICAL_ONLY.to_owned(),
                 message: "diagnostic".to_owned(),
                 retry_after_ms: None,
                 details: BTreeMap::new(),
