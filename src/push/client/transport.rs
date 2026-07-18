@@ -11,9 +11,7 @@ use super::retry::{generate_idempotency_key, retry_jitter_seed, sleep_for};
 
 pub(super) const MAX_RESPONSE_BODY_BYTES: usize = 1024 * 1024;
 
-async fn read_response_body(
-    mut response: reqwest::Response,
-) -> Result<String, PushRegistrationError> {
+async fn read_response_body(response: reqwest::Response) -> Result<String, PushRegistrationError> {
     if let Some(actual) = response.content_length()
         && actual > MAX_RESPONSE_BODY_BYTES as u64
     {
@@ -22,22 +20,43 @@ async fn read_response_body(
             actual: usize::try_from(actual).unwrap_or(usize::MAX),
         });
     }
-    let mut body = Vec::with_capacity(
-        response
-            .content_length()
-            .and_then(|length| usize::try_from(length).ok())
-            .unwrap_or(0),
-    );
-    while let Some(chunk) = response.chunk().await? {
-        let actual = body.len().saturating_add(chunk.len());
-        if actual > MAX_RESPONSE_BODY_BYTES {
+    #[cfg(not(target_arch = "wasm32"))]
+    let body = {
+        let mut response = response;
+        let mut body = Vec::with_capacity(
+            response
+                .content_length()
+                .and_then(|length| usize::try_from(length).ok())
+                .unwrap_or(0),
+        );
+        while let Some(chunk) = response.chunk().await? {
+            let actual = body.len().saturating_add(chunk.len());
+            if actual > MAX_RESPONSE_BODY_BYTES {
+                return Err(PushRegistrationError::ResponseTooLarge {
+                    limit: MAX_RESPONSE_BODY_BYTES,
+                    actual,
+                });
+            }
+            body.extend_from_slice(&chunk);
+        }
+        body
+    };
+
+    // reqwest's fetch-backed wasm response does not expose `chunk()`. The
+    // browser has already buffered the body, so read it once and retain the
+    // same post-read limit check used by the streaming native path.
+    #[cfg(target_arch = "wasm32")]
+    let body = {
+        let body = response.bytes().await?;
+        if body.len() > MAX_RESPONSE_BODY_BYTES {
             return Err(PushRegistrationError::ResponseTooLarge {
                 limit: MAX_RESPONSE_BODY_BYTES,
-                actual,
+                actual: body.len(),
             });
         }
-        body.extend_from_slice(&chunk);
-    }
+        body
+    };
+
     Ok(String::from_utf8_lossy(&body).into_owned())
 }
 
