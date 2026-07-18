@@ -344,7 +344,7 @@ impl ArkretPushClient {
                 config.request_id,
             )
             .await?;
-        let response = response.map_body(ChimePushRegisterDeviceOutcome::from);
+        let response = response.map_body(|body| body);
 
         tracing::info!(
             platform = body.platform.as_deref().unwrap_or("unspecified"),
@@ -381,7 +381,7 @@ impl ArkretPushClient {
                 request_id,
             )
             .await?;
-        let response = response.map_body(ChimePushRegisterDeviceOutcome::from);
+        let response = response.map_body(|body| body);
 
         tracing::info!(
             platform = body.platform.as_deref().unwrap_or("unspecified"),
@@ -413,22 +413,9 @@ impl ArkretPushClient {
             )
             .await
         {
-            Ok(response) => {
-                let response: ArkretHttpOutcome<arkret::PushUnregisterDeviceOutcome> = response;
-                let response_request_id = response.request_id.clone();
-                response.map_body(|body| {
-                    let mut body = ChimePushUnregisterDeviceOutcome::from(body);
-                    body.request_id = response_request_id;
-                    body
-                })
-            }
+            Ok(response) => response,
             Err(error) if error.kind() == PushErrorKind::NotFound => ArkretHttpOutcome {
-                body: ChimePushUnregisterDeviceOutcome {
-                    ok: true,
-                    already_removed: true,
-                    removed_registration_id: None,
-                    request_id: error.request_id().map(str::to_owned),
-                },
+                body: ChimePushUnregisterDeviceOutcome { ok: true },
                 request_id: error.request_id().map(str::to_owned),
                 retry_after: error.retry_after().map(str::to_owned),
             },
@@ -471,22 +458,9 @@ impl ArkretPushClient {
             )
             .await
         {
-            Ok(response) => {
-                let response: ArkretHttpOutcome<arkret::PushUnregisterDeviceOutcome> = response;
-                let response_request_id = response.request_id.clone();
-                response.map_body(|body| {
-                    let mut body = ChimePushUnregisterDeviceOutcome::from(body);
-                    body.request_id = response_request_id;
-                    body
-                })
-            }
+            Ok(response) => response,
             Err(error) if error.kind() == PushErrorKind::NotFound => ArkretHttpOutcome {
-                body: ChimePushUnregisterDeviceOutcome {
-                    ok: true,
-                    already_removed: true,
-                    removed_registration_id: None,
-                    request_id: error.request_id().map(str::to_owned),
-                },
+                body: ChimePushUnregisterDeviceOutcome { ok: true },
                 request_id: error.request_id().map(str::to_owned),
                 retry_after: error.retry_after().map(str::to_owned),
             },

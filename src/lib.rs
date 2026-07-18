@@ -43,6 +43,7 @@ mod lifecycle;
 #[cfg(feature = "notify")]
 mod notify;
 mod push;
+mod rules;
 mod state;
 
 // Round 4 (B5, spec a77b995) — re-export the SDK round-4 audit surfaces
@@ -50,6 +51,7 @@ mod state;
 // without having to depend on `arkret` directly.
 #[cfg(feature = "notify")]
 pub use arkret::{AccessKind, AuditPolicyAccessPayload, PushNotifyOutcome, PushNotifyRequestBody};
+pub use arkret::{DndPeriod, DndSchedule, DndSettings, PushCondition, PushRule, PushRulesConfig};
 pub use bugle::BugleAppIdResolver;
 pub use gateway_binding::GatewayBinding;
 pub use lifecycle::{
@@ -112,6 +114,10 @@ pub use push::{
     PushRuleEventContext, ServiceId, ShouldNotify, VerifiedMediaTokenOutcome, WatchLevel,
     call_media_token_exchange, ensure_known_backend, evaluate_watch_level, push_rule_reason_code,
     verify_media_token_outcome,
+};
+pub use rules::{
+    NotificationDecision, NotificationEvalContext, NotificationSound, evaluate_notification,
+    parse_dnd_settings, parse_push_rules,
 };
 pub use state::{
     BridgeContractCache, BridgeContractCacheError, BridgeContractDriftVerdict,

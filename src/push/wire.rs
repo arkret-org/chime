@@ -195,27 +195,8 @@ impl ChimePushRegisterDeviceRequest {
     }
 }
 
-/// Response body for `POST /_arkret/edge/push/register-device`.
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[non_exhaustive]
-pub struct ChimePushRegisterDeviceOutcome {
-    pub ok: bool,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub registration_id: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub expires_at: Option<String>,
-}
-
-impl From<arkret::PushRegisterDeviceOutcome> for ChimePushRegisterDeviceOutcome {
-    fn from(value: arkret::PushRegisterDeviceOutcome) -> Self {
-        Self {
-            ok: value.ok,
-            registration_id: value.registration_id,
-            expires_at: value.expires_at.map(|expires_at| expires_at.to_rfc3339()),
-        }
-    }
-}
+/// Canonical response body for `POST /_arkret/edge/push/register-device`.
+pub type ChimePushRegisterDeviceOutcome = arkret::PushRegisterDeviceOutcome;
 
 /// Internal builder/config for an `unregister-device` call.
 ///
@@ -302,31 +283,8 @@ impl ChimePushUnregisterDeviceRequest {
     }
 }
 
-/// Response body for `POST /_arkret/edge/push/unregister-device`.
-///
-/// Stability: 1.0-stable. New optional fields may be added in a minor release.
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[non_exhaustive]
-pub struct ChimePushUnregisterDeviceOutcome {
-    pub ok: bool,
-    #[serde(default)]
-    pub already_removed: bool,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub removed_registration_id: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub request_id: Option<String>,
-}
-
-impl From<arkret::PushUnregisterDeviceOutcome> for ChimePushUnregisterDeviceOutcome {
-    fn from(value: arkret::PushUnregisterDeviceOutcome) -> Self {
-        Self {
-            ok: value.ok,
-            already_removed: false,
-            removed_registration_id: None,
-            request_id: None,
-        }
-    }
-}
+/// Canonical response body for `POST /_arkret/edge/push/unregister-device`.
+pub type ChimePushUnregisterDeviceOutcome = arkret::PushUnregisterDeviceOutcome;
 
 pub type ArkretError = arkret::ErrorDetail;
 pub type ArkretErrorEnvelope = arkret::ErrorEnvelope;
@@ -362,7 +320,10 @@ mod tests {
 
         assert!(register.ok);
         assert_eq!(register.registration_id.as_deref(), Some("reg-1"));
-        assert_eq!(register.expires_at.as_deref(), Some("2026-05-02T00:00:00Z"));
+        assert_eq!(
+            register.expires_at.map(|value| value.to_rfc3339()),
+            Some("2026-05-02T00:00:00+00:00".to_owned())
+        );
 
         serde_json::from_value::<ChimePushRegisterDeviceOutcome>(serde_json::json!({
             "ok": true,
@@ -371,18 +332,10 @@ mod tests {
         }))
         .expect_err("register outcome must reject non-spec response fields");
 
-        let unregister: ChimePushUnregisterDeviceOutcome =
-            serde_json::from_value(serde_json::json!({
-                "ok": true,
-                "already_removed": true,
-                "removed_registration_id": "reg-1",
-                "request_id": "ak:request:456"
-            }))
-            .unwrap();
-
-        assert!(unregister.ok);
-        assert!(unregister.already_removed);
-        assert_eq!(unregister.removed_registration_id.as_deref(), Some("reg-1"));
-        assert_eq!(unregister.request_id.as_deref(), Some("ak:request:456"));
+        serde_json::from_value::<ChimePushUnregisterDeviceOutcome>(serde_json::json!({
+            "ok": true,
+            "already_removed": true
+        }))
+        .expect_err("closed unregister outcome rejects product-local fields");
     }
 }

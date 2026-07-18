@@ -358,7 +358,7 @@ pub fn build_registration_state(
         push_key_hash: hash_push_key(&request.push_key),
         push_key_preview: redact_push_key(&request.push_key),
         registered_at: registered_at.map(str::to_owned),
-        expires_at: response.expires_at.clone(),
+        expires_at: response.expires_at.map(|value| value.to_rfc3339()),
         refresh_hint: None,
         last_success_at: registered_at.map(str::to_owned),
         last_error: None,
@@ -481,7 +481,7 @@ mod tests {
         let response = ChimePushRegisterDeviceOutcome {
             ok: true,
             registration_id: Some("reg-new".to_owned()),
-            expires_at: Some("2026-04-29T00:00:00Z".to_owned()),
+            expires_at: Some("2026-04-29T00:00:00Z".parse().expect("valid timestamp")),
         };
 
         let state = build_registration_state(
