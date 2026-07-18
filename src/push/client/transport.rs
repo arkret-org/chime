@@ -9,6 +9,38 @@ use super::super::{ARKRET_REQUEST_ID_HEADER, RETRY_AFTER_HEADER};
 use super::core::ArkretPushClient;
 use super::retry::{generate_idempotency_key, retry_jitter_seed, sleep_for};
 
+pub(super) const MAX_RESPONSE_BODY_BYTES: usize = 1024 * 1024;
+
+async fn read_response_body(
+    mut response: reqwest::Response,
+) -> Result<String, PushRegistrationError> {
+    if let Some(actual) = response.content_length()
+        && actual > MAX_RESPONSE_BODY_BYTES as u64
+    {
+        return Err(PushRegistrationError::ResponseTooLarge {
+            limit: MAX_RESPONSE_BODY_BYTES,
+            actual: usize::try_from(actual).unwrap_or(usize::MAX),
+        });
+    }
+    let mut body = Vec::with_capacity(
+        response
+            .content_length()
+            .and_then(|length| usize::try_from(length).ok())
+            .unwrap_or(0),
+    );
+    while let Some(chunk) = response.chunk().await? {
+        let actual = body.len().saturating_add(chunk.len());
+        if actual > MAX_RESPONSE_BODY_BYTES {
+            return Err(PushRegistrationError::ResponseTooLarge {
+                limit: MAX_RESPONSE_BODY_BYTES,
+                actual,
+            });
+        }
+        body.extend_from_slice(&chunk);
+    }
+    Ok(String::from_utf8_lossy(&body).into_owned())
+}
+
 /// HTTP response body plus Arkret response metadata.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ArkretHttpOutcome<T> {
@@ -177,7 +209,7 @@ impl ArkretPushClient {
         let headers = response.headers().clone();
         let retry_after = header_value(&headers, RETRY_AFTER_HEADER);
         let request_id = header_value(&headers, ARKRET_REQUEST_ID_HEADER);
-        let body = response.text().await?;
+        let body = read_response_body(response).await?;
 
         if !status.is_success() {
             let error = serde_json::from_str::<ArkretErrorEnvelope>(&body)
@@ -244,7 +276,7 @@ impl ArkretPushClient {
         let headers = response.headers().clone();
         let retry_after = header_value(&headers, RETRY_AFTER_HEADER);
         let request_id = header_value(&headers, ARKRET_REQUEST_ID_HEADER);
-        let body = response.text().await?;
+        let body = read_response_body(response).await?;
 
         if !status.is_success() {
             let error = serde_json::from_str::<ArkretErrorEnvelope>(&body)

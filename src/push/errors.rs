@@ -350,6 +350,8 @@ pub enum PushRegistrationError {
     InvalidHeader { name: String },
     #[error("invalid Arkret push field `{field}`: {reason}")]
     InvalidField { field: &'static str, reason: String },
+    #[error("Arkret service response body is too large: {actual} bytes exceeds {limit} byte limit")]
+    ResponseTooLarge { limit: usize, actual: usize },
     #[error("Arkret service returned HTTP {status}")]
     HttpStatus {
         status: u16,
@@ -399,6 +401,11 @@ impl fmt::Debug for PushRegistrationError {
                 .debug_struct("InvalidField")
                 .field("field", field)
                 .field("reason", reason)
+                .finish(),
+            Self::ResponseTooLarge { limit, actual } => f
+                .debug_struct("ResponseTooLarge")
+                .field("limit", limit)
+                .field("actual", actual)
                 .finish(),
             Self::HttpStatus {
                 status,
@@ -453,6 +460,7 @@ impl PushRegistrationError {
             }
             Self::InvalidHeader { .. } => PushErrorKind::InvalidHeader,
             Self::InvalidField { .. } => PushErrorKind::SchemaViolation,
+            Self::ResponseTooLarge { .. } => PushErrorKind::InvalidResponse,
             Self::HttpStatus { kind, .. } => *kind,
             #[cfg(feature = "http")]
             Self::Http(error) if error.is_timeout() => PushErrorKind::NetworkTimeout,

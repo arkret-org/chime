@@ -4,7 +4,7 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 
-use super::super::errors::PushErrorKind;
+use super::super::errors::{PushErrorKind, PushRegistrationError};
 use super::super::wire::PushDeviceConfig;
 use super::super::{ARKRET_REQUEST_ID_HEADER, RETRY_AFTER_HEADER};
 use super::core::ArkretPushClient;
@@ -299,6 +299,26 @@ async fn invalid_success_schema_is_invalid_response() {
         .unwrap_err();
 
     assert_eq!(err.kind(), PushErrorKind::InvalidResponse);
+}
+
+#[tokio::test]
+async fn rejects_oversized_response_before_json_decode() {
+    let body = "x".repeat(super::transport::MAX_RESPONSE_BODY_BYTES + 1);
+    let (base_url, _) = spawn_mock_server(vec![MockHttpOutcome {
+        status: "200 OK",
+        headers: vec![],
+        body: Box::leak(body.into_boxed_str()),
+    }]);
+
+    let error = client(base_url)
+        .register_device(&config(), &binding(), &prefs())
+        .await
+        .unwrap_err();
+
+    assert!(matches!(
+        error,
+        PushRegistrationError::ResponseTooLarge { .. }
+    ));
 }
 
 #[tokio::test]
