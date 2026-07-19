@@ -36,6 +36,5 @@ pub use notification::{
     WakeupKind,
 };
 pub use outcome::{
-    ChimePushNotifyOutcome, EncryptedEnvelope, EncryptedEnvelopeError, ProviderRetryHint,
-    PushDeliveryReceipt, RejectedPushToken, SUPPORTED_ENCRYPTED_ENVELOPE_ALGORITHMS,
+    EncryptedEnvelope, EncryptedEnvelopeError, SUPPORTED_ENCRYPTED_ENVELOPE_ALGORITHMS,
 };

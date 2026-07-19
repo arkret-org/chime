@@ -484,16 +484,6 @@ fn debug_redacts_push_tokens() {
     let debug = format!("{:?}", device());
     assert!(debug.contains("fcm:<redacted"));
     assert!(!debug.contains("very-secret-token"));
-
-    let rejected = RejectedPushToken {
-        push_key: Some("fcm:very-secret-token".to_owned()),
-        push_key_hash: Some("pkh_abc".to_owned()),
-        app_id: Some("app.example".to_owned()),
-        reason: Some("unregistered".to_owned()),
-    };
-    let debug = format!("{rejected:?}");
-    assert!(debug.contains("fcm:<redacted"));
-    assert!(!debug.contains("very-secret-token"));
 }
 
 #[test]

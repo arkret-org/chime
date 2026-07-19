@@ -1,11 +1,8 @@
-use std::fmt;
-
 use arkret::Did;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use super::validation::validate_base64_field;
-use crate::redact_push_key;
 
 /// Active HPKE suite ids from `hpke-suite-registry.json`.
 ///
@@ -18,68 +15,6 @@ pub const SUPPORTED_ENCRYPTED_ENVELOPE_ALGORITHMS: &[&str] = &[
     "ak.hpke_x25519_aead_chacha20poly1305.v1",
     "ak.hpke_p256_aead_aes256gcm.v1",
 ];
-
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
-pub struct ChimePushNotifyOutcome {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub request_id: Option<String>,
-    #[serde(default)]
-    pub accepted: usize,
-    #[serde(default)]
-    pub rejected: Vec<RejectedPushToken>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub provider_retries: Vec<ProviderRetryHint>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub delivery_receipts: Vec<PushDeliveryReceipt>,
-}
-
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ProviderRetryHint {
-    pub provider: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub retry_after_ms: Option<u64>,
-}
-
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub struct PushDeliveryReceipt {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub provider: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub provider_message_id: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub push_key_hash: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub status: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub retry_after_ms: Option<u64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub timestamp: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub request_id: Option<String>,
-}
-
-#[derive(Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub struct RejectedPushToken {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub push_key: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub push_key_hash: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub app_id: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub reason: Option<String>,
-}
-
-impl fmt::Debug for RejectedPushToken {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("RejectedPushToken")
-            .field("push_key", &self.push_key.as_deref().map(redact_push_key))
-            .field("push_key_hash", &self.push_key_hash)
-            .field("app_id", &self.app_id)
-            .field("reason", &self.reason)
-            .finish()
-    }
-}
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
