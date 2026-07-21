@@ -188,11 +188,18 @@ impl ArkretPushClient {
         R: for<'de> Deserialize<'de>,
     {
         let url = try_arkret_api_url(&self.service_base_url, path)?;
+        let body_bytes = arkret::canonical::canonical_json_bytes(body).map_err(|error| {
+            PushRegistrationError::InvalidField {
+                field: "body",
+                reason: format!("request body is not canonical-JSON encodable: {error}"),
+            }
+        })?;
         let mut request = self
             .http
             .post(url)
             .header(reqwest::header::USER_AGENT, self.user_agent.as_str())
-            .json(body);
+            .header(reqwest::header::CONTENT_TYPE, "application/json")
+            .body(body_bytes);
 
         if let Some(timeout) = self.timeout {
             request = request.timeout(timeout);

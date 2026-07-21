@@ -340,11 +340,7 @@ impl PushRequestSigningOptions {
     }
 }
 
-/// Return an RFC 9530-style `Content-Digest` value for the serialized JSON body.
-///
-/// The body is serialized with `serde_json`. The current helper is intended for
-/// SDK request signing and HTTP Message Signature transcript construction; it
-/// does not claim to replace the protocol's canonical JSON encoder.
+/// Return an RFC 9530 `Content-Digest` over the exact canonical JSON wire body.
 ///
 /// ## CH-1 wire shape
 ///
@@ -357,7 +353,12 @@ pub fn content_digest_sha256<T>(body: &T) -> Result<String, PushRegistrationErro
 where
     T: Serialize + ?Sized,
 {
-    let json = serde_json::to_vec(body)?;
+    let json = arkret::canonical::canonical_json_bytes(body).map_err(|error| {
+        PushRegistrationError::InvalidField {
+            field: "body",
+            reason: format!("request body is not canonical-JSON encodable: {error}"),
+        }
+    })?;
     Ok(ContentDigest::compute(&json, ContentDigestAlgorithm::Sha256).wire_value)
 }
 
@@ -568,7 +569,7 @@ mod tests {
         });
         let chime_value = content_digest_sha256(&body).expect("chime digest computes");
 
-        let json = serde_json::to_vec(&body).expect("body serializes");
+        let json = arkret::canonical::canonical_json_bytes(&body).expect("body canonicalizes");
         let sdk_value = ContentDigest::compute(&json, ContentDigestAlgorithm::Sha256).wire_value;
 
         assert_eq!(chime_value, sdk_value, "chime/SDK wire bytes must match");
@@ -580,13 +581,7 @@ mod tests {
     /// the SDK and re-verify against the same body bytes. This is the
     /// chime → floria interop check at the digest layer.
     ///
-    /// Note: chime's `content_digest_sha256<T>` always serializes `T`
-    /// through `serde_json::to_vec`, so the bytes that get hashed are
-    /// the serde-emitted JSON, NOT the input as-is. For a Rust byte
-    /// slice that means hashing the JSON ARRAY representation of the
-    /// bytes — which is fine wire-wise (callers always pass the same
-    /// serializable struct on both sides), but the test fixture has
-    /// to mirror that.
+    /// Chime hashes the same canonical JSON bytes that its HTTP transport sends.
     #[test]
     fn ch1_chime_emitted_digest_round_trips_through_sdk_parser() {
         let body = serde_json::json!({"hello": "world"});
@@ -596,10 +591,10 @@ mod tests {
         assert_eq!(parsed.algorithm, ContentDigestAlgorithm::Sha256);
         assert_eq!(parsed.digest.len(), 32);
 
-        // floria's verifier hashes the raw HTTP body bytes — for chime
-        // the raw body is exactly `serde_json::to_vec(&body)`, so feed
-        // the same byte sequence to the SDK verifier.
-        let body_bytes = serde_json::to_vec(&body).expect("body serializes");
+        // Floria verifies the exact raw HTTP bytes, which are the same
+        // canonical bytes used to construct the digest.
+        let body_bytes =
+            arkret::canonical::canonical_json_bytes(&body).expect("body canonicalizes");
         verify_content_digest(&parsed, &body_bytes).expect("SDK verifies chime's digest");
 
         // Tampering the body must trip the SDK verifier — the same
