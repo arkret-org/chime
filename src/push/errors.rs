@@ -118,8 +118,9 @@ pub enum PushErrorKind {
     /// Recovery — recovery witness revoke lagged behind the policy
     /// timeline; receivers should retry after the witness catches up.
     RecoveryWitnessRevokeLagging,
-    /// Handle — wire-level NFC + UTS#39 confusable-skeleton + script-mix
-    /// rejection. The handle MUST NOT be created or resolved.
+    /// Handle registration — authority-local UTS #39 skeleton collision or
+    /// declared Highly Restrictive policy failure. This never defines handle
+    /// equality and does not make resolve-time Unicode input invalid.
     HandleHomographForbidden,
 }
 
