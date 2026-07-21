@@ -87,8 +87,13 @@ pub(crate) fn state_for_binding(
     let response = ChimePushRegisterDeviceOutcome {
         ok: true,
         registration_id: Some(registration_id.to_owned()),
-        expires_at: Some("2026-05-03T00:00:00Z".parse().expect("valid timestamp")),
+        expires_at: Some("2026-05-03T00:00:00.000Z".parse().expect("valid timestamp")),
     };
 
-    build_registration_state(&binding, &request, &response, Some("2026-05-03T00:00:00Z"))
+    build_registration_state(
+        &binding,
+        &request,
+        &response,
+        Some("2026-05-03T00:00:00.000Z"),
+    )
 }

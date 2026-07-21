@@ -633,7 +633,7 @@ fn late_recovery_event_id_is_some_for_e2ee_late_recovery() {
         "access_kind": "e2ee_late_recovery",
         "late_recovery_original_event_id":
             "ak:event:01904100-0000-7000-8000-000000000002",
-        "observed_at": "2026-05-20T00:00:00Z",
+        "observed_at": "2026-05-20T00:00:00.000Z",
     }))
     .unwrap();
     // Sanity-check the SDK validator agrees.
@@ -654,7 +654,7 @@ fn late_recovery_event_id_is_none_for_other_access_kinds() {
         "realm_id": "ak:realm:01904100-0000-7000-8000-000000000001",
         "actor": "did:web:alice.example",
         "access_kind": "audit",
-        "observed_at": "2026-05-20T00:00:00Z",
+        "observed_at": "2026-05-20T00:00:00.000Z",
     }))
     .unwrap();
     let mut notification = notification();

@@ -314,14 +314,16 @@ mod tests {
         let register: ChimePushRegisterDeviceOutcome = serde_json::from_value(serde_json::json!({
             "ok": true,
             "registration_id": "reg-1",
-            "expires_at": "2026-05-02T00:00:00Z"
+            "expires_at": "2026-05-02T00:00:00.000Z"
         }))
         .unwrap();
 
         assert!(register.ok);
         assert_eq!(register.registration_id.as_deref(), Some("reg-1"));
         assert_eq!(
-            register.expires_at.map(|value| value.to_rfc3339()),
+            register
+                .expires_at
+                .map(arkret::canonical::format_timestamp_canonical),
             Some("2026-05-02T00:00:00+00:00".to_owned())
         );
 

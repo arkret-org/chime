@@ -200,7 +200,7 @@ pub fn build_unregister_device_request(
 /// let context = build_register_signing_context(
 ///     "https://principal.example",
 ///     &request,
-///     "2026-04-29T00:00:00Z",
+///     "2026-04-29T00:00:00.000Z",
 ///     "https://principal.example",
 /// )
 /// .unwrap();
@@ -506,7 +506,7 @@ mod tests {
         let context = build_register_signing_context(
             "https://principal.example",
             &request,
-            "2026-04-29T00:00:00Z",
+            "2026-04-29T00:00:00.000Z",
             "https://principal.example",
         )
         .unwrap();
@@ -542,9 +542,9 @@ mod tests {
         let context = build_register_signing_context_with_options(
             "https://principal.example",
             &request,
-            PushRequestSigningOptions::new("2026-04-29T00:00:00Z", "https://principal.example")
+            PushRequestSigningOptions::new("2026-04-29T00:00:00.000Z", "https://principal.example")
                 .with_actor_id("did:web:alice.example")
-                .with_expires_at("2026-04-29T00:05:00Z")
+                .with_expires_at("2026-04-29T00:05:00.000Z")
                 .with_origin("https://app.example")
                 .with_origin_service_id("did:web:sync.example.com")
                 .with_destination_service_id("did:web:principal.example")
@@ -555,7 +555,10 @@ mod tests {
         .unwrap();
 
         assert_eq!(context.actor_id.as_deref(), Some("did:web:alice.example"));
-        assert_eq!(context.expires_at.as_deref(), Some("2026-04-29T00:05:00Z"));
+        assert_eq!(
+            context.expires_at.as_deref(),
+            Some("2026-04-29T00:05:00.000Z")
+        );
 
         let proof_body = context.canonical_proof_body().unwrap();
         assert_eq!(
@@ -563,7 +566,7 @@ mod tests {
             arkret::ServiceOperationId::EDGE_PUSH_COMMAND_REGISTER_DEVICE
         );
         assert_eq!(proof_body["actor_id"], "did:web:alice.example");
-        assert_eq!(proof_body["expires_at"], "2026-04-29T00:05:00Z");
+        assert_eq!(proof_body["expires_at"], "2026-04-29T00:05:00.000Z");
         assert_eq!(proof_body["origin"], "https://app.example");
         assert_eq!(proof_body["nonce"], "idem-1");
 
@@ -572,10 +575,10 @@ mod tests {
             metadata_headers
                 .contains(&(ARKRET_ACTOR_ID_HEADER, "did:web:alice.example".to_owned()))
         );
-        assert!(
-            metadata_headers
-                .contains(&(ARKRET_EXPIRES_AT_HEADER, "2026-04-29T00:05:00Z".to_owned()))
-        );
+        assert!(metadata_headers.contains(&(
+            ARKRET_EXPIRES_AT_HEADER,
+            "2026-04-29T00:05:00.000Z".to_owned()
+        )));
         assert!(metadata_headers.contains(&(
             ARKRET_ORIGIN_SERVICE_ID_HEADER,
             "did:web:sync.example.com".to_owned()
@@ -619,7 +622,7 @@ mod tests {
         let context = build_register_signing_context(
             "https://principal.example",
             &request,
-            "2026-04-29T00:00:00Z",
+            "2026-04-29T00:00:00.000Z",
             "https://principal.example",
         )
         .unwrap();
@@ -652,7 +655,7 @@ mod tests {
         let err = build_register_signing_context(
             "https://principal.example?access_token=secret",
             &request,
-            "2026-04-29T00:00:00Z",
+            "2026-04-29T00:00:00.000Z",
             "https://principal.example",
         )
         .unwrap_err();

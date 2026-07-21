@@ -358,7 +358,9 @@ pub fn build_registration_state(
         push_key_hash: hash_push_key(&request.push_key),
         push_key_preview: redact_push_key(&request.push_key),
         registered_at: registered_at.map(str::to_owned),
-        expires_at: response.expires_at.map(|value| value.to_rfc3339()),
+        expires_at: response
+            .expires_at
+            .map(arkret::canonical::format_timestamp_canonical),
         refresh_hint: None,
         last_success_at: registered_at.map(str::to_owned),
         last_error: None,
@@ -481,14 +483,14 @@ mod tests {
         let response = ChimePushRegisterDeviceOutcome {
             ok: true,
             registration_id: Some("reg-new".to_owned()),
-            expires_at: Some("2026-04-29T00:00:00Z".parse().expect("valid timestamp")),
+            expires_at: Some("2026-04-29T00:00:00.000Z".parse().expect("valid timestamp")),
         };
 
         let state = build_registration_state(
             &binding(),
             &request,
             &response,
-            Some("2026-04-29T00:00:00Z"),
+            Some("2026-04-29T00:00:00.000Z"),
         );
 
         assert_eq!(state.schema_version, PUSH_REGISTRATION_STATE_SCHEMA_VERSION);
@@ -499,7 +501,7 @@ mod tests {
         assert!(!state.push_key_hash.contains("new-token"));
         assert_eq!(
             state.last_success_at.as_deref(),
-            Some("2026-04-29T00:00:00Z")
+            Some("2026-04-29T00:00:00.000Z")
         );
         assert!(state.storage_key().contains("did:web:alice.example"));
     }
@@ -534,7 +536,7 @@ mod tests {
             "temporarily_unavailable",
             Some("ak:request:1"),
             Some("1"),
-            Some("2026-05-02T00:00:00Z"),
+            Some("2026-05-02T00:00:00.000Z"),
         );
         assert_eq!(
             with_error

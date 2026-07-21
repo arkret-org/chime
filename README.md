@@ -384,9 +384,9 @@ let request = build_register_device_request(&config, &binding, &prefs)?;
 let context = build_register_signing_context_with_options(
     "https://principal.example",
     &request,
-    PushRequestSigningOptions::new("2026-04-29T00:00:00Z", "https://principal.example")
+    PushRequestSigningOptions::new("2026-04-29T00:00:00.000Z", "https://principal.example")
         .with_actor_id("did:web:alice.example")
-        .with_expires_at("2026-04-29T00:05:00Z")
+        .with_expires_at("2026-04-29T00:05:00.000Z")
         .with_origin("https://app.example")
         .with_origin_service_id("did:web:sync.example.com")
         .with_destination_service_id("did:web:principal.example")

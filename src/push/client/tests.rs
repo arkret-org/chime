@@ -99,7 +99,7 @@ async fn register_success_exposes_response_context_and_headers() {
     let (base_url, requests) = spawn_mock_server(vec![MockHttpOutcome {
         status: "200 OK",
         headers: vec![(ARKRET_REQUEST_ID_HEADER, "ak:request:server")],
-        body: r#"{"ok":true,"registration_id":"reg-1","expires_at":"2026-04-29T00:00:00Z"}"#,
+        body: r#"{"ok":true,"registration_id":"reg-1","expires_at":"2026-04-29T00:00:00.000Z"}"#,
     }]);
 
     let response = client(base_url)

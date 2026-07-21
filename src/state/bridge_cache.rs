@@ -174,8 +174,8 @@ mod tests {
     #[test]
     fn cache_evaluates_unchanged_when_digest_matches() {
         let response = baseline_response();
-        let cache =
-            BridgeContractCache::from_response(&response, Some("2026-05-06T00:00:00Z")).unwrap();
+        let cache = BridgeContractCache::from_response(&response, Some("2026-05-06T00:00:00.000Z"))
+            .unwrap();
         assert_eq!(
             cache.evaluate(&response).unwrap(),
             BridgeContractDriftVerdict::Unchanged
@@ -222,9 +222,11 @@ mod tests {
 
     #[test]
     fn cache_round_trips_through_json() {
-        let cache =
-            BridgeContractCache::from_response(&baseline_response(), Some("2026-05-06T00:00:00Z"))
-                .unwrap();
+        let cache = BridgeContractCache::from_response(
+            &baseline_response(),
+            Some("2026-05-06T00:00:00.000Z"),
+        )
+        .unwrap();
         let json = serde_json::to_string(&cache).unwrap();
         let loaded: BridgeContractCache = serde_json::from_str(&json).unwrap();
         assert_eq!(loaded, cache);
