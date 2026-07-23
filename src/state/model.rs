@@ -257,7 +257,7 @@ fn default_state_schema_version() -> u16 {
 
 /// Return a stable SHA-256 fingerprint for local token comparison.
 pub fn hash_push_key(push_key: &str) -> String {
-    arkret::canonical::sha256_digest(push_key.as_bytes())
+    arkret_canonical::sha256_digest(push_key.as_bytes())
 }
 
 pub fn token_rotation_required(
@@ -360,7 +360,7 @@ pub fn build_registration_state(
         registered_at: registered_at.map(str::to_owned),
         expires_at: response
             .expires_at
-            .map(arkret::canonical::format_timestamp_canonical),
+            .map(arkret_canonical::format_timestamp_canonical),
         refresh_hint: None,
         last_success_at: registered_at.map(str::to_owned),
         last_error: None,

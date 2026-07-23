@@ -37,9 +37,13 @@ rustdoc-args = ["--cfg", "docsrs"]
 # because there is no tokio runtime on the browser main thread.
 base64 = {workspace = true}
 chrono = {workspace = true,default-features = false,features = ["serde", "clock"]}
-arkret = {workspace = true,default-features = false}
+arkret = {workspace = true,default-features = false,optional = true}
+arkret-canonical = {workspace = true}
+arkret-models-discovery = {workspace = true}
 arkret-models-integration = {workspace = true}
+arkret-push-policy = {workspace = true}
 arkret-signatures = {workspace = true,default-features = false}
+arkret-wire = {workspace = true}
 httpdate = {workspace = true}
 serde = {workspace = true,features = ["derive"]}
 serde_json = {workspace = true}
@@ -79,8 +83,10 @@ default = []
 ## dependency is feature-gated because the bearer-token surface only
 ## exists when the `http` client is compiled.
 http = ["dep:reqwest", "dep:tokio", "dep:gloo-timers", "dep:zeroize"]
+## Enable call-media token exchange helpers.
+media = ["dep:arkret"]
 ## Enable server/gateway-side ak.edge.push.command.notify wire types.
-notify = []
+notify = ["dep:arkret"]
 
 [dev-dependencies]
 ed25519-dalek = {workspace = true}
@@ -94,8 +100,12 @@ resolver = "3"
 base64 = "0.22"
 chrono = {version = "0.4",default-features = false}
 arkret = {version = "0.3.0",path = "../arkret-rust-sdk/crates/sdk",default-features = false}
+arkret-canonical = {version = "0.3.0",path = "../arkret-rust-sdk/crates/canonical"}
+arkret-models-discovery = {version = "0.3.0",path = "../arkret-rust-sdk/crates/models-discovery"}
 arkret-models-integration = {version = "0.3.0",path = "../arkret-rust-sdk/crates/models-integration"}
+arkret-push-policy = {version = "0.3.0",path = "../arkret-rust-sdk/crates/push-policy"}
 arkret-signatures = {version = "0.3.0",path = "../arkret-rust-sdk/crates/signatures",default-features = false}
+arkret-wire = {version = "0.3.0",path = "../arkret-rust-sdk/crates/wire"}
 ed25519-dalek = {version = "2.2.0",default-features = false,features = ["std", "rand_core"]}
 gloo-timers = "0.4"
 httpdate = "1"

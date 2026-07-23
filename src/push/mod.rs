@@ -15,6 +15,7 @@ mod bridge_describe;
 #[cfg(feature = "http")]
 mod client;
 mod errors;
+#[cfg(feature = "media")]
 mod media_token;
 pub mod platform_app_id;
 mod registration;
@@ -103,9 +104,10 @@ const RETRY_AFTER_HEADER: &str = "Retry-After";
 
 // -- Re-exports -------------------------------------------------------------
 
-pub use arkret::{
+pub use arkret_models_discovery::ServiceDescribe;
+pub use arkret_models_integration::{
     PushRegisterDeviceOutcome, PushRegisterDeviceRequestBody, PushUnregisterDeviceOutcome,
-    PushUnregisterDeviceRequestBody, ServiceDescribe,
+    PushUnregisterDeviceRequestBody,
 };
 pub use bridge_describe::{
     EXPECTED_SPEC_VERSION, IntegrationDependencyDescriptor, IntegrationDescribeOutcome,
@@ -115,6 +117,7 @@ pub use bridge_describe::{
 #[cfg(feature = "http")]
 pub use client::{ArkretHttpOutcome, ArkretPushClient, PushRetryPolicy};
 pub use errors::{PushErrorKind, PushRegistrationError};
+#[cfg(feature = "media")]
 pub use media_token::{
     CallMediaParticipantBinding, CallMediaTokenExchangeOutcome, CallMediaTokenExchangeRequestBody,
     CallMediaTokenVerification, MediaBackendType, MediaServiceAnchors, MediaTokenError,

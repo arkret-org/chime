@@ -29,7 +29,7 @@ fn inkson_style_fcm_and_apns_tokens_build_chime_register_requests() {
 
         assert_eq!(
             request.operation_id,
-            arkret::ServiceOperationId::EDGE_PUSH_COMMAND_REGISTER_DEVICE
+            arkret_wire::ServiceOperationId::EDGE_PUSH_COMMAND_REGISTER_DEVICE
         );
         assert_eq!(request.push_gateway, PUSH_GATEWAY);
         assert_eq!(request.push_key, token);

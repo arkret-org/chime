@@ -4,6 +4,6 @@
 //! callers, while the implementation lives in the Arkret SDK so servers and
 //! clients cannot drift.
 
-pub use arkret::push_rule_core::{
+pub use arkret_push_policy::push_rule_core::{
     EventContext, ShouldNotify, WatchLevel, evaluate_watch_level, reason_code,
 };

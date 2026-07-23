@@ -146,7 +146,7 @@ fn compute_digest(
     response: &PushBridgeDescribeOutcome,
 ) -> Result<String, BridgeContractCacheError> {
     let json = serde_json::to_vec(response)?;
-    Ok(arkret::canonical::sha256_hex(&json))
+    Ok(arkret_canonical::sha256_hex(&json))
 }
 
 #[cfg(test)]

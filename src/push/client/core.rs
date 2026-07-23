@@ -213,14 +213,17 @@ impl ArkretPushClient {
     }
 
     /// Discover the Arkret service through the protocol `/_arkret/describe` surface.
-    pub async fn server_describe(&self) -> Result<arkret::ServiceDescribe, PushRegistrationError> {
+    pub async fn server_describe(
+        &self,
+    ) -> Result<arkret_models_discovery::ServiceDescribe, PushRegistrationError> {
         Ok(self.server_describe_with_context().await?.body)
     }
 
     /// Discover the Arkret service and return response metadata.
     pub async fn server_describe_with_context(
         &self,
-    ) -> Result<ArkretHttpOutcome<arkret::ServiceDescribe>, PushRegistrationError> {
+    ) -> Result<ArkretHttpOutcome<arkret_models_discovery::ServiceDescribe>, PushRegistrationError>
+    {
         self.get_json(SERVER_DESCRIBE_PATH).await
     }
 
@@ -336,8 +339,8 @@ impl ArkretPushClient {
 
         let body = build_register_device_request(config, binding, prefs)?;
         let sdk_body = body.to_sdk_request()?;
-        let response: ArkretHttpOutcome<arkret::PushRegisterDeviceOutcome> = self
-            .post_json(
+        let response: ArkretHttpOutcome<arkret_models_integration::PushRegisterDeviceOutcome> =
+            self.post_json(
                 self.effective_register_device_path(),
                 &sdk_body,
                 config.idempotency_key,
@@ -349,7 +352,7 @@ impl ArkretPushClient {
         tracing::info!(
             platform = body.platform.as_deref().unwrap_or("unspecified"),
             gateway = binding.gateway_type.display_name(),
-            operation_id = arkret::ServiceOperationId::EDGE_PUSH_COMMAND_REGISTER_DEVICE,
+            operation_id = arkret_wire::ServiceOperationId::EDGE_PUSH_COMMAND_REGISTER_DEVICE,
             request_id = response.request_id.as_deref(),
             "Arkret push device registered"
         );
@@ -373,8 +376,8 @@ impl ArkretPushClient {
     ) -> Result<ArkretHttpOutcome<ChimePushRegisterDeviceOutcome>, PushRegistrationError> {
         self.assert_session_grant_if_required()?;
         let sdk_body = body.to_sdk_request()?;
-        let response: ArkretHttpOutcome<arkret::PushRegisterDeviceOutcome> = self
-            .post_json(
+        let response: ArkretHttpOutcome<arkret_models_integration::PushRegisterDeviceOutcome> =
+            self.post_json(
                 self.effective_register_device_path(),
                 &sdk_body,
                 idempotency_key.or(body.idempotency_key.as_deref()),
@@ -385,7 +388,7 @@ impl ArkretPushClient {
 
         tracing::info!(
             platform = body.platform.as_deref().unwrap_or("unspecified"),
-            operation_id = arkret::ServiceOperationId::EDGE_PUSH_COMMAND_REGISTER_DEVICE,
+            operation_id = arkret_wire::ServiceOperationId::EDGE_PUSH_COMMAND_REGISTER_DEVICE,
             request_id = response.request_id.as_deref(),
             "Arkret push device registered (prebuilt body)"
         );
@@ -469,7 +472,7 @@ impl ArkretPushClient {
 
         tracing::info!(
             platform = config.platform.unwrap_or("unspecified"),
-            operation_id = arkret::ServiceOperationId::EDGE_PUSH_COMMAND_UNREGISTER_DEVICE,
+            operation_id = arkret_wire::ServiceOperationId::EDGE_PUSH_COMMAND_UNREGISTER_DEVICE,
             request_id = response.request_id.as_deref(),
             "Arkret push device unregistered"
         );

@@ -353,7 +353,7 @@ pub fn content_digest_sha256<T>(body: &T) -> Result<String, PushRegistrationErro
 where
     T: Serialize + ?Sized,
 {
-    let json = arkret::canonical::canonical_json_bytes(body).map_err(|error| {
+    let json = arkret_canonical::canonical_json_bytes(body).map_err(|error| {
         PushRegistrationError::InvalidField {
             field: "body",
             reason: format!("request body is not canonical-JSON encodable: {error}"),
@@ -571,7 +571,7 @@ mod tests {
         });
         let chime_value = content_digest_sha256(&body).expect("chime digest computes");
 
-        let json = arkret::canonical::canonical_json_bytes(&body).expect("body canonicalizes");
+        let json = arkret_canonical::canonical_json_bytes(&body).expect("body canonicalizes");
         let sdk_value = ContentDigest::compute(&json, ContentDigestAlgorithm::Sha256).wire_value;
 
         assert_eq!(chime_value, sdk_value, "chime/SDK wire bytes must match");
@@ -595,8 +595,7 @@ mod tests {
 
         // Floria verifies the exact raw HTTP bytes, which are the same
         // canonical bytes used to construct the digest.
-        let body_bytes =
-            arkret::canonical::canonical_json_bytes(&body).expect("body canonicalizes");
+        let body_bytes = arkret_canonical::canonical_json_bytes(&body).expect("body canonicalizes");
         verify_content_digest(&parsed, &body_bytes).expect("SDK verifies chime's digest");
 
         // Tampering the body must trip the SDK verifier — the same

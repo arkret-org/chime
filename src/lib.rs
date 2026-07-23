@@ -21,6 +21,8 @@
 //!
 //! - `http` - enables `ArkretPushClient`, a small reqwest-based helper for `POST
 //!   /_arkret/edge/push/register-device` and `POST /_arkret/edge/push/unregister-device`.
+//! - `media` - enables call-media token exchange and verification helpers.
+//! - `notify` - enables server/gateway-side push-notify wire helpers.
 
 use std::collections::BTreeSet;
 
@@ -76,12 +78,6 @@ pub use notify::{
     is_phase_p2_agent_typed_id, local_reason_code, render_agent_lifecycle_summary,
     shared_push_notify_privacy_vectors,
 };
-// R3 (CALL-1 / CALL-2, spec b47ff6ec) — media token exchange surface.
-// Re-exported so chime consumers (inkson) call
-// `chime::call_media_token_exchange` +
-// `chime::verify_media_token_outcome` without depending on `arkret`
-// directly. The verifier delegates to the SDK media-service signature
-// checks before returning a marker.
 pub use push::{
     ARKRET_ACTOR_ID_HEADER, ARKRET_AUDIENCE_HEADER, ARKRET_CREATED_AT_HEADER,
     ARKRET_DESTINATION_SERVICE_ID_HEADER, ARKRET_DEVICE_ID_HEADER, ARKRET_EXPIRES_AT_HEADER,
@@ -89,32 +85,38 @@ pub use push::{
     ARKRET_ORIGIN_HEADER, ARKRET_ORIGIN_SERVICE_ID_HEADER, ARKRET_REQUEST_ID_HEADER,
     ARKRET_SESSION_GRANT_HEADER, ArkretError, ArkretErrorEnvelope, CONTENT_DIGEST_HEADER,
     ChimePushRegisterDeviceOutcome, ChimePushRegisterDeviceRequest,
-    ChimePushUnregisterDeviceOutcome, ChimePushUnregisterDeviceRequest, EXPECTED_SPEC_VERSION,
-    IntegrationDependencyDescriptor, IntegrationDescribeOutcome, IntegrationView, NonceReplayError,
-    NonceTracker, PUSH_NOTIFY_PATH, PushBridgeDescribeGatewayDescriptor,
-    PushBridgeDescribeNotifyDescriptor, PushBridgeDescribeOutcome,
-    PushBridgeDescribePrivacyDescriptor, PushDeviceConfig, PushErrorKind, PushPlatform,
-    PushRegisterDeviceOutcome, PushRegisterDeviceRequestBody, PushRegistrationError,
-    PushRequestSigningContext, PushRequestSigningOptions, PushUnregisterDeviceOutcome,
-    PushUnregisterDeviceRequestBody, REGISTER_DEVICE_PATH, SERVER_DESCRIBE_PATH, SIGNATURE_HEADER,
-    SIGNATURE_INPUT_HEADER, ServiceDescribe, UNREGISTER_DEVICE_PATH, arkret_api_url,
+    ChimePushUnregisterDeviceOutcome, ChimePushUnregisterDeviceRequest,
+    DefaultPlatformAppIdResolver, EXPECTED_SPEC_VERSION, IntegrationDependencyDescriptor,
+    IntegrationDescribeOutcome, IntegrationView, NonceReplayError, NonceTracker, PUSH_NOTIFY_PATH,
+    PlatformAppIdResolver, PushBridgeDescribeGatewayDescriptor, PushBridgeDescribeNotifyDescriptor,
+    PushBridgeDescribeOutcome, PushBridgeDescribePrivacyDescriptor, PushDeviceConfig,
+    PushErrorKind, PushPlatform, PushRegisterDeviceOutcome, PushRegisterDeviceRequestBody,
+    PushRegistrationError, PushRequestSigningContext, PushRequestSigningOptions, PushRoute,
+    PushRouteCapability, PushRouteError, PushRouteId, PushRouteValidationError,
+    PushRuleEventContext, PushUnregisterDeviceOutcome, PushUnregisterDeviceRequestBody,
+    REGISTER_DEVICE_PATH, SERVER_DESCRIBE_PATH, SIGNATURE_HEADER, SIGNATURE_INPUT_HEADER,
+    ServiceDescribe, ServiceId, ShouldNotify, UNREGISTER_DEVICE_PATH, WatchLevel, arkret_api_url,
     build_register_device_request, build_register_signing_context,
     build_register_signing_context_with_options, build_unregister_device_request,
     build_unregister_signing_context, build_unregister_signing_context_with_options,
-    content_digest_sha256, floria_push_bridge_describe_url, floria_push_integration_describe_url,
-    push_gateway_service_base_url, redact_push_key, validate_push_gateway_url,
-    validate_webpush_endpoint_allowlist,
+    content_digest_sha256, evaluate_watch_level, floria_push_bridge_describe_url,
+    floria_push_integration_describe_url, push_gateway_service_base_url, push_rule_reason_code,
+    redact_push_key, validate_push_gateway_url, validate_webpush_endpoint_allowlist,
 };
 #[cfg(feature = "http")]
 pub use push::{ArkretHttpOutcome, ArkretPushClient, PushRetryPolicy};
+// R3 (CALL-1 / CALL-2, spec b47ff6ec) — media token exchange surface.
+// Re-exported so chime consumers (inkson) call
+// `chime::call_media_token_exchange` +
+// `chime::verify_media_token_outcome` without depending on `arkret`
+// directly. The verifier delegates to the SDK media-service signature
+// checks before returning a marker.
+#[cfg(feature = "media")]
 pub use push::{
     CallMediaParticipantBinding, CallMediaTokenExchangeOutcome, CallMediaTokenExchangeRequestBody,
-    CallMediaTokenVerification, DefaultPlatformAppIdResolver, MediaBackendType,
-    MediaServiceAnchors, MediaTokenError, MediaTokenVerificationContext, PlatformAppIdResolver,
-    PushRoute, PushRouteCapability, PushRouteError, PushRouteId, PushRouteValidationError,
-    PushRuleEventContext, ServiceId, ShouldNotify, VerifiedMediaTokenOutcome, WatchLevel,
-    call_media_token_exchange, ensure_known_backend, evaluate_watch_level, push_rule_reason_code,
-    verify_media_token_outcome,
+    CallMediaTokenVerification, MediaBackendType, MediaServiceAnchors, MediaTokenError,
+    MediaTokenVerificationContext, VerifiedMediaTokenOutcome, call_media_token_exchange,
+    ensure_known_backend, verify_media_token_outcome,
 };
 pub use rules::{
     NotificationDecision, NotificationEvalContext, NotificationSound, evaluate_notification,

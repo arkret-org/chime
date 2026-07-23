@@ -111,7 +111,7 @@ impl fmt::Debug for PushDeviceConfig<'_> {
 /// Internal builder/config for a `register-device` call.
 ///
 /// **This is NOT a wire body.** The canonical `register-device` request
-/// body is [`arkret::PushRegisterDeviceRequestBody`] and is the only thing
+/// body is [`arkret_models_integration::PushRegisterDeviceRequestBody`] and is the only thing
 /// ever serialized onto the wire — chime derives it from this builder via
 /// [`Self::to_sdk_request`]. The transport-only fields carried here
 /// (`operation_id`, `principal_id`, `idempotency_key`, `request_id`,
@@ -177,9 +177,10 @@ impl fmt::Debug for ChimePushRegisterDeviceRequest {
 impl ChimePushRegisterDeviceRequest {
     pub fn to_sdk_request(
         &self,
-    ) -> Result<arkret::PushRegisterDeviceRequestBody, PushRegistrationError> {
-        Ok(arkret::PushRegisterDeviceRequestBody {
-            device_id: arkret::DeviceId::new(self.device_id.clone()).map_err(|error| {
+    ) -> Result<arkret_models_integration::PushRegisterDeviceRequestBody, PushRegistrationError>
+    {
+        Ok(arkret_models_integration::PushRegisterDeviceRequestBody {
+            device_id: arkret_wire::DeviceId::new(self.device_id.clone()).map_err(|error| {
                 PushRegistrationError::InvalidField {
                     field: "device_id",
                     reason: error.to_string(),
@@ -196,12 +197,12 @@ impl ChimePushRegisterDeviceRequest {
 }
 
 /// Canonical response body for `POST /_arkret/edge/push/register-device`.
-pub type ChimePushRegisterDeviceOutcome = arkret::PushRegisterDeviceOutcome;
+pub type ChimePushRegisterDeviceOutcome = arkret_models_integration::PushRegisterDeviceOutcome;
 
 /// Internal builder/config for an `unregister-device` call.
 ///
 /// **This is NOT a wire body.** The canonical `unregister-device` request
-/// body is [`arkret::PushUnregisterDeviceRequestBody`] and is the only
+/// body is [`arkret_models_integration::PushUnregisterDeviceRequestBody`] and is the only
 /// thing serialized onto the wire — chime derives it from this builder via
 /// [`Self::to_sdk_request`], which keeps only `{device_id, push_key?,
 /// app_id?}`. The remaining fields here (`operation_id`, `principal_id`,
@@ -269,9 +270,10 @@ impl fmt::Debug for ChimePushUnregisterDeviceRequest {
 impl ChimePushUnregisterDeviceRequest {
     pub fn to_sdk_request(
         &self,
-    ) -> Result<arkret::PushUnregisterDeviceRequestBody, PushRegistrationError> {
-        Ok(arkret::PushUnregisterDeviceRequestBody {
-            device_id: arkret::DeviceId::new(self.device_id.clone()).map_err(|error| {
+    ) -> Result<arkret_models_integration::PushUnregisterDeviceRequestBody, PushRegistrationError>
+    {
+        Ok(arkret_models_integration::PushUnregisterDeviceRequestBody {
+            device_id: arkret_wire::DeviceId::new(self.device_id.clone()).map_err(|error| {
                 PushRegistrationError::InvalidField {
                     field: "device_id",
                     reason: error.to_string(),
@@ -284,10 +286,10 @@ impl ChimePushUnregisterDeviceRequest {
 }
 
 /// Canonical response body for `POST /_arkret/edge/push/unregister-device`.
-pub type ChimePushUnregisterDeviceOutcome = arkret::PushUnregisterDeviceOutcome;
+pub type ChimePushUnregisterDeviceOutcome = arkret_models_integration::PushUnregisterDeviceOutcome;
 
-pub type ArkretError = arkret::ErrorDetail;
-pub type ArkretErrorEnvelope = arkret::ErrorEnvelope;
+pub type ArkretError = arkret_wire::ErrorDetail;
+pub type ArkretErrorEnvelope = arkret_wire::ErrorEnvelope;
 
 #[cfg(test)]
 mod tests {
@@ -323,7 +325,7 @@ mod tests {
         assert_eq!(
             register
                 .expires_at
-                .map(arkret::canonical::format_timestamp_canonical),
+                .map(arkret_canonical::format_timestamp_canonical),
             Some("2026-05-02T00:00:00.000Z".to_owned())
         );
 

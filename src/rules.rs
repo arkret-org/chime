@@ -1,9 +1,9 @@
 //! Client-side evaluation of actor-private push rules and DND schedules.
 
-use arkret::push_rule_core::{
+use arkret_models_integration::{DndSettings, PushCondition, PushRule, PushRulesConfig};
+use arkret_push_policy::push_rule_core::{
     self, EventContext as PushRuleEventContext, ShouldNotify as PushRuleDecision, WatchLevel,
 };
-use arkret_models_integration::{DndSettings, PushCondition, PushRule, PushRulesConfig};
 use serde_json::Value;
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]

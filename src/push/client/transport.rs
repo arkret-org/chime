@@ -188,7 +188,7 @@ impl ArkretPushClient {
         R: for<'de> Deserialize<'de>,
     {
         let url = try_arkret_api_url(&self.service_base_url, path)?;
-        let body_bytes = arkret::canonical::canonical_json_bytes(body).map_err(|error| {
+        let body_bytes = arkret_canonical::canonical_json_bytes(body).map_err(|error| {
             PushRegistrationError::InvalidField {
                 field: "body",
                 reason: format!("request body is not canonical-JSON encodable: {error}"),
