@@ -324,7 +324,7 @@ mod tests {
             register
                 .expires_at
                 .map(arkret::canonical::format_timestamp_canonical),
-            Some("2026-05-02T00:00:00+00:00".to_owned())
+            Some("2026-05-02T00:00:00.000Z".to_owned())
         );
 
         serde_json::from_value::<ChimePushRegisterDeviceOutcome>(serde_json::json!({

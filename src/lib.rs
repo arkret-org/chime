@@ -51,7 +51,9 @@ mod state;
 // without having to depend on `arkret` directly.
 #[cfg(feature = "notify")]
 pub use arkret::{AccessKind, AuditPolicyAccessPayload, PushNotifyOutcome, PushNotifyRequestBody};
-pub use arkret::{DndPeriod, DndSchedule, DndSettings, PushCondition, PushRule, PushRulesConfig};
+pub use arkret_models_integration::{
+    DndPeriod, DndSchedule, DndSettings, PushCondition, PushRule, PushRulesConfig,
+};
 pub use bugle::BugleAppIdResolver;
 pub use gateway_binding::GatewayBinding;
 pub use lifecycle::{
