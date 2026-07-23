@@ -243,7 +243,7 @@ pub fn verify_media_token_outcome<'response>(
         ctx.media_service_anchors,
         ctx.now,
     )
-    .map_err(|err| map_sdk_media_error(err, response))?;
+    .map_err(|err| map_media_signature_error(err, response))?;
 
     Ok(VerifiedMediaTokenOutcome {
         response,
@@ -251,10 +251,10 @@ pub fn verify_media_token_outcome<'response>(
     })
 }
 
-/// Reject the focus when the SDK does not recognise the backend
+/// Reject the focus when the Signatures owner does not recognise the backend
 /// label. Surfaces as CALL-2 [`MediaTokenError::UnknownFocusType`].
 ///
-/// Wraps the SDK's [`MediaBackendType::ensure_known`] so chime
+/// Wraps [`MediaBackendType::ensure_known`] so chime
 /// consumers can perform the check without depending on `arkret`
 /// directly.
 pub fn ensure_known_backend(backend: &MediaBackendType) -> Result<(), MediaTokenError> {
@@ -273,12 +273,12 @@ fn ensure_known_backend_label(label: &str) -> Result<(), MediaTokenError> {
     ensure_known_backend(&backend)
 }
 
-fn map_sdk_media_error(
-    err: arkret::Error,
+fn map_media_signature_error(
+    err: arkret::signatures::Error,
     response: &CallMediaTokenExchangeOutcome,
 ) -> MediaTokenError {
-    match sdk_media_reason(err) {
-        SdkMediaReason::TokenIssuerUnauthorised => {
+    match media_signature_reason(err) {
+        MediaSignatureReason::TokenIssuerUnauthorised => {
             let observed_kid = if response.participant_binding.issuer_kid.trim().is_empty() {
                 response.service_signature.kid.clone()
             } else {
@@ -289,33 +289,35 @@ fn map_sdk_media_error(
                 expected_service_id: "realm media-service anchors".to_owned(),
             }
         }
-        SdkMediaReason::UnknownFocusType => MediaTokenError::UnknownFocusType,
-        SdkMediaReason::Other(reason) => MediaTokenError::ParticipantBindingInvalid { reason },
+        MediaSignatureReason::UnknownFocusType => MediaTokenError::UnknownFocusType,
+        MediaSignatureReason::Other(reason) => {
+            MediaTokenError::ParticipantBindingInvalid { reason }
+        }
     }
 }
 
-enum SdkMediaReason {
+enum MediaSignatureReason {
     TokenIssuerUnauthorised,
     UnknownFocusType,
     Other(String),
 }
 
-fn sdk_media_reason(err: arkret::Error) -> SdkMediaReason {
+fn media_signature_reason(err: arkret::signatures::Error) -> MediaSignatureReason {
     match err {
-        arkret::Error::Protocol(message) => {
+        arkret::signatures::Error::Protocol(message) => {
             let reason_code = message
                 .split_once(':')
                 .map_or(message.as_str(), |(code, _)| code)
                 .trim();
             match reason_code {
                 arkret::ReasonCode::TOKEN_ISSUER_UNAUTHORISED => {
-                    SdkMediaReason::TokenIssuerUnauthorised
+                    MediaSignatureReason::TokenIssuerUnauthorised
                 }
-                arkret::ReasonCode::UNKNOWN_FOCUS_TYPE => SdkMediaReason::UnknownFocusType,
-                _ => SdkMediaReason::Other(message),
+                arkret::ReasonCode::UNKNOWN_FOCUS_TYPE => MediaSignatureReason::UnknownFocusType,
+                _ => MediaSignatureReason::Other(message),
             }
         }
-        other => SdkMediaReason::Other(other.to_string()),
+        other => MediaSignatureReason::Other(other.to_string()),
     }
 }
 
@@ -456,7 +458,7 @@ mod tests {
         let response = good_response(now, &key);
 
         let err = map_sdk_media_error(
-            arkret::Error::Protocol(format!(
+            arkret::signatures::Error::Protocol(format!(
                 "{}: wording after the reason code may change",
                 arkret::ReasonCode::TOKEN_ISSUER_UNAUTHORISED
             )),
@@ -465,7 +467,7 @@ mod tests {
         assert_eq!(err.kind(), PushErrorKind::TokenIssuerUnauthorised);
 
         let err = map_sdk_media_error(
-            arkret::Error::Protocol(format!(
+            arkret::signatures::Error::Protocol(format!(
                 "{}: wording after the reason code may change",
                 arkret::ReasonCode::UNKNOWN_FOCUS_TYPE
             )),
