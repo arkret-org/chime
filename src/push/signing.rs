@@ -5,7 +5,7 @@
 //! Wire-level primitives (RFC 9530 `Content-Digest` computation, the
 //! base64 alphabet used for the `Signature` value, the covered-component
 //! lookup keys) are now sourced from
-//! [`arkret::http_signature`](arkret::http_signature) so chime, floria
+//! [`arkret_signatures::http_signature`] so chime, floria
 //! and soland share a single canonicalization implementation. The
 //! `PushRequestSigningContext` type itself stays in chime because:
 //!
@@ -22,7 +22,7 @@ use std::collections::HashMap;
 use std::fmt;
 use std::time::{Duration, SystemTime, SystemTimeError};
 
-use arkret::http_signature::{
+use arkret_signatures::http_signature::{
     Component, ContentDigest, ContentDigestAlgorithm, format_signature_header,
     format_signature_input_component_list,
 };
@@ -344,7 +344,7 @@ impl PushRequestSigningOptions {
 ///
 /// ## CH-1 wire shape
 ///
-/// The output is produced by [`arkret::http_signature::ContentDigest::compute`]
+/// The output is produced by [`arkret_signatures::http_signature::ContentDigest::compute`]
 /// with [`ContentDigestAlgorithm::Sha256`]. That guarantees byte-equivalent
 /// wire output (same `sha-256=:BASE64STANDARD_32B:` form, same base64
 /// alphabet) with floria's verifier and soland's fanout signer, which
@@ -547,13 +547,15 @@ impl NonceTracker {
 mod tests {
     //! CH-1 wire-equivalence tests for the SDK-routed `content_digest_sha256`.
     //!
-    //! The whole point of routing through `arkret::http_signature::ContentDigest`
+    //! The whole point of routing through `arkret_signatures::http_signature::ContentDigest`
     //! is that chime, floria's verifier, and soland's fanout signer all
     //! agree on the wire bytes. These tests pin that agreement so a
     //! future SDK bump can't silently change the wire shape without
     //! also tripping chime's CI.
 
-    use arkret::http_signature::{ContentDigest, ContentDigestAlgorithm, verify_content_digest};
+    use arkret_signatures::http_signature::{
+        ContentDigest, ContentDigestAlgorithm, verify_content_digest,
+    };
 
     use super::*;
 
@@ -602,7 +604,7 @@ mod tests {
         let err = verify_content_digest(&parsed, b"different body").unwrap_err();
         assert!(matches!(
             err,
-            arkret::http_signature::SignatureError::ContentDigestMismatch
+            arkret_signatures::http_signature::SignatureError::ContentDigestMismatch
         ));
     }
 

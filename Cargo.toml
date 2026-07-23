@@ -27,11 +27,9 @@ rustdoc-args = ["--cfg", "docsrs"]
 # (`MediaTokenVerificationContext` and `verify_media_token_outcome`) so we
 # pull chrono in directly with the default features stripped to keep the
 # wasm32 build slim.
-# CH-1: pin chime's RFC 9530 content-digest computation to the SDK's
-# `http_signature::ContentDigest` so the wire bytes stay byte-identical
-# to what floria's verifier and soland's fanout signer emit. The SDK is
-# brought in with `default-features = false` + only the `full-surface`
-# gate so chime doesn't pick up unrelated runtimes (client/mls/etc.).
+# CH-1: pin chime's RFC 9530 content-digest computation to the Signatures
+# owner's `http_signature::ContentDigest` so the wire bytes stay byte-identical
+# to what floria's verifier and soland's fanout signer emit.
 
 # C34.1: split the `http` transport deps per target. Native targets keep
 # reqwest+rustls+tokio; the wasm32 build routes through reqwest's
@@ -39,8 +37,9 @@ rustdoc-args = ["--cfg", "docsrs"]
 # because there is no tokio runtime on the browser main thread.
 base64 = {workspace = true}
 chrono = {workspace = true,default-features = false,features = ["serde", "clock"]}
-arkret = {workspace = true,default-features = false,features = ["full-surface"]}
+arkret = {workspace = true,default-features = false}
 arkret-models-integration = {workspace = true}
+arkret-signatures = {workspace = true,default-features = false,features = ["protocol"]}
 httpdate = {workspace = true}
 serde = {workspace = true,features = ["derive"]}
 serde_json = {workspace = true}
@@ -96,6 +95,7 @@ base64 = "0.22"
 chrono = {version = "0.4",default-features = false}
 arkret = {version = "0.3.0",path = "../arkret-rust-sdk/crates/sdk",default-features = false}
 arkret-models-integration = {version = "0.3.0",path = "../arkret-rust-sdk/crates/models-integration"}
+arkret-signatures = {version = "0.3.0",path = "../arkret-rust-sdk/crates/signatures",default-features = false}
 ed25519-dalek = {version = "2.2.0",default-features = false,features = ["std", "rand_core"]}
 gloo-timers = "0.4"
 httpdate = "1"

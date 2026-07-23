@@ -457,7 +457,7 @@ mod tests {
         let key = issuer_key();
         let response = good_response(now, &key);
 
-        let err = map_sdk_media_error(
+        let err = map_media_signature_error(
             arkret::signatures::Error::Protocol(format!(
                 "{}: wording after the reason code may change",
                 arkret::ReasonCode::TOKEN_ISSUER_UNAUTHORISED
@@ -466,7 +466,7 @@ mod tests {
         );
         assert_eq!(err.kind(), PushErrorKind::TokenIssuerUnauthorised);
 
-        let err = map_sdk_media_error(
+        let err = map_media_signature_error(
             arkret::signatures::Error::Protocol(format!(
                 "{}: wording after the reason code may change",
                 arkret::ReasonCode::UNKNOWN_FOCUS_TYPE
