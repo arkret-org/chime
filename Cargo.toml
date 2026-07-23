@@ -39,7 +39,7 @@ base64 = {workspace = true}
 chrono = {workspace = true,default-features = false,features = ["serde", "clock"]}
 arkret = {workspace = true,default-features = false}
 arkret-models-integration = {workspace = true}
-arkret-signatures = {workspace = true,default-features = false,features = ["protocol"]}
+arkret-signatures = {workspace = true,default-features = false}
 httpdate = {workspace = true}
 serde = {workspace = true,features = ["derive"]}
 serde_json = {workspace = true}
