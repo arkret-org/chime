@@ -9,7 +9,7 @@ use serde_json::Value;
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct NotificationEvalContext {
     pub event_kind: String,
-    pub notification_type: String,
+    pub notification_kind: String,
     pub realm_id: String,
     pub strand_id: Option<String>,
     pub strand_track: Option<String>,
@@ -345,7 +345,7 @@ fn context_field<'a>(ctx: &'a NotificationEvalContext, field: &str) -> Option<&'
     match field {
         "realm_id" => Some(ctx.realm_id.as_str()),
         "kind" | "event_kind" => Some(ctx.event_kind.as_str()),
-        "notification_type" => Some(ctx.notification_type.as_str()),
+        "notification_kind" => Some(ctx.notification_kind.as_str()),
         "strand_id" => ctx.strand_id.as_deref(),
         "actor_id" | "sender_actor_id" => ctx.sender.as_deref(),
         "strand_track" | "track_name" => ctx.strand_track.as_deref(),

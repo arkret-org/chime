@@ -250,11 +250,11 @@ impl PushErrorKind {
         )
     }
 
-    /// Map a Arkret `bridge/describe.failure_codes` string to a stable kind.
+    /// Map a Arkret `bridge/describe.failure_reason_codes` string to a stable kind.
     ///
     /// Returns `None` when the code is not part of the contract, so callers can
     /// decide between treating it as `HttpStatus` or surfacing the raw code.
-    pub fn from_failure_code(code: &str) -> Option<Self> {
+    pub fn from_failure_reason_code(code: &str) -> Option<Self> {
         // Canonical wire codes sourced from the SDK constants so chime's
         // classification stays byte-aligned with what soland/floria emit.
         // Top-level error codes are glob-reexported at the crate root;
@@ -536,7 +536,7 @@ pub(super) fn classify_http_error(
     error: Option<&ArkretErrorEnvelope>,
 ) -> PushErrorKind {
     if let Some(code) = error.map(|envelope| envelope.error.code.as_str())
-        && let Some(kind) = PushErrorKind::from_failure_code(code)
+        && let Some(kind) = PushErrorKind::from_failure_reason_code(code)
     {
         return kind;
     }
@@ -596,29 +596,37 @@ mod tests {
     }
 
     #[test]
-    fn from_failure_code_covers_contract() {
+    fn from_failure_reason_code_covers_contract() {
         assert_eq!(
-            PushErrorKind::from_failure_code(arkret_wire::ErrorCode::RATE_LIMITED),
+            PushErrorKind::from_failure_reason_code(arkret_wire::ErrorCode::RATE_LIMITED),
             Some(PushErrorKind::RateLimited)
         );
-        assert_eq!(PushErrorKind::from_failure_code("registration_gone"), None);
-        assert_eq!(PushErrorKind::from_failure_code("unknown_code"), None);
+        assert_eq!(
+            PushErrorKind::from_failure_reason_code("registration_gone"),
+            None
+        );
+        assert_eq!(
+            PushErrorKind::from_failure_reason_code("unknown_code"),
+            None
+        );
     }
 
     #[test]
-    fn round4_failure_codes_classify() {
+    fn round4_failure_reason_codes_classify() {
         // B5: chime must recognise the three round-4 wire codes that
         // floria/soland forward so consumers can branch on them.
         assert_eq!(
-            PushErrorKind::from_failure_code(arkret_wire::ErrorCode::DELIVERY_BINDING_STALE),
+            PushErrorKind::from_failure_reason_code(arkret_wire::ErrorCode::DELIVERY_BINDING_STALE),
             Some(PushErrorKind::DeliveryBindingStale)
         );
         assert_eq!(
-            PushErrorKind::from_failure_code(arkret_wire::ErrorCode::DELIVERY_BINDING_HANDED_OVER),
+            PushErrorKind::from_failure_reason_code(
+                arkret_wire::ErrorCode::DELIVERY_BINDING_HANDED_OVER
+            ),
             Some(PushErrorKind::DeliveryBindingHandedOver)
         );
         assert_eq!(
-            PushErrorKind::from_failure_code(arkret_wire::ErrorCode::HISTORICAL_ONLY),
+            PushErrorKind::from_failure_reason_code(arkret_wire::ErrorCode::HISTORICAL_ONLY),
             Some(PushErrorKind::HistoricalOnly)
         );
     }
