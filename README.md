@@ -102,26 +102,30 @@ hosts that need the standalone resolver trait can use
 
 ## AKP-0007 Circle subscriptions
 
-[AKP-0007 Circle primitive](../arkret-spec/specs/protocol/circle.md)
-introduces an encrypted sub-boundary inside a Realm. chime exposes the
-client-side surface so a wakeup can carry the Circle context end-to-end:
+[AKP-0007 Circle primitive](../arkret-spec/spec/v1/zh/models/circle.md)
+introduces an encrypted sub-boundary inside a Realm. The security scope
+of an Event lives in its producer-signed `scope_ref`; object read
+projections may materialize an equal `effective_scope`. Neither name
+reaches the push wire:
 
-- **Receiving a Circle-scoped wakeup.** `PushNotification.circle_id`
-  carries the typed `ak:circle:` reference of the Circle the wakeup
-  was authored against (when applicable). `PushNotification.effective_scope`
-  mirrors the event envelope's `effective_scope` field
-  (`ak:circle:...` or `ak:realm:...`) so the client can correlate the
-  wakeup with the security boundary without an extra round-trip.
-  Both fields are validated by `validate_wire_model`; the Circle
-  metadata privacy validator in `validate_blind_wakeup` additionally
-  rejects `circle_name` / `circle_members` / `circle_member_dids` in
-  the `extra` map and any `circle_id` value that smuggles a `did:`
-  literal in its tail.
+- **Receiving a Circle-scoped wakeup.** `PushNotification` carries no
+  Circle identifier and no scope field. Raw Realm ids, Circle ids and
+  `effective_scope` MUST NOT enter `/_arkret/edge/push/notify`
+  (`push-notifications.md` §5.1); the wakeup only carries opaque
+  `route_tokens.scope_route_token` / `devices[].target_route_token`.
+  The client resolves the security boundary from the durable Event it
+  fetches after the wakeup, never from the wakeup itself. The Circle
+  metadata privacy validator in `validate_blind_wakeup` rejects
+  `circle_name` / `circle_display_name` and the `circle_members` /
+  `circle_member_dids` / `circle_member_actor_ids` membership surfaces
+  if a gateway tries to smuggle them through the `extra` map.
 - **Muting a Circle on this device.** `PushPreferences` carries
   `muted_circle_ids: BTreeSet<String>` and `muted_realm_ids:
-  BTreeSet<String>`. Wakeups whose `circle_id` (or `realm_id`) is in
-  the matching set MUST NOT raise a UI surface; wire-level delivery
-  is unchanged so floria can still account for the receipt.
+  BTreeSet<String>`. These are matched host-side against the scope the
+  client resolved for the fetched Event — the wakeup itself cannot be
+  matched, because it carries no scope. A muted scope MUST NOT raise a
+  UI surface; wire-level delivery is unchanged so floria can still
+  account for the receipt.
 - **Deactivation cleanup.** `on_account_deactivate` snapshots
   `muted_circle_ids` / `muted_realm_ids` onto the returned
   `AccountDeactivationReceipt` (fields `circle_bindings_cleared` and

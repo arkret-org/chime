@@ -15,7 +15,6 @@ use chime::{
     ArkretPushClient, PushRetryPolicy, floria_push_bridge_describe_url,
     floria_push_integration_describe_url,
 };
-use serde_json::{Value, json};
 
 #[path = "_helpers/floria_spawn.rs"]
 mod floria_spawn;
@@ -32,27 +31,41 @@ fn client_for(handle: &SpawnedFloria) -> ArkretPushClient {
         .with_retry_policy(PushRetryPolicy::conservative())
 }
 
-fn notify_payload(idempotency_key: &str) -> Value {
-    json!({
-        "operation_id": arkret::ServiceOperationId::EDGE_PUSH_COMMAND_NOTIFY,
-        "idempotency_key": idempotency_key,
-        "origin_service_id": ORIGIN_DID,
-        "notification": {
-            "event_id": "ak:event:01JS0EV000000000000000000",
-            "message_id": "ak:message:01JS0MSG0000000000000000",
-            "strand_id": "ak:strand:019640f9-8000-7000-8000-000000000000",
-            "realm_id": "ak:realm:01JS0SP000000000000000000",
-            "push_target_id": "ak:pseudonym:push:01HYZ8Z000000000000000",
-            "wakeup_kind": "message",
-            "timing_profile_hint": "default",
-            "push_hint": "new_message",
-            "devices": [{
-                "device_id": "ak:device:01904100-0000-7000-8000-000000000010",
-                "app_id": APP_ID,
-                "push_key": "chime-live-token-01"
-            }]
-        }
-    })
+/// Canonical `ak.edge.push.command.notify` body.
+///
+/// Built from the SDK strong type rather than ad-hoc JSON so the test can
+/// never drift from the wire model. Per `push-notifications.md` §5.1 the
+/// body carries *only* `{notification, event_kind?, reason_code?,
+/// audit_envelope?}`: `operation_id` is determined by the URL path, and
+/// the idempotency key and the source service DID ride the
+/// `Idempotency-Key` / `Source-Service-ID` transport headers. Identifying
+/// fields (`event_id`, `message_id`, `strand_id`, `realm_id`, …) MUST NOT
+/// appear under the default `ak.profile.push_gateway.blind_wakeup.v1`
+/// profile, which is the profile an anonymous caller gets.
+fn notify_body() -> arkret::PushNotifyRequestBody {
+    arkret::PushNotifyRequestBody {
+        notification: arkret::PushNotificationEnvelope {
+            push_target_id: Some("ak:pseudonym:push:01HYZ8Z000000000000000".to_owned()),
+            wakeup_kind: Some("message".to_owned()),
+            timing_profile_hint: Some(arkret::PushTimingProfileHint::Default),
+            push_hint: Some("new_message".to_owned()),
+            devices: vec![arkret::PushDeviceRoute {
+                device_id: arkret::DeviceId::new(
+                    "ak:device:01904100-0000-7000-8000-000000000010".to_owned(),
+                )
+                .expect("device id is canonical"),
+                push_key: Some("chime-live-token-01".to_owned()),
+                app_id: Some(APP_ID.to_owned()),
+                platform: None,
+                target_route_token: None,
+                visible_notification_opt_in: false,
+            }],
+            ..Default::default()
+        },
+        event_kind: None,
+        reason_code: None,
+        audit_envelope: None,
+    }
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -136,9 +149,12 @@ async fn push_notify_delivery_receipt_round_trips_into_chime_wire_types() {
         .timeout(Duration::from_secs(5))
         .build()
         .expect("reqwest client builds");
+    let body = notify_body();
     let response = http
         .post(floria.url("/_arkret/edge/push/notify"))
-        .json(&notify_payload("chime-live-notify-001"))
+        .header("Idempotency-Key", "chime-live-notify-001")
+        .header("Source-Service-ID", ORIGIN_DID)
+        .json(&body)
         .send()
         .await
         .expect("notify POST reaches floria");
@@ -154,8 +170,23 @@ async fn push_notify_delivery_receipt_round_trips_into_chime_wire_types() {
         .expect("notify response body is readable");
     let parsed: arkret::PushNotifyOutcome = serde_json::from_str(&raw)
         .unwrap_or_else(|err| panic!("canonical PushNotifyOutcome failed to decode {raw}: {err}"));
-    assert!(
-        parsed.rejected.len() <= 1,
-        "unexpected rejection count: {parsed:?}"
+
+    // `push_notify_outcome` is closed: rejections are expanded into one
+    // `rejected` entry per input device, never a second response shape, and
+    // `outcomes[]` is conserved against `notification.devices[]`.
+    assert_eq!(
+        parsed.push_target_id,
+        "ak:pseudonym:push:01HYZ8Z000000000000000"
     );
+    assert_eq!(
+        parsed.outcomes.len(),
+        body.notification.devices.len(),
+        "outcomes[] must be conserved against notification.devices[]: {parsed:?}"
+    );
+    let rejected = parsed
+        .outcomes
+        .iter()
+        .filter(|outcome| outcome.gateway_status == arkret::PushNotifyGatewayStatus::Rejected)
+        .count();
+    assert!(rejected <= 1, "unexpected rejection count: {parsed:?}");
 }

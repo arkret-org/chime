@@ -32,7 +32,7 @@ use std::fmt;
 // token surface through `chime::` without a second `arkret` dep.
 pub use arkret::{
     CallMediaParticipantBinding, CallMediaServiceSignature, CallMediaTokenExchangeOutcome,
-    CallMediaTokenExchangeRequestBody, CallMediaTokenVerification, MediaBackendType,
+    CallMediaTokenExchangeRequestBody, CallMediaTokenVerification, DidUrl, MediaBackendType,
     MediaServiceAnchors, call_media_token_exchange,
 };
 use chrono::{DateTime, Utc};
@@ -52,7 +52,7 @@ pub enum MediaTokenError {
     /// the realm's current
     /// `ak.realm.media_service.service_id`.
     TokenIssuerUnauthorised {
-        observed_kid: String,
+        observed_kid: DidUrl,
         expected_service_id: String,
     },
     /// CALL-2 — focus backend type is not recognised; receivers MUST
@@ -193,7 +193,7 @@ pub fn verify_media_token_outcome<'response>(
     response: &'response CallMediaTokenExchangeOutcome,
     ctx: &MediaTokenVerificationContext<'_>,
 ) -> Result<VerifiedMediaTokenOutcome<'response>, MediaTokenError> {
-    ensure_known_backend_label(&response.backend_type)?;
+    ensure_known_backend_label(&response.backend_kind)?;
 
     // Focus mismatch: the response focus_id and binding focus_id MUST equal the
     // committed session_focus (when present) and the focus the caller
@@ -267,7 +267,7 @@ fn ensure_known_backend_label(label: &str) -> Result<(), MediaTokenError> {
     let backend: MediaBackendType =
         serde_json::from_value(serde_json::Value::String(label.to_owned())).map_err(|err| {
             MediaTokenError::ParticipantBindingInvalid {
-                reason: format!("backend_type decode failed: {err}"),
+                reason: format!("backend_kind decode failed: {err}"),
             }
         })?;
     ensure_known_backend(&backend)
@@ -278,17 +278,13 @@ fn map_media_signature_error(
     response: &CallMediaTokenExchangeOutcome,
 ) -> MediaTokenError {
     match media_signature_reason(err) {
-        MediaSignatureReason::TokenIssuerUnauthorised => {
-            let observed_kid = if response.participant_binding.issuer_kid.trim().is_empty() {
-                response.service_signature.kid.clone()
-            } else {
-                response.participant_binding.issuer_kid.clone()
-            };
-            MediaTokenError::TokenIssuerUnauthorised {
-                observed_kid,
-                expected_service_id: "realm media-service anchors".to_owned(),
-            }
-        }
+        // `issuer_kid` is a `DidUrl`, so it can never be blank once the
+        // response has deserialized: the reported kid is always the
+        // binding's own issuer.
+        MediaSignatureReason::TokenIssuerUnauthorised => MediaTokenError::TokenIssuerUnauthorised {
+            observed_kid: response.participant_binding.issuer_kid.clone(),
+            expected_service_id: "realm media-service anchors".to_owned(),
+        },
         MediaSignatureReason::UnknownFocusType => MediaTokenError::UnknownFocusType,
         MediaSignatureReason::Other(reason) => {
             MediaTokenError::ParticipantBindingInvalid { reason }
@@ -348,6 +344,9 @@ mod tests {
     fn issuer_did() -> Did {
         Did::new("did:web:media.example:media".to_owned()).unwrap()
     }
+    fn issuer_kid() -> DidUrl {
+        DidUrl::new(ISSUER_KID).unwrap()
+    }
     fn issuer_key() -> SigningKey {
         SigningKey::from_bytes(&[11_u8; 32])
     }
@@ -362,7 +361,7 @@ mod tests {
     fn unsigned_response(expires_at: DateTime<Utc>) -> CallMediaTokenExchangeOutcome {
         CallMediaTokenExchangeOutcome {
             focus_id: "ak:focus:01".to_owned(),
-            backend_type: "livekit".to_owned(),
+            backend_kind: "livekit".to_owned(),
             connect_url: "wss://media.example/livekit".to_owned(),
             backend_token: "livekit-jwt-token".to_owned(),
             participant_identity: "ak:rtc_participant:01904100-0000-7000-8000-000000000003"
@@ -370,7 +369,7 @@ mod tests {
             participant_binding: CallMediaParticipantBinding {
                 scheme: CallMediaParticipantBinding::SCHEME.to_owned(),
                 sig: String::new(),
-                issuer_kid: ISSUER_KID.to_owned(),
+                issuer_kid: issuer_kid(),
                 realm_id: realm(),
                 call_id: call(),
                 focus_id: "ak:focus:01".to_owned(),
@@ -383,7 +382,7 @@ mod tests {
             },
             expires_at,
             service_signature: CallMediaServiceSignature {
-                kid: ISSUER_KID.to_owned(),
+                kid: issuer_kid(),
                 sig: String::new(),
             },
         }
@@ -580,7 +579,7 @@ mod tests {
         let key = issuer_key();
         let anchors = anchors_with_issuer_key(&key);
         let mut response = good_response(now, &key);
-        response.backend_type = "unknown_sfu".to_owned();
+        response.backend_kind = "unknown_sfu".to_owned();
         let ctx = good_ctx(now, &request, &anchors);
         let err = verify_media_token_outcome(&response, &ctx).unwrap_err();
         assert_eq!(err.kind(), PushErrorKind::UnknownFocusType);
@@ -607,7 +606,7 @@ mod tests {
     #[test]
     fn media_token_error_kind_matches_push_error_kind() {
         let err = MediaTokenError::TokenIssuerUnauthorised {
-            observed_kid: "k".to_owned(),
+            observed_kid: issuer_kid(),
             expected_service_id: "s".to_owned(),
         };
         assert!(err.kind().is_media_token_rejection());

@@ -52,13 +52,15 @@ The Circle primitive introduces an encrypted sub-boundary inside a
 Realm. chime's wakeup wire MUST preserve the following invariants on
 top of the generic blind-wakeup rules above:
 
-- `PushNotification.circle_id` MAY travel on the blind-wakeup wire as
-  an opaque typed-id reference, but its value MUST start with the
-  literal `ak:circle:` prefix and MUST NOT contain a `did:` literal
-  anywhere in its tail. Untyped or DID-bearing values are rejected by
-  `validate_wire_model` / `validate_blind_wakeup`.
-- `PushNotification.effective_scope` MUST be either a `ak:circle:` or
-  `ak:realm:` typed reference; any other prefix is wire-broken.
+- `PushNotification` MUST NOT carry a Circle identifier, a Realm
+  identifier, or a scope field. Per `push-notifications.md` §5.1, raw
+  Realm ids, Circle ids and `effective_scope` MUST NOT enter the
+  `/_arkret/edge/push/notify` wire under the default
+  `ak.profile.push_gateway.blind_wakeup.v1` profile; the only routing
+  inputs are `route_tokens` and `devices[].target_route_token`.
+- The security scope of an Event is its producer-signed `scope_ref`
+  (`models/circle.md` §6.2). A client learns the boundary by fetching
+  the durable Event, never from the wakeup.
 - The display label (`circle_name` / `circle_display_name`) and any
   membership listing (`circle_members` / `circle_member_dids` /
   `circle_member_actor_ids`) are never allowed on the wakeup wire,
