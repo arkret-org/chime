@@ -72,8 +72,60 @@ impl NotificationDecision {
     }
 }
 
-pub fn parse_push_rules(value: &Value) -> Option<PushRulesConfig> {
-    serde_json::from_value(value.clone()).ok()
+/// Why a stored `ak.push_rules` document was not accepted.
+///
+/// v1 defines client-side evaluation only. A document asking the server to
+/// evaluate rule conditions is a registered `unsupported_feature`, which is a
+/// different operational fact from a malformed document: the former means a
+/// producer wrote a v-next shape, the latter means the account data is corrupt.
+/// Collapsing both into `None` hid the distinction and let a rejected rule set
+/// look like "no rules configured".
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum PushRulesRejection {
+    /// `evaluation_locus` is not `client`. Maps to wire `unsupported_feature`.
+    UnsupportedFeature { reason: String },
+    /// The document does not parse as an `ak.push_rules` config.
+    Malformed { reason: String },
+}
+
+impl PushRulesRejection {
+    /// The canonical wire error code for this rejection.
+    pub fn wire_code(&self) -> &'static str {
+        match self {
+            Self::UnsupportedFeature { .. } => "unsupported_feature",
+            Self::Malformed { .. } => "schema_violation",
+        }
+    }
+}
+
+/// Parse an actor-private `ak.push_rules` document.
+///
+/// The non-client locus check is performed on the raw document rather than by
+/// inspecting the SDK deserializer's error text, so the classification does not
+/// depend on an error message staying stable.
+pub fn parse_push_rules(value: &Value) -> Result<PushRulesConfig, PushRulesRejection> {
+    if let Some(rules) = value.get("rules").and_then(Value::as_array) {
+        for rule in rules {
+            let locus = rule.get("evaluation_locus").and_then(Value::as_str);
+            if let Some(locus) = locus
+                && locus != "client"
+            {
+                let rule_id = rule
+                    .get("rule_id")
+                    .and_then(Value::as_str)
+                    .unwrap_or("<unnamed>");
+                return Err(PushRulesRejection::UnsupportedFeature {
+                    reason: format!(
+                        "rule {rule_id} requests evaluation_locus={locus}; \
+                         v1 push rules are client-evaluated only"
+                    ),
+                });
+            }
+        }
+    }
+    serde_json::from_value(value.clone()).map_err(|error| PushRulesRejection::Malformed {
+        reason: error.to_string(),
+    })
 }
 
 pub fn parse_dnd_settings(value: &Value) -> Option<DndSettings> {
@@ -250,7 +302,14 @@ enum RuleMatch {
 }
 
 fn rule_matches(rule: &PushRule, ctx: &NotificationEvalContext) -> RuleMatch {
-    if rule.evaluation_locus == "client" && ctx.is_e2ee && !ctx.local_decrypted {
+    // `parse_push_rules` rejects every non-client locus, so `client` is the only
+    // reachable value here. Keep the branch closed rather than implicitly
+    // accepting an unknown locus: a rule the actor did not ask to be evaluated
+    // locally must never be applied to local state.
+    if rule.evaluation_locus != "client" {
+        return RuleMatch::NoMatch;
+    }
+    if ctx.is_e2ee && !ctx.local_decrypted {
         return RuleMatch::UnresolvedClient;
     }
     let mut unresolved = false;
@@ -458,7 +517,7 @@ mod tests {
                     "rule_id": "override.mute",
                     "kind": "override",
                     "enabled": true,
-                    "evaluation_locus": "server",
+                    "evaluation_locus": "client",
                     "conditions": [{"kind": "field_match", "field": "realm_id", "pattern": "r1"}],
                     "actions": ["dont_notify"]
                 },
@@ -466,7 +525,7 @@ mod tests {
                     "rule_id": "underride.all",
                     "kind": "underride",
                     "enabled": true,
-                    "evaluation_locus": "server",
+                    "evaluation_locus": "client",
                     "conditions": [],
                     "actions": ["notify"]
                 }
@@ -508,5 +567,80 @@ mod tests {
         );
         assert!(decision.blind_wakeup_required);
         assert!(!decision.should_notify);
+    }
+
+    #[test]
+    fn server_locus_user_rule_is_rejected_as_unsupported_feature() {
+        let rejection = parse_push_rules(&serde_json::json!({
+            "rules": [{
+                "rule_id": "override.mute",
+                "kind": "override",
+                "enabled": true,
+                "evaluation_locus": "server",
+                "conditions": [{"kind": "field_match", "field": "realm_id", "pattern": "r1"}],
+                "actions": ["dont_notify"]
+            }]
+        }))
+        .expect_err("v1 must not accept a server-evaluated user push rule");
+        assert_eq!(rejection.wire_code(), "unsupported_feature");
+        assert!(
+            matches!(rejection, PushRulesRejection::UnsupportedFeature { .. }),
+            "a v-next locus is unsupported_feature, not a malformed document"
+        );
+    }
+
+    #[test]
+    fn malformed_rules_are_not_reported_as_unsupported_feature() {
+        let rejection = parse_push_rules(&serde_json::json!({ "rules": "not-an-array" }))
+            .expect_err("a non-array rules member does not parse");
+        assert_eq!(rejection.wire_code(), "schema_violation");
+    }
+
+    /// The coarse server-side watch gate and user rule evaluation are separate
+    /// truths. When a rule set is rejected, its outcome must not be attributed
+    /// to a user rule: `matched_rule_id` stays `None` and the decision reports
+    /// the built-in policy, so an operator cannot read a suppression as "the
+    /// actor's rule fired".
+    #[test]
+    fn rejected_rules_do_not_borrow_authority_from_the_coarse_watch_gate() {
+        let document = serde_json::json!({
+            "rules": [{
+                "rule_id": "override.mute",
+                "kind": "override",
+                "enabled": true,
+                "evaluation_locus": "server",
+                "conditions": [],
+                "actions": ["dont_notify"]
+            }]
+        });
+        assert!(parse_push_rules(&document).is_err());
+
+        // With no accepted rule set, evaluation falls back to the built-in
+        // policy rather than silently honouring the rejected server rule.
+        let decision = evaluate_notification(
+            None,
+            None,
+            &NotificationEvalContext {
+                realm_id: "r1".to_owned(),
+                ..Default::default()
+            },
+        );
+        assert!(decision.should_notify, "built-in default notifies");
+        assert_eq!(decision.matched_rule_id, None);
+        assert_eq!(decision.reason, "default notification policy");
+
+        // The coarse watch gate still applies on its own authority, and its
+        // suppression is likewise not attributed to a user rule.
+        let muted = evaluate_notification(
+            None,
+            None,
+            &NotificationEvalContext {
+                realm_id: "r1".to_owned(),
+                watch_level: Some(WatchLevel::Muted),
+                ..Default::default()
+            },
+        );
+        assert!(!muted.should_notify);
+        assert_eq!(muted.matched_rule_id, None);
     }
 }

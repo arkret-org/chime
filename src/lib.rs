@@ -119,8 +119,8 @@ pub use push::{
     ensure_known_backend, verify_media_token_outcome,
 };
 pub use rules::{
-    NotificationDecision, NotificationEvalContext, NotificationSound, evaluate_notification,
-    parse_dnd_settings, parse_push_rules,
+    NotificationDecision, NotificationEvalContext, NotificationSound, PushRulesRejection,
+    evaluate_notification, parse_dnd_settings, parse_push_rules,
 };
 pub use state::{
     BridgeContractCache, BridgeContractCacheError, BridgeContractDriftVerdict,
