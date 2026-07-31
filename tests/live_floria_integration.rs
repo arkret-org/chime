@@ -86,7 +86,7 @@ async fn bridge_describe_round_trips_against_live_floria() {
     assert_eq!(response.notify.notify_path, "/_arkret/edge/push/notify");
     assert_eq!(
         response.notify.operation_id,
-        arkret::ServiceOperationId::EDGE_PUSH_COMMAND_NOTIFY
+        ServiceOperationId::EDGE_PUSH_COMMAND_NOTIFY
     );
     assert!(
         response
@@ -128,7 +128,7 @@ async fn integration_view_combines_describe_endpoints() {
     );
     assert_eq!(
         view.bridge.notify.operation_id,
-        arkret::ServiceOperationId::EDGE_PUSH_COMMAND_NOTIFY
+        ServiceOperationId::EDGE_PUSH_COMMAND_NOTIFY
     );
 
     let derived = floria_push_integration_describe_url(&floria.url("/_arkret/edge/push/notify"))
