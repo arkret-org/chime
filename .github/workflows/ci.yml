@@ -111,13 +111,13 @@ jobs:
         run: cargo build --examples --no-default-features --features notify
 
   msrv:
-    name: MSRV (1.96)
+    name: MSRV (1.97)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: "1.96"
+          toolchain: "1.97"
       - name: Checkout sibling Arkret Rust SDK
         env:
           CI_REPO_TOKEN: ${{ secrets.CI_REPO_TOKEN || github.token }}

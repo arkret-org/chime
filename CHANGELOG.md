@@ -13,5 +13,5 @@
 
 ### Fixed
 
-- Keep CI, documentation, and examples aligned with MSRV 1.96.
+- Keep CI, documentation, and examples aligned with MSRV 1.97.
 - Build examples in CI with the `notify` feature.
