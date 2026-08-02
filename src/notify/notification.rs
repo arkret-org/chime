@@ -2,13 +2,15 @@ use std::fmt;
 
 // Round 4 (B5, spec a77b995) — pull typed audit surfaces from the SDK so
 // chime stays byte-aligned with what soland/floria emit.
-use arkret::{AccessKind, AuditPolicyAccessPayload, Did, EventId};
+use arkret::{
+    AccessKind, AuditPolicyAccessPayload, Did, EventId, protocol_journey::SidecarAccessReadiness,
+};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
 use super::agent_routing::{
-    assert_no_forbidden_aliases, assert_no_sensitive_fields, is_forbidden_field_alias,
-    is_phase_p2_agent_typed_id,
+    AgentFanoutGate, assert_no_forbidden_aliases, assert_no_sensitive_fields,
+    is_forbidden_field_alias, is_phase_p2_agent_typed_id,
 };
 use super::errors::PushNotifyPrivacyError;
 use super::validation::{
@@ -531,6 +533,33 @@ impl PushNotification {
     /// "@-mention redirected to N actors" UI.
     pub fn has_mention_redirect_routing(&self) -> bool {
         self.mention_redirect_target_route_tokens().is_some()
+    }
+
+    /// Select the device targets eligible for a newly-derived Agent fanout.
+    ///
+    /// Common policy/evidence failures produce an empty set. Readiness is
+    /// evaluated separately for every typed device id so an unready device
+    /// cannot block another ready intersection, and an unresolved device
+    /// fails closed without relying on route-token strings.
+    pub fn eligible_agent_fanout_devices<F>(
+        &self,
+        gate: &AgentFanoutGate<'_>,
+        mut readiness_for: F,
+    ) -> Vec<&PushNotificationDevice>
+    where
+        F: FnMut(&arkret::DeviceId) -> Option<SidecarAccessReadiness>,
+    {
+        self.devices
+            .iter()
+            .filter(|device| {
+                let Ok(device_id) =
+                    sdk_device_id_from_chime("devices[].device_id", &device.device_id)
+                else {
+                    return false;
+                };
+                gate.evaluate_target(readiness_for(&device_id)).is_ok()
+            })
+            .collect()
     }
 
     /// B.5 #9 — build a [`crate::BackgroundFetchHint`] that mirrors the

@@ -45,7 +45,10 @@ impl ChimePushNotifyEnvelope {
         Ok(arkret::PushNotifyRequestBody {
             notification: self.notification.to_sdk_notification()?,
             event_kind: self.event_kind.clone(),
-            reason_code: self.reason_code.clone(),
+            reason_code: self
+                .reason_code
+                .as_deref()
+                .map(arkret::ReasonCode::from_wire),
             audit_envelope: self.audit_envelope.clone(),
         })
     }
