@@ -2,11 +2,12 @@ use serde_json::Value;
 use thiserror::Error;
 
 use arkret::{
-    AgentAuthorizationAdmission, AgentAuthorizationStatus, AgentSignerEvidence, Did, Hash,
+    AgentAuthorizationStatus, AgentLifecycleStatus, AgentSignerEvidence,
+    ControllerAccountEligibility, ControllerAccountStatus, Did, Hash, NonEmptyString,
     protocol_journey::{
         DeploymentCeilingSignedHead, ParticipationBits, ParticipationReplaceReceipt,
         ParticipationReplacementBatch, ParticipationScope, ParticipationScopeEvidence,
-        ProtocolOpaqueId, SidecarAccessReadiness,
+        ProtocolOperationId, SidecarAccessReadiness,
     },
 };
 use chrono::{DateTime, Utc};
@@ -148,11 +149,16 @@ pub struct AgentFanoutGate<'a> {
     pub realm_ceiling: Option<ParticipationBits>,
     /// Required for Circle and Strand targets; absent for a Realm target.
     pub scoped_ceiling: Option<ParticipationBits>,
-    pub current_admission: Option<&'a AgentAuthorizationAdmission>,
     pub current_signer_evidence: Option<&'a AgentSignerEvidence>,
     pub target_service_id: &'a Did,
+    /// Exact operation whose request is being admitted for fanout.
+    pub operation_id: &'a ProtocolOperationId,
+    /// Digest of the exact request currently being admitted.
+    pub request_digest: &'a Hash,
     pub verifier_id: &'a Did,
-    pub audience: &'a ProtocolOpaqueId,
+    pub audience: &'a Did,
+    /// One-time verifier challenge issued for this admission.
+    pub challenge: &'a NonEmptyString,
     pub now: DateTime<Utc>,
 }
 
@@ -176,9 +182,6 @@ impl AgentFanoutGate<'_> {
         let realm_ceiling = self
             .realm_ceiling
             .ok_or(AgentFanoutDenied::EvidenceUnresolved)?;
-        let admission = self
-            .current_admission
-            .ok_or(AgentFanoutDenied::EvidenceUnresolved)?;
         let signer_evidence = self
             .current_signer_evidence
             .ok_or(AgentFanoutDenied::EvidenceUnresolved)?;
@@ -195,7 +198,7 @@ impl AgentFanoutGate<'_> {
 
         self.validate_scope_evidence(batch)?;
         self.validate_receipt(batch, receipt, deployment)?;
-        self.validate_current_admission(batch, admission, signer_evidence)?;
+        self.validate_current_admission(batch, signer_evidence)?;
 
         let selection = batch.selection;
         if !selection.is_subset_of(immutable_ceiling)
@@ -266,7 +269,7 @@ impl AgentFanoutGate<'_> {
             || target_scope != &batch.target_scope
             || target_service_id != self.target_service_id
             || verifier_id != self.verifier_id
-            || audience != self.audience
+            || audience.as_str() != self.audience.as_str()
             || issued_at > self.now
             || expires_at <= self.now
         {
@@ -313,38 +316,95 @@ impl AgentFanoutGate<'_> {
     fn validate_current_admission(
         &self,
         batch: &ParticipationReplacementBatch,
-        admission: &AgentAuthorizationAdmission,
         signer_evidence: &AgentSignerEvidence,
     ) -> Result<(), AgentFanoutDenied> {
-        let binding = &signer_evidence.signing_key_binding;
-        let authorization = &signer_evidence.authorization;
-        let witness = &signer_evidence.state_witness;
-        let freshness = &signer_evidence.freshness_attestation;
-        if admission.agent_id != batch.agent_id
+        let AgentSignerEvidence::CurrentAdmission {
+            schema,
+            admission_evidence,
+            current_observation,
+            outer_attestation,
+            ..
+        } = signer_evidence
+        else {
+            // A historical destination receipt proves an earlier admission; it
+            // can never authorize a new fanout operation.
+            return Err(AgentFanoutDenied::CurrentAdmissionInvalid);
+        };
+
+        let snapshot = &admission_evidence.agent_authority_snapshot;
+        let core = &snapshot.core;
+        let binding = &core.signing_key_binding;
+        let authorization = &core.authorization;
+        let key_witness = &core.key_state_witness;
+        let lifecycle = &core.agent_lifecycle_witness;
+        let account_gate = &admission_evidence.controller_account_gate_attestation;
+
+        let snapshot_digest = canonical_digest(&snapshot.core)
+            .map_err(|_| AgentFanoutDenied::CurrentAdmissionInvalid)?;
+        let account_gate_digest = canonical_digest(account_gate)
+            .map_err(|_| AgentFanoutDenied::CurrentAdmissionInvalid)?;
+        let admission_evidence_digest = canonical_digest(&serde_json::json!({
+            "agent_authority_snapshot": snapshot,
+            "controller_account_gate_attestation": account_gate,
+        }))
+        .map_err(|_| AgentFanoutDenied::CurrentAdmissionInvalid)?;
+        let outer_core_digest = evidence_core_digest(signer_evidence)
+            .map_err(|_| AgentFanoutDenied::CurrentAdmissionInvalid)?;
+
+        if schema.as_str() != "ak.schema.agent_signer_evidence.v1"
+            || admission_evidence.admission_evidence_digest != admission_evidence_digest
+            || snapshot.snapshot_digest != snapshot_digest
+            || snapshot.lease.snapshot_digest != snapshot.snapshot_digest
+            || snapshot.lease.authority_service_id != core.authority_service_id
+            || snapshot.lease.authority_kind.as_str() != "agent_authority"
+            || outer_attestation.domain.as_str() != "ak.agent-signer-evidence.v1"
+            || outer_attestation.core_digest != outer_core_digest
+            || outer_attestation.source_service_id != core.authority_service_id
             || binding.agent_id != batch.agent_id
-            || admission.verification_method != binding.verification_method
-            || authorization.status != AgentAuthorizationStatus::Active
-            || admission.authorization_event_id != authorization.authorized_event_id
             || binding.agent_key_authorize_event_id != authorization.authorized_event_id
-            || admission.accepted_frontier != authorization.accepted_frontier
-            || admission.accepted_at != authorization.accepted_at
-            || witness.agent_id != batch.agent_id
-            || witness.authorization_event_id != authorization.authorized_event_id
-            || witness.accepted_frontier != authorization.accepted_frontier
-            || admission.accepted_at > self.now
+            || authorization.status != AgentAuthorizationStatus::Active
+            || authorization.transition_event_id.is_some()
+            || authorization.transition_seal_id.is_some()
+            || key_witness.component.as_str() != "ak.component.agent.key.v1"
+            || key_witness.agent_id != batch.agent_id
+            || key_witness.authorization_event_id != authorization.authorized_event_id
+            || key_witness.seal_id != authorization.accepted_seal_id
+            || lifecycle.component.as_str() != "ak.component.agent.status.v1"
+            || lifecycle.agent_id != batch.agent_id
+            || lifecycle.controller_id != binding.controller_id
+            || lifecycle.status != AgentLifecycleStatus::Active
+            || lifecycle.cell_value != AgentLifecycleStatus::Active
+            || account_gate.schema.as_str() != "ak.schema.controller_account_gate_attestation.v1"
+            || account_gate.principal_id != binding.controller_id
+            || account_gate.eligibility != ControllerAccountEligibility::Active
+            || account_gate.status != ControllerAccountStatus::Active
+            || current_observation.operation_id != *self.operation_id
+            || current_observation.request_digest != *self.request_digest
+            || current_observation.verifier_id != *self.verifier_id
+            || current_observation.audience != *self.audience
+            || current_observation.challenge != *self.challenge
+            || !(16..=512).contains(&current_observation.challenge.as_str().chars().count())
+            || current_observation.agent_snapshot_digest != snapshot.snapshot_digest
+            || current_observation.agent_key_seal_id != key_witness.seal_id
+            || current_observation.agent_status_seal_id != lifecycle.seal_id
+            || current_observation.controller_gate_attestation_digest != account_gate_digest
+            || authorization.accepted_at > self.now
             || authorization.not_before > self.now
+            || authorization
+                .expires_at
+                .is_some_and(|expires_at| expires_at <= self.now)
             || binding.issued_at > self.now
             || binding
                 .expires_at
                 .is_some_and(|expires_at| expires_at <= self.now)
-            || authorization
-                .expires_at
-                .is_some_and(|expires_at| expires_at <= self.now)
-            || authorization.valid_until_frontier.is_some()
-            || authorization.transition_event_id.is_some()
-            || freshness.issued_at > self.now
-            || freshness.issued_at >= freshness.expires_at
-            || freshness.expires_at <= self.now
+            || snapshot.lease.issued_at > self.now
+            || snapshot.lease.expires_at <= self.now
+            || account_gate.issued_at > self.now
+            || account_gate.expires_at <= self.now
+            || current_observation.evaluated_at > self.now
+            || current_observation.expires_at <= self.now
+            || outer_attestation.issued_at > self.now
+            || outer_attestation.expires_at <= self.now
         {
             return Err(AgentFanoutDenied::CurrentAdmissionInvalid);
         }
@@ -366,6 +426,20 @@ fn canonical_digest<T: serde::Serialize>(value: &T) -> arkret_wire::Result<Hash>
     let bytes = arkret_canonical::canonical_json_bytes(value)?;
     Hash::new(arkret_canonical::canonical::sha256_digest(bytes))
         .map_err(|error| arkret_wire::Error::Protocol(error.to_string()))
+}
+
+/// Digest the complete tagged evidence object with only
+/// `outer_attestation` omitted, as required by the Spec transcript.
+fn evidence_core_digest(evidence: &AgentSignerEvidence) -> arkret_wire::Result<Hash> {
+    let mut value = serde_json::to_value(evidence)
+        .map_err(|error| arkret_wire::Error::Protocol(error.to_string()))?;
+    let object = value.as_object_mut().ok_or_else(|| {
+        arkret_wire::Error::Protocol("Agent signer evidence must serialize as an object".to_owned())
+    })?;
+    object.remove("outer_attestation").ok_or_else(|| {
+        arkret_wire::Error::Protocol("Agent signer evidence lacks outer_attestation".to_owned())
+    })?;
+    canonical_digest(&value)
 }
 
 /// Classify a top-level `event_kind` against chime's Phase P2 agent
@@ -578,7 +652,13 @@ mod fanout_tests {
     fn unresolved_policy_evidence_denies_even_a_ready_target() {
         let target_service_id = serde_json::from_str("\"did:web:target.example\"").unwrap();
         let verifier_id = serde_json::from_str("\"did:web:verifier.example\"").unwrap();
-        let audience = serde_json::from_str("\"push-fanout\"").unwrap();
+        let audience = serde_json::from_str("\"did:web:push-audience.example\"").unwrap();
+        let operation_id = serde_json::from_str("\"ak.edge.push.command.notify\"").unwrap();
+        let request_digest = serde_json::from_str(
+            "\"sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef\"",
+        )
+        .unwrap();
+        let challenge = serde_json::from_str("\"0123456789abcdef\"").unwrap();
         let gate = AgentFanoutGate {
             action: AgentFanoutAction::ThirdPartyMention,
             batch: None,
@@ -587,11 +667,13 @@ mod fanout_tests {
             deployment_ceiling: None,
             realm_ceiling: None,
             scoped_ceiling: None,
-            current_admission: None,
             current_signer_evidence: None,
             target_service_id: &target_service_id,
+            operation_id: &operation_id,
+            request_digest: &request_digest,
             verifier_id: &verifier_id,
             audience: &audience,
+            challenge: &challenge,
             now: Utc::now(),
         };
 

@@ -48,7 +48,11 @@ impl ChimePushNotifyEnvelope {
             reason_code: self
                 .reason_code
                 .as_deref()
-                .map(arkret::ReasonCode::from_wire),
+                .map(arkret::PushNotifyRequestReasonCode::new)
+                .transpose()
+                .map_err(|_| PushNotifyPrivacyError::InvalidFieldValue {
+                    field: "reason_code".to_owned(),
+                })?,
             audit_envelope: self.audit_envelope.clone(),
         })
     }
