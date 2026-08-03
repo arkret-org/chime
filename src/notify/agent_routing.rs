@@ -1,16 +1,13 @@
-use serde_json::Value;
-use thiserror::Error;
-
+use arkret::protocol_journey::{
+    ParticipationBits, ParticipationScope, ProtocolOperationId, SidecarAccessReadiness,
+};
 use arkret::{
-    AgentAuthorizationStatus, AgentLifecycleStatus, AgentSignerEvidence,
+    AgentAuthorizationStatus, AgentLifecycleStatus, AgentParticipationEntry, AgentSignerEvidence,
     ControllerAccountEligibility, ControllerAccountStatus, Did, Hash, NonEmptyString,
-    protocol_journey::{
-        DeploymentCeilingSignedHead, ParticipationBits, ParticipationReplaceReceipt,
-        ParticipationReplacementBatch, ParticipationScope, ParticipationScopeEvidence,
-        ProtocolOperationId, SidecarAccessReadiness,
-    },
 };
 use chrono::{DateTime, Utc};
+use serde_json::Value;
+use thiserror::Error;
 
 /// Round R2/R3 sensitive fields that must NEVER appear in any blind push
 /// payload — mirrors floria T07/T10/T06.
@@ -100,8 +97,8 @@ pub use arkret::{
 
 /// The five protocol actions controlled by `ak.profile.agent_participation_policy.v1`.
 ///
-/// This is an evaluation selector, not a wire model. The policy bits and all
-/// evidence remain the canonical SDK types.
+/// This is an evaluation selector, not a wire model. The selection and current
+/// target policy remain canonical SDK types.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum AgentFanoutAction {
     ReplyMessage,
@@ -114,18 +111,10 @@ pub enum AgentFanoutAction {
 /// Why a newly-derived Agent notification or push target was denied.
 #[derive(Clone, Debug, Error, PartialEq, Eq)]
 pub enum AgentFanoutDenied {
-    #[error("required Agent fanout evidence is unresolved")]
+    #[error("required Agent fanout state is unresolved")]
     EvidenceUnresolved,
-    #[error("Agent participation evidence is malformed")]
-    InvalidParticipationEvidence,
-    #[error("Agent participation evidence does not bind the exact target")]
-    ScopeEvidenceMismatch,
-    #[error("Agent participation receipt does not bind the accepted batch")]
-    ReceiptMismatch,
-    #[error("the current deployment ceiling is invalid, stale, or for another service")]
-    DeploymentCeilingInvalid,
-    #[error("the controller selection exceeds an effective participation ceiling")]
-    SelectionExceedsCeiling,
+    #[error("the current participation entry does not bind the exact target scope")]
+    ScopeMismatch,
     #[error("the requested Agent action is disabled by effective participation")]
     ActionDisabled,
     #[error("the Agent authorization is not currently admitted")]
@@ -142,15 +131,13 @@ pub enum AgentFanoutDenied {
 /// the trust boundary before this structural/current-state gate is invoked.
 pub struct AgentFanoutGate<'a> {
     pub action: AgentFanoutAction,
-    pub batch: Option<&'a ParticipationReplacementBatch>,
-    pub receipt: Option<&'a ParticipationReplaceReceipt>,
-    pub immutable_provision_ceiling: Option<ParticipationBits>,
-    pub deployment_ceiling: Option<&'a DeploymentCeilingSignedHead>,
-    pub realm_ceiling: Option<ParticipationBits>,
-    /// Required for Circle and Strand targets; absent for a Realm target.
-    pub scoped_ceiling: Option<ParticipationBits>,
+    pub agent_id: &'a Did,
+    pub target_scope: &'a ParticipationScope,
+    pub participation: Option<&'a AgentParticipationEntry>,
+    /// Effective current target policy after the deployment/Realm/scope policy
+    /// chain has been resolved by the authority.
+    pub current_target_policy: Option<ParticipationBits>,
     pub current_signer_evidence: Option<&'a AgentSignerEvidence>,
-    pub target_service_id: &'a Did,
     /// Exact operation whose request is being admitted for fanout.
     pub operation_id: &'a ProtocolOperationId,
     /// Digest of the exact request currently being admitted.
@@ -171,51 +158,23 @@ impl AgentFanoutGate<'_> {
         &self,
         readiness: Option<SidecarAccessReadiness>,
     ) -> Result<(), AgentFanoutDenied> {
-        let batch = self.batch.ok_or(AgentFanoutDenied::EvidenceUnresolved)?;
-        let receipt = self.receipt.ok_or(AgentFanoutDenied::EvidenceUnresolved)?;
-        let immutable_ceiling = self
-            .immutable_provision_ceiling
+        let participation = self
+            .participation
             .ok_or(AgentFanoutDenied::EvidenceUnresolved)?;
-        let deployment = self
-            .deployment_ceiling
-            .ok_or(AgentFanoutDenied::EvidenceUnresolved)?;
-        let realm_ceiling = self
-            .realm_ceiling
+        let current_target_policy = self
+            .current_target_policy
             .ok_or(AgentFanoutDenied::EvidenceUnresolved)?;
         let signer_evidence = self
             .current_signer_evidence
             .ok_or(AgentFanoutDenied::EvidenceUnresolved)?;
 
-        batch
-            .validate()
-            .map_err(|_| AgentFanoutDenied::InvalidParticipationEvidence)?;
-        receipt
-            .validate()
-            .map_err(|_| AgentFanoutDenied::ReceiptMismatch)?;
-        deployment
-            .validate()
-            .map_err(|_| AgentFanoutDenied::DeploymentCeilingInvalid)?;
-
-        self.validate_scope_evidence(batch)?;
-        self.validate_receipt(batch, receipt, deployment)?;
-        self.validate_current_admission(batch, signer_evidence)?;
-
-        let selection = batch.selection;
-        if !selection.is_subset_of(immutable_ceiling)
-            || !selection.is_subset_of(deployment.core.ceiling)
-            || !selection.is_subset_of(realm_ceiling)
-        {
-            return Err(AgentFanoutDenied::SelectionExceedsCeiling);
+        if participation.version == 0 || &participation.scope != self.target_scope {
+            return Err(AgentFanoutDenied::ScopeMismatch);
         }
-        if !matches!(batch.target_scope, ParticipationScope::Realm { .. }) {
-            let scoped_ceiling = self
-                .scoped_ceiling
-                .ok_or(AgentFanoutDenied::EvidenceUnresolved)?;
-            if !selection.is_subset_of(scoped_ceiling) {
-                return Err(AgentFanoutDenied::SelectionExceedsCeiling);
-            }
-        }
-        if !action_enabled(selection, self.action) {
+        self.validate_current_admission(self.agent_id, signer_evidence)?;
+
+        let effective = participation.selection.intersect(current_target_policy);
+        if !action_enabled(effective, self.action) {
             return Err(AgentFanoutDenied::ActionDisabled);
         }
         if readiness != Some(SidecarAccessReadiness::Ready) {
@@ -224,98 +183,9 @@ impl AgentFanoutGate<'_> {
         Ok(())
     }
 
-    fn validate_scope_evidence(
-        &self,
-        batch: &ParticipationReplacementBatch,
-    ) -> Result<(), AgentFanoutDenied> {
-        let (
-            agent_id,
-            target_scope,
-            target_service_id,
-            verifier_id,
-            audience,
-            issued_at,
-            expires_at,
-        ) = match &batch.scope_evidence {
-            ParticipationScopeEvidence::InlineEncrypted { challenge, .. } => (
-                &challenge.agent_id,
-                &challenge.target_scope,
-                &challenge.target_service_id,
-                &challenge.verifier_id,
-                &challenge.audience,
-                challenge.issued_at,
-                challenge.expires_at,
-            ),
-            ParticipationScopeEvidence::AcceptedTargetReceipt {
-                agent_id,
-                target_scope,
-                target_service_id,
-                verifier_id,
-                audience,
-                issued_at,
-                expires_at,
-                ..
-            } => (
-                agent_id,
-                target_scope,
-                target_service_id,
-                verifier_id,
-                audience,
-                *issued_at,
-                *expires_at,
-            ),
-        };
-        if agent_id != &batch.agent_id
-            || target_scope != &batch.target_scope
-            || target_service_id != self.target_service_id
-            || verifier_id != self.verifier_id
-            || audience.as_str() != self.audience.as_str()
-            || issued_at > self.now
-            || expires_at <= self.now
-        {
-            return Err(AgentFanoutDenied::ScopeEvidenceMismatch);
-        }
-        Ok(())
-    }
-
-    fn validate_receipt(
-        &self,
-        batch: &ParticipationReplacementBatch,
-        receipt: &ParticipationReplaceReceipt,
-        deployment: &DeploymentCeilingSignedHead,
-    ) -> Result<(), AgentFanoutDenied> {
-        let batch_digest =
-            canonical_digest(batch).map_err(|_| AgentFanoutDenied::InvalidParticipationEvidence)?;
-        let evidence_digest = canonical_digest(&batch.scope_evidence)
-            .map_err(|_| AgentFanoutDenied::InvalidParticipationEvidence)?;
-        let accepted_version = batch
-            .expected_version
-            .checked_add(1)
-            .ok_or(AgentFanoutDenied::ReceiptMismatch)?;
-        if receipt.batch_digest != batch_digest
-            || receipt.scope_evidence_digest != evidence_digest
-            || receipt.target_service_id != *self.target_service_id
-            || receipt.accepted_version != accepted_version
-            || receipt.accepted_at > self.now
-            || receipt.deployment_ceiling_digest != deployment.head_digest
-            || receipt.deployment_ceiling_version != deployment.core.version
-        {
-            return Err(AgentFanoutDenied::ReceiptMismatch);
-        }
-        if deployment.core.target_service_id != *self.target_service_id
-            || deployment.core.issuer != *self.target_service_id
-            || deployment.core.issued_at > receipt.accepted_at
-            || deployment.core.expires_at <= self.now
-            || receipt.signature.verification_method != deployment.core.issuer_verification_method
-        {
-            return Err(AgentFanoutDenied::DeploymentCeilingInvalid);
-        }
-        Ok(())
-    }
-
     fn validate_current_admission(
         &self,
-        batch: &ParticipationReplacementBatch,
+        agent_id: &Did,
         signer_evidence: &AgentSignerEvidence,
     ) -> Result<(), AgentFanoutDenied> {
         let AgentSignerEvidence::CurrentAdmission {
@@ -360,17 +230,17 @@ impl AgentFanoutGate<'_> {
             || outer_attestation.domain.as_str() != "ak.agent-signer-evidence.v1"
             || outer_attestation.core_digest != outer_core_digest
             || outer_attestation.source_service_id != core.authority_service_id
-            || binding.agent_id != batch.agent_id
+            || binding.agent_id != *agent_id
             || binding.agent_key_authorize_event_id != authorization.authorized_event_id
             || authorization.status != AgentAuthorizationStatus::Active
             || authorization.transition_event_id.is_some()
             || authorization.transition_seal_id.is_some()
             || key_witness.component.as_str() != "ak.component.agent.key.v1"
-            || key_witness.agent_id != batch.agent_id
+            || key_witness.agent_id != *agent_id
             || key_witness.authorization_event_id != authorization.authorized_event_id
             || key_witness.seal_id != authorization.accepted_seal_id
             || lifecycle.component.as_str() != "ak.component.agent.status.v1"
-            || lifecycle.agent_id != batch.agent_id
+            || lifecycle.agent_id != *agent_id
             || lifecycle.controller_id != binding.controller_id
             || lifecycle.status != AgentLifecycleStatus::Active
             || lifecycle.cell_value != AgentLifecycleStatus::Active
@@ -650,7 +520,10 @@ mod fanout_tests {
 
     #[test]
     fn unresolved_policy_evidence_denies_even_a_ready_target() {
-        let target_service_id = serde_json::from_str("\"did:web:target.example\"").unwrap();
+        let agent_id = serde_json::from_str("\"did:web:agent.example\"").unwrap();
+        let realm_id =
+            serde_json::from_str("\"ak:realm:01970000-0000-7000-8000-000000000000\"").unwrap();
+        let target_scope = ParticipationScope::Realm { realm_id };
         let verifier_id = serde_json::from_str("\"did:web:verifier.example\"").unwrap();
         let audience = serde_json::from_str("\"did:web:push-audience.example\"").unwrap();
         let operation_id = serde_json::from_str("\"ak.edge.push.command.notify\"").unwrap();
@@ -661,14 +534,11 @@ mod fanout_tests {
         let challenge = serde_json::from_str("\"0123456789abcdef\"").unwrap();
         let gate = AgentFanoutGate {
             action: AgentFanoutAction::ThirdPartyMention,
-            batch: None,
-            receipt: None,
-            immutable_provision_ceiling: None,
-            deployment_ceiling: None,
-            realm_ceiling: None,
-            scoped_ceiling: None,
+            agent_id: &agent_id,
+            target_scope: &target_scope,
+            participation: None,
+            current_target_policy: None,
             current_signer_evidence: None,
-            target_service_id: &target_service_id,
             operation_id: &operation_id,
             request_digest: &request_digest,
             verifier_id: &verifier_id,
