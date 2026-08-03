@@ -526,7 +526,8 @@ mod fanout_tests {
         let target_scope = ParticipationScope::Realm { realm_id };
         let verifier_id = serde_json::from_str("\"did:web:verifier.example\"").unwrap();
         let audience = serde_json::from_str("\"did:web:push-audience.example\"").unwrap();
-        let operation_id = serde_json::from_str("\"ak.edge.push.command.notify\"").unwrap();
+        let operation_id =
+            serde_json::from_str("\"ak:operation:edge.push.command.notify\"").unwrap();
         let request_digest = serde_json::from_str(
             "\"sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef\"",
         )
