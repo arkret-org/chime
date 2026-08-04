@@ -1,9 +1,8 @@
-use arkret::protocol_journey::{
-    ParticipationBits, ParticipationScope, ProtocolOperationId, SidecarAccessReadiness,
-};
 use arkret::{
-    AgentAuthorizationStatus, AgentLifecycleStatus, AgentParticipationEntry, AgentSignerEvidence,
-    ControllerAccountEligibility, ControllerAccountStatus, Did, Hash, NonEmptyString,
+    AgentAuthorizationStatus, AgentLifecycleStatus, AgentParticipationEntry,
+    AgentSidecarAccessReadiness, AgentSignerEvidence, ControllerAccountEligibility,
+    ControllerAccountStatus, Did, Hash, NonEmptyString, ParticipationBits, ParticipationScope,
+    ProtocolOperationId,
 };
 use chrono::{DateTime, Utc};
 use serde_json::Value;
@@ -156,7 +155,7 @@ impl AgentFanoutGate<'_> {
     /// must not retroactively create or remove an already-derived notification.
     pub fn evaluate_target(
         &self,
-        readiness: Option<SidecarAccessReadiness>,
+        readiness: Option<AgentSidecarAccessReadiness>,
     ) -> Result<(), AgentFanoutDenied> {
         let participation = self
             .participation
@@ -177,7 +176,7 @@ impl AgentFanoutGate<'_> {
         if !action_enabled(effective, self.action) {
             return Err(AgentFanoutDenied::ActionDisabled);
         }
-        if readiness != Some(SidecarAccessReadiness::Ready) {
+        if readiness != Some(AgentSidecarAccessReadiness::Ready) {
             return Err(AgentFanoutDenied::TargetNotReady);
         }
         Ok(())
@@ -549,7 +548,7 @@ mod fanout_tests {
         };
 
         assert_eq!(
-            gate.evaluate_target(Some(SidecarAccessReadiness::Ready)),
+            gate.evaluate_target(Some(AgentSidecarAccessReadiness::Ready)),
             Err(AgentFanoutDenied::EvidenceUnresolved)
         );
     }

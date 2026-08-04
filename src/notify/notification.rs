@@ -2,9 +2,7 @@ use std::fmt;
 
 // Round 4 (B5, spec a77b995) — pull typed audit surfaces from the SDK so
 // chime stays byte-aligned with what soland/floria emit.
-use arkret::{
-    AccessKind, AuditPolicyAccessPayload, Did, EventId, protocol_journey::SidecarAccessReadiness,
-};
+use arkret::{AccessKind, AgentSidecarAccessReadiness, AuditPolicyAccessPayload, Did, EventId};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
@@ -547,7 +545,7 @@ impl PushNotification {
         mut readiness_for: F,
     ) -> Vec<&PushNotificationDevice>
     where
-        F: FnMut(&arkret::DeviceId) -> Option<SidecarAccessReadiness>,
+        F: FnMut(&arkret::DeviceId) -> Option<AgentSidecarAccessReadiness>,
     {
         self.devices
             .iter()
