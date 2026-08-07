@@ -330,7 +330,7 @@ mod tests {
     const ISSUER_KID: &str = "did:web:media.example:media#kid-1";
 
     fn realm() -> RealmId {
-        RealmId::new("ak:realm:01904100-0000-7000-8000-000000000001".to_owned()).unwrap()
+        RealmId::new("ak:realm:AfF-hFqRoMbajXkPapH-xaq0xwK-UKt2ph2zTs9JZRAO".to_owned()).unwrap()
     }
     fn call() -> CallId {
         CallId::new("ak:call:01904100-0000-7000-8000-000000000002".to_owned()).unwrap()
