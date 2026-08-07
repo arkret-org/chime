@@ -38,7 +38,7 @@ pub const UNREGISTER_DEVICE_PATH: &str = "/_arkret/edge/push/unregister-device";
 /// Arkret HTTP path for `ak.edge.push.command.notify`.
 pub const PUSH_NOTIFY_PATH: &str = "/_arkret/edge/push/notify";
 
-/// Arkret HTTP path for `ak.server.query.describe`.
+/// Arkret HTTP path for `ak.server.read.describe`.
 pub const SERVER_DESCRIBE_PATH: &str = "/_arkret/describe";
 
 /// Floria product path for discovering the active push gateway bridge contract.
