@@ -9,7 +9,6 @@ mod envelope;
 mod errors;
 mod local;
 mod notification;
-mod outcome;
 mod validation;
 
 #[cfg(test)]
@@ -35,7 +34,4 @@ pub use local::{
 pub use notification::{
     PushHint, PushNotification, PushNotificationDedup, PushNotificationDevice, PushTargetId,
     WakeupKind,
-};
-pub use outcome::{
-    EncryptedEnvelope, EncryptedEnvelopeError, SUPPORTED_ENCRYPTED_ENVELOPE_ALGORITHMS,
 };

@@ -444,42 +444,6 @@ fn push_target_id_accepts_typed_and_raw_tokens() {
 }
 
 #[test]
-fn encrypted_envelope_validates_base64_payloads() {
-    let envelope = EncryptedEnvelope::new(
-        "did:web:alice.example",
-        SUPPORTED_ENCRYPTED_ENVELOPE_ALGORITHMS[0],
-        "Y2lwaGVydGV4dA==",
-    )
-    .unwrap()
-    .with_nonce("bm9uY2VfYWJj")
-    .unwrap()
-    .with_key_id("kid-1")
-    .with_aad("ak.edge.push.command.notify");
-
-    envelope.validate().unwrap();
-    assert!(
-        EncryptedEnvelope::new(
-            "alice",
-            SUPPORTED_ENCRYPTED_ENVELOPE_ALGORITHMS[0],
-            "Y2lwaGVydGV4dA=="
-        )
-        .is_err()
-    );
-    assert!(
-        EncryptedEnvelope::new(
-            "did:web:alice",
-            SUPPORTED_ENCRYPTED_ENVELOPE_ALGORITHMS[0],
-            "not base64!"
-        )
-        .is_err()
-    );
-    assert!(matches!(
-        EncryptedEnvelope::new("did:web:alice", "x25519", "Y2lwaGVydGV4dA==").unwrap_err(),
-        EncryptedEnvelopeError::UnsupportedAlgorithm { .. }
-    ));
-}
-
-#[test]
 fn debug_redacts_push_tokens() {
     let debug = format!("{:?}", device());
     assert!(debug.contains("fcm:<redacted"));

@@ -1,12 +1,9 @@
 use arkret::blind_payload_sanitizer::{
     self as sdk_sanitizer, ALLOWED_PUSH_HINTS, is_forbidden_payload_key, is_valid_push_target_id,
 };
-use base64::Engine as _;
-use base64::engine::general_purpose;
 use serde_json::{Map, Value};
 
 use super::errors::PushNotifyPrivacyError;
-use super::outcome::EncryptedEnvelopeError;
 
 /// T1.1 — feed the `extra` map of a [`super::PushNotification`] through the
 /// SDK sanitizer so the rule "no forbidden field anywhere, no `did:` / `ak:`
@@ -355,23 +352,4 @@ pub(super) fn is_never_allowed_payload_key(key: &str) -> bool {
             | "circle_member_dids"
             | "circle_member_actor_ids"
     )
-}
-
-pub(super) fn validate_base64_field(
-    field: &'static str,
-    value: &str,
-) -> Result<(), EncryptedEnvelopeError> {
-    let value = value.trim();
-    if value.is_empty() {
-        return Err(EncryptedEnvelopeError::MissingField { field });
-    }
-
-    if general_purpose::STANDARD.decode(value).is_ok()
-        || general_purpose::URL_SAFE.decode(value).is_ok()
-        || general_purpose::URL_SAFE_NO_PAD.decode(value).is_ok()
-    {
-        Ok(())
-    } else {
-        Err(EncryptedEnvelopeError::InvalidBase64 { field })
-    }
 }
