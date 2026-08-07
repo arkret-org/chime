@@ -488,7 +488,8 @@ mod fanout_tests {
     fn unresolved_policy_evidence_denies_even_a_ready_target() {
         let agent_id = serde_json::from_str("\"did:web:agent.example\"").unwrap();
         let realm_id =
-            serde_json::from_str("\"ak:realm:AR5_BcY29XYrMbX0Y8Qiz4KDnt-NvwrXmij2C3-4UD2c\"").unwrap();
+            serde_json::from_str("\"ak:realm:AR5_BcY29XYrMbX0Y8Qiz4KDnt-NvwrXmij2C3-4UD2c\"")
+                .unwrap();
         let target_scope = ParticipationScope::Realm { realm_id };
         let verifier_id = serde_json::from_str("\"did:web:verifier.example\"").unwrap();
         let audience = serde_json::from_str("\"did:web:push-audience.example\"").unwrap();
