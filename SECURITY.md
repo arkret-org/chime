@@ -40,8 +40,7 @@ When you report, please include:
 
 - `push_key` (FCM/APNs/WebPush tokens) MUST NOT appear in logs, debug
   output, or error messages.
-- DIDs (`did:*`) MUST NOT appear inside `notification.extra`,
-  `push_hint`, or any token-shaped wire field.
+- DIDs (`did:*`) MUST NOT appear in `push_hint` or any token-shaped wire field.
 - `ak.edge.push.command.notify` payloads default to E2EE blind wakeup; only services
   on the explicit `plaintext_visible_services` allowlist may receive
   identifying metadata.
@@ -52,7 +51,7 @@ The Circle primitive introduces an encrypted sub-boundary inside a
 Realm. chime's wakeup wire MUST preserve the following invariants on
 top of the generic blind-wakeup rules above:
 
-- `PushNotification` MUST NOT carry a Circle identifier, a Realm
+- `PushNotificationEnvelope` MUST NOT carry a Circle identifier, a Realm
   identifier, or a scope field. Per `push-notifications.md` §5.1, raw
   Realm ids, Circle ids and `effective_scope` MUST NOT enter the
   `/_arkret/edge/push/notify` wire under the default

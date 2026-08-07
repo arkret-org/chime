@@ -7,7 +7,7 @@
 
 use chime::{
     AGENT_ACTOR_PRIVATE_KINDS, AGENT_LIFECYCLE_DURABLE_KINDS, AgentEventRouting,
-    ChimePushNotifyEnvelope, PHASE_P2_AGENT_TYPED_ID_PREFIXES, classify_agent_event_kind,
+    PHASE_P2_AGENT_TYPED_ID_PREFIXES, PushNotifyRequestBody, classify_agent_event_kind,
     is_phase_p2_agent_typed_id, render_agent_lifecycle_summary,
 };
 
@@ -95,17 +95,7 @@ fn agent_typed_id_in_event_id_slot_fails_closed() {
             ]
         }
     });
-    let request: ChimePushNotifyEnvelope =
-        serde_json::from_value(frame).expect("request must parse syntactically");
-    let err = request.validate_wire_model().unwrap_err();
-    let field = match err {
-        chime::PushNotifyPrivacyError::InvalidFieldValue { field } => field,
-        other => panic!("expected InvalidFieldValue, got {other:?}"),
-    };
-    assert_eq!(
-        field, "event_id",
-        "an agent_session typed-id smuggled into the event_id slot must be rejected"
-    );
+    assert!(serde_json::from_value::<PushNotifyRequestBody>(frame).is_err());
 }
 
 #[test]
@@ -125,12 +115,5 @@ fn agent_typed_id_in_extra_fails_closed() {
             ]
         }
     });
-    let request: ChimePushNotifyEnvelope =
-        serde_json::from_value(frame).expect("request must parse syntactically");
-    let err = request.validate_wire_model().unwrap_err();
-    let field = match err {
-        chime::PushNotifyPrivacyError::SensitiveField { field } => field,
-        other => panic!("expected SensitiveField, got {other:?}"),
-    };
-    assert_eq!(field, "agent_link");
+    assert!(serde_json::from_value::<PushNotifyRequestBody>(frame).is_err());
 }

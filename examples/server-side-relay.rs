@@ -8,7 +8,7 @@
 //!
 //! Responsibilities demonstrated here:
 //!
-//! 1. Decode the inbound frame into `ChimePushNotifyEnvelope`.
+//! 1. Decode the inbound frame into `PushNotifyRequestBody`.
 //! 2. Run `assert_payload_safe` in `blind_wakeup_only` mode — relays NEVER assume plaintext
 //!    visibility.
 //! 3. Track replay nonces with `NonceTracker` so a duplicated frame cannot be re-fanned out. The
@@ -24,12 +24,14 @@
 mod inner {
     use std::time::Duration;
 
-    use chime::{ChimePushNotifyEnvelope, NonceTracker, PushNotifyPolicyContext};
+    use chime::{
+        NonceTracker, PushNotifyEnvelopeExt, PushNotifyPolicyContext, PushNotifyRequestBody,
+    };
 
     /// Stand-in for the host application's internal queue (Kafka,
     /// NATS, …). Real implementations push the validated frame as the
     /// payload of the per-device topic.
-    fn enqueue_for_fanout(frame: &ChimePushNotifyEnvelope) {
+    fn enqueue_for_fanout(frame: &PushNotifyRequestBody) {
         let target = frame
             .notification
             .push_target_id
@@ -87,7 +89,7 @@ mod inner {
         ];
 
         for (origin_did, nonce, raw) in raw_frames {
-            let frame: ChimePushNotifyEnvelope = serde_json::from_str(raw)?;
+            let frame: PushNotifyRequestBody = serde_json::from_str(raw)?;
             frame.assert_payload_safe(&policy, None)?;
 
             match nonces.observe(origin_did, nonce) {

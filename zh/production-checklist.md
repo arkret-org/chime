@@ -10,12 +10,12 @@
 
 ## push payload 安全
 
-- 任意 `PushNotifyRequestBody` / `PushNotification` 反序列化后，必须立即调用
+- 任意 `PushNotifyRequestBody` / `PushNotificationEnvelope` 反序列化后，必须立即调用
   `assert_payload_safe`、`validate_blind_wakeup` 或 `validate_wire_model`。
 - 默认使用 `PushNotifyPolicyContext::blind_wakeup_only()`。
 - 不要把 title、body、sender display name、space/realm display name 或
   Circle 成员列表放进 blind wakeup。
-- `PushNotification.extra` 是未信任扩展字段；validator 通过前不要读取。
+- SDK wire 类型是封闭结构，未知字段必须在反序列化阶段拒绝；validator 通过前仍不要读取或展示字段。
 
 ## media token
 

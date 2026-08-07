@@ -378,39 +378,6 @@ pub fn is_forbidden_field_alias(key: &str) -> bool {
     PHASE_P2_FORBIDDEN_FIELD_ALIASES.contains(&key)
 }
 
-/// Recursively walk a JSON value and return `Err(field_path)` if any
-/// nested key matches a forbidden B-B field-naming alias. Used by chime's
-/// wire validators (`ChimePushNotifyEnvelope::validate_wire_model`) so no
-/// caller can smuggle a renamed-from name past us.
-pub(super) fn assert_no_forbidden_aliases(payload: &Value) -> Result<(), String> {
-    fn walk(path: &str, value: &Value) -> Result<(), String> {
-        match value {
-            Value::Object(map) => {
-                for (key, nested) in map {
-                    let nested_path = if path.is_empty() {
-                        key.clone()
-                    } else {
-                        format!("{path}.{key}")
-                    };
-                    if is_forbidden_field_alias(key) {
-                        return Err(nested_path);
-                    }
-                    walk(&nested_path, nested)?;
-                }
-                Ok(())
-            }
-            Value::Array(values) => {
-                for (index, nested) in values.iter().enumerate() {
-                    walk(&format!("{path}[{index}]"), nested)?;
-                }
-                Ok(())
-            }
-            _ => Ok(()),
-        }
-    }
-    walk("", payload)
-}
-
 /// Defense-in-depth: panic in debug if any of the round 2+3 sensitive
 /// fields leak into a blind push payload.
 ///

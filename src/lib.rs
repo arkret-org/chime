@@ -48,11 +48,9 @@ mod push;
 mod rules;
 mod state;
 
-// Round 4 (B5, spec a77b995) — re-export the SDK round-4 audit surfaces
-// chime consumers (inkson, host apps) need for the late-key-recovery banner
-// without having to depend on `arkret` directly.
+// Re-export the SDK-owned push outcome alongside the notify adapter surface.
 #[cfg(feature = "notify")]
-pub use arkret::{AccessKind, AuditPolicyAccessPayload, PushNotifyOutcome, PushNotifyRequestBody};
+pub use arkret::PushNotifyOutcome;
 pub use arkret_models_integration::{
     DndPeriod, DndSchedule, DndSettings, PushCondition, PushRule, PushRulesConfig,
 };
@@ -67,15 +65,16 @@ pub use lifecycle::{
 #[cfg(feature = "notify")]
 pub use notify::{
     AGENT_ACTOR_PRIVATE_KINDS, AGENT_LIFECYCLE_DURABLE_KINDS, AgentEventRouting, AgentFanoutAction,
-    AgentFanoutDenied, AgentFanoutGate, AgentLifecycleSummary, ChimePushNotifyEnvelope,
-    ExpiryInvalidationBehavior, LocalNotificationAction, LocalNotificationDecision,
-    LocalNotificationPolicy, LocalNotificationState, PHASE_P2_AGENT_TYPED_ID_PREFIXES,
-    PHASE_P2_FORBIDDEN_FIELD_ALIASES, PushHint, PushNotification, PushNotificationDedup,
-    PushNotificationDevice, PushNotifyPolicyContext, PushNotifyPrivacyError, PushNotifyPrivacyMode,
-    PushNotifyPrivacyVector, PushTargetId, ROUND_R2_R3_SENSITIVE_FIELDS, WakeupKind,
+    AgentFanoutDenied, AgentFanoutGate, AgentLifecycleSummary, ExpiryInvalidationBehavior,
+    LocalNotificationAction, LocalNotificationDecision, LocalNotificationPolicy,
+    LocalNotificationState, PHASE_P2_AGENT_TYPED_ID_PREFIXES, PHASE_P2_FORBIDDEN_FIELD_ALIASES,
+    PushDeviceRoute, PushNotificationDedup, PushNotificationEnvelope, PushNotificationExt,
+    PushNotifyEnvelopeExt, PushNotifyPolicyContext, PushNotifyPrivacyError, PushNotifyPrivacyMode,
+    PushNotifyPrivacyVector, PushNotifyRequestBody, PushRouteTokens, ROUND_R2_R3_SENSITIVE_FIELDS,
     assert_no_sensitive_fields, classify_agent_event_kind, evaluate_local_notification,
-    is_forbidden_field_alias, is_phase_p2_agent_typed_id, local_reason_code,
-    render_agent_lifecycle_summary, shared_push_notify_privacy_vectors,
+    is_forbidden_field_alias, is_phase_p2_agent_typed_id, late_recovery_event_id,
+    local_reason_code, new_blind_wakeup, render_agent_lifecycle_summary,
+    shared_push_notify_privacy_vectors,
 };
 pub use push::{
     ARKRET_ACTOR_ID_HEADER, ARKRET_AUDIENCE_HEADER, ARKRET_CREATED_AT_HEADER,

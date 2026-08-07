@@ -1,4 +1,4 @@
-use super::notification::{PushNotification, WakeupKind};
+use super::notification::PushNotificationEnvelope;
 use crate::push::{
     PushRuleEventContext, ShouldNotify, WatchLevel, evaluate_watch_level, push_rule_reason_code,
 };
@@ -69,14 +69,11 @@ pub struct LocalNotificationDecision {
 }
 
 pub fn evaluate_local_notification(
-    notification: &PushNotification,
+    notification: &PushNotificationEnvelope,
     existing: LocalNotificationState,
     policy: &LocalNotificationPolicy,
 ) -> LocalNotificationDecision {
-    if matches!(
-        notification.wakeup_kind.as_ref(),
-        Some(WakeupKind::ExpiryInvalidation)
-    ) {
+    if notification.wakeup_kind.as_deref() == Some("expiry_invalidation") {
         return evaluate_expiry_invalidation(existing, policy.expiry_invalidation_behavior);
     }
 

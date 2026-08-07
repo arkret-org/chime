@@ -164,17 +164,13 @@ proptest! {
 /// A separate proptest! block can use feature-gated APIs.
 #[cfg(feature = "notify")]
 mod notify_props {
-    use chime::{
-        ChimePushNotifyEnvelope, PushNotification, PushNotificationDevice, PushNotifyPolicyContext,
-        PushTargetId, WakeupKind,
-    };
+    use chime::{PushNotifyEnvelopeExt, PushNotifyPolicyContext, PushNotifyRequestBody};
 
     use super::*;
 
     proptest! {
-        /// A blind-wakeup payload that includes a sensitive key
-        /// anywhere in `extra` MUST be rejected. We try a fixed set of
-        /// known-sensitive keys against a randomly-shaped value.
+        /// The SDK-owned notification is closed, so legacy extension fields
+        /// are rejected before Chime's privacy adapter runs.
         #[test]
         fn blind_wakeup_rejects_known_sensitive_keys(
             sensitive_key in prop_oneof![
@@ -203,43 +199,42 @@ mod notify_props {
                 _ => Value::Object(serde_json::Map::new()),
             };
 
-            let device: PushNotificationDevice = serde_json::from_value(serde_json::json!({
-                "device_id": "ak:device:01904100-0000-7000-8000-000000000010",
-                "push_key": "fcm:token-aaaaaaaaaa",
-                "app_id": "app.example",
-            }))
-            .unwrap();
-            let mut notification = PushNotification::new_blind_wakeup(
-                PushTargetId::new("ak:pseudonym:push:01HYZ8Z000000000000000").unwrap(),
-                WakeupKind::Message,
-            );
-            notification.devices = vec![device];
-            notification.extra.insert(sensitive_key.to_owned(), value);
-
-            let request = ChimePushNotifyEnvelope {
-                notification,
-                ..Default::default()
-            };
-
-            prop_assert!(request.assert_payload_safe(
-                &PushNotifyPolicyContext::blind_wakeup_only(),
-                None,
-            ).is_err());
+            let mut raw = serde_json::json!({
+                "notification": {
+                    "push_target_id": "ak:pseudonym:push:01HYZ8Z000000000000000",
+                    "wakeup_kind": "message",
+                    "timing_profile_hint": "default",
+                    "devices": [{
+                        "device_id": "ak:device:01904100-0000-7000-8000-000000000010"
+                    }]
+                }
+            });
+            raw["notification"].as_object_mut().unwrap().insert(sensitive_key.to_owned(), value);
+            prop_assert!(serde_json::from_value::<PushNotifyRequestBody>(raw).is_err());
         }
 
-        /// Round-trip property: any `PushTargetId` constructed via
-        /// `PushTargetId::new` survives a JSON encode + decode without
-        /// changing its byte form.
+        /// Valid SDK-owned typed push pseudonyms survive request round trips.
         #[test]
         fn target_id_serde_round_trip(
             // 22..=64 char base64url tokens are accepted.
             token in "[A-Za-z0-9_\\-]{22,64}",
         ) {
             let typed = format!("ak:pseudonym:push:{token}");
-            let id = PushTargetId::new(&typed).unwrap();
-            let json = serde_json::to_string(&id).unwrap();
-            let back: PushTargetId = serde_json::from_str(&json).unwrap();
-            prop_assert_eq!(back.as_str(), typed.as_str());
+            let raw = serde_json::json!({
+                "notification": {
+                    "push_target_id": typed,
+                    "wakeup_kind": "message",
+                    "timing_profile_hint": "default",
+                    "devices": [{
+                        "device_id": "ak:device:01904100-0000-7000-8000-000000000010"
+                    }]
+                }
+            });
+            let request: PushNotifyRequestBody = serde_json::from_value(raw).unwrap();
+            prop_assert!(request.assert_payload_safe(
+                &PushNotifyPolicyContext::blind_wakeup_only(), None
+            ).is_ok());
+            prop_assert_eq!(request.notification.push_target_id.as_deref(), Some(typed.as_str()));
         }
     }
 }

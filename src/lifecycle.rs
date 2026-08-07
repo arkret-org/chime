@@ -182,7 +182,7 @@ pub enum DeviceSessionInvalidationReason {
 #[non_exhaustive]
 pub enum DeactivationSource {
     /// A floria push wakeup carried a deactivation hint (chime received
-    /// it via [`crate::ChimePushNotifyEnvelope`] or an equivalent decoded
+    /// it via [`crate::PushNotifyRequestBody`] or an equivalent decoded
     /// shape on the device).
     FloriaPush,
     /// The device's sync stream surfaced an in-band

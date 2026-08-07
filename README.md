@@ -81,12 +81,12 @@ hosts that need the standalone resolver trait can use
 | --- | --- |
 | _(default)_ | Core types, JSON serialization helpers, and Arkret register/unregister request builders. No network dependencies. |
 | `http` | Adds `ArkretPushClient`, a small `reqwest` helper for `POST /_arkret/edge/push/register-device` and `POST /_arkret/edge/push/unregister-device`. |
-| `notify` | Adds server/gateway-side `ak.edge.push.command.notify` wire types and blind-wakeup privacy validation. |
+| `notify` | Re-exports the SDK-owned `ak.edge.push.command.notify` wire types and adds blind-wakeup privacy validation. |
 
 > **Production deployments MUST enable the `notify` feature.** Without it,
 > the blind-wakeup / plaintext-visible privacy validators
-> (`ChimePushNotifyEnvelope::assert_payload_safe`,
-> `PushNotification::validate_blind_wakeup`) and the Circle / governance
+> (`PushNotifyEnvelopeExt::assert_payload_safe`,
+> `PushNotificationExt::validate_blind_wakeup`) and the Circle / governance
 > metadata leak checks (`assert_no_sensitive_fields`,
 > `ROUND_R2_R3_SENSITIVE_FIELDS`) are not compiled in — a wakeup that
 > would otherwise be rejected by the validator will pass straight through
@@ -94,11 +94,11 @@ hosts that need the standalone resolver trait can use
 > integration that touches real floria / inkson / soland traffic must
 > compile with `--features http,notify`.
 >
-> Deserializing `ChimePushNotifyEnvelope` or `PushNotification` is not enough:
-> `PushNotification.extra` uses `#[serde(flatten)]`, so unknown fields
-> are captured and must be rejected by `assert_payload_safe`,
-> `validate_blind_wakeup`, or `validate_wire_model` before the host reads
-> fields or shows UI.
+> The SDK-owned `PushNotifyRequestBody` and `PushNotificationEnvelope` are
+> closed wire shapes, so unknown fields fail during deserialization. Hosts
+> must still call `assert_payload_safe`, `validate_blind_wakeup`, or
+> `validate_wire_model` before reading fields or showing UI because semantic
+> privacy constraints are stricter than serde shape validation.
 
 ## AKP-0007 Circle subscriptions
 
@@ -108,7 +108,7 @@ of an Event lives in its producer-signed `scope_ref`; object read
 projections may materialize an equal `effective_scope`. Neither name
 reaches the push wire:
 
-- **Receiving a Circle-scoped wakeup.** `PushNotification` carries no
+- **Receiving a Circle-scoped wakeup.** `PushNotificationEnvelope` carries no
   Circle identifier and no scope field. Raw Realm ids, Circle ids and
   `effective_scope` MUST NOT enter `/_arkret/edge/push/notify`
   (`push-notifications.md` §5.1); the wakeup only carries opaque
@@ -117,8 +117,8 @@ reaches the push wire:
   fetches after the wakeup, never from the wakeup itself. The Circle
   metadata privacy validator in `validate_blind_wakeup` rejects
   `circle_name` / `circle_display_name` and the `circle_members` /
-  `circle_member_dids` / `circle_member_actor_ids` membership surfaces
-  if a gateway tries to smuggle them through the `extra` map.
+  `circle_member_dids` / `circle_member_actor_ids` membership surfaces;
+  the closed SDK wire type rejects those fields during deserialization.
 - **Muting a Circle on this device.** `PushPreferences` carries
   `muted_circle_ids: BTreeSet<String>` and `muted_realm_ids:
   BTreeSet<String>`. These are matched host-side against the scope the
@@ -227,61 +227,41 @@ receiver. The validator accepts only opaque routing metadata by default.
 ```rust
 # #[cfg(feature = "notify")]
 use chime::{
-    ChimePushNotifyEnvelope, PushNotification, PushNotificationDevice, PushNotifyPolicyContext,
-    PushTargetId, WakeupKind,
+    PushNotifyEnvelopeExt, PushNotifyPolicyContext, PushNotifyRequestBody,
 };
 
 # #[cfg(feature = "notify")]
 # fn main() -> Result<(), Box<dyn std::error::Error>> {
-// `PushNotification` is `#[non_exhaustive]` so additive Circle / R2-R3
-// fields cannot break downstream constructors. Build through
-// `new_blind_wakeup` plus field-update from the returned value.
-let mut notification = PushNotification::new_blind_wakeup(
-    PushTargetId::new("ak:pseudonym:push:01HYZ8Z000000000000000")?,
-    WakeupKind::Message,
-);
-notification.devices = vec![PushNotificationDevice {
-    device_id: "ak:device:01904100-0000-7000-8000-000000000010".to_owned(),
-    push_key: Some("fcm:opaque-token".to_owned()),
-    app_id: Some("app.example".to_owned()),
-    target_route_token: None,
-    platform: None,
-}];
-let request = ChimePushNotifyEnvelope {
-    notification,
-    ..Default::default()
-};
+let request: PushNotifyRequestBody = serde_json::from_value(serde_json::json!({
+    "notification": {
+        "push_target_id": "ak:pseudonym:push:01HYZ8Z000000000000000",
+        "wakeup_kind": "message",
+        "timing_profile_hint": "default",
+        "devices": [{
+            "device_id": "ak:device:01904100-0000-7000-8000-000000000010",
+            "push_key": "fcm:opaque-token",
+            "app_id": "app.example"
+        }]
+    }
+}))?;
 
 request.assert_payload_safe(&PushNotifyPolicyContext::blind_wakeup_only(), None)?;
 
-// P2D.5 — error-path doc-test: a plaintext label in `extra` is
-// rejected by the blind-wakeup validator even when the wire shape
-// otherwise looks innocent. This is the exact path that protects
-// against an integrator accidentally bypassing the SDK sanitizer.
-let mut leaky = PushNotification::new_blind_wakeup(
-    PushTargetId::new("ak:pseudonym:push:01HYZ8Z000000000000001")?,
-    WakeupKind::Message,
-);
-leaky.devices = vec![PushNotificationDevice {
-    device_id: "ak:device:01904100-0000-7000-8000-000000000011".to_owned(),
-    push_key: Some("fcm:opaque-token".to_owned()),
-    app_id: Some("app.example".to_owned()),
-    target_route_token: None,
-    platform: None,
-}];
-leaky.extra.insert(
-    "title".to_owned(),
-    serde_json::Value::String("Secret".to_owned()),
-);
-let leaky_request = ChimePushNotifyEnvelope {
-    notification: leaky,
-    ..Default::default()
-};
-let err = leaky_request
-    .assert_payload_safe(&PushNotifyPolicyContext::blind_wakeup_only(), None)
-    .expect_err("plaintext metadata must be rejected");
+// The SDK model is closed: a plaintext label cannot hide in an `extra` map.
+let err = serde_json::from_value::<PushNotifyRequestBody>(serde_json::json!({
+    "notification": {
+        "push_target_id": "ak:pseudonym:push:01HYZ8Z000000000000001",
+        "wakeup_kind": "message",
+        "timing_profile_hint": "default",
+        "title": "Secret",
+        "devices": [{
+            "device_id": "ak:device:01904100-0000-7000-8000-000000000011"
+        }]
+    }
+}))
+    .expect_err("unknown plaintext metadata must be rejected");
 let msg = err.to_string();
-assert!(msg.contains("title"), "error should name the leaking field: {msg}");
+assert!(msg.contains("unknown field `title`"));
 # Ok(())
 # }
 # #[cfg(not(feature = "notify"))]
@@ -514,7 +494,7 @@ into a Arkret Principal Server / Sync Service deployment.
   tracing fields, and you should mirror that in your own code.
 - **Privacy gate.** When you build the `notify` feature into a
   gateway, validate every outbound payload through
-  `ChimePushNotifyEnvelope::assert_payload_safe(&policy, None)`. Empty
+  `PushNotifyEnvelopeExt::assert_payload_safe(&policy, None)`. Empty
   `PushNotifyPolicyContext` means every notification is treated as
   blind wakeup, which is the safest default.
 
@@ -553,7 +533,7 @@ Register/unregister builders carry the canonical operation id, optional `princip
 
 Push notifications are derived wakeups, not canonical truth. For E2EE Realms, push gateways should receive only minimized metadata such as `push_target_id`, `wakeup_kind`, counts, priority/TTL/collapse hints, and optional body-free `push_hint`.
 
-With the `notify` feature, `ChimePushNotifyEnvelope::validate_wire_model()` and `ChimePushNotifyEnvelope::validate_blind_wakeup()` enforce that boundary. Entity facets and view-renderer output are routing or context hints only when the application has explicitly authorized that use; do not serialize facet-derived title, body, display name, or space name into provider payloads. The validator rejects removed aliases such as `schema_id` and `kind`, provider payload wrappers, title/body/preview fields, and facet/view-renderer extension keys before gateway delivery.
+With the `notify` feature, the `PushNotifyEnvelopeExt` methods on the SDK-owned `PushNotifyRequestBody` enforce that boundary. Entity facets and view-renderer output are routing or context hints only when the application has explicitly authorized that use; do not serialize facet-derived title, body, display name, or space name into provider payloads. The closed SDK model rejects unknown aliases and provider wrappers during deserialization; the Chime validator then rejects typed identifying metadata that is not allowed in blind-wakeup mode.
 
 `shared_push_notify_privacy_vectors()` exposes the E2EE invalid cases and the explicit plaintext-visible service allow case so gateway implementations such as `floria` can run the same vectors.
 

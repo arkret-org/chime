@@ -24,8 +24,9 @@
 #[cfg(feature = "notify")]
 mod inner {
     use chime::{
-        ChimePushNotifyEnvelope, GatewayBinding, PushDeviceConfig, PushGatewayType,
-        PushNotifyPolicyContext, PushPreferences, build_register_device_request,
+        GatewayBinding, PushDeviceConfig, PushGatewayType, PushNotifyEnvelopeExt,
+        PushNotifyPolicyContext, PushNotifyRequestBody, PushPreferences,
+        build_register_device_request,
     };
 
     /// Registers the desktop shell's WebPush endpoint with a Arkret push
@@ -79,7 +80,7 @@ mod inner {
     pub fn process_inbound_notify(raw_payload: &str) -> Result<(), Box<dyn std::error::Error>> {
         // 1. Deserialise the wire payload into the typed request body. `deny_unknown_fields`
         //    rejects any forbidden top-level extras.
-        let request: ChimePushNotifyEnvelope = serde_json::from_str(raw_payload)?;
+        let request: PushNotifyRequestBody = serde_json::from_str(raw_payload)?;
 
         // 2. Validate against the blind-wakeup privacy policy. Desktop shells never appear on the
         //    plaintext-visible service DID allowlist, so `blind_wakeup_only` is the right context.

@@ -9,7 +9,6 @@ mod envelope;
 mod errors;
 mod local;
 mod notification;
-mod validation;
 
 #[cfg(test)]
 mod tests;
@@ -22,8 +21,8 @@ pub use agent_routing::{
     render_agent_lifecycle_summary,
 };
 pub use envelope::{
-    ChimePushNotifyEnvelope, PushNotifyPolicyContext, PushNotifyPrivacyMode,
-    PushNotifyPrivacyVector, shared_push_notify_privacy_vectors,
+    PushNotifyEnvelopeExt, PushNotifyPolicyContext, PushNotifyPrivacyMode, PushNotifyPrivacyVector,
+    PushNotifyRequestBody, shared_push_notify_privacy_vectors,
 };
 pub use errors::PushNotifyPrivacyError;
 pub use local::{
@@ -32,6 +31,6 @@ pub use local::{
     local_reason_code,
 };
 pub use notification::{
-    PushHint, PushNotification, PushNotificationDedup, PushNotificationDevice, PushTargetId,
-    WakeupKind,
+    PushDeviceRoute, PushNotificationDedup, PushNotificationEnvelope, PushNotificationExt,
+    PushRouteTokens, late_recovery_event_id, new_blind_wakeup,
 };
