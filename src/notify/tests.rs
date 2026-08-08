@@ -90,7 +90,7 @@ fn sdk_validator_rejects_invalid_target_and_wakeup_vocabulary() {
 fn blind_wakeup_rejects_visible_fields() {
     let mut request = request();
     request.notification.event_id =
-        Some(EventId::new("ak:event:01904100-0000-8000-8000-000000000010").unwrap());
+        Some(EventId::new("ak:event:AT3p9polsnQ_WOix32QZimMdE2zPe62HptJu2PaO3V1h").unwrap());
     assert!(matches!(
         request.validate_blind_wakeup(),
         Err(PushNotifyPrivacyError::SensitiveField { field }) if field == "event_id"
@@ -126,7 +126,7 @@ fn mention_redirect_gate_is_fail_closed() {
 #[test]
 fn late_recovery_reads_spec_audit_envelope() {
     let mut request = request();
-    let event_id = EventId::new("ak:event:01904100-0000-8000-8000-000000000011").unwrap();
+    let event_id = EventId::new("ak:event:AU2FuZ5Cmuwsb0J0xuJwH47SCEL34D7oJWb4JivTH934").unwrap();
     request.audit_envelope = Some(arkret::PushAuditEnvelopeMetadata {
         access_kind: "e2ee_late_recovery".to_owned(),
         late_recovery_original_event_id: Some(event_id.clone()),

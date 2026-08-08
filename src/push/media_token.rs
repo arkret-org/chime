@@ -333,7 +333,7 @@ mod tests {
         RealmId::new("ak:realm:AfF-hFqRoMbajXkPapH-xaq0xwK-UKt2ph2zTs9JZRAO".to_owned()).unwrap()
     }
     fn call() -> CallId {
-        CallId::new("ak:call:01904100-0000-7000-8000-000000000002".to_owned()).unwrap()
+        CallId::new("ak:call:Ae5vV8Lwlft2Dp8x2y6Dv4NysvsHJwrADG-6PXdUz1Sl".to_owned()).unwrap()
     }
     fn actor() -> Did {
         Did::new("did:web:alice.example".to_owned()).unwrap()
