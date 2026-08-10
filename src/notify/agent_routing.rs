@@ -1,8 +1,8 @@
 use arkret::{
-    ActorId, AgentAuthorizationStatus, AgentLifecycleStatus, AgentParticipationEntry,
+    AgentAuthorizationStatus, AgentLifecycleStatus, AgentParticipationEntry,
     AgentSidecarAccessReadiness, AgentSignerEvidence, ControllerAccountEligibility,
-    ControllerAccountStatus, Hash, NonEmptyString, ParticipationBits, ParticipationScope,
-    ProtocolOperationId, ServiceId,
+    ControllerAccountStatus, DidCoreId, Hash, NonEmptyString, ParticipationBits,
+    ParticipationScope, ProtocolOperationId,
 };
 use chrono::{DateTime, Utc};
 use serde_json::Value;
@@ -130,7 +130,7 @@ pub enum AgentFanoutDenied {
 /// the trust boundary before this structural/current-state gate is invoked.
 pub struct AgentFanoutGate<'a> {
     pub action: AgentFanoutAction,
-    pub agent_id: &'a ActorId,
+    pub agent_id: &'a DidCoreId,
     pub target_scope: &'a ParticipationScope,
     pub participation: Option<&'a AgentParticipationEntry>,
     /// Effective current target policy after the deployment/Realm/scope policy
@@ -141,8 +141,8 @@ pub struct AgentFanoutGate<'a> {
     pub operation_id: &'a ProtocolOperationId,
     /// Digest of the exact request currently being admitted.
     pub request_digest: &'a Hash,
-    pub verifier_id: &'a ServiceId,
-    pub audience: &'a ServiceId,
+    pub verifier_id: &'a DidCoreId,
+    pub audience: &'a DidCoreId,
     /// One-time verifier challenge issued for this admission.
     pub challenge: &'a NonEmptyString,
     pub now: DateTime<Utc>,
@@ -184,7 +184,7 @@ impl AgentFanoutGate<'_> {
 
     fn validate_current_admission(
         &self,
-        agent_id: &ActorId,
+        agent_id: &DidCoreId,
         signer_evidence: &AgentSignerEvidence,
     ) -> Result<(), AgentFanoutDenied> {
         let AgentSignerEvidence::CurrentAdmission {

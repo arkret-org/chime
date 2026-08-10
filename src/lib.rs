@@ -93,7 +93,7 @@ pub use push::{
     PushRouteCapability, PushRouteError, PushRouteId, PushRouteValidationError,
     PushRuleEventContext, PushUnregisterDeviceOutcome, PushUnregisterDeviceRequestBody,
     REGISTER_DEVICE_PATH, SERVER_DESCRIBE_PATH, SIGNATURE_HEADER, SIGNATURE_INPUT_HEADER,
-    ServiceDescribe, ServiceId, ShouldNotify, UNREGISTER_DEVICE_PATH, WatchLevel, arkret_api_url,
+    ServiceDescribe, ShouldNotify, UNREGISTER_DEVICE_PATH, WatchLevel, arkret_api_url,
     build_register_device_request, build_register_signing_context,
     build_register_signing_context_with_options, build_unregister_device_request,
     build_unregister_signing_context, build_unregister_signing_context_with_options,

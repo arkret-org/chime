@@ -131,7 +131,6 @@ pub use registration::{
 };
 pub use route::{
     PushRoute, PushRouteCapability, PushRouteError, PushRouteId, PushRouteValidationError,
-    ServiceId,
 };
 pub use rule_core::{
     EventContext as PushRuleEventContext, ShouldNotify, WatchLevel, evaluate_watch_level,

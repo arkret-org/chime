@@ -319,7 +319,7 @@ fn media_signature_reason(err: arkret::signatures::Error) -> MediaSignatureReaso
 
 #[cfg(test)]
 mod tests {
-    use arkret::{CallId, DeviceId, Did, RealmId};
+    use arkret::{CallId, DeviceId, DidCoreId, DidFullId, RealmId};
     use base64::Engine as _;
     use base64::engine::general_purpose::URL_SAFE_NO_PAD;
     use chrono::Duration;
@@ -335,14 +335,14 @@ mod tests {
     fn call() -> CallId {
         CallId::new("ak:call:Ae5vV8Lwlft2Dp8x2y6Dv4NysvsHJwrADG-6PXdUz1Sl".to_owned()).unwrap()
     }
-    fn actor() -> Did {
-        Did::new("did:web:alice.example".to_owned()).unwrap()
+    fn actor() -> DidCoreId {
+        DidCoreId::new("ak:did_core:web:alice.example".to_owned()).unwrap()
     }
     fn device() -> DeviceId {
         DeviceId::new("ak:device:01904100-0000-7000-8000-000000000004".to_owned()).unwrap()
     }
-    fn issuer_did() -> Did {
-        Did::new("did:web:media.example:media".to_owned()).unwrap()
+    fn issuer_did() -> DidFullId {
+        DidFullId::new("did:web:media.example:media".to_owned()).unwrap()
     }
     fn issuer_kid() -> DidUrl {
         DidUrl::new(ISSUER_KID).unwrap()
@@ -442,8 +442,10 @@ mod tests {
         let request = token_request();
         let key = issuer_key();
         let anchors =
-            MediaServiceAnchors::new([Did::new("did:web:other.example:media".to_owned()).unwrap()])
-                .with_keys([(ISSUER_KID.to_owned(), key.verifying_key())]);
+            MediaServiceAnchors::new([
+                DidFullId::new("did:web:other.example:media".to_owned()).unwrap()
+            ])
+            .with_keys([(ISSUER_KID.to_owned(), key.verifying_key())]);
         let response = good_response(now, &key);
         let ctx = good_ctx(now, &request, &anchors);
         let err = verify_media_token_outcome(&response, &ctx).unwrap_err();
