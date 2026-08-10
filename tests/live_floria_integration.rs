@@ -11,6 +11,7 @@
 
 use std::time::Duration;
 
+use arkret_wire::ServiceOperationId;
 use chime::{
     ArkretPushClient, PushRetryPolicy, floria_push_bridge_describe_url,
     floria_push_integration_describe_url,
