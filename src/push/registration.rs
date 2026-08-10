@@ -544,18 +544,21 @@ mod tests {
             "https://principal.example",
             &request,
             PushRequestSigningOptions::new("2026-04-29T00:00:00.000Z", "https://principal.example")
-                .with_actor_id("did:web:alice.example")
+                .with_actor_id("ak:did_core:web:alice.example")
                 .with_expires_at("2026-04-29T00:05:00.000Z")
                 .with_origin("https://app.example")
-                .with_origin_service_id("did:web:sync.example.com")
-                .with_destination_service_id("did:web:principal.example")
+                .with_origin_service_id("ak:did_core:web:sync.example.com")
+                .with_destination_service_id("ak:did_core:web:principal.example")
                 .with_nonce("idem-1")
                 .with_idempotency_key("idem-1")
                 .with_session_grant("coauth-grant-secret"),
         )
         .unwrap();
 
-        assert_eq!(context.actor_id.as_deref(), Some("did:web:alice.example"));
+        assert_eq!(
+            context.actor_id.as_deref(),
+            Some("ak:did_core:web:alice.example")
+        );
         assert_eq!(
             context.expires_at.as_deref(),
             Some("2026-04-29T00:05:00.000Z")
@@ -566,27 +569,27 @@ mod tests {
             proof_body["operation_id"],
             arkret_wire::ServiceOperationId::EDGE_PUSH_COMMAND_REGISTER_DEVICE
         );
-        assert_eq!(proof_body["actor_id"], "did:web:alice.example");
+        assert_eq!(proof_body["actor_id"], "ak:did_core:web:alice.example");
         assert_eq!(proof_body["expires_at"], "2026-04-29T00:05:00.000Z");
         assert_eq!(proof_body["origin"], "https://app.example");
         assert_eq!(proof_body["nonce"], "idem-1");
 
         let metadata_headers = context.signed_metadata_headers();
-        assert!(
-            metadata_headers
-                .contains(&(ARKRET_ACTOR_ID_HEADER, "did:web:alice.example".to_owned()))
-        );
+        assert!(metadata_headers.contains(&(
+            ARKRET_ACTOR_ID_HEADER,
+            "ak:did_core:web:alice.example".to_owned()
+        )));
         assert!(metadata_headers.contains(&(
             ARKRET_EXPIRES_AT_HEADER,
             "2026-04-29T00:05:00.000Z".to_owned()
         )));
         assert!(metadata_headers.contains(&(
             ARKRET_ORIGIN_SERVICE_ID_HEADER,
-            "did:web:sync.example.com".to_owned()
+            "ak:did_core:web:sync.example.com".to_owned()
         )));
         assert!(metadata_headers.contains(&(
             ARKRET_DESTINATION_SERVICE_ID_HEADER,
-            "did:web:principal.example".to_owned()
+            "ak:did_core:web:principal.example".to_owned()
         )));
         assert!(metadata_headers.contains(&(
             ARKRET_SESSION_GRANT_HEADER,
@@ -662,5 +665,26 @@ mod tests {
         .unwrap_err();
 
         assert_eq!(err.kind(), PushErrorKind::ForbiddenPushGatewayQueryParam);
+    }
+
+    #[test]
+    fn signing_context_rejects_full_did_in_service_id_header() {
+        let binding = binding(
+            PushGatewayType::Standard,
+            "https://push.example.com/_arkret/edge/push/notify",
+        );
+        let request =
+            build_register_device_request(&config(Some("android")), &binding, &enabled_prefs())
+                .unwrap();
+
+        let err = build_register_signing_context_with_options(
+            "https://principal.example",
+            &request,
+            PushRequestSigningOptions::new("2026-04-29T00:00:00.000Z", "principal")
+                .with_origin_service_id("did:web:sync.example.com"),
+        )
+        .unwrap_err();
+
+        assert_eq!(err.kind(), PushErrorKind::SchemaViolation);
     }
 }

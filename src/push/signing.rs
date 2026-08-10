@@ -382,6 +382,27 @@ where
         require_optional_owned_non_empty("origin_service_id", options.origin_service_id)?;
     let destination_service_id =
         require_optional_owned_non_empty("destination_service_id", options.destination_service_id)?;
+    if let Some(value) = actor_id.as_ref() {
+        arkret_wire::ActorId::new(value.clone()).map_err(|_| {
+            PushRegistrationError::InvalidField {
+                field: "actor_id",
+                reason: "must be an ak:did_core actor id".to_owned(),
+            }
+        })?;
+    }
+    for (field, value) in [
+        ("origin_service_id", origin_service_id.as_ref()),
+        ("destination_service_id", destination_service_id.as_ref()),
+    ] {
+        if let Some(value) = value {
+            arkret_wire::ServiceId::new(value.clone()).map_err(|_| {
+                PushRegistrationError::InvalidField {
+                    field,
+                    reason: "must be an ak:did_core service id".to_owned(),
+                }
+            })?;
+        }
+    }
     let nonce = require_optional_owned_non_empty("nonce", options.nonce)?;
     let idempotency_key =
         require_optional_owned_non_empty("idempotency_key", options.idempotency_key)?;

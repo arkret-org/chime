@@ -1,8 +1,8 @@
 use arkret::{
-    AgentAuthorizationStatus, AgentLifecycleStatus, AgentParticipationEntry,
+    ActorId, AgentAuthorizationStatus, AgentLifecycleStatus, AgentParticipationEntry,
     AgentSidecarAccessReadiness, AgentSignerEvidence, ControllerAccountEligibility,
-    ControllerAccountStatus, Did, Hash, NonEmptyString, ParticipationBits, ParticipationScope,
-    ProtocolOperationId,
+    ControllerAccountStatus, Hash, NonEmptyString, ParticipationBits, ParticipationScope,
+    ProtocolOperationId, ServiceId,
 };
 use chrono::{DateTime, Utc};
 use serde_json::Value;
@@ -130,7 +130,7 @@ pub enum AgentFanoutDenied {
 /// the trust boundary before this structural/current-state gate is invoked.
 pub struct AgentFanoutGate<'a> {
     pub action: AgentFanoutAction,
-    pub agent_id: &'a Did,
+    pub agent_id: &'a ActorId,
     pub target_scope: &'a ParticipationScope,
     pub participation: Option<&'a AgentParticipationEntry>,
     /// Effective current target policy after the deployment/Realm/scope policy
@@ -141,8 +141,8 @@ pub struct AgentFanoutGate<'a> {
     pub operation_id: &'a ProtocolOperationId,
     /// Digest of the exact request currently being admitted.
     pub request_digest: &'a Hash,
-    pub verifier_id: &'a Did,
-    pub audience: &'a Did,
+    pub verifier_id: &'a ServiceId,
+    pub audience: &'a ServiceId,
     /// One-time verifier challenge issued for this admission.
     pub challenge: &'a NonEmptyString,
     pub now: DateTime<Utc>,
@@ -184,7 +184,7 @@ impl AgentFanoutGate<'_> {
 
     fn validate_current_admission(
         &self,
-        agent_id: &Did,
+        agent_id: &ActorId,
         signer_evidence: &AgentSignerEvidence,
     ) -> Result<(), AgentFanoutDenied> {
         let AgentSignerEvidence::CurrentAdmission {
@@ -244,7 +244,7 @@ impl AgentFanoutGate<'_> {
             || lifecycle.status != AgentLifecycleStatus::Active
             || lifecycle.cell_value != AgentLifecycleStatus::Active
             || account_gate.schema.as_str() != "ak.schema.controller_account_gate_attestation.v1"
-            || account_gate.principal_id != binding.controller_id
+            || account_gate.principal_id.as_str() != binding.controller_id.as_str()
             || account_gate.eligibility != ControllerAccountEligibility::Active
             || account_gate.status != ControllerAccountStatus::Active
             || current_observation.operation_id != *self.operation_id
@@ -486,13 +486,13 @@ mod fanout_tests {
 
     #[test]
     fn unresolved_policy_evidence_denies_even_a_ready_target() {
-        let agent_id = serde_json::from_str("\"did:web:agent.example\"").unwrap();
+        let agent_id = serde_json::from_str("\"ak:did_core:web:agent.example\"").unwrap();
         let realm_id =
             serde_json::from_str("\"ak:realm:AR5_BcY29XYrMbX0Y8Qiz4KDnt-NvwrXmij2C3-4UD2c\"")
                 .unwrap();
         let target_scope = ParticipationScope::Realm { realm_id };
-        let verifier_id = serde_json::from_str("\"did:web:verifier.example\"").unwrap();
-        let audience = serde_json::from_str("\"did:web:push-audience.example\"").unwrap();
+        let verifier_id = serde_json::from_str("\"ak:did_core:web:verifier.example\"").unwrap();
+        let audience = serde_json::from_str("\"ak:did_core:web:push-audience.example\"").unwrap();
         let operation_id =
             serde_json::from_str("\"ak:operation:edge.push.command.notify\"").unwrap();
         let request_digest = serde_json::from_str(

@@ -73,14 +73,14 @@ impl<'de> Deserialize<'de> for PushRouteId {
     }
 }
 
-/// Service DID of a recipient Principal Server, used as the first
+/// Stable service core id of a recipient Principal Server, used as the first
 /// component of the `ak.device.push_route` composite cell_subject
 /// `(recipient_service_id, principal_id, device_id, push_route)`.
 ///
-/// This is a non-empty `String` newtype rather than a free-form
+/// This is a validated `String` newtype rather than a free-form
 /// `impl Into<String>` parameter so the type system rules out the
 /// "active route with no recipient" footgun that motivated T4.1.
-/// Callers that genuinely cannot supply a service DID at construction
+/// Callers that genuinely cannot supply a service core id at construction
 /// time (e.g. cold-start fixtures before service discovery has run)
 /// can use [`PushRoute::stub_unauthenticated`] to mint a placeholder
 /// route that is explicit about being unwriteable until rebound.
@@ -89,15 +89,14 @@ impl<'de> Deserialize<'de> for PushRouteId {
 pub struct ServiceId(String);
 
 impl ServiceId {
-    /// Construct a service DID. Empty / whitespace-only inputs are
-    /// rejected up front so an "active" route can never end up with a
-    /// blank recipient service DID even when the caller forgot to
-    /// thread one through.
+    /// Construct a stable service core id. Full DIDs belong in resolution
+    /// state and are deliberately rejected at this cell-key boundary.
     pub fn new(value: impl Into<String>) -> Result<Self, PushRouteError> {
         let value = value.into();
         if value.trim().is_empty() {
             return Err(PushRouteError::EmptyServiceId);
         }
+        arkret_wire::ServiceId::new(value.clone()).map_err(|_| PushRouteError::InvalidServiceId)?;
         Ok(Self(value))
     }
 
@@ -239,6 +238,10 @@ pub enum PushRouteError {
     /// cell_subject quadruple.
     #[error("recipient_service_id must not be empty")]
     EmptyServiceId,
+    #[error("recipient_service_id must be an ak:did_core service id")]
+    InvalidServiceId,
+    #[error("push_gateway_did must be a resolvable full DID")]
+    InvalidPushGatewayFullId,
     /// T4.1: the cell_subject contract pins
     /// `(recipient_service_id, principal_id, device_id, push_route)`,
     /// so `revoke()` MUST preserve those four components. If a caller
@@ -393,7 +396,11 @@ impl PushRoute {
             Some(value) if value.trim().is_empty() => {
                 return Err(PushRouteError::EmptyServiceId);
             }
-            Some(_) => true,
+            Some(value) => {
+                arkret_wire::ServiceId::new(value.to_owned())
+                    .map_err(|_| PushRouteError::InvalidServiceId)?;
+                true
+            }
         };
 
         if !self.revoked {
@@ -418,6 +425,14 @@ impl PushRoute {
                     field: "push_gateway_did",
                 });
             }
+            let gateway_full_id = arkret_wire::FullId::new(
+                self.push_gateway_did
+                    .clone()
+                    .expect("presence checked immediately above"),
+            )
+            .map_err(|_| PushRouteError::InvalidPushGatewayFullId)?;
+            arkret_wire::project_full_id_to_core_id(&gateway_full_id)
+                .map_err(|_| PushRouteError::InvalidPushGatewayFullId)?;
         } else if !service_id_present {
             // Revoked record without a recipient_service_id would
             // land in the wrong cell — reject it for the same reason
@@ -516,7 +531,7 @@ mod tests {
     #[cfg(feature = "notify")]
     fn active_route_requires_service_id_target_id_and_gateway_did() {
         let pseudo = "ak:pseudonym:push:01HYZ8Z000000000000000".to_owned();
-        let service_id = ServiceId::new("did:web:principal.example").unwrap();
+        let service_id = ServiceId::new("ak:did_core:web:principal.example").unwrap();
         let route = PushRoute::active(
             service_id,
             PushRouteId::new("apns_main").unwrap(),
@@ -580,7 +595,7 @@ mod tests {
     #[test]
     fn revoked_route_still_requires_service_id() {
         let route = PushRoute::revoked(
-            ServiceId::new("did:web:principal.example").unwrap(),
+            ServiceId::new("ak:did_core:web:principal.example").unwrap(),
             PushRouteId::new("apns_main").unwrap(),
         );
         route.validate().unwrap();
@@ -595,6 +610,14 @@ mod tests {
         let route: PushRoute = serde_json::from_str(json).unwrap();
         let err = route.validate().unwrap_err();
         assert!(matches!(err, PushRouteError::EmptyServiceId));
+    }
+
+    #[test]
+    fn recipient_service_id_rejects_full_did() {
+        assert!(matches!(
+            ServiceId::new("did:web:principal.example").unwrap_err(),
+            PushRouteError::InvalidServiceId
+        ));
     }
 
     #[test]
@@ -613,7 +636,7 @@ mod tests {
     #[cfg(feature = "notify")]
     fn revoke_helper_preserves_cell_subject_identity() {
         let pseudo = "ak:pseudonym:push:01HYZ8Z000000000000000".to_owned();
-        let service_id = ServiceId::new("did:web:principal.example").unwrap();
+        let service_id = ServiceId::new("ak:did_core:web:principal.example").unwrap();
         let route_id = PushRouteId::new("apns_main").unwrap();
         let active = PushRoute::active(service_id, route_id, pseudo, "did:web:gateway.example");
 
@@ -647,7 +670,7 @@ mod tests {
     #[cfg(feature = "notify")]
     fn route_round_trips_through_json_with_capabilities() {
         let pseudo = "ak:pseudonym:push:01HYZ8Z000000000000000".to_owned();
-        let service_id = ServiceId::new("did:web:principal.example").unwrap();
+        let service_id = ServiceId::new("ak:did_core:web:principal.example").unwrap();
         let mut route = PushRoute::active(
             service_id,
             PushRouteId::new("fcm_voip").unwrap(),
@@ -670,7 +693,7 @@ mod tests {
     #[cfg(feature = "notify")]
     fn call_invite_routes_advertise_voip_capability() {
         let pseudo = "ak:pseudonym:push:01HYZ8Z000000000000000".to_owned();
-        let service_id = ServiceId::new("did:web:principal.example").unwrap();
+        let service_id = ServiceId::new("ak:did_core:web:principal.example").unwrap();
         let mut route = PushRoute::active(
             service_id,
             PushRouteId::new("apns_voip").unwrap(),
@@ -686,7 +709,7 @@ mod tests {
     #[test]
     fn validate_rejects_empty_capability_tag() {
         // `string_list` items are non_empty_string (minLength: 1).
-        let json = r#"{"recipient_service_id": "did:web:p.example", "route": "apns_main", "revoked": true, "capabilities": [""]}"#;
+        let json = r#"{"recipient_service_id": "ak:did_core:web:p.example", "route": "apns_main", "revoked": true, "capabilities": [""]}"#;
         let route: PushRoute = serde_json::from_str(json).unwrap();
         assert!(matches!(
             route.validate().unwrap_err(),
@@ -697,7 +720,7 @@ mod tests {
     #[test]
     fn validate_rejects_duplicate_capability_tag() {
         // `string_list` requires uniqueItems: true.
-        let json = r#"{"recipient_service_id": "did:web:p.example", "route": "apns_main", "revoked": true, "capabilities": ["chat", "chat"]}"#;
+        let json = r#"{"recipient_service_id": "ak:did_core:web:p.example", "route": "apns_main", "revoked": true, "capabilities": ["chat", "chat"]}"#;
         let route: PushRoute = serde_json::from_str(json).unwrap();
         assert!(matches!(
             route.validate().unwrap_err(),

@@ -224,7 +224,16 @@ impl ArkretPushClient {
         &self,
     ) -> Result<ArkretHttpOutcome<arkret_models_discovery::ServiceDescribe>, PushRegistrationError>
     {
-        self.get_json(SERVER_DESCRIBE_PATH).await
+        let outcome: ArkretHttpOutcome<arkret_models_discovery::ServiceDescribe> =
+            self.get_json(SERVER_DESCRIBE_PATH).await?;
+        outcome
+            .body
+            .validate()
+            .map_err(|error| PushRegistrationError::InvalidField {
+                field: "service_description",
+                reason: error.to_string(),
+            })?;
+        Ok(outcome)
     }
 
     /// Discover floria's product-local active push gateway bridge contract.

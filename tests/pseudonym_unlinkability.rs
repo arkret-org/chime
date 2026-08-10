@@ -21,7 +21,7 @@ fn sdk_validator_rejects_principal_or_device_identifiers() {
 
 #[test]
 fn multiple_routes_keep_distinct_sdk_owned_pseudonyms() {
-    let recipient = ServiceId::new("did:web:principal.example").unwrap();
+    let recipient = ServiceId::new("ak:did_core:web:principal.example").unwrap();
     let main = PushRoute::active(
         recipient.clone(),
         PushRouteId::new("apns_main").unwrap(),
