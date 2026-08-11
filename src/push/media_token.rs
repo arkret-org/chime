@@ -351,8 +351,13 @@ mod tests {
         SigningKey::from_bytes(&[11_u8; 32])
     }
     fn anchors_with_issuer_key(key: &SigningKey) -> MediaServiceAnchors {
-        MediaServiceAnchors::new([issuer_did()])
-            .with_keys([(ISSUER_KID.to_owned(), key.verifying_key())])
+        MediaServiceAnchors::new([(
+            arkret_wire::project_full_id_to_core_id(&issuer_did()).unwrap(),
+            issuer_did(),
+        )])
+        .unwrap()
+        .with_keys([(ISSUER_KID.to_owned(), key.verifying_key())])
+        .unwrap()
     }
     fn token_request() -> CallMediaTokenExchangeRequestBody {
         call_media_token_exchange(realm(), call(), actor(), device(), "ak:focus:01".to_owned())
@@ -441,11 +446,18 @@ mod tests {
         let now = Utc::now();
         let request = token_request();
         let key = issuer_key();
-        let anchors =
-            MediaServiceAnchors::new([
-                DidFullId::new("did:web:other.example:media".to_owned()).unwrap()
-            ])
-            .with_keys([(ISSUER_KID.to_owned(), key.verifying_key())]);
+        let other = DidFullId::new("did:web:other.example:media".to_owned()).unwrap();
+        let anchors = MediaServiceAnchors::new([(
+            arkret_wire::project_full_id_to_core_id(&other).unwrap(),
+            other,
+        )])
+        .unwrap();
+        assert!(
+            anchors
+                .clone()
+                .with_keys([(ISSUER_KID.to_owned(), key.verifying_key())])
+                .is_err()
+        );
         let response = good_response(now, &key);
         let ctx = good_ctx(now, &request, &anchors);
         let err = verify_media_token_outcome(&response, &ctx).unwrap_err();
