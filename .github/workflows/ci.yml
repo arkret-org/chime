@@ -18,9 +18,7 @@ jobs:
       matrix:
         features:
           - ""              # default (no features)
-          - "http"          # ArkretPushClient HTTP helper
-          - "notify"        # ak.edge.push.command.notify wire types
-          - "http,notify"   # combined (release surface)
+          - "http"          # ArkretPushClient HTTP helper (release surface)
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -44,8 +42,6 @@ jobs:
         features:
           - ""
           - "http"
-          - "notify"
-          - "http,notify"
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -65,8 +61,6 @@ jobs:
         features:
           - ""
           - "http"
-          - "notify"
-          - "http,notify"
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -108,7 +102,7 @@ jobs:
         run: bash .ci/checkout-sibling.sh arkret-rust-sdk ../arkret-rust-sdk
       - uses: Swatinem/rust-cache@v2
       - name: Build examples
-        run: cargo build --examples --no-default-features --features notify
+        run: cargo build --examples --no-default-features
 
   msrv:
     name: MSRV (1.97)
@@ -180,42 +174,6 @@ jobs:
         run: cargo package --no-verify --allow-dirty
       - name: cargo publish --dry-run
         run: cargo publish --dry-run --allow-dirty --all-features
-
-  # AKP-0007 P2D.3 — exercise the live floria integration test with
-  # CHIME_INTEGRATION_REQUIRED=1 so a missing floria binary fails the
-  # CI run instead of silently green-skipping.
-  live-integration:
-    name: Live floria integration
-    runs-on: ubuntu-latest
-    env:
-      CHIME_INTEGRATION_REQUIRED: "1"
-    steps:
-      - name: Checkout chime
-        uses: actions/checkout@v4
-        with:
-          path: chime
-      - name: Checkout sibling floria
-        env:
-          CI_REPO_TOKEN: ${{ secrets.CI_REPO_TOKEN || github.token }}
-        run: bash chime/.ci/checkout-sibling.sh floria floria
-      - name: Checkout sibling Arkret Rust SDK
-        env:
-          CI_REPO_TOKEN: ${{ secrets.CI_REPO_TOKEN || github.token }}
-        run: bash chime/.ci/checkout-sibling.sh arkret-rust-sdk arkret-rust-sdk
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: |
-            chime
-            floria
-      - name: Build floria binary
-        working-directory: floria
-        run: cargo build --bin floria
-      - name: Run chime live floria integration
-        working-directory: chime
-        env:
-          FLORIA_BIN: ${{ github.workspace }}/floria/target/debug/floria
-        run: cargo test --features http,notify --test live_floria_integration -- --test-threads=1
 
   deny:
     name: Cargo deny

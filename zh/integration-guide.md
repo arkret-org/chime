@@ -15,28 +15,6 @@ Bugle 说明：host 仍负责华为/小米/OPPO/vivo/HONOR/HarmonyOS/JPush SDK
 接入和 token 获取。chime 只负责 wire shape。需要单独解析 app id 时可用
 `chime::bugle::BugleAppIdResolver`；Android 优先 `domestic_app_id`。
 
-## 接收 push wakeup
-
-`PushNotifyRequestBody` 和 `PushNotificationEnvelope` 直接使用 SDK 的封闭
-wire 类型；未知字段会在反序列化时拒绝。因此：
-
-1. 反序列化 `PushNotifyRequestBody`。
-2. 立即调用 `assert_payload_safe(&PushNotifyPolicyContext::blind_wakeup_only())`
-   或更具体的 `validate_blind_wakeup` / `validate_wire_model`。
-3. 只有 validator 通过后，才可以读字段、入队、唤醒 UI 或调度后台同步。
-
-## media token / SFrame
-
-调用流程：
-
-1. `call_media_token_exchange(...)` 构造 token exchange 请求。
-2. 收到 `CallMediaTokenExchangeOutcome` 后调用
-   `verify_media_token_outcome(&response, &ctx)`。
-3. `ctx` 必须携带原始请求和当前 `MediaServiceAnchors`。
-4. 成功返回 `VerifiedMediaTokenOutcome`，表示 issuer anchor、participant
-   tuple、TTL、`service_signature` 和 `participant_binding.sig` 均已通过。
-5. 只有该 verifier 通过后，才允许进入 SFrame keying。
-
 ## drift 检查
 
 协议发现默认使用 `server_describe()`。floria 部署可额外调用

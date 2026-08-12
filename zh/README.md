@@ -11,10 +11,8 @@
 
 最重要的边界：
 
-- push wakeup 反序列化后必须调用
-  `PushNotifyRequestBody::assert_payload_safe` 或对应 validator。
-- media token 必须通过 `verify_media_token_outcome`，并传入原始请求和
-  当前 `MediaServiceAnchors`；该路径会验证 `service_signature` 和
-  `participant_binding.sig` 后才允许 SFrame keying。
+- push wakeup 的 blind-wakeup 校验属于 SDK
+  `arkret_push_policy::blind_payload_sanitizer` 的职责，不在 chime 内。
+- media token 校验走 SDK `arkret_signatures::media`，chime 不再提供包装。
 - `NonceTracker` 仅是内存/单实例防重放；服务端 relay 或多进程部署必须
   接入共享持久化 nonce 存储。

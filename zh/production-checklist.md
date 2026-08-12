@@ -8,22 +8,6 @@
 - 当前 chime 审计目标是 `arkret-spec @ 5d66aeb`；升级协议头前需要重新跑
   drift gate 和集成 smoke test。
 
-## push payload 安全
-
-- 任意 `PushNotifyRequestBody` / `PushNotificationEnvelope` 反序列化后，必须立即调用
-  `assert_payload_safe`、`validate_blind_wakeup` 或 `validate_wire_model`。
-- 默认使用 `PushNotifyPolicyContext::blind_wakeup_only()`。
-- 不要把 title、body、sender display name、space/realm display name 或
-  Circle 成员列表放进 blind wakeup。
-- SDK wire 类型是封闭结构，未知字段必须在反序列化阶段拒绝；validator 通过前仍不要读取或展示字段。
-
-## media token
-
-- SFrame keying 前必须调用 `verify_media_token_outcome`。
-- `MediaTokenVerificationContext` 必须包含原始 token exchange 请求和当前
-  `MediaServiceAnchors`，以验证 `service_signature` 和 `participant_binding.sig`。
-- `FocusMismatch` 日志应记录 requested、binding、committed 三个 focus 字段。
-
 ## replay / nonce
 
 - `NonceTracker` 是内存、单实例 tracker。

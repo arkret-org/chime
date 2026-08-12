@@ -6,16 +6,9 @@ platform receivers and call into chime for validation and wire-shape handling.
 
 ## Required Host Wiring
 
-- Route every decoded `ak.edge.push.command.notify` request through
-  `PushNotifyRequestBody::assert_payload_safe` before showing UI.
-- Use `PushNotifyPolicyContext::blind_wakeup_only` unless the destination
-  service DID is explicitly authorized to see plaintext.
-- Wire account deactivation into `on_account_deactivate` with either a concrete
-  `AccountDeactivationSink` implementation or `ClosureAccountDeactivationSink`.
-- Treat media-token exchange as a fail-closed SDK verifier path: retain
-  the original `CallMediaTokenExchangeRequestBody`, resolve the current
-  `MediaServiceAnchors`, then call `verify_media_token_outcome` before
-  SFrame keying.
+- Route every decoded `ak.edge.push.command.notify` request through the
+  SDK's `arkret_push_policy::blind_payload_sanitizer` before showing UI.
+  Gateway-side notify wire types are not part of chime.
 - Drain local push queues before invalidating the device session.
 - Clear keypackage caches and persisted push preferences after deactivation.
 - Store push gateway credentials outside logs and crash reports.
@@ -35,9 +28,6 @@ cargo deny check
 cargo package --list --allow-dirty
 ```
 
-`tests/live_floria_integration.rs` remains opt-in and requires `FLORIA_BIN`.
-When unset, the test skips without failing local contributor runs.
-
 ## Monitoring metrics (host applications)
 
 Host applications integrating chime SHOULD export the following metrics
@@ -48,13 +38,11 @@ is left to the host.
 | Metric | Type | What it tells you |
 |--------|------|-------------------|
 | `chime.push.notify.received_total{wakeup_kind,destination_service}` | counter | Inbound `ak.edge.push.command.notify` volume per wakeup kind. A sudden drop is usually an upstream floria / soland routing regression. |
-| `chime.push.notify.rejected_total{reason}` | counter | Wakeups rejected by `assert_payload_safe` / `validate_blind_wakeup`. Bucketed by `PushNotifyPrivacyError` discriminant. Non-zero is always a bug — either floria emitted a forbidden field or chime's validator drifted from the spec. |
 | `chime.push.register_device.latency_seconds{gateway_type,result}` | histogram | End-to-end `register-device` latency. `gateway_type` separates Standard from Bugle so OEM-route degradation is visible. |
 | `chime.push.register_device.retries_total{gateway_type,reason}` | counter | Retry attempts emitted by `PushRetryPolicy`. Persistent non-zero traffic on a single `reason` usually means the gateway is rate-limiting or returning a transient envelope. |
 | `chime.push.nonce.replay_rejected_total{device_id_hash}` | counter | `NonceTracker::observe` rejections. A non-zero rate from a single device hash means either a misbehaving signer or an active replay attempt — page on threshold. |
 | `chime.push.bridge.drift_verdict{verdict}` | gauge | Last `BridgeContractCache` verdict per gateway: `match` / `additive_drift` / `breaking_drift`. Page on `breaking_drift`; set a host-owned review window for persistent `additive_drift`. |
 | `chime.push.token_rotation.planned_total{strategy,reason}` | counter | Rotations planned by `plan_token_rotation`. Lets you correlate platform-token churn with backend pressure. |
-| `chime.push.account_deactivate.completed_total{source,outcome}` | counter | `on_account_deactivate` completions, bucketed by `DeactivationSource` (user / admin / sync) and `AccountDeactivationReceipt` outcome. A non-zero `outcome=failed` rate is a release blocker — devices that fail to deactivate cleanly are a privacy hazard. |
 
 All metric labels MUST be low cardinality. Never label by `push_key`,
 raw `device_id`, or DID. Hash device ids with a per-deployment salt

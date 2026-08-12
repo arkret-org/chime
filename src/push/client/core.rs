@@ -312,9 +312,6 @@ impl ArkretPushClient {
     /// # Ok(())
     /// # }
     /// ```
-    ///
-    /// Live coverage of this strand lives in `tests/live_floria_integration.rs`,
-    /// which spawns a real `floria` push gateway on a loopback port.
     pub async fn register_device(
         &self,
         config: &PushDeviceConfig<'_>,

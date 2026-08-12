@@ -1,26 +1,22 @@
 # chime examples
 
 Runnable integration samples that show host applications how to wire
-`chime` into the two halves of the Arkret push surface: outbound
-device registration and inbound `ak.edge.push.command.notify` handling.
+`chime` into the outbound device-registration half of the Arkret push
+surface.
 
 All examples are deliberately dependency-free at runtime — they print
 to stdout rather than calling a real gateway, broker, or UI surface —
-so `cargo build --examples --features notify` stays fast in CI and the
-example code can be reviewed in isolation.
+so `cargo build --examples` stays fast in CI and the example code can
+be reviewed in isolation.
 
 | Example | Audience | Demonstrates |
 |---------|----------|--------------|
-| [`desktop-tauri.rs`](desktop-tauri.rs) | Desktop client integrators (Tauri / Electron / native Cocoa or Win32 shells). | Building a `RegisterDeviceRequest` from a platform push token and validating an inbound blind-wakeup payload via `assert_payload_safe`. |
-| [`server-side-relay.rs`](server-side-relay.rs) | Backend service authors (inkson, on-prem connectors, SRE-owned fan-out proxies). | Decoding inbound `ak.edge.push.command.notify` frames, asserting they are blind-wakeup safe, and rejecting replays with `NonceTracker` before forwarding to an internal queue. |
+| [`desktop-tauri.rs`](desktop-tauri.rs) | Desktop client integrators (Tauri / Electron / native Cocoa or Win32 shells). | Building a `RegisterDeviceRequest` from a platform push token. |
 
 ## Running
 
-Both examples require the `notify` feature:
-
 ```powershell
-cargo run --example desktop-tauri    --features notify
-cargo run --example server-side-relay --features notify
+cargo run --example desktop-tauri
 ```
 
 ## What these examples intentionally do NOT cover
@@ -32,10 +28,10 @@ cargo run --example server-side-relay --features notify
 - **Inbound signature verification.** chime does not verify push frame
   signatures — see `SECURITY.md` for why and where the host must do it.
 - **Platform UI surfacing.** Toast / banner / call-screen integration is
-  out of scope; the example logs the validated wakeup kind instead.
-- **Broker integration.** The server-side relay's `enqueue_for_fanout`
-  stub stands in for the host application's Kafka / NATS / Redis
-  client.
+  out of scope.
+- **Gateway-side payload validation.** Blind-wakeup validation of
+  outbound `ak.edge.push.command.notify` payloads is the SDK's
+  `arkret_push_policy::blind_payload_sanitizer` surface, not chime's.
 
 Refer to `docs/production-checklist.md` for the full host-wiring
 checklist these examples implicitly assume.

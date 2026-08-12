@@ -179,40 +179,6 @@ impl PushErrorKind {
         }
     }
 
-    /// R3 (CALL-2) — the five AKP-0010 codes the chime SDK guarantees
-    /// will be surfaced as typed `PushErrorKind` variants when the
-    /// underlying transport returns a media-token error. Consumers can
-    /// use this helper to branch the call UI without listing every
-    /// variant by hand.
-    pub const fn is_media_token_rejection(self) -> bool {
-        matches!(
-            self,
-            Self::UnknownFocusType
-                | Self::TokenIssuerUnauthorised
-                | Self::ParticipantBindingInvalid
-                | Self::FocusMismatch
-        )
-    }
-
-    /// R3 — full set of AKP-0010 media-binding error codes (the
-    /// rejection subset above plus the additional codes that may be
-    /// raised by the server but are not flagged in CALL-2). Useful for
-    /// telemetry that wants to label the wider media-binding bucket.
-    pub const fn is_media_binding_code(self) -> bool {
-        matches!(
-            self,
-            Self::UnknownFocusType
-                | Self::TokenIssuerUnauthorised
-                | Self::ParticipantBindingInvalid
-                | Self::FocusMismatch
-                | Self::ParticipantIdentityUnrecognised
-                | Self::SessionFocusAlreadyCommitted
-                | Self::E2eeKeySourceUnauthorised
-                | Self::RecordingArtifactPipelineBypassed
-                | Self::FocusUnavailableForClient
-        )
-    }
-
     /// R3 — agent-lifecycle subset of the mirrored error codes.
     pub const fn is_agent_lifecycle_code(self) -> bool {
         matches!(

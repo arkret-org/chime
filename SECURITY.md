@@ -51,7 +51,7 @@ The Circle primitive introduces an encrypted sub-boundary inside a
 Realm. chime's wakeup wire MUST preserve the following invariants on
 top of the generic blind-wakeup rules above:
 
-- `PushNotificationEnvelope` MUST NOT carry a Circle identifier, a Realm
+- The push wakeup wire MUST NOT carry a Circle identifier, a Realm
   identifier, or a scope field. Per `push-notifications.md` §5.1, raw
   Realm ids, Circle ids and `effective_scope` MUST NOT enter the
   `/_arkret/edge/push/notify` wire under the default
@@ -72,12 +72,11 @@ it as a security report and use the private channels above.
 
 ## What is in scope
 
-- The local `chime` package artifact (`http` and `notify` features included).
+- The local `chime` package artifact (`http` feature included).
 - Default `ArkretPushClient` HTTPS / TLS / retry / idempotency
   behaviour.
-- Default `validate_blind_wakeup` /
-  `validate_plaintext_visible_service` / `assert_payload_safe`
-  validators and the `PushNotifyPolicyContext` policy gate.
+- The `PushRoute` / `PushRegistrationState` client-side validators and
+  the `BridgeContractCache` drift gate.
 
 ## What is out of scope
 
@@ -108,15 +107,15 @@ is intentional:
 2. Different host integrations use different transport envelopes — APNs
    provider tokens, FCM bearer tokens, WebPush VAPID, OEM-provider HMAC
    headers — and chime would have to recapitulate each one to verify.
-3. Keeping the verifier outside chime keeps the privacy validator
-   (`validate_blind_wakeup`) usable as a pure function in tests and
-   fuzzers without requiring the test to manage a keystore.
+3. Keeping the verifier outside chime keeps the request builders usable
+   as pure functions in tests and fuzzers without requiring the test to
+   manage a keystore.
 
 Host applications MUST:
 
 - verify the `Signature` / `Signature-Input` headers (RFC 9421) against
   their configured set of accepted signer DIDs BEFORE handing the
-  decoded body to `PushNotifyRequestBody::assert_payload_safe`;
+  decoded body to the SDK's blind-wakeup sanitizer;
 - treat a signature failure as `403` and drop the frame silently — do
   not retry, do not surface to UI, do not log the body;
 - include the verifier's accepted `kid` set in their monitoring so

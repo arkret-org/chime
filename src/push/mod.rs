@@ -15,8 +15,6 @@ mod bridge_describe;
 #[cfg(feature = "http")]
 mod client;
 mod errors;
-#[cfg(feature = "media")]
-mod media_token;
 pub mod platform_app_id;
 mod registration;
 mod route;
@@ -117,13 +115,6 @@ pub use bridge_describe::{
 #[cfg(feature = "http")]
 pub use client::{ArkretHttpOutcome, ArkretPushClient, PushRetryPolicy};
 pub use errors::{PushErrorKind, PushRegistrationError};
-#[cfg(feature = "media")]
-pub use media_token::{
-    CallMediaParticipantBinding, CallMediaTokenExchangeOutcome, CallMediaTokenExchangeRequestBody,
-    CallMediaTokenVerification, MediaBackendType, MediaServiceAnchors, MediaTokenError,
-    MediaTokenVerificationContext, VerifiedMediaTokenOutcome, call_media_token_exchange,
-    ensure_known_backend, verify_media_token_outcome,
-};
 pub use registration::{
     build_register_device_request, build_register_signing_context,
     build_register_signing_context_with_options, build_unregister_device_request,

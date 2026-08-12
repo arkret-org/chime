@@ -22,11 +22,8 @@ all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
 
 [dependencies]
-# R3 CALL-1 (spec b47ff6ec) — the SDK's `CallMediaTokenExchangeOutcome.expires_at`
-# is `chrono::DateTime<Utc>`. Chime needs the type at its public surface
-# (`MediaTokenVerificationContext` and `verify_media_token_outcome`) so we
-# pull chrono in directly with the default features stripped to keep the
-# wasm32 build slim.
+# `chrono` backs the DND schedule evaluation in `rules.rs`; the default
+# features are stripped to keep the wasm32 build slim.
 # CH-1: pin chime's RFC 9530 content-digest computation to the Signatures
 # owner's `http_signature::ContentDigest` so the wire bytes stay byte-identical
 # to what floria's verifier and soland's fanout signer emit.
@@ -37,7 +34,6 @@ rustdoc-args = ["--cfg", "docsrs"]
 # because there is no tokio runtime on the browser main thread.
 base64 = {workspace = true}
 chrono = {workspace = true,default-features = false,features = ["serde", "clock"]}
-arkret = {workspace = true,default-features = false,optional = true}
 arkret-canonical = {workspace = true}
 arkret-models-discovery = {workspace = true}
 arkret-models-integration = {workspace = true}
@@ -83,10 +79,6 @@ default = []
 ## dependency is feature-gated because the bearer-token surface only
 ## exists when the `http` client is compiled.
 http = ["dep:reqwest", "dep:tokio", "dep:gloo-timers", "dep:zeroize"]
-## Enable call-media token exchange helpers.
-media = ["dep:arkret"]
-## Enable server/gateway-side ak.edge.push.command.notify wire types.
-notify = ["dep:arkret"]
 
 [dev-dependencies]
 ed25519-dalek = {workspace = true}
@@ -99,7 +91,6 @@ resolver = "3"
 [workspace.dependencies]
 base64 = "0.22"
 chrono = {version = "0.4",default-features = false}
-arkret = {version = "0.3.0",path = "../arkret-rust-sdk/crates/sdk",default-features = false}
 arkret-canonical = {version = "0.3.0",path = "../arkret-rust-sdk/crates/canonical"}
 arkret-models-discovery = {version = "0.3.0",path = "../arkret-rust-sdk/crates/models-discovery"}
 arkret-models-integration = {version = "0.3.0",path = "../arkret-rust-sdk/crates/models-integration"}

@@ -10,8 +10,6 @@ use chime::{
     hash_push_key,
 };
 use proptest::prelude::*;
-#[cfg(feature = "notify")]
-use serde_json::Value;
 
 /// Strategy: ASCII tokens (alnum + `_-.`) of length 4..=96.
 /// Keeps the search space small enough for proptest defaults while
@@ -157,83 +155,6 @@ proptest! {
         // could coincidentally collide with hex pairs; skip those.
         if token.len() >= 6 {
             prop_assert!(!h1.contains(&token));
-        }
-    }
-}
-
-/// A separate proptest! block can use feature-gated APIs.
-#[cfg(feature = "notify")]
-mod notify_props {
-    use chime::{PushNotifyEnvelopeExt, PushNotifyPolicyContext, PushNotifyRequestBody};
-
-    use super::*;
-
-    proptest! {
-        /// The SDK-owned notification is closed, so legacy extension fields
-        /// are rejected before Chime's privacy adapter runs.
-        #[test]
-        fn blind_wakeup_rejects_known_sensitive_keys(
-            sensitive_key in prop_oneof![
-                Just("body"),
-                Just("title"),
-                Just("subtitle"),
-                Just("preview"),
-                Just("realm_name"),
-                Just("provider_payload"),
-                Just("aps"),
-                Just("encrypted_payload"),
-                Just("encrypted_content"),
-                Just("encrypted_metadata"),
-                Just("metadata"),
-                Just("fields"),
-                Just("track"),
-                Just("track_name"),
-                Just("ciphertext"),
-            ],
-            value_kind in 0u8..3u8,
-        ) {
-            let value: Value = match value_kind {
-                0 => Value::String("anything".to_owned()),
-                1 => Value::Number(serde_json::Number::from(42)),
-                _ => Value::Object(serde_json::Map::new()),
-            };
-
-            let mut raw = serde_json::json!({
-                "notification": {
-                    "push_target_id": "ak:pseudonym:push:01HYZ8Z000000000000000",
-                    "wakeup_kind": "message",
-                    "timing_profile_hint": "default",
-                    "devices": [{
-                        "device_id": "ak:device:01904100-0000-7000-8000-000000000010"
-                    }]
-                }
-            });
-            raw["notification"].as_object_mut().unwrap().insert(sensitive_key.to_owned(), value);
-            prop_assert!(serde_json::from_value::<PushNotifyRequestBody>(raw).is_err());
-        }
-
-        /// Valid SDK-owned typed push pseudonyms survive request round trips.
-        #[test]
-        fn target_id_serde_round_trip(
-            // 22..=64 char base64url tokens are accepted.
-            token in "[A-Za-z0-9_\\-]{22,64}",
-        ) {
-            let typed = format!("ak:pseudonym:push:{token}");
-            let raw = serde_json::json!({
-                "notification": {
-                    "push_target_id": typed,
-                    "wakeup_kind": "message",
-                    "timing_profile_hint": "default",
-                    "devices": [{
-                        "device_id": "ak:device:01904100-0000-7000-8000-000000000010"
-                    }]
-                }
-            });
-            let request: PushNotifyRequestBody = serde_json::from_value(raw).unwrap();
-            prop_assert!(request.assert_payload_safe(
-                &PushNotifyPolicyContext::blind_wakeup_only(), None
-            ).is_ok());
-            prop_assert_eq!(request.notification.push_target_id.as_deref(), Some(typed.as_str()));
         }
     }
 }

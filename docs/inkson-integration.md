@@ -81,34 +81,3 @@ releases.
   inbound push through this helper before raising a system
   notification; otherwise re-delivered pushes (common on flaky
   cellular) appear twice in the user's tray.
-- `chime::call_media_token_exchange(...)` plus
-  `chime::verify_media_token_outcome(&response, &ctx)`
-  — builds and verifies a `ak.self.call.media.exchange.issue_token`
-  response. The verification context carries the original request and
-  current `MediaServiceAnchors`; success returns `VerifiedMediaTokenOutcome`
-  only after issuer anchoring, tuple, TTL, `service_signature`, and
-  `participant_binding.sig` all pass.
-
-## `BackgroundFetchDriver` integration
-
-chime's lifecycle module exposes a `BackgroundFetchDriver` trait
-(`chime/src/lifecycle.rs`) that the host app implements to plumb
-background fetches into the platform's background-task scheduler. The
-trait surface:
-
-- `dispatch_background_fetch(&self, hint)` — invoked by chime when an
-  inbound push carries a `BackgroundFetchHint`. The host returns a
-  `BackgroundFetchOutcome` (success / deferred / failed) so chime can
-  decide whether to ack the push.
-- `NoopBackgroundFetchDriver` — the stock no-op implementation. inkson
-  ships this by default on platforms where there is no
-  background-fetch scheduler (current Linux desktop builds), and swaps
-  it out per-platform as the integrations land:
-  - iOS: `BGTaskScheduler` bridge.
-  - Android: `WorkManager` bridge.
-  - Desktop UnifiedPush: best-effort foreground fetch (still a noop
-    today; tracked in the platform stub roadmap).
-
-The driver is stashed in an `Arc<dyn BackgroundFetchDriver<Error = _>>`
-on the chime lifecycle, so inkson can hand chime a single shared
-instance at boot and let chime route hints to it from any thread.

@@ -21,8 +21,6 @@
 //!
 //! - `http` - enables `ArkretPushClient`, a small reqwest-based helper for `POST
 //!   /_arkret/edge/push/register-device` and `POST /_arkret/edge/push/unregister-device`.
-//! - `media` - enables call-media token exchange and verification helpers.
-//! - `notify` - enables server/gateway-side push-notify wire helpers.
 
 use std::collections::BTreeSet;
 
@@ -32,50 +30,22 @@ use serde::{Deserialize, Serialize};
 /// quick-start examples cannot drift away from the actual API.
 ///
 /// `rust,no_run` blocks are compile-checked but not executed (they would
-/// require a live service); their live counterparts are exercised in
-/// `tests/live_floria_integration.rs`. Plain `rust` blocks are compiled
-/// and run.
+/// require a live service). Plain `rust` blocks are compiled and run.
 #[cfg(doctest)]
 #[doc = include_str!("../README.md")]
 mod readme_doctest {}
 
 pub mod bugle;
 mod gateway_binding;
-mod lifecycle;
-#[cfg(feature = "notify")]
-mod notify;
 mod push;
 mod rules;
 mod state;
 
-// Re-export the SDK-owned push outcome alongside the notify adapter surface.
-#[cfg(feature = "notify")]
-pub use arkret::PushNotifyOutcome;
 pub use arkret_models_integration::{
     DndPeriod, DndSchedule, DndSettings, PushCondition, PushRule, PushRulesConfig,
 };
 pub use bugle::BugleAppIdResolver;
 pub use gateway_binding::GatewayBinding;
-pub use lifecycle::{
-    AccountDeactivationError, AccountDeactivationReceipt, AccountDeactivationSink,
-    BackgroundFetchDriver, BackgroundFetchHint, BackgroundFetchOutcome,
-    ClosureAccountDeactivationSink, DeactivationSource, DeviceSessionInvalidationReason,
-    NoopAccountDeactivationSink, NoopBackgroundFetchDriver, on_account_deactivate,
-};
-#[cfg(feature = "notify")]
-pub use notify::{
-    AGENT_ACTOR_PRIVATE_KINDS, AGENT_LIFECYCLE_DURABLE_KINDS, AgentEventRouting, AgentFanoutAction,
-    AgentFanoutDenied, AgentFanoutGate, AgentLifecycleSummary, ExpiryInvalidationBehavior,
-    LocalNotificationAction, LocalNotificationDecision, LocalNotificationPolicy,
-    LocalNotificationState, PHASE_P2_AGENT_TYPED_ID_PREFIXES, PHASE_P2_FORBIDDEN_FIELD_ALIASES,
-    PushDeviceRoute, PushNotificationDedup, PushNotificationEnvelope, PushNotificationExt,
-    PushNotifyEnvelopeExt, PushNotifyPolicyContext, PushNotifyPrivacyError, PushNotifyPrivacyMode,
-    PushNotifyPrivacyVector, PushNotifyRequestBody, PushRouteTokens, ROUND_R2_R3_SENSITIVE_FIELDS,
-    assert_no_sensitive_fields, classify_agent_event_kind, evaluate_local_notification,
-    is_forbidden_field_alias, is_phase_p2_agent_typed_id, late_recovery_event_id,
-    local_reason_code, new_blind_wakeup, render_agent_lifecycle_summary,
-    shared_push_notify_privacy_vectors,
-};
 pub use push::{
     ARKRET_ACTOR_ID_HEADER, ARKRET_AUDIENCE_HEADER, ARKRET_CREATED_AT_HEADER,
     ARKRET_DESTINATION_SERVICE_ID_HEADER, ARKRET_DEVICE_ID_HEADER, ARKRET_EXPIRES_AT_HEADER,
@@ -103,19 +73,6 @@ pub use push::{
 };
 #[cfg(feature = "http")]
 pub use push::{ArkretHttpOutcome, ArkretPushClient, PushRetryPolicy};
-// R3 (CALL-1 / CALL-2, spec b47ff6ec) — media token exchange surface.
-// Re-exported so chime consumers (inkson) call
-// `chime::call_media_token_exchange` +
-// `chime::verify_media_token_outcome` without depending on `arkret`
-// directly. The verifier delegates to the SDK media-service signature
-// checks before returning a marker.
-#[cfg(feature = "media")]
-pub use push::{
-    CallMediaParticipantBinding, CallMediaTokenExchangeOutcome, CallMediaTokenExchangeRequestBody,
-    CallMediaTokenVerification, MediaBackendType, MediaServiceAnchors, MediaTokenError,
-    MediaTokenVerificationContext, VerifiedMediaTokenOutcome, call_media_token_exchange,
-    ensure_known_backend, verify_media_token_outcome,
-};
 pub use rules::{
     NotificationDecision, NotificationEvalContext, NotificationSound, PushRulesRejection,
     evaluate_notification, parse_dnd_settings, parse_push_rules,
@@ -287,30 +244,19 @@ impl Default for PushPreferences {
     }
 }
 
-// -- JSON persistence helpers ------------------------------------------------
-
-/// Serialize preferences to a JSON string.
-pub fn to_json(prefs: &PushPreferences) -> Result<String, serde_json::Error> {
-    serde_json::to_string_pretty(prefs)
-}
-
-/// Deserialize preferences from a JSON string.
-///
-/// Strict: unknown fields (including the removed singular `gateway_type` /
-/// `push_gateway` pair, removed gateway-type aliases such as `Sygnal`, and
-/// removed field names such as `gateway_url` / `show_message_preview`)
-/// cause an error rather than a silent fallback. Callers that want
-/// graceful recovery should match on the error and decide what to do —
-/// there is no longer a permissive variant.
-pub fn from_json(json: &str) -> Result<PushPreferences, serde_json::Error> {
-    serde_json::from_str(json)
-}
-
 // -- Tests -------------------------------------------------------------------
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn to_json(prefs: &PushPreferences) -> Result<String, serde_json::Error> {
+        serde_json::to_string_pretty(prefs)
+    }
+
+    fn from_json(json: &str) -> Result<PushPreferences, serde_json::Error> {
+        serde_json::from_str(json)
+    }
 
     #[test]
     fn default_preferences() {

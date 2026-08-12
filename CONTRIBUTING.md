@@ -102,14 +102,10 @@ Two rules are enforced in code; do not weaken them.
    in `Debug` impls and tracing fields. New types that carry token
    material must implement a custom `Debug` that uses
    `redact_push_key` (or an equivalent helper).
-2. `validate_blind_wakeup`, `validate_plaintext_visible_service`, and
-   `PushNotifyPolicyContext::mode_for` are the only legal entry points
-   that decide whether identifying metadata may leave the SDK. New
-   conditional fields belong inside that gate, not above it.
-
-Tests for changes that touch the privacy boundary should add a row to
-`shared_push_notify_privacy_vectors()` so floria and other downstream
-gateways inherit the same fixture.
+2. Gateway-side blind-wakeup validation lives in the SDK
+   (`arkret_push_policy::blind_payload_sanitizer`), not in chime. Do not
+   reintroduce server-side notify wire types or their validators here —
+   chime is a client SDK.
 
 ## Security reports
 

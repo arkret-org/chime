@@ -34,8 +34,8 @@
 //! `PushRoute`'s `Serialize`/`Deserialize` exist only for chime's own
 //! local persistence and for round-tripping the state machine in tests.
 
-#[cfg(feature = "notify")]
-use arkret::PushTargetId;
+use arkret_models_integration::PushTargetId;
+use arkret_push_policy::blind_payload_sanitizer::is_valid_push_target_id;
 use arkret_wire::{DidCoreId, DidFullId};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -134,14 +134,8 @@ pub struct PushRoute {
     pub route: PushRouteId,
     /// Per-route pairwise pseudonym. Required when the route is
     /// active; `None` is only legal when `revoked == true`.
-    #[cfg(feature = "notify")]
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub push_target_id: Option<PushTargetId>,
-    /// Same field as the `notify` feature variant, but without pulling in
-    /// the SDK push validator dependency.
-    #[cfg(not(feature = "notify"))]
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub push_target_id: Option<String>,
     /// DID of the push gateway that should receive notifications for
     /// this route. Sync Service uses this to pick the right HTTP
     /// destination per route.
@@ -182,7 +176,6 @@ pub enum PushRouteError {
     InvalidRouteIdCharacter(char),
     #[error("push_route is active but missing required field `{field}`")]
     ActiveRouteMissing { field: &'static str },
-    #[cfg(feature = "notify")]
     #[error("push_target_id is not a valid opaque push pseudonym")]
     InvalidPushTargetId,
     #[error("push_gateway_did must be a resolvable full DID")]
@@ -227,7 +220,6 @@ impl PushRoute {
     /// push_route)`. Callers that genuinely need a placeholder before
     /// service discovery has run should use
     /// [`PushRoute::stub_unauthenticated`].
-    #[cfg(feature = "notify")]
     pub fn active(
         recipient_service_id: DidCoreId,
         route: PushRouteId,
@@ -254,7 +246,6 @@ impl PushRoute {
     /// `ActiveRouteMissing { field: "recipient_service_id" }`, which
     /// is the entire point — callers can pin the negative path
     /// without hand-rolling a malformed struct literal.
-    #[cfg(feature = "notify")]
     pub fn stub_unauthenticated(
         route: PushRouteId,
         push_target_id: PushTargetId,
@@ -343,10 +334,11 @@ impl PushRoute {
                     field: "push_target_id",
                 });
             }
-            #[cfg(feature = "notify")]
-            if self.push_target_id.as_deref().is_some_and(|value| {
-                !arkret::blind_payload_sanitizer::is_valid_push_target_id(value)
-            }) {
+            if self
+                .push_target_id
+                .as_deref()
+                .is_some_and(|value| !is_valid_push_target_id(value))
+            {
                 return Err(PushRouteError::InvalidPushTargetId);
             }
             if self.push_gateway_did.is_none() {
@@ -457,7 +449,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "notify")]
     fn active_route_requires_service_id_target_id_and_gateway_did() {
         let pseudo = "ak:pseudonym:push:01HYZ8Z000000000000000".to_owned();
         let service_id = DidCoreId::new("ak:did_core:web:principal.example").unwrap();
@@ -501,7 +492,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "notify")]
     fn stub_unauthenticated_fails_validation_with_missing_service_id() {
         // T4.1 negative test: the stub helper exists specifically so
         // tests can assert that an unbound route can't escape
@@ -551,7 +541,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "notify")]
     fn revoke_helper_preserves_cell_subject_identity() {
         let pseudo = "ak:pseudonym:push:01HYZ8Z000000000000000".to_owned();
         let service_id = DidCoreId::new("ak:did_core:web:principal.example").unwrap();
@@ -570,7 +559,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "notify")]
     fn revoke_helper_refuses_unauthenticated_stub() {
         // The cell_subject preservation guarantee would be a lie if
         // we let a stub revoke itself into the default ("") cell.
@@ -585,7 +573,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "notify")]
     fn route_round_trips_through_json_with_capabilities() {
         let pseudo = "ak:pseudonym:push:01HYZ8Z000000000000000".to_owned();
         let service_id = DidCoreId::new("ak:did_core:web:principal.example").unwrap();
@@ -608,7 +595,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "notify")]
     fn call_invite_routes_advertise_voip_capability() {
         let pseudo = "ak:pseudonym:push:01HYZ8Z000000000000000".to_owned();
         let service_id = DidCoreId::new("ak:did_core:web:principal.example").unwrap();

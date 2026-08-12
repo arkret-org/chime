@@ -39,13 +39,10 @@ wire-breaking list; the normative source remains `../arkret-spec/spec/v1/`.
 
 ## Round R2/R3 notes
 
-Spec rounds 2+3 (2026-05-20) added the `lifecycle::on_account_deactivate`
-host integration hook (T07 — 4-step local push cleanup) and the
-`ROUND_R2_R3_SENSITIVE_FIELDS` defense-in-depth list that mirrors floria's
-blind-wakeup forbidden-field surface. Ephemeral kinds (`ak.presence`,
-`ak.typing`, `ak.receipt.read`, `ak.call.signal`) are confirmed not
-consumed by chime. See [`CHANGELOG.md`](CHANGELOG.md) `[Unreleased]`;
-the normative source remains `../arkret-spec/spec/v1/`.
+Ephemeral kinds (`ak.presence`, `ak.typing`, `ak.receipt.read`,
+`ak.call.signal`) are confirmed not consumed by chime. See
+[`CHANGELOG.md`](CHANGELOG.md) `[Unreleased]`; the normative source
+remains `../arkret-spec/spec/v1/`.
 
 ## Protocol Baseline
 
@@ -81,24 +78,12 @@ hosts that need the standalone resolver trait can use
 | --- | --- |
 | _(default)_ | Core types, JSON serialization helpers, and Arkret register/unregister request builders. No network dependencies. |
 | `http` | Adds `ArkretPushClient`, a small `reqwest` helper for `POST /_arkret/edge/push/register-device` and `POST /_arkret/edge/push/unregister-device`. |
-| `notify` | Re-exports the SDK-owned `ak.edge.push.command.notify` wire types and adds blind-wakeup privacy validation. |
 
-> **Production deployments MUST enable the `notify` feature.** Without it,
-> the blind-wakeup / plaintext-visible privacy validators
-> (`PushNotifyEnvelopeExt::assert_payload_safe`,
-> `PushNotificationExt::validate_blind_wakeup`) and the Circle / governance
-> metadata leak checks (`assert_no_sensitive_fields`,
-> `ROUND_R2_R3_SENSITIVE_FIELDS`) are not compiled in — a wakeup that
-> would otherwise be rejected by the validator will pass straight through
-> to the device. Local-only smoke tests can leave it off, but any
-> integration that touches real floria / inkson / soland traffic must
-> compile with `--features http,notify`.
->
-> The SDK-owned `PushNotifyRequestBody` and `PushNotificationEnvelope` are
-> closed wire shapes, so unknown fields fail during deserialization. Hosts
-> must still call `assert_payload_safe`, `validate_blind_wakeup`, or
-> `validate_wire_model` before reading fields or showing UI because semantic
-> privacy constraints are stricter than serde shape validation.
+> **Server-side `ak.edge.push.command.notify` wire types are not part of
+> this crate.** chime is a client SDK: it builds register/unregister
+> requests and evaluates client-side push rules. Gateway implementations
+> that need to validate outbound blind-wakeup payloads use the SDK's
+> `arkret_push_policy::blind_payload_sanitizer` directly.
 
 ## AKP-0007 Circle subscriptions
 
@@ -108,17 +93,16 @@ of an Event lives in its producer-signed `scope_ref`; object read
 projections may materialize an equal `effective_scope`. Neither name
 reaches the push wire:
 
-- **Receiving a Circle-scoped wakeup.** `PushNotificationEnvelope` carries no
+- **Receiving a Circle-scoped wakeup.** The push wakeup wire carries no
   Circle identifier and no scope field. Raw Realm ids, Circle ids and
   `effective_scope` MUST NOT enter `/_arkret/edge/push/notify`
   (`push-notifications.md` §5.1); the wakeup only carries opaque
   `route_tokens.scope_route_token` / `devices[].target_route_token`.
   The client resolves the security boundary from the durable Event it
-  fetches after the wakeup, never from the wakeup itself. The Circle
-  metadata privacy validator in `validate_blind_wakeup` rejects
-  `circle_name` / `circle_display_name` and the `circle_members` /
-  `circle_member_dids` / `circle_member_actor_ids` membership surfaces;
-  the closed SDK wire type rejects those fields during deserialization.
+  fetches after the wakeup, never from the wakeup itself. The closed SDK
+  wire type rejects `circle_name` / `circle_display_name` and the
+  `circle_members` / `circle_member_dids` / `circle_member_actor_ids`
+  membership surfaces during deserialization.
 - **Muting a Circle on this device.** `PushPreferences` carries
   `muted_circle_ids: BTreeSet<String>` and `muted_realm_ids:
   BTreeSet<String>`. These are matched host-side against the scope the
@@ -126,12 +110,6 @@ reaches the push wire:
   matched, because it carries no scope. A muted scope MUST NOT raise a
   UI surface; wire-level delivery is unchanged so floria can still
   account for the receipt.
-- **Deactivation cleanup.** `on_account_deactivate` snapshots
-  `muted_circle_ids` / `muted_realm_ids` onto the returned
-  `AccountDeactivationReceipt` (fields `circle_bindings_cleared` and
-  `realm_bindings_cleared`) before wiping the persisted prefs, so
-  host-side telemetry can observe which Circle / Realm bindings were
-  live at the moment of deactivation.
 
 ## Quick Start
 
@@ -140,9 +118,8 @@ Add to your `Cargo.toml`:
 ```toml
 [dependencies]
 chime = "1.0.0"
-# or with Arkret HTTP registration and gateway notify wire types:
+# or with the Arkret HTTP registration client:
 # chime = { version = "1.0.0", features = ["http"] }
-# chime = { version = "1.0.0", features = ["http", "notify"] }
 ```
 
 In-tree workspace consumers can also pull a path dependency:
@@ -176,8 +153,10 @@ let app_id = binding.resolve_app_id(
 );
 assert_eq!(app_id, Some("app.example.android.cn"));
 
-let json = chime::to_json(&prefs).unwrap();
-let loaded = chime::from_json(&json).unwrap();
+// `PushPreferences` is plain `serde`; persist it with whatever encoder
+// the host already uses.
+let json = serde_json::to_string_pretty(&prefs).unwrap();
+let loaded: PushPreferences = serde_json::from_str(&json).unwrap();
 assert_eq!(loaded.gateways[0].gateway_type, PushGatewayType::Bugle);
 ```
 
@@ -217,55 +196,6 @@ assert_eq!(
     request.device_id,
     "ak:device:01904100-0000-7000-8000-000000000004"
 );
-```
-
-### Validate a blind push wakeup
-
-Enable the `notify` feature when implementing a gateway or a host-side push
-receiver. The validator accepts only opaque routing metadata by default.
-
-```rust
-# #[cfg(feature = "notify")]
-use chime::{
-    PushNotifyEnvelopeExt, PushNotifyPolicyContext, PushNotifyRequestBody,
-};
-
-# #[cfg(feature = "notify")]
-# fn main() -> Result<(), Box<dyn std::error::Error>> {
-let request: PushNotifyRequestBody = serde_json::from_value(serde_json::json!({
-    "notification": {
-        "push_target_id": "ak:pseudonym:push:01HYZ8Z000000000000000",
-        "wakeup_kind": "message",
-        "timing_profile_hint": "default",
-        "devices": [{
-            "device_id": "ak:device:01904100-0000-7000-8000-000000000010",
-            "push_key": "fcm:opaque-token",
-            "app_id": "app.example"
-        }]
-    }
-}))?;
-
-request.assert_payload_safe(&PushNotifyPolicyContext::blind_wakeup_only(), None)?;
-
-// The SDK model is closed: a plaintext label cannot hide in an `extra` map.
-let err = serde_json::from_value::<PushNotifyRequestBody>(serde_json::json!({
-    "notification": {
-        "push_target_id": "ak:pseudonym:push:01HYZ8Z000000000000001",
-        "wakeup_kind": "message",
-        "timing_profile_hint": "default",
-        "title": "Secret",
-        "devices": [{
-            "device_id": "ak:device:01904100-0000-7000-8000-000000000011"
-        }]
-    }
-}))
-    .expect_err("unknown plaintext metadata must be rejected");
-let msg = err.to_string();
-assert!(msg.contains("unknown field `title`"));
-# Ok(())
-# }
-# #[cfg(not(feature = "notify"))]
-# fn main() {}
 ```
 
 ### Register through HTTP
@@ -311,19 +241,9 @@ assert!(response.body.ok);
 # }
 ```
 
-> Live coverage of this strand lives in `tests/live_floria_integration.rs`,
-> which spawns a real `floria` push gateway on a loopback port and exercises
-> the discovery + notify side of the same `ArkretPushClient`.
-
 Production notes:
 
 - Authentication material is only sent through headers. Do not put session tokens, API keys, signatures, or bearer tokens in a binding's `push_gateway` URL query string.
-- Media-token exchange uses `verify_media_token_outcome`, which delegates
-  to the SDK media verifier. The caller supplies the original
-  `CallMediaTokenExchangeRequestBody` and current `MediaServiceAnchors`,
-  so chime checks issuer anchoring, participant tuple, TTL,
-  `service_signature`, and `participant_binding.sig` before returning a
-  verified token marker.
 - Each binding's `push_gateway` must be HTTPS unless `allow_insecure_loopback_push_gateway` is enabled for localhost development.
 - WebPush registrations can set `webpush_endpoint_allowlist` to restrict accepted endpoint origins or host patterns before a browser endpoint is sent to the service.
 - `push_key` is redacted in debug output and logs; callers should still store it as a secret.
@@ -492,11 +412,11 @@ into a Arkret Principal Server / Sync Service deployment.
   keychain, encrypted app storage, or another locally protected store.
   Never log raw `push_key`; the crate redacts it in `Debug` impls and
   tracing fields, and you should mirror that in your own code.
-- **Privacy gate.** When you build the `notify` feature into a
-  gateway, validate every outbound payload through
-  `PushNotifyEnvelopeExt::assert_payload_safe(&policy, None)`. Empty
-  `PushNotifyPolicyContext` means every notification is treated as
-  blind wakeup, which is the safest default.
+- **Privacy gate.** Gateway-side payload validation is not chime's
+  surface. Validate every outbound wakeup through the SDK's
+  `arkret_push_policy::blind_payload_sanitizer` before it leaves the
+  gateway; treating every notification as a blind wakeup is the safest
+  default.
 
 ### Observability
 
@@ -533,9 +453,7 @@ Register/unregister builders carry the canonical operation id, optional `princip
 
 Push notifications are derived wakeups, not canonical truth. For E2EE Realms, push gateways should receive only minimized metadata such as `push_target_id`, `wakeup_kind`, counts, priority/TTL/collapse hints, and optional body-free `push_hint`.
 
-With the `notify` feature, the `PushNotifyEnvelopeExt` methods on the SDK-owned `PushNotifyRequestBody` enforce that boundary. Entity facets and view-renderer output are routing or context hints only when the application has explicitly authorized that use; do not serialize facet-derived title, body, display name, or space name into provider payloads. The closed SDK model rejects unknown aliases and provider wrappers during deserialization; the Chime validator then rejects typed identifying metadata that is not allowed in blind-wakeup mode.
-
-`shared_push_notify_privacy_vectors()` exposes the E2EE invalid cases and the explicit plaintext-visible service allow case so gateway implementations such as `floria` can run the same vectors.
+The SDK-owned notify wire model enforces that boundary on the gateway side. Entity facets and view-renderer output are routing or context hints only when the application has explicitly authorized that use; do not serialize facet-derived title, body, display name, or space name into provider payloads. The closed SDK model rejects unknown aliases and provider wrappers during deserialization.
 
 ## Architecture
 
