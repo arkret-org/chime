@@ -21,6 +21,9 @@ exclude = [
 all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
 
+[lints]
+workspace = true
+
 [dependencies]
 # `chrono` backs the DND schedule evaluation in `rules.rs`; the default
 # features are stripped to keep the wasm32 build slim.
@@ -87,6 +90,15 @@ tokio = {workspace = true,features = ["io-util", "macros", "net", "rt-multi-thre
 
 [workspace]
 resolver = "3"
+
+[workspace.lints.rust]
+unsafe_code = "deny"
+
+[workspace.lints.clippy]
+dbg_macro = "deny"
+mem_forget = "deny"
+todo = "deny"
+unimplemented = "deny"
 
 [workspace.dependencies]
 base64 = "0.22"
