@@ -362,10 +362,7 @@ async fn retries_429_and_honors_retry_after() {
 
     let response = client(base_url)
         .with_retry_policy(PushRetryPolicy {
-            max_retries: 1,
-            initial_backoff: Duration::ZERO,
-            max_backoff: Duration::ZERO,
-            jitter: Duration::ZERO,
+            retry: arkret_retry::RetryPolicy::none().with_max_retries(1),
             disabled_kinds_mask: 0,
         })
         .register_device(&config(), &binding(), &prefs())
@@ -454,10 +451,7 @@ async fn register_auto_generates_idempotency_key_when_omitted() {
 
     let response = client(base_url)
         .with_retry_policy(PushRetryPolicy {
-            max_retries: 1,
-            initial_backoff: Duration::ZERO,
-            max_backoff: Duration::ZERO,
-            jitter: Duration::ZERO,
+            retry: arkret_retry::RetryPolicy::none().with_max_retries(1),
             disabled_kinds_mask: 0,
         })
         .register_device(&config, &binding(), &prefs())
@@ -496,10 +490,7 @@ async fn does_not_retry_duplicate_conflict() {
 
     let err = client(base_url)
         .with_retry_policy(PushRetryPolicy {
-            max_retries: 2,
-            initial_backoff: Duration::ZERO,
-            max_backoff: Duration::ZERO,
-            jitter: Duration::ZERO,
+            retry: arkret_retry::RetryPolicy::none().with_max_retries(2),
             disabled_kinds_mask: 0,
         })
         .register_device(&config(), &binding(), &prefs())
@@ -527,10 +518,7 @@ async fn retries_503() {
 
     let response = client(base_url)
         .with_retry_policy(PushRetryPolicy {
-            max_retries: 1,
-            initial_backoff: Duration::ZERO,
-            max_backoff: Duration::ZERO,
-            jitter: Duration::ZERO,
+            retry: arkret_retry::RetryPolicy::none().with_max_retries(1),
             disabled_kinds_mask: 0,
         })
         .register_device(&config(), &binding(), &prefs())
@@ -552,10 +540,7 @@ async fn disabled_kinds_skip_otherwise_retryable_error() {
     }]);
 
     let policy = PushRetryPolicy {
-        max_retries: 3,
-        initial_backoff: Duration::ZERO,
-        max_backoff: Duration::ZERO,
-        jitter: Duration::ZERO,
+        retry: arkret_retry::RetryPolicy::none().with_max_retries(3),
         disabled_kinds_mask: 0,
     }
     .with_disabled_kinds(&[PushErrorKind::TemporarilyUnavailable]);

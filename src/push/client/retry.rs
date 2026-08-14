@@ -1,21 +1,20 @@
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, SystemTime};
 
+use arkret_retry::RetryPolicy;
 use sha2::{Digest, Sha256};
 
 /// Retry configuration for `ArkretPushClient`.
 ///
-/// Stability: `1.0`-stable. Stays `Copy` + `const`-constructible so
-/// callers can stash it in static config. The `disabled_kinds_mask`
-/// is a bitmask indexed by [`super::super::PushErrorKind`] discriminant ordinal —
-/// see [`PushRetryPolicy::with_disabled_kinds`] for ergonomic builder
-/// access.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+/// Stays `Copy` + `const`-constructible so callers can stash it in static
+/// config. The curve itself is [`arkret_retry::RetryPolicy`] — the push client
+/// does not own a second ladder. The `disabled_kinds_mask` is a bitmask indexed
+/// by [`super::super::PushErrorKind`] discriminant ordinal — see
+/// [`PushRetryPolicy::with_disabled_kinds`] for ergonomic builder access.
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct PushRetryPolicy {
-    pub max_retries: u32,
-    pub initial_backoff: Duration,
-    pub max_backoff: Duration,
-    pub jitter: Duration,
+    /// Backoff curve and retry budget.
+    pub retry: RetryPolicy,
     /// Bitmask of `PushErrorKind` ordinals that should *not* be
     /// retried even when `is_retryable()` would say yes. Useful when
     /// the host application wants to bypass retries for `RateLimited`
@@ -26,20 +25,19 @@ pub struct PushRetryPolicy {
 impl PushRetryPolicy {
     pub const fn disabled() -> Self {
         Self {
-            max_retries: 0,
-            initial_backoff: Duration::from_millis(0),
-            max_backoff: Duration::from_millis(0),
-            jitter: Duration::from_millis(0),
+            retry: RetryPolicy::none(),
             disabled_kinds_mask: 0,
         }
     }
 
+    /// The `sync/api-conventions.md` §9 curve with a small retry budget.
+    ///
+    /// The delays are normative, not a client-side tuning knob: the previous
+    /// 200 ms / 3 s pair breached both the 1,000 ms first-wait floor and the
+    /// 60,000 ms ceiling that §9 requires.
     pub const fn conservative() -> Self {
         Self {
-            max_retries: 2,
-            initial_backoff: Duration::from_millis(200),
-            max_backoff: Duration::from_secs(3),
-            jitter: Duration::from_millis(100),
+            retry: RetryPolicy::arkret_default().with_max_retries(2),
             disabled_kinds_mask: 0,
         }
     }

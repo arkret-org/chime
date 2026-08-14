@@ -41,6 +41,7 @@ arkret-canonical = {workspace = true}
 arkret-models-discovery = {workspace = true}
 arkret-models-integration = {workspace = true}
 arkret-push-policy = {workspace = true}
+arkret-retry = {workspace = true}
 arkret-signatures = {workspace = true,default-features = false}
 arkret-wire = {workspace = true}
 httpdate = {workspace = true}
@@ -107,6 +108,7 @@ arkret-canonical = {version = "0.3.0",path = "../arkret-rust-sdk/crates/canonica
 arkret-models-discovery = {version = "0.3.0",path = "../arkret-rust-sdk/crates/models-discovery"}
 arkret-models-integration = {version = "0.3.0",path = "../arkret-rust-sdk/crates/models-integration"}
 arkret-push-policy = {version = "0.3.0",path = "../arkret-rust-sdk/crates/push-policy"}
+arkret-retry = {version = "0.3.0",path = "../arkret-rust-sdk/crates/retry"}
 arkret-signatures = {version = "0.3.0",path = "../arkret-rust-sdk/crates/signatures",default-features = false}
 arkret-wire = {version = "0.3.0",path = "../arkret-rust-sdk/crates/wire"}
 ed25519-dalek = {version = "2.2.0",default-features = false,features = ["std", "rand_core"]}

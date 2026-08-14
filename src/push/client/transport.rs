@@ -1,5 +1,6 @@
 use std::time::Duration;
 
+use arkret_retry::Jitter;
 use serde::{Deserialize, Serialize};
 
 use super::super::errors::{PushRegistrationError, classify_http_error};
@@ -127,7 +128,7 @@ impl ArkretPushClient {
             match result {
                 Ok(response) => return Ok(response),
                 Err(error)
-                    if retry_count < self.retry_policy.max_retries
+                    if retry_count < self.retry_policy.retry.max_retries()
                         && error.is_retryable()
                         && !self.retry_policy.retries_disabled_for(error.kind()) =>
                 {
@@ -159,7 +160,7 @@ impl ArkretPushClient {
             match result {
                 Ok(response) => return Ok(response),
                 Err(error)
-                    if retry_count < self.retry_policy.max_retries
+                    if retry_count < self.retry_policy.retry.max_retries()
                         && error.is_retryable()
                         && !self.retry_policy.retries_disabled_for(error.kind()) =>
                 {
@@ -327,43 +328,18 @@ impl ArkretPushClient {
     }
 
     pub(super) fn backoff_delay(&self, retry_count: u32) -> Duration {
-        let factor = 1_u32.checked_shl(retry_count.min(31)).unwrap_or(u32::MAX);
-        let base = self
-            .retry_policy
-            .initial_backoff
-            .saturating_mul(factor)
-            .min(self.retry_policy.max_backoff);
-        base.saturating_add(self.jitter_delay(retry_count))
-            .min(self.retry_policy.max_backoff)
-    }
-
-    fn jitter_delay(&self, retry_count: u32) -> Duration {
-        if self.retry_policy.jitter.is_zero() {
-            return Duration::ZERO;
-        }
-
-        let max_nanos = self.retry_policy.jitter.as_nanos().min(u64::MAX as u128) as u64;
-        if max_nanos == 0 {
-            return Duration::ZERO;
-        }
-
-        // C.6 #10 — re-seed the jitter mixer per attempt by folding in
-        // a fresh wall-clock sample. Without this every retry of a
-        // given `(client, retry_count)` pair would produce the same
-        // jitter — which means concurrent retries from many clients
-        // that happen to share a construction timestamp (e.g. a fleet
-        // restarting at the same minute) would line up into thundering
-        // herds. The fresh-per-attempt seed breaks the alignment without
-        // pulling in the `rand` crate.
-        let attempt_seed = retry_jitter_seed();
-        let mut value = self.retry_jitter_seed.wrapping_add(attempt_seed)
-            ^ ((retry_count as u64).wrapping_add(1) * 0x9E37_79B9_7F4A_7C15);
-        value ^= value >> 30;
-        value = value.wrapping_mul(0xBF58_476D_1CE4_E5B9);
-        value ^= value >> 27;
-        value = value.wrapping_mul(0x94D0_49BB_1331_11EB);
-        value ^= value >> 31;
-        Duration::from_nanos(value % (max_nanos.saturating_add(1)))
+        // C.6 #10 — re-seed the jitter mixer per attempt by folding in a fresh
+        // wall-clock sample. Without this every retry of a given
+        // `(client, retry_count)` pair would produce the same jitter, so
+        // concurrent retries from many clients that share a construction
+        // timestamp (a fleet restarting at the same minute) would line up into
+        // a thundering herd. The fresh-per-attempt seed breaks the alignment
+        // without pulling in the `rand` crate.
+        let mut jitter = Jitter::from_seed(
+            self.retry_jitter_seed.wrapping_add(retry_jitter_seed())
+                ^ (u64::from(retry_count).wrapping_add(1)).wrapping_mul(0x9E37_79B9_7F4A_7C15),
+        );
+        self.retry_policy.retry.delay(retry_count, &mut jitter)
     }
 }
 
