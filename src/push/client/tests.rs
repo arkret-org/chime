@@ -298,7 +298,7 @@ async fn invalid_success_schema_is_invalid_response() {
         .await
         .unwrap_err();
 
-    assert_eq!(err.kind(), PushErrorKind::InvalidResponse);
+    assert_eq!(err.kind(), PushErrorKind::ResponseInvalid);
 }
 
 #[tokio::test]

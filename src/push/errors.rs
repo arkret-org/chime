@@ -36,7 +36,7 @@ pub enum PushErrorKind {
     SchemaViolation,
     NetworkTimeout,
     Network,
-    InvalidResponse,
+    ResponseInvalid,
     HttpStatus,
     /// Round 4 (spec a77b995) — federation sender used an obsolete member
     /// delivery binding frontier. The response carries
@@ -147,7 +147,7 @@ impl PushErrorKind {
             Self::SchemaViolation => 14,
             Self::NetworkTimeout => 15,
             Self::Network => 16,
-            Self::InvalidResponse => 17,
+            Self::ResponseInvalid => 17,
             Self::HttpStatus => 18,
             // Round 4 (spec a77b995) — additions are bit-position
             // appended; never reorder existing ones.
@@ -261,19 +261,19 @@ impl PushErrorKind {
                 PushErrorKind::SchemaViolation,
             ),
             (
-                arkret_wire::ErrorCode::BAD_JSON,
+                arkret_wire::ErrorCode::JSON_INVALID,
                 PushErrorKind::SchemaViolation,
             ),
             (
-                arkret_wire::ErrorCode::BAD_QUERY,
+                arkret_wire::ErrorCode::QUERY_INVALID,
                 PushErrorKind::SchemaViolation,
             ),
             (
-                arkret_wire::ErrorCode::MISSING_PARAM,
+                arkret_wire::ErrorCode::PARAM_MISSING,
                 PushErrorKind::SchemaViolation,
             ),
             (
-                arkret_wire::ErrorCode::INVALID_PARAM,
+                arkret_wire::ErrorCode::PARAM_INVALID,
                 PushErrorKind::SchemaViolation,
             ),
             (
@@ -436,13 +436,13 @@ impl PushRegistrationError {
             }
             Self::InvalidHeader { .. } => PushErrorKind::InvalidHeader,
             Self::InvalidField { .. } => PushErrorKind::SchemaViolation,
-            Self::ResponseTooLarge { .. } => PushErrorKind::InvalidResponse,
+            Self::ResponseTooLarge { .. } => PushErrorKind::ResponseInvalid,
             Self::HttpStatus { kind, .. } => *kind,
             #[cfg(feature = "http")]
             Self::Http(error) if error.is_timeout() => PushErrorKind::NetworkTimeout,
             #[cfg(feature = "http")]
             Self::Http(_) => PushErrorKind::Network,
-            Self::Json(_) => PushErrorKind::InvalidResponse,
+            Self::Json(_) => PushErrorKind::ResponseInvalid,
         }
     }
 
@@ -635,7 +635,7 @@ mod tests {
             PushErrorKind::SchemaViolation,
             PushErrorKind::NetworkTimeout,
             PushErrorKind::Network,
-            PushErrorKind::InvalidResponse,
+            PushErrorKind::ResponseInvalid,
             PushErrorKind::HttpStatus,
             PushErrorKind::DeliveryBindingStale,
             PushErrorKind::DeliveryBindingHandedOver,
