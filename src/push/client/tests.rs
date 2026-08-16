@@ -477,7 +477,7 @@ async fn register_auto_generates_idempotency_key_when_omitted() {
     let first = key_of(&recorded[0]).expect("first request carries idempotency key");
     let second = key_of(&recorded[1]).expect("retry carries idempotency key");
     assert_eq!(first, second, "retry must reuse the same key");
-    assert!(first.starts_with("ak.sdk-"));
+    assert!(first.starts_with("chime-sdk-"));
 }
 
 #[tokio::test]
