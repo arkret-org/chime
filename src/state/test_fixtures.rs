@@ -86,7 +86,7 @@ pub(crate) fn state_for_binding(
     let request = build_register_device_request(&device_config, &binding, &prefs()).unwrap();
     let response = ChimePushRegisterDeviceOutcome {
         ok: true,
-        registration_id: Some(registration_id.to_owned()),
+        registration_id: Some(arkret_wire::OpaqueLocalId::new(registration_id).unwrap()),
         expires_at: Some("2026-05-03T00:00:00.000Z".parse().expect("valid timestamp")),
     };
 

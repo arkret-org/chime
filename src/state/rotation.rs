@@ -118,7 +118,7 @@ mod tests {
             build_register_device_request(&config("fcm:same-token"), &binding(), &prefs()).unwrap();
         let response = ChimePushRegisterDeviceOutcome {
             ok: true,
-            registration_id: Some("reg-1".to_owned()),
+            registration_id: Some(arkret_wire::OpaqueLocalId::new("reg-1").unwrap()),
             expires_at: None,
         };
         let state = build_registration_state(&binding(), &request, &response, None);
@@ -143,7 +143,7 @@ mod tests {
             build_register_device_request(&config("fcm:old-token"), &binding(), &prefs()).unwrap();
         let response = ChimePushRegisterDeviceOutcome {
             ok: true,
-            registration_id: Some("reg-old".to_owned()),
+            registration_id: Some(arkret_wire::OpaqueLocalId::new("reg-old").unwrap()),
             expires_at: None,
         };
         let state = build_registration_state(&binding(), &request, &response, None);
@@ -173,7 +173,7 @@ mod tests {
             build_register_device_request(&config("fcm:old-token"), &binding(), &prefs()).unwrap();
         let response = ChimePushRegisterDeviceOutcome {
             ok: true,
-            registration_id: Some("reg-old".to_owned()),
+            registration_id: Some(arkret_wire::OpaqueLocalId::new("reg-old").unwrap()),
             ..Default::default()
         };
         let state = build_registration_state(&binding(), &request, &response, None);
@@ -209,7 +209,7 @@ mod tests {
             build_register_device_request(&config("fcm:old-token"), &binding(), &prefs()).unwrap();
         let response = ChimePushRegisterDeviceOutcome {
             ok: true,
-            registration_id: Some("reg-old".to_owned()),
+            registration_id: Some(arkret_wire::OpaqueLocalId::new("reg-old").unwrap()),
             expires_at: None,
         };
         let state = build_registration_state(&binding(), &request, &response, None);

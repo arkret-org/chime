@@ -337,7 +337,7 @@ pub fn token_moved_to_different_device(
 /// let request = build_register_device_request(&config, &binding, &prefs).unwrap();
 /// let mut response = ChimePushRegisterDeviceOutcome::default();
 /// response.ok = true;
-/// response.registration_id = Some("reg-1".to_owned());
+/// response.registration_id = Some(arkret_wire::OpaqueLocalId::new("reg-1").unwrap());
 /// let state = build_registration_state(&binding, &request, &response, None);
 /// assert_eq!(state.registration_id.as_deref(), Some("reg-1"));
 /// ```
@@ -350,7 +350,10 @@ pub fn build_registration_state(
     PushRegistrationState {
         schema_version: PUSH_REGISTRATION_STATE_SCHEMA_VERSION,
         principal_id: request.principal_id.clone(),
-        registration_id: response.registration_id.clone(),
+        registration_id: response
+            .registration_id
+            .as_ref()
+            .map(|id| id.as_str().to_owned()),
         device_id: request.device_id.clone(),
         platform: request.platform.clone(),
         app_id: request.app_id.clone(),
@@ -482,7 +485,7 @@ mod tests {
             build_register_device_request(&config("fcm:new-token"), &binding(), &prefs()).unwrap();
         let response = ChimePushRegisterDeviceOutcome {
             ok: true,
-            registration_id: Some("reg-new".to_owned()),
+            registration_id: Some(arkret_wire::OpaqueLocalId::new("reg-new").unwrap()),
             expires_at: Some("2026-04-29T00:00:00.000Z".parse().expect("valid timestamp")),
         };
 
