@@ -534,7 +534,7 @@ mod tests {
 
         let with_error = state.mark_last_error(
             "temporarily_unavailable",
-            Some("ak:request:1"),
+            Some("ak:request:01904100-0000-7000-8000-000000000040"),
             Some("1"),
             Some("2026-05-02T00:00:00.000Z"),
         );

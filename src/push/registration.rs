@@ -108,7 +108,7 @@ pub fn build_register_device_request(
 ///     platform: Some("android"),
 ///     app_id: Some("app.example.android"),
 ///     domestic_app_id: None,
-///     registration_id: Some("ak:pushreg:01JS0KE000000000000000000"),
+///     registration_id: Some("pushreg-01JS0KE000000000000000000"),
 ///     display_name: None,
 ///     idempotency_key: Some("unregister-phone-v1"),
 ///     request_id: None,
@@ -122,7 +122,7 @@ pub fn build_register_device_request(
 ///     build_unregister_device_request(&config, &binding, &PushPreferences::default()).unwrap();
 /// assert_eq!(
 ///     request.registration_id.as_deref(),
-///     Some("ak:pushreg:01JS0KE000000000000000000")
+///     Some("pushreg-01JS0KE000000000000000000")
 /// );
 /// ```
 pub fn build_unregister_device_request(
@@ -299,10 +299,10 @@ mod tests {
             platform,
             app_id: Some("app.example.android"),
             domestic_app_id: Some("app.example.android.cn"),
-            registration_id: Some("ak:pushreg:01JS0KE000000000000000000"),
+            registration_id: Some("pushreg-01JS0KE000000000000000000"),
             display_name: Some("Alice Phone"),
             idempotency_key: Some("idem-1"),
-            request_id: Some("ak:request:01JS0KE000000000000000000"),
+            request_id: Some("ak:request:01904100-0000-7000-8000-000000000050"),
             proof: None,
         }
     }
@@ -345,7 +345,7 @@ mod tests {
         assert_eq!(request.idempotency_key.as_deref(), Some("idem-1"));
         assert_eq!(
             request.request_id.as_deref(),
-            Some("ak:request:01JS0KE000000000000000000")
+            Some("ak:request:01904100-0000-7000-8000-000000000050")
         );
     }
 
@@ -376,7 +376,7 @@ mod tests {
         );
         assert_eq!(
             request.registration_id.as_deref(),
-            Some("ak:pushreg:01JS0KE000000000000000000")
+            Some("pushreg-01JS0KE000000000000000000")
         );
         assert_eq!(request.push_key.as_deref(), Some("fcm:very-secret-token"));
         assert!(
@@ -393,7 +393,7 @@ mod tests {
         assert_eq!(request.idempotency_key.as_deref(), Some("idem-1"));
         assert_eq!(
             request.request_id.as_deref(),
-            Some("ak:request:01JS0KE000000000000000000")
+            Some("ak:request:01904100-0000-7000-8000-000000000050")
         );
     }
 

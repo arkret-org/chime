@@ -588,7 +588,7 @@ mod tests {
     fn ch1_content_digest_matches_sdk_byte_for_byte() {
         let body = serde_json::json!({
             "operation_id": "ak.edge.push.command.register_device",
-            "device_id": "ak:device:01HYZ8Z000000000000000",
+            "device_id": "ak:device:01904100-0000-7000-8000-000000000004",
         });
         let chime_value = content_digest_sha256(&body).expect("chime digest computes");
 

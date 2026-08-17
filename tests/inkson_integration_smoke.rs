@@ -86,7 +86,7 @@ fn inkson_register_request(
         registration_id: None,
         display_name: Some("inkson smoke device"),
         idempotency_key: Some("chime-inkson-smoke"),
-        request_id: Some("ak:request:inkson-smoke"),
+        request_id: Some("ak:request:01904100-0000-7000-8000-000000000060"),
         proof: None,
     };
 

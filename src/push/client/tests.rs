@@ -61,10 +61,10 @@ fn config<'a>() -> PushDeviceConfig<'a> {
         platform: Some("android"),
         app_id: Some("app.example.android"),
         domestic_app_id: None,
-        registration_id: Some("ak:pushreg:01JS0KE000000000000000000"),
+        registration_id: Some("pushreg-01JS0KE000000000000000000"),
         display_name: Some("Alice Phone"),
         idempotency_key: Some("idem-1"),
-        request_id: Some("ak:request:test"),
+        request_id: Some("ak:request:01904100-0000-7000-8000-000000000020"),
         proof: None,
     }
 }
@@ -98,7 +98,10 @@ fn client(base_url: impl Into<String>) -> ArkretPushClient {
 async fn register_success_exposes_response_context_and_headers() {
     let (base_url, requests) = spawn_mock_server(vec![MockHttpOutcome {
         status: "200 OK",
-        headers: vec![(ARKRET_REQUEST_ID_HEADER, "ak:request:server")],
+        headers: vec![(
+            ARKRET_REQUEST_ID_HEADER,
+            "ak:request:01904100-0000-7000-8000-000000000021",
+        )],
         body: r#"{"ok":true,"registration_id":"reg-1","expires_at":"2026-04-29T00:00:00.000Z"}"#,
     }]);
 
@@ -116,7 +119,10 @@ async fn register_success_exposes_response_context_and_headers() {
 
     assert!(response.body.ok);
     assert_eq!(response.body.registration_id.as_deref(), Some("reg-1"));
-    assert_eq!(response.request_id.as_deref(), Some("ak:request:server"));
+    assert_eq!(
+        response.request_id.as_deref(),
+        Some("ak:request:01904100-0000-7000-8000-000000000021")
+    );
 
     let request = requests.lock().unwrap().join("\n");
     assert!(request.contains("POST /_arkret/edge/push/register-device HTTP/1.1"));
@@ -125,7 +131,9 @@ async fn register_success_exposes_response_context_and_headers() {
     // header / path / signing-context concerns — they ride the headers,
     // never the canonical wire body.
     assert!(request.contains("idempotency-key: idem-1"));
-    assert!(request.contains("x-arkret-request-id: ak:request:test"));
+    assert!(
+        request.contains("x-arkret-request-id: ak:request:01904100-0000-7000-8000-000000000020")
+    );
     assert!(request.contains("user-agent: test-agent"));
 
     // CHIME-01: the POSTed body is the canonical
@@ -163,7 +171,7 @@ async fn client_default_headers_fill_request_metadata() {
 
     ArkretPushClient::new(base_url)
         .with_default_idempotency_key("client-idem")
-        .with_default_request_id("ak:request:client")
+        .with_default_request_id("ak:request:01904100-0000-7000-8000-000000000022")
         .with_session_grant("coauth-grant-secret")
         .unwrap()
         .register_device(&config, &binding(), &prefs())
@@ -172,7 +180,9 @@ async fn client_default_headers_fill_request_metadata() {
 
     let request = requests.lock().unwrap().join("\n");
     assert!(request.contains("idempotency-key: client-idem"));
-    assert!(request.contains("x-arkret-request-id: ak:request:client"));
+    assert!(
+        request.contains("x-arkret-request-id: ak:request:01904100-0000-7000-8000-000000000022")
+    );
     assert!(request.contains("x-arkret-session-grant: coauth-grant-secret"));
 }
 
@@ -209,7 +219,10 @@ async fn unregister_success() {
 async fn unregister_not_found_is_idempotent_success() {
     let (base_url, _) = spawn_mock_server(vec![MockHttpOutcome {
         status: "404 Not Found",
-        headers: vec![(ARKRET_REQUEST_ID_HEADER, "ak:request:not-found")],
+        headers: vec![(
+            ARKRET_REQUEST_ID_HEADER,
+            "ak:request:01904100-0000-7000-8000-000000000023",
+        )],
         body: r#"{"ok":false,"error":{"code":"not_found","message":"missing"}}"#,
     }]);
 
@@ -219,7 +232,10 @@ async fn unregister_not_found_is_idempotent_success() {
         .unwrap();
 
     assert!(response.body.ok);
-    assert_eq!(response.request_id.as_deref(), Some("ak:request:not-found"));
+    assert_eq!(
+        response.request_id.as_deref(),
+        Some("ak:request:01904100-0000-7000-8000-000000000023")
+    );
 }
 
 #[tokio::test]
@@ -249,7 +265,7 @@ async fn classifies_json_error_responses() {
 
     for (status, code, expected) in cases {
         let body = format!(
-            r#"{{"ok":false,"error":{{"code":"{code}","message":"x"}},"request_id":"ak:request:error"}}"#
+            r#"{{"ok":false,"error":{{"code":"{code}","message":"x"}},"request_id":"ak:request:01904100-0000-7000-8000-000000000024"}}"#
         );
         let (base_url, _) = spawn_mock_server(vec![MockHttpOutcome {
             status,
@@ -263,7 +279,10 @@ async fn classifies_json_error_responses() {
             .unwrap_err();
 
         assert_eq!(err.kind(), expected);
-        assert_eq!(err.request_id(), Some("ak:request:error"));
+        assert_eq!(
+            err.request_id(),
+            Some("ak:request:01904100-0000-7000-8000-000000000024")
+        );
     }
 }
 
@@ -326,7 +345,7 @@ async fn error_debug_redacts_envelope_message_and_details() {
     let (base_url, _) = spawn_mock_server(vec![MockHttpOutcome {
         status: "403 Forbidden",
         headers: vec![],
-        body: r#"{"ok":false,"error":{"code":"capability_denied","message":"token fcm:very-secret-token proof super-secret-proof","details":{"proof":"super-secret-proof","push_key":"fcm:very-secret-token"}},"request_id":"ak:request:denied"}"#,
+        body: r#"{"ok":false,"error":{"code":"capability_denied","message":"token fcm:very-secret-token proof super-secret-proof","details":{"proof":"super-secret-proof","push_key":"fcm:very-secret-token"}},"request_id":"ak:request:01904100-0000-7000-8000-000000000025"}"#,
     }]);
 
     let err = client(base_url)

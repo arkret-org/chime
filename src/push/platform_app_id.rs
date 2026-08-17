@@ -1,6 +1,6 @@
 //! Platform → `app_id` resolution for push registration.
 //!
-//! Round 2 (post-improve) — extracted as a typed trait so custom
+//! Extracted as a typed trait so custom
 //! platform resolvers can plug in without touching the `registration`
 //! module. The default implementation uses the cross-platform
 //! `app_id` value. Domestic Android integrations that need Bugle's

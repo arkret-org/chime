@@ -38,24 +38,24 @@ pub enum PushErrorKind {
     Network,
     ResponseInvalid,
     HttpStatus,
-    /// Round 4 (spec a77b995) — federation sender used an obsolete member
+    /// Federation sender used an obsolete member
     /// delivery binding frontier. The response carries
     /// `new_recipient_service_id` + `handover_frontier`; chime
     /// consumers MUST resolve the current binding and retry against the
     /// new recipient rather than re-issuing the same wakeup.
     DeliveryBindingStale,
-    /// Round 4 — sender continued using a previous `recipient_service_id`
+    /// Sender continued using a previous `recipient_service_id`
     /// after the handover grace window expired. Sender MUST resolve the
     /// current binding and retry there. Treat as terminal for the old
     /// recipient.
     DeliveryBindingHandedOver,
-    /// Round 4 — idempotency cache replay served only as a historical
+    /// Idempotency cache replay served only as a historical
     /// diagnostic after key or binding state changed. Receivers MUST NOT
     /// perform new reducer side effects; in particular chime consumers
     /// MUST NOT trigger another push fanout from a `historical_only`
     /// response.
     HistoricalOnly,
-    // ── R3 (AKP-0010 media binding + agent lifecycle, spec b47ff6ec) ─────
+    // ── AKP-0010 media binding + agent lifecycle ────────────────────────
     // The variants below mirror the 20 new error codes added in the SDK
     // (see `arkret::error`). Chime mirrors the media-binding,
     // agent-lifecycle, and handle-homograph subsets because those are
@@ -149,14 +149,14 @@ impl PushErrorKind {
             Self::Network => 16,
             Self::ResponseInvalid => 17,
             Self::HttpStatus => 18,
-            // Round 4 (spec a77b995) — additions are bit-position
-            // appended; never reorder existing ones.
+            // Delivery-binding additions are bit-position appended;
+            // never reorder existing ones.
             Self::DeliveryBindingStale => 19,
             Self::DeliveryBindingHandedOver => 20,
             Self::HistoricalOnly => 21,
-            // R3 (spec b47ff6ec) — bit positions appended; never reorder.
-            // (CALL-2 + ERR-1) Codes ordered to keep media-binding /
-            // agent-lifecycle / handle subgroups contiguous.
+            // Bit positions appended; never reorder. Codes are ordered to
+            // keep media-binding / agent-lifecycle / handle subgroups
+            // contiguous.
             Self::FocusMismatch => 22,
             Self::UnknownFocusType => 23,
             Self::TokenIssuerUnauthorised => 24,
@@ -179,7 +179,7 @@ impl PushErrorKind {
         }
     }
 
-    /// R3 — agent-lifecycle subset of the mirrored error codes.
+    /// Agent-lifecycle subset of the mirrored error codes.
     pub const fn is_agent_lifecycle_code(self) -> bool {
         matches!(
             self,
@@ -194,7 +194,7 @@ impl PushErrorKind {
         )
     }
 
-    /// Round 4 — `historical_only` is a diagnostic surface: the server
+    /// `historical_only` is a diagnostic surface: the server
     /// served a cached response after key/binding state changed and the
     /// receiver MUST NOT take any new action on it (no push refanout,
     /// no retry, no state mutation). Callers can branch on this when
@@ -204,7 +204,7 @@ impl PushErrorKind {
         matches!(self, Self::HistoricalOnly)
     }
 
-    /// Round 4 — `delivery_binding_stale` and `delivery_binding_handed_over`
+    /// `delivery_binding_stale` and `delivery_binding_handed_over`
     /// both signal "stop talking to this recipient and resolve the
     /// current binding". Consumers SHOULD use this helper rather than
     /// matching the two variants by hand so future additions stay
@@ -547,7 +547,7 @@ mod tests {
                 retry_after_ms: None,
                 details: BTreeMap::new(),
             },
-            request_id: "ak:request:test".to_owned(),
+            request_id: "ak:request:01904100-0000-7000-8000-000000000010".to_owned(),
         };
 
         assert_eq!(
@@ -578,9 +578,9 @@ mod tests {
     }
 
     #[test]
-    fn round4_failure_reason_codes_classify() {
-        // B5: chime must recognise the three round-4 wire codes that
-        // floria/soland forward so consumers can branch on them.
+    fn delivery_binding_and_historical_only_codes_classify() {
+        // chime must recognise the delivery-binding and historical-only wire
+        // codes that floria/soland forward so consumers can branch on them.
         assert_eq!(
             PushErrorKind::from_failure_reason_code(arkret_wire::ErrorCode::DELIVERY_BINDING_STALE),
             Some(PushErrorKind::DeliveryBindingStale)
@@ -599,7 +599,7 @@ mod tests {
 
     #[test]
     fn historical_only_is_diagnostic_only() {
-        // B5: `historical_only` MUST be treated as diagnostic — no
+        // `historical_only` MUST be treated as diagnostic — no
         // re-action, no fanout. Callers branch on this helper rather
         // than matching the variant by hand.
         assert!(PushErrorKind::HistoricalOnly.is_diagnostic_only());
@@ -669,7 +669,7 @@ mod tests {
     }
 
     #[test]
-    fn round4_codes_classify_against_409_and_200_statuses() {
+    fn delivery_binding_stale_maps_409_and_historical_only_maps_200() {
         // Spec status mapping: stale/handed_over → 409, historical_only → 200.
         let envelope = ArkretErrorEnvelope {
             ok: false,
@@ -679,7 +679,7 @@ mod tests {
                 retry_after_ms: None,
                 details: BTreeMap::new(),
             },
-            request_id: "ak:request:test".to_owned(),
+            request_id: "ak:request:01904100-0000-7000-8000-000000000011".to_owned(),
         };
         assert_eq!(
             classify_http_error(409, Some(&envelope)),
@@ -694,7 +694,7 @@ mod tests {
                 retry_after_ms: None,
                 details: BTreeMap::new(),
             },
-            request_id: "ak:request:test".to_owned(),
+            request_id: "ak:request:01904100-0000-7000-8000-000000000012".to_owned(),
         };
         assert_eq!(
             classify_http_error(200, Some(&envelope)),

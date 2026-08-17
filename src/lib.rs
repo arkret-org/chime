@@ -390,13 +390,13 @@ mod tests {
         };
         prefs
             .muted_circle_ids
-            .insert("ak:circle:01HZK9Z000000000000000001".to_owned());
+            .insert("ak:circle:Ac7_fhSff6-Ypkj5FKEHqIfB3QgQuc43sOTboFIeWApN".to_owned());
         prefs
             .muted_circle_ids
-            .insert("ak:circle:01HZK9Z000000000000000002".to_owned());
+            .insert("ak:circle:Ad0N5owuEJCkEB0LEUlstCP52wUJK0Y3dUxVIirq7QAf".to_owned());
         prefs
             .muted_realm_ids
-            .insert("ak:realm:01HZK9Z000000000000000003".to_owned());
+            .insert("ak:realm:AQiwRS-YwfWAgoQu9H2297VS9UPBadmpjntpWErxz46T".to_owned());
 
         let json = to_json(&prefs).unwrap();
         assert!(json.contains("muted_circle_ids"));

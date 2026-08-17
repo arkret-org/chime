@@ -21,9 +21,9 @@ Arkret push notification gateway types, preferences, and device registration hel
 - **Realm:** security boundary — membership, capability, E2EE, and federation are governed at this level. Push permission and per-realm mute apply here.
 - **Space:** navigation container — board, list, section, or calendar bucket. Lives inside a Realm and inherits its security context.
 
-## Round R4 (protocol review closures)
+## Client-SDK shape changes
 
-Spec round 4 adds two client-SDK shape changes. See
+Two client-SDK shape changes. See
 [`CHANGELOG.md`](CHANGELOG.md) `[Unreleased]` for the chime-facing
 wire-breaking list; the normative source remains `../arkret-spec/spec/v1/`.
 
@@ -37,7 +37,7 @@ wire-breaking list; the normative source remains `../arkret-spec/spec/v1/`.
   `historical_only` is annotated as diagnostic and suppresses
   user-visible notification.
 
-## Round R2/R3 notes
+## Ephemeral kinds
 
 Ephemeral kinds (`ak.presence`, `ak.typing`, `ak.receipt.read`,
 `ak.call.signal`) are confirmed not consumed by chime. See
@@ -48,7 +48,7 @@ remains `../arkret-spec/spec/v1/`.
 
 The current audited protocol pin for this crate is
 `arkret-spec @ 5d66aeb`; older SHAs in `CHANGELOG.md` are historical
-round entries, not the active completion gate.
+entries, not the active completion gate.
 
 ## Chinese docs
 
@@ -178,7 +178,7 @@ let config = PushDeviceConfig {
     registration_id: None,
     display_name: Some("Alice Phone"),
     idempotency_key: Some("device-phone-register-v1"),
-    request_id: Some("ak:request:01JS0KE000000000000000000"),
+    request_id: Some("ak:request:01904100-0000-7000-8000-000000000001"),
     proof: None,
 };
 
@@ -231,7 +231,7 @@ let client = ArkretPushClient::new("https://principal.example")
     .with_bearer_token("session-token")
     .with_timeout(std::time::Duration::from_secs(10))
     .with_retry_policy(chime::PushRetryPolicy::conservative())
-    .with_default_request_id("ak:request:01JS0KE000000000000000000");
+    .with_default_request_id("ak:request:01904100-0000-7000-8000-000000000002");
 
 let response = client
     .register_device_with_context(&config, &binding, &prefs)
@@ -423,7 +423,7 @@ into a Arkret Principal Server / Sync Service deployment.
 `chime` emits `tracing` events with the target prefix `chime`:
 
 ```text
-INFO  chime::push::client  Arkret push device registered  platform=android gateway="Arkret Standard" operation_id=ak.edge.push.command.register_device request_id=ak:request:01JS0KE000000000000000000
+INFO  chime::push::client  Arkret push device registered  platform=android gateway="Arkret Standard" operation_id=ak.edge.push.command.register_device request_id=ak:request:01904100-0000-7000-8000-000000000001
 ```
 
 Subscribe with any `tracing-subscriber` layer; Sentry / OpenTelemetry

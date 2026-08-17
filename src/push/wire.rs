@@ -75,6 +75,12 @@ pub struct PushDeviceConfig<'a> {
     /// Domestic Android app id used when `PushGatewayType::Bugle` is selected.
     pub domestic_app_id: Option<&'a str>,
     /// Server-assigned registration id, when known.
+    ///
+    /// This is an opaque push-gateway-local string constrained only by
+    /// `push-operations.schema.json#/$defs/registration_id`
+    /// (`^[A-Za-z0-9._:-]{1,128}$`). It is deliberately **not** a typed-ID:
+    /// `pushreg` is not a registered `ak:<kind>`, so values must never be
+    /// written with an `ak:` prefix.
     pub registration_id: Option<&'a str>,
     /// User-readable device name.
     pub display_name: Option<&'a str>,
@@ -225,6 +231,8 @@ pub struct ChimePushUnregisterDeviceRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub principal_id: Option<String>,
     pub device_id: String,
+    /// Opaque push-gateway-local registration id, not a typed-ID; see
+    /// [`PushDeviceConfig::registration_id`].
     #[serde(skip_serializing_if = "Option::is_none")]
     pub registration_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -332,7 +340,7 @@ mod tests {
         serde_json::from_value::<ChimePushRegisterDeviceOutcome>(serde_json::json!({
             "ok": true,
             "registration_id": "reg-1",
-            "request_id": "ak:request:123"
+            "request_id": "ak:request:01904100-0000-7000-8000-000000000030"
         }))
         .expect_err("register outcome must reject non-spec response fields");
 
