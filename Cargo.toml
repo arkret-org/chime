@@ -12,7 +12,6 @@ description = "Arkret push notification gateway types and device registration he
 keywords = ["arkret", "push", "notification", "fcm", "apns"]
 categories = ["api-bindings", "network-programming", "web-programming"]
 exclude = [
-    "_todos.md",
     ".claude/",
     ".github/",
 ]

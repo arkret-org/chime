@@ -27,7 +27,7 @@ Notes:
 
 - The `fcm:` / `apns:` / `unifiedpush:` prefix is the gateway's primary
   routing signal. chime's `PushRouteId` validators (see
-  `chime/src/push_route.rs`) enforce that the scheme matches an
+  `chime/src/push/route.rs`) enforce that the scheme matches an
   expected transport — inkson MUST NOT strip it.
 - The `PushPlatform` enum currently has four variants: `Android`,
   `Ios`, `Web`, `Desktop`. `Linux` / `macOS` / `Windows` all collapse
