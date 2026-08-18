@@ -74,10 +74,7 @@ pub enum PushErrorKind {
     /// `ak.realm.media_service.service_id` epoch.
     TokenIssuerUnauthorised,
     /// AKP-0010 — `participant_binding` signature, tuple, or TTL does
-    /// not validate against the realm media-service binding. Chime's
-    /// current structure-only media-token helper emits this for tuple
-    /// and TTL failures; host-side Ed25519 verification remains
-    /// responsible for signature failures until the SDK verifier lands.
+    /// not validate against the realm media-service binding.
     ParticipantBindingInvalid,
     /// AKP-0010 — `participant_identity` returned by the focus does not
     /// match any entry in `ak.call.state.participants[]`.

@@ -46,9 +46,9 @@ remains `../arkret-spec/spec/v1/`.
 
 ## Protocol Baseline
 
-The current audited protocol pin for this crate is
-`arkret-spec @ 5d66aeb`; older SHAs in `CHANGELOG.md` are historical
-entries, not the active completion gate.
+The current audited protocol pin for this crate is the **Spec target** at the
+top of this file; older SHAs in `CHANGELOG.md` are historical entries, not the
+active completion gate.
 
 ## Chinese docs
 
@@ -113,19 +113,14 @@ reaches the push wire:
 
 ## Quick Start
 
-Add to your `Cargo.toml`:
+`chime` is not published to a registry; consumers depend on a sibling checkout
+by path. Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-chime = "1.0.0"
+chime = { path = "../chime" }
 # or with the Arkret HTTP registration client:
-# chime = { version = "1.0.0", features = ["http"] }
-```
-
-In-tree workspace consumers can also pull a path dependency:
-
-```toml
-chime = { path = "../chime", features = ["http"] }
+# chime = { path = "../chime", features = ["http"] }
 ```
 
 ### Core types

@@ -2,7 +2,6 @@ use std::io::{Read, Write};
 use std::net::TcpListener;
 use std::sync::{Arc, Mutex};
 use std::thread;
-use std::time::Duration;
 
 use super::super::errors::{PushErrorKind, PushRegistrationError};
 use super::super::wire::PushDeviceConfig;

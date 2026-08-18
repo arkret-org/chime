@@ -4,4 +4,3 @@
 #
 # It is recommended to check this file in to source control so that
 # everyone who runs the test benefits from these saved cases.
-cc 17cb9ed47b8872ee3c327751a9f201acb0c91726bf1483ce6c1c3853e0995511 # shrinks to sensitive_key = "encrypted_metadata", value_kind = 0

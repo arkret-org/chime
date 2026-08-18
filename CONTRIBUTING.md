@@ -48,11 +48,11 @@ cargo build
 
 ### Feature matrix
 
-CI runs `check`, `test`, and `clippy` against four feature
+CI runs `check`, `test`, and `clippy` against both feature
 combinations. Reproduce them locally before handing off changes:
 
 ```bash
-for f in "" "http" "notify" "http,notify"; do
+for f in "" "http"; do
   cargo check --no-default-features --features "$f"
   cargo test  --no-default-features --features "$f"
   cargo clippy --no-default-features --features "$f" -- -D warnings
@@ -64,7 +64,7 @@ done
 - [ ] `cargo fmt --all -- --check`
 - [ ] `cargo clippy --all-features -- -D warnings`
 - [ ] `cargo test --all-features`
-- [ ] `cargo test` across the four feature combinations above
+- [ ] `cargo test` across both feature combinations above
 - [ ] `cargo doc --all-features --no-deps` builds without warnings
 - [ ] `cargo package --list --allow-dirty` succeeds (CI runs this as
       the local package file-set job)
@@ -79,12 +79,9 @@ chime: PushNotifyPolicyContext closes the C1 release gate
 chime: bridge capability accessors (B2) + notify agent privacy tests (F4)
 ```
 
-Reference TODO IDs (e.g. `A2`, `C3`, `F4`, `G5`) when the change
-addresses an item from `_todos.md`.
-
 ## Change review guidelines
 
-- Keep changes focused on a single TODO ID or single concern. Cross-cutting
+- Keep changes focused on a single concern. Cross-cutting
   refactors should land separately so reviewers can reason about wire
   changes without bundle churn.
 - Document wire-shape changes in `CHANGELOG.md` under the
