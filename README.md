@@ -6,9 +6,9 @@
 
 > **Stability:** local `1.0.0` freeze candidate. Breaking public API changes
 > now require a major-version bump. Outcome wire types
-> (`PushRegisterDeviceOutcome`, `PushUnregisterDeviceOutcome`, `ArkretErrorEnvelope`)
-> carry `#[non_exhaustive]` so server-driven field additions do not break
-> downstream consumers.
+> (`ChimePushRegisterDeviceOutcome`, `ChimePushUnregisterDeviceOutcome`,
+> `ArkretErrorEnvelope`) carry `#[non_exhaustive]` so server-driven field
+> additions do not break downstream consumers.
 
 Arkret push notification gateway types, preferences, and device registration helpers.
 
@@ -67,10 +67,7 @@ active completion gate.
 
 Bugle host integrations still own provider SDK setup and token
 acquisition. For app-id resolution, `GatewayBinding::resolve_app_id`
-and `PushGatewayType::Bugle` prefer `domestic_app_id` for Android;
-hosts that need the standalone resolver trait can use
-`chime::bugle::BugleAppIdResolver` or provide their own
-`PlatformAppIdResolver`.
+and `PushGatewayType::Bugle` prefer `domestic_app_id` for Android.
 
 ## Features
 
@@ -103,13 +100,12 @@ reaches the push wire:
   wire type rejects `circle_name` / `circle_display_name` and the
   `circle_members` / `circle_member_dids` / `circle_member_actor_ids`
   membership surfaces during deserialization.
-- **Muting a Circle on this device.** `PushPreferences` carries
-  `muted_circle_ids: BTreeSet<String>` and `muted_realm_ids:
-  BTreeSet<String>`. These are matched host-side against the scope the
-  client resolved for the fetched Event — the wakeup itself cannot be
-  matched, because it carries no scope. A muted scope MUST NOT raise a
-  UI surface; wire-level delivery is unchanged so floria can still
-  account for the receipt.
+- **Muting a Circle on this device.** Per-scope mute state lives in the
+  host application, matched host-side against the scope the client
+  resolved for the fetched Event — the wakeup itself cannot be matched,
+  because it carries no scope. A muted scope MUST NOT raise a UI
+  surface; wire-level delivery is unchanged so floria can still account
+  for the receipt.
 
 ## Quick Start
 
@@ -220,16 +216,17 @@ assert_eq!(
 #     enabled: true,
 #     ..Default::default()
 # };
-use chime::ArkretPushClient;
+use chime::{ArkretPushClient, build_register_device_request};
 
 let client = ArkretPushClient::new("https://principal.example")
     .with_bearer_token("session-token")
     .with_timeout(std::time::Duration::from_secs(10))
     .with_retry_policy(chime::PushRetryPolicy::conservative())
-    .with_default_request_id("ak:request:01904100-0000-7000-8000-000000000002");
+    .with_session_grant("externally-issued-coauth-or-soland-grant")?;
 
+let request = build_register_device_request(&config, &binding, &prefs)?;
 let response = client
-    .register_device_with_context(&config, &binding, &prefs)
+    .register_device_with_request(&request, None, None)
     .await?;
 assert!(response.body.ok);
 # Ok(())
@@ -243,119 +240,12 @@ Production notes:
 - WebPush registrations can set `webpush_endpoint_allowlist` to restrict accepted endpoint origins or host patterns before a browser endpoint is sent to the service.
 - `push_key` is redacted in debug output and logs; callers should still store it as a secret.
 - `ArkretPushClient` retries only safe idempotent requests: register calls need an idempotency key, while unregister is treated as idempotent. `Retry-After` is honored before exponential backoff plus bounded jitter.
-- `allow_push_hint` only permits body-free wakeup hints. It does not permit plaintext message bodies for E2EE Spaces.
-
-### Request signing helpers
-
-`chime` does not own authentication secrets or private keys. Callers can build a canonical proof body or HTTP Message Signature headers from the request they are about to send:
-
-```rust,no_run
-# fn doc_run() -> Result<(), chime::PushRegistrationError> {
-# use chime::{GatewayBinding, PushDeviceConfig, PushGatewayType, PushPreferences};
-# let config = PushDeviceConfig {
-#     principal_id: None,
-#     device_id: "ak:device:01904100-0000-7000-8000-000000000004",
-#     push_key: Some("fcm-or-apns-device-token"),
-#     platform: None, app_id: None, domestic_app_id: None,
-#     registration_id: None, display_name: None,
-#     idempotency_key: None, request_id: None, proof: None,
-# };
-# let binding = GatewayBinding::new(
-#     PushGatewayType::Standard,
-#     "https://push.example.com/_arkret/edge/push/notify",
-# );
-# let prefs = PushPreferences {
-#     enabled: true,
-#     ..Default::default()
-# };
-# struct DummySigner;
-# impl DummySigner {
-#     fn sign_http_message(&self, _ctx: &chime::PushRequestSigningContext)
-#         -> Result<String, chime::PushRegistrationError> { Ok(String::new()) }
-# }
-# let signer = DummySigner;
-use chime::{
-    PushRequestSigningOptions, build_register_device_request,
-    build_register_signing_context_with_options,
-};
-
-let request = build_register_device_request(&config, &binding, &prefs)?;
-let context = build_register_signing_context_with_options(
-    "https://principal.example",
-    &request,
-    PushRequestSigningOptions::new("2026-04-29T00:00:00.000Z", "https://principal.example")
-        .with_actor_id("did:web:alice.example")
-        .with_expires_at("2026-04-29T00:05:00.000Z")
-        .with_origin("https://app.example")
-        .with_origin_service_id("did:web:sync.example.com")
-        .with_destination_service_id("did:web:principal.example")
-        .with_nonce("device-phone-register-v1")
-        .with_idempotency_key("device-phone-register-v1")
-        .with_session_grant("externally-issued-coauth-or-soland-grant"),
-)?;
-
-let proof_body = context.canonical_proof_body()?;
-let signature = signer.sign_http_message(&context)?;
-let headers = context.http_message_signature_headers("sig1", &signature)?;
-# let _ = (proof_body, headers);
-# Ok(())
-# }
-```
-
-`proof_body` is caller-signed and passed back through `PushDeviceConfig::proof`. The returned HTTP signature headers include `Content-Digest`, Arkret device/audience/actor/expiry/origin/destination metadata, nonce/idempotency context, `Signature-Input`, and `Signature`; attach them with your HTTP stack or `ArkretPushClient::with_header`. `chime` can carry an externally supplied coauth/soland grant, but it never owns private keys or mints grants.
 
 ### Local registration state
 
-`PushRegistrationState` stores non-secret local state: principal ID, device id, platform/app id, gateway, token hash/preview, registration id, expiry/refresh hint, and last success/error summary. The `PushRegistrationStore` trait exposes single-registration methods plus multi-registration helpers (`load_push_registrations`, `save_push_registrations`, and `delete_push_registration`) for apps that store several accounts, apps, or devices.
+`PushRegistrationState` stores non-secret local state: principal ID, device id, platform/app id, gateway, token hash/preview, registration id, expiry/refresh hint, and last success/error summary. Build it from a successful register response with `build_registration_state()`.
 
-Store implementations should use OS keychain, encrypted app storage, or another locally protected store. The state includes `schema_version` so applications can migrate persisted records without exposing raw platform tokens.
-
-After a successful register, `merge_registration_state()` drops stale logical duplicates and same-token records that were left behind on another device entry. When a client needs to recover from partial failures or stale local storage, `plan_registration_repair()` produces the unregister/register work needed to reconcile old token state with the current device token.
-
-### Token rotation
-
-```rust,no_run
-# fn doc_run() -> Result<(), chime::PushRegistrationError> {
-# use chime::{GatewayBinding, PushDeviceConfig, PushGatewayType, PushPreferences};
-# let config = PushDeviceConfig {
-#     principal_id: None,
-#     device_id: "ak:device:01904100-0000-7000-8000-000000000004",
-#     push_key: Some("fcm-or-apns-device-token"),
-#     platform: None, app_id: None, domestic_app_id: None,
-#     registration_id: None, display_name: None,
-#     idempotency_key: None, request_id: None, proof: None,
-# };
-# let binding = GatewayBinding::new(
-#     PushGatewayType::Standard,
-#     "https://push.example.com/_arkret/edge/push/notify",
-# );
-# let prefs = PushPreferences {
-#     enabled: true,
-#     ..Default::default()
-# };
-use chime::{plan_token_rotation_with_strategy, PushRegistrationState, PushTokenRotationStrategy};
-
-// Replace this with your `PushRegistrationStore::load_push_registration()` call.
-let existing: Option<PushRegistrationState> = None;
-let plan = plan_token_rotation_with_strategy(
-    existing.as_ref(),
-    &config,
-    &binding,
-    &prefs,
-    PushTokenRotationStrategy::RegisterNewFirst,
-)?;
-
-if let Some(register_new) = plan.register_new {
-    // Send with ArkretPushClient or your own HTTP stack, then persist success.
-    let _ = register_new;
-}
-if let Some(unregister_old) = plan.unregister_old {
-    // For RegisterNewFirst, send this after the replacement succeeds.
-    let _ = unregister_old;
-}
-# Ok(())
-# }
-```
+Persistence is host-owned: store the state through an OS keychain, encrypted app storage, or another locally protected store. The state includes `schema_version` so applications can migrate persisted records without exposing raw platform tokens.
 
 ## Configuration & Operations
 
@@ -395,15 +285,10 @@ into a Arkret Principal Server / Sync Service deployment.
   client generates one and reuses it across retries. Persist your own
   key for server-side dedup if you care about cross-process
   deduplication.
-- **Nonce replay storage.** `NonceTracker` is in-memory and
-  per-instance. Server-side relays and multi-process hosts must back it
-  with a shared persistent store, such as Redis or an encrypted local
-  key-value database, before accepting inbound frames after restart or
-  across workers.
 - **Retries.** Default `PushRetryPolicy::disabled()`. Use
   `PushRetryPolicy::conservative()` for `429`/`503`/network-timeout
   retries with `Retry-After` honoring and bounded jitter.
-- **Token storage.** Implement `PushRegistrationStore` over an OS
+- **Token storage.** Persist `PushRegistrationState` in an OS
   keychain, encrypted app storage, or another locally protected store.
   Never log raw `push_key`; the crate redacts it in `Debug` impls and
   tracing fields, and you should mirror that in your own code.
@@ -418,7 +303,7 @@ into a Arkret Principal Server / Sync Service deployment.
 `chime` emits `tracing` events with the target prefix `chime`:
 
 ```text
-INFO  chime::push::client  Arkret push device registered  platform=android gateway="Arkret Standard" operation_id=ak.edge.push.command.register_device request_id=ak:request:01904100-0000-7000-8000-000000000001
+INFO  chime::push::client  Arkret push device registered (prebuilt body)  platform=android operation_id=ak.edge.push.command.register_device request_id=ak:request:01904100-0000-7000-8000-000000000001
 ```
 
 Subscribe with any `tracing-subscriber` layer; Sentry / OpenTelemetry

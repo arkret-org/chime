@@ -26,22 +26,16 @@ workspace = true
 [dependencies]
 # `chrono` backs the DND schedule evaluation in `rules.rs`; the default
 # features are stripped to keep the wasm32 build slim.
-# CH-1: pin chime's RFC 9530 content-digest computation to the Signatures
-# owner's `http_signature::ContentDigest` so the wire bytes stay byte-identical
-# to what floria's verifier and soland's fanout signer emit.
 
 # C34.1: split the `http` transport deps per target. Native targets keep
 # reqwest+rustls+tokio; the wasm32 build routes through reqwest's
 # fetch-backed wasm32 backend and uses `gloo-timers` for retry sleeps
 # because there is no tokio runtime on the browser main thread.
-base64 = {workspace = true}
 chrono = {workspace = true,default-features = false,features = ["serde", "clock"]}
 arkret-canonical = {workspace = true}
-arkret-models-discovery = {workspace = true}
 arkret-models-integration = {workspace = true}
 arkret-push-policy = {workspace = true}
 arkret-retry = {workspace = true}
-arkret-signatures = {workspace = true,default-features = false}
 arkret-wire = {workspace = true}
 httpdate = {workspace = true}
 serde = {workspace = true,features = ["derive"]}
@@ -55,11 +49,6 @@ url = {workspace = true}
 # heap allocation. Pulled in only for native targets that build the
 # `http` client; the wasm32 build also needs it (token surface is
 # identical) and so re-declares the same dep below.
-# A.5 #4 — `NonceTracker` needs a monotonic clock for replay-window
-# expiry. The `time` feature on tokio already gives us
-# `tokio::time::Instant`, but the nonce tracker also runs in pure
-# library tests without a tokio runtime; pull in `instant` so the
-# tracker can compile on every target without a runtime dependency.
 reqwest = {workspace = true,default-features = false,features = ["json", "rustls"],optional = true}
 tokio = {workspace = true,features = ["time"],optional = true}
 zeroize = {workspace = true,features = ["derive"],optional = true}
@@ -100,14 +89,11 @@ todo = "deny"
 unimplemented = "deny"
 
 [workspace.dependencies]
-base64 = "0.22"
 chrono = {version = "0.4",default-features = false}
 arkret-canonical = {version = "0.3.0",path = "../arkret-rust-sdk/crates/canonical"}
-arkret-models-discovery = {version = "0.3.0",path = "../arkret-rust-sdk/crates/models-discovery"}
 arkret-models-integration = {version = "0.3.0",path = "../arkret-rust-sdk/crates/models-integration"}
 arkret-push-policy = {version = "0.3.0",path = "../arkret-rust-sdk/crates/push-policy"}
 arkret-retry = {version = "0.3.0",path = "../arkret-rust-sdk/crates/retry"}
-arkret-signatures = {version = "0.3.0",path = "../arkret-rust-sdk/crates/signatures",default-features = false}
 arkret-wire = {version = "0.3.0",path = "../arkret-rust-sdk/crates/wire"}
 gloo-timers = "0.4"
 httpdate = "1"

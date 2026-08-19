@@ -12,12 +12,11 @@
 4. 通过 `ArkretPushClient` 或 host 自己的 HTTP 栈发送请求。
 
 Bugle 说明：host 仍负责华为/小米/OPPO/vivo/HONOR/HarmonyOS/JPush SDK
-接入和 token 获取。chime 只负责 wire shape。需要单独解析 app id 时可用
-`chime::bugle::BugleAppIdResolver`；Android 优先 `domestic_app_id`。
+接入和 token 获取。chime 只负责 wire shape。app id 解析走
+`GatewayBinding::resolve_app_id`；Android Bugle 路由优先 `domestic_app_id`。
 
 ## drift 检查
 
-协议发现默认使用 `server_describe()`。floria 部署可额外调用
-`floria_bridge_describe()`，其 `spec_version` 应与
-`chime::EXPECTED_SPEC_VERSION` 一致。smoke test 应在不一致时失败，而不是
-继续注册设备。
+floria 部署通过 `floria_bridge_describe()` 发现 bridge 契约，并用
+`BridgeContractCache` 对响应做 digest 漂移检测。smoke test 应在漂移时
+失败，而不是继续注册设备。

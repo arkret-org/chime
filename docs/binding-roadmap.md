@@ -20,11 +20,10 @@ promoted out of this roadmap.
   stale-timestamp enforcement) need a binding-language story before
   the binding ships. The default in a foreign language is "the
   binding does it for me", which silently inverts the boundary.
-- `NonceTracker`, `PushPreferencesStore`, and `BridgeContractCache`
-  all need binding-language equivalents for storage. The Rust API
-  takes traits; a binding API has to pick a concrete shape per
-  language. We will defer that until at least two production host
-  applications request it.
+- `BridgeContractCache` and the host-persisted registration state need
+  binding-language equivalents for storage. A binding API has to pick
+  a concrete shape per language. We will defer that until at least two
+  production host applications request it.
 
 ## Intended bindings
 

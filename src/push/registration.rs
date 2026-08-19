@@ -1,7 +1,6 @@
-//! Request body builders for register/unregister + their signing contexts.
+//! Request body builders for register/unregister.
 
 use super::errors::PushRegistrationError;
-use super::signing::{PushRequestSigningContext, PushRequestSigningOptions, build_signing_context};
 use super::urls::{
     redact_push_key, require_non_empty, require_optional_non_empty, validate_push_gateway_url,
     validate_webpush_endpoint_allowlist,
@@ -10,7 +9,6 @@ use super::wire::{
     ChimePushRegisterDeviceRequest, ChimePushUnregisterDeviceRequest, PushDeviceConfig,
     PushPlatform,
 };
-use super::{REGISTER_DEVICE_PATH, UNREGISTER_DEVICE_PATH};
 use crate::{GatewayBinding, PushPreferences, hash_push_key};
 
 /// Build the Arkret register-device request body from app configuration,
@@ -168,109 +166,6 @@ pub fn build_unregister_device_request(
     })
 }
 
-/// Build the signing context for `ak.edge.push.command.register_device`.
-///
-/// ```rust
-/// use chime::{
-///     GatewayBinding, PushDeviceConfig, PushGatewayType, PushPreferences,
-///     build_register_device_request, build_register_signing_context,
-/// };
-///
-/// let config = PushDeviceConfig {
-///     principal_id: Some("did:web:alice.example"),
-///     device_id: "ak:device:01904100-0000-7000-8000-000000000004",
-///     push_key: Some("fcm:token"),
-///     platform: Some("android"),
-///     app_id: Some("app.example.android"),
-///     domestic_app_id: None,
-///     registration_id: None,
-///     display_name: None,
-///     idempotency_key: None,
-///     request_id: None,
-///     proof: None,
-/// };
-/// let binding = GatewayBinding::new(
-///     PushGatewayType::Standard,
-///     "https://push.example.com/_arkret/edge/push/notify",
-/// );
-/// let prefs = PushPreferences {
-///     enabled: true,
-///     ..Default::default()
-/// };
-/// let request = build_register_device_request(&config, &binding, &prefs).unwrap();
-/// let context = build_register_signing_context(
-///     "https://principal.example",
-///     &request,
-///     "2026-04-29T00:00:00.000Z",
-///     "https://principal.example",
-/// )
-/// .unwrap();
-/// assert_eq!(context.path, chime::REGISTER_DEVICE_PATH);
-/// assert!(context.content_digest.starts_with("sha-256=:"));
-/// ```
-pub fn build_register_signing_context(
-    service_base_url: &str,
-    request: &ChimePushRegisterDeviceRequest,
-    created_at: impl Into<String>,
-    audience: impl Into<String>,
-) -> Result<PushRequestSigningContext, PushRegistrationError> {
-    build_register_signing_context_with_options(
-        service_base_url,
-        request,
-        PushRequestSigningOptions::new(created_at, audience),
-    )
-}
-
-/// Build the signing context for `ak.edge.push.command.register_device` with actor and
-/// expiry metadata.
-pub fn build_register_signing_context_with_options(
-    service_base_url: &str,
-    request: &ChimePushRegisterDeviceRequest,
-    options: PushRequestSigningOptions,
-) -> Result<PushRequestSigningContext, PushRegistrationError> {
-    let sdk_request = request.to_sdk_request()?;
-    build_signing_context(
-        service_base_url,
-        arkret_wire::ServiceOperationId::EDGE_PUSH_COMMAND_REGISTER_DEVICE,
-        REGISTER_DEVICE_PATH,
-        sdk_request.device_id.as_str(),
-        &sdk_request,
-        options,
-    )
-}
-
-/// Build the signing context for `ak.edge.push.command.unregister_device`.
-pub fn build_unregister_signing_context(
-    service_base_url: &str,
-    request: &ChimePushUnregisterDeviceRequest,
-    created_at: impl Into<String>,
-    audience: impl Into<String>,
-) -> Result<PushRequestSigningContext, PushRegistrationError> {
-    build_unregister_signing_context_with_options(
-        service_base_url,
-        request,
-        PushRequestSigningOptions::new(created_at, audience),
-    )
-}
-
-/// Build the signing context for `ak.edge.push.command.unregister_device` with actor and
-/// expiry metadata.
-pub fn build_unregister_signing_context_with_options(
-    service_base_url: &str,
-    request: &ChimePushUnregisterDeviceRequest,
-    options: PushRequestSigningOptions,
-) -> Result<PushRequestSigningContext, PushRegistrationError> {
-    let sdk_request = request.to_sdk_request()?;
-    build_signing_context(
-        service_base_url,
-        arkret_wire::ServiceOperationId::EDGE_PUSH_COMMAND_UNREGISTER_DEVICE,
-        UNREGISTER_DEVICE_PATH,
-        sdk_request.device_id.as_str(),
-        &sdk_request,
-        options,
-    )
-}
-
 fn parse_platform(value: Option<&str>) -> Result<Option<PushPlatform>, PushRegistrationError> {
     value.map(PushPlatform::try_from).transpose()
 }
@@ -283,13 +178,8 @@ fn non_empty_str(value: &str) -> Option<&str> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::PushGatewayType;
     use crate::push::errors::PushErrorKind;
-    use crate::push::{
-        ARKRET_ACTOR_ID_HEADER, ARKRET_DESTINATION_SERVICE_ID_HEADER, ARKRET_EXPIRES_AT_HEADER,
-        ARKRET_ORIGIN_SERVICE_ID_HEADER, ARKRET_SESSION_GRANT_HEADER, SIGNATURE_HEADER,
-        SIGNATURE_INPUT_HEADER,
-    };
-    use crate::{DEFAULT_BUGLE_PUSH_GATEWAY_URL, PushGatewayType};
 
     fn config<'a>(platform: Option<&'a str>) -> PushDeviceConfig<'a> {
         PushDeviceConfig {
@@ -318,9 +208,11 @@ mod tests {
         }
     }
 
+    const BUGLE_PUSH_GATEWAY_URL: &str = "https://push.palpo.im/_arkret/edge/push/notify";
+
     #[test]
     fn register_request_matches_arkret_schema() {
-        let binding = binding(PushGatewayType::Bugle, DEFAULT_BUGLE_PUSH_GATEWAY_URL);
+        let binding = binding(PushGatewayType::Bugle, BUGLE_PUSH_GATEWAY_URL);
         let request =
             build_register_device_request(&config(Some("android")), &binding, &enabled_prefs())
                 .unwrap();
@@ -337,7 +229,7 @@ mod tests {
             request.device_id,
             "ak:device:01904100-0000-7000-8000-000000000004"
         );
-        assert_eq!(request.push_gateway, DEFAULT_BUGLE_PUSH_GATEWAY_URL);
+        assert_eq!(request.push_gateway, BUGLE_PUSH_GATEWAY_URL);
         assert_eq!(request.push_key, "fcm:very-secret-token");
         assert_eq!(request.platform.as_deref(), Some("android"));
         assert_eq!(request.app_id.as_deref(), Some("app.example.android.cn"));
@@ -492,199 +384,5 @@ mod tests {
         let unregister_debug = format!("{unregister:?}");
         assert!(!unregister_debug.contains("very-secret-token"));
         assert!(!unregister_debug.contains("debug=true"));
-    }
-
-    #[test]
-    fn builds_register_signing_context() {
-        let binding = binding(
-            PushGatewayType::Standard,
-            "https://push.example.com/_arkret/edge/push/notify",
-        );
-        let request =
-            build_register_device_request(&config(Some("android")), &binding, &enabled_prefs())
-                .unwrap();
-
-        let context = build_register_signing_context(
-            "https://principal.example",
-            &request,
-            "2026-04-29T00:00:00.000Z",
-            "https://principal.example",
-        )
-        .unwrap();
-
-        assert_eq!(
-            context.operation_id,
-            arkret_wire::ServiceOperationId::EDGE_PUSH_COMMAND_REGISTER_DEVICE
-        );
-        assert_eq!(context.method, "POST");
-        assert_eq!(context.path, REGISTER_DEVICE_PATH);
-        assert_eq!(
-            context.target_uri,
-            "https://principal.example/_arkret/edge/push/register-device"
-        );
-        assert_eq!(
-            context.device_id,
-            "ak:device:01904100-0000-7000-8000-000000000004"
-        );
-        assert!(context.content_digest.starts_with("sha-256=:"));
-        assert!(context.content_digest.ends_with(':'));
-    }
-
-    #[test]
-    fn builds_signing_context_with_actor_expiry_and_signature_headers() {
-        let binding = binding(
-            PushGatewayType::Standard,
-            "https://push.example.com/_arkret/edge/push/notify",
-        );
-        let request =
-            build_register_device_request(&config(Some("android")), &binding, &enabled_prefs())
-                .unwrap();
-
-        let context = build_register_signing_context_with_options(
-            "https://principal.example",
-            &request,
-            PushRequestSigningOptions::new("2026-04-29T00:00:00.000Z", "https://principal.example")
-                .with_actor_id("ak:did_core:web:alice.example")
-                .with_expires_at("2026-04-29T00:05:00.000Z")
-                .with_origin("https://app.example")
-                .with_origin_service_id("ak:did_core:web:sync.example.com")
-                .with_destination_service_id("ak:did_core:web:principal.example")
-                .with_nonce("idem-1")
-                .with_idempotency_key("idem-1")
-                .with_session_grant("coauth-grant-secret"),
-        )
-        .unwrap();
-
-        assert_eq!(
-            context.actor_id.as_deref(),
-            Some("ak:did_core:web:alice.example")
-        );
-        assert_eq!(
-            context.expires_at.as_deref(),
-            Some("2026-04-29T00:05:00.000Z")
-        );
-
-        let proof_body = context.canonical_proof_body().unwrap();
-        assert_eq!(
-            proof_body["operation_id"],
-            arkret_wire::ServiceOperationId::EDGE_PUSH_COMMAND_REGISTER_DEVICE
-        );
-        assert_eq!(proof_body["actor_id"], "ak:did_core:web:alice.example");
-        assert_eq!(proof_body["expires_at"], "2026-04-29T00:05:00.000Z");
-        assert_eq!(proof_body["origin"], "https://app.example");
-        assert_eq!(proof_body["nonce"], "idem-1");
-
-        let metadata_headers = context.signed_metadata_headers();
-        assert!(metadata_headers.contains(&(
-            ARKRET_ACTOR_ID_HEADER,
-            "ak:did_core:web:alice.example".to_owned()
-        )));
-        assert!(metadata_headers.contains(&(
-            ARKRET_EXPIRES_AT_HEADER,
-            "2026-04-29T00:05:00.000Z".to_owned()
-        )));
-        assert!(metadata_headers.contains(&(
-            ARKRET_ORIGIN_SERVICE_ID_HEADER,
-            "ak:did_core:web:sync.example.com".to_owned()
-        )));
-        assert!(metadata_headers.contains(&(
-            ARKRET_DESTINATION_SERVICE_ID_HEADER,
-            "ak:did_core:web:principal.example".to_owned()
-        )));
-        assert!(metadata_headers.contains(&(
-            ARKRET_SESSION_GRANT_HEADER,
-            "coauth-grant-secret".to_owned()
-        )));
-
-        let signature_input = context.http_message_signature_input("sig1").unwrap();
-        assert!(signature_input.contains("\"x-arkret-actor-id\""));
-        assert!(signature_input.contains("\"x-arkret-expires-at\""));
-        assert!(signature_input.contains("\"x-arkret-origin-service-id\""));
-        assert!(signature_input.contains("\"x-arkret-destination-service-id\""));
-        assert!(signature_input.contains("\"x-arkret-session-grant\""));
-
-        let debug = format!("{context:?}");
-        assert!(debug.contains("session_grant"));
-        assert!(!debug.contains("coauth-grant-secret"));
-
-        let signature_headers = context
-            .http_message_signature_headers("sig1", "YWJjZA==")
-            .unwrap();
-        assert!(signature_headers.contains(&(SIGNATURE_INPUT_HEADER, signature_input)));
-        assert!(signature_headers.contains(&(SIGNATURE_HEADER, "sig1=:YWJjZA==:".to_owned())));
-    }
-
-    #[test]
-    fn rejects_invalid_signature_header_inputs() {
-        let binding = binding(
-            PushGatewayType::Standard,
-            "https://push.example.com/_arkret/edge/push/notify",
-        );
-        let request =
-            build_register_device_request(&config(Some("android")), &binding, &enabled_prefs())
-                .unwrap();
-        let context = build_register_signing_context(
-            "https://principal.example",
-            &request,
-            "2026-04-29T00:00:00.000Z",
-            "https://principal.example",
-        )
-        .unwrap();
-
-        assert_eq!(
-            context
-                .http_message_signature_input("bad label")
-                .unwrap_err()
-                .kind(),
-            PushErrorKind::InvalidHeader
-        );
-        assert_eq!(
-            PushRequestSigningContext::http_message_signature_header("sig1", "bad:sig")
-                .unwrap_err()
-                .kind(),
-            PushErrorKind::InvalidHeader
-        );
-    }
-
-    #[test]
-    fn signing_context_rejects_url_tokens() {
-        let binding = binding(
-            PushGatewayType::Standard,
-            "https://push.example.com/_arkret/edge/push/notify",
-        );
-        let request =
-            build_register_device_request(&config(Some("android")), &binding, &enabled_prefs())
-                .unwrap();
-
-        let err = build_register_signing_context(
-            "https://principal.example?access_token=secret",
-            &request,
-            "2026-04-29T00:00:00.000Z",
-            "https://principal.example",
-        )
-        .unwrap_err();
-
-        assert_eq!(err.kind(), PushErrorKind::ForbiddenPushGatewayQueryParam);
-    }
-
-    #[test]
-    fn signing_context_rejects_full_did_in_service_id_header() {
-        let binding = binding(
-            PushGatewayType::Standard,
-            "https://push.example.com/_arkret/edge/push/notify",
-        );
-        let request =
-            build_register_device_request(&config(Some("android")), &binding, &enabled_prefs())
-                .unwrap();
-
-        let err = build_register_signing_context_with_options(
-            "https://principal.example",
-            &request,
-            PushRequestSigningOptions::new("2026-04-29T00:00:00.000Z", "principal")
-                .with_origin_service_id("did:web:sync.example.com"),
-        )
-        .unwrap_err();
-
-        assert_eq!(err.kind(), PushErrorKind::SchemaViolation);
     }
 }

@@ -26,9 +26,7 @@ side never has to guess.
 Notes:
 
 - The `fcm:` / `apns:` / `unifiedpush:` prefix is the gateway's primary
-  routing signal. chime's `PushRouteId` validators (see
-  `chime/src/push/route.rs`) enforce that the scheme matches an
-  expected transport — inkson MUST NOT strip it.
+  routing signal — inkson MUST NOT strip it.
 - The `PushPlatform` enum currently has four variants: `Android`,
   `Ios`, `Web`, `Desktop`. `Linux` / `macOS` / `Windows` all collapse
   into `Desktop`. inkson keeps the finer-grained `Platform` for its own
@@ -37,25 +35,21 @@ Notes:
   bare HTTPS URL so the gateway router treats them as the same
   transport family as desktop UnifiedPush.
 
-## `spec_version` alignment
+## Bridge contract alignment
 
-chime exposes the compiled-in protocol version as
-`chime::EXPECTED_SPEC_VERSION` (current value pinned in
-`chime/src/push/bridge_describe.rs`). The push bridge's
-`PushBridgeDescribeOutcome::spec_version` field carries whatever the
-deployed gateway advertises; the SDK provides
-`warn_on_spec_version_mismatch()` so drift surfaces in logs without
-crashing existing devices.
+The push bridge's `PushBridgeDescribeOutcome` carries whatever contract
+the deployed gateway advertises. chime ships `BridgeContractCache` as
+the drift guard: cache the digest of the last accepted response and
+compare fresh fetches against it.
 
 inkson's smoke-test harness MUST:
 
-1. Call `server_describe()` against the target Arkret service.
-2. If the deployment is floria-specific, call
-   `floria_bridge_describe()` as an adapter check and compare the returned `spec_version` to
-   `chime::EXPECTED_SPEC_VERSION`.
-3. Fail the smoke test if the floria bridge version differs — gateway drift is the most
-   common cause of "registrations succeed but notifications never
-   arrive" bugs and is cheap to catch up-front.
+1. Call `floria_bridge_describe()` against the deployed gateway.
+2. Evaluate the response against the cached `BridgeContractCache`
+   entry.
+3. Fail the smoke test on a contract drift verdict — gateway drift is
+   the most common cause of "registrations succeed but notifications
+   never arrive" bugs and is cheap to catch up-front.
 
 The crate-level audited spec target is `arkret-spec @ 5d66aeb`; older
 SHAs in changelog history are retained only as round-by-round audit
@@ -75,9 +69,3 @@ releases.
   client (or hands off to whatever transport inkson prefers).
 - `chime::build_unregister_device_request(...)` — symmetric tear-down call
   for device deregistration / sign-out strands.
-- `chime::PushNotificationDedup::from_descriptor(&notify_descriptor)`
-  — constructs the dedup key used to suppress duplicate notification
-  deliveries. inkson's local-notification scheduler MUST run every
-  inbound push through this helper before raising a system
-  notification; otherwise re-delivered pushes (common on flaky
-  cellular) appear twice in the user's tray.

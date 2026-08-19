@@ -121,14 +121,13 @@ impl fmt::Debug for PushDeviceConfig<'_> {
 /// ever serialized onto the wire — chime derives it from this builder via
 /// [`Self::to_sdk_request`]. The transport-only fields carried here
 /// (`operation_id`, `principal_id`, `idempotency_key`, `request_id`,
-/// `proof`, `previous_token_hash`) ride HTTP headers / the signing context
-/// and the URL path, never the body (`push-operations.schema.json` sets
-/// `additionalProperties:false` on the canonical body;
-/// `service-http-binding.md:211-212`). The `Serialize`/`Deserialize`
-/// derives exist only so local-state types such as
-/// [`crate::PushTokenRotationPlan`] can persist a pending plan; the
-/// resulting JSON is private SDK state, **never** a notify/register wire
-/// body. Always route through [`Self::to_sdk_request`] before POSTing.
+/// `proof`) ride HTTP headers and the URL path, never the body
+/// (`push-operations.schema.json` sets `additionalProperties:false` on the
+/// canonical body; `service-http-binding.md:211-212`). The
+/// `Serialize`/`Deserialize` derives exist only so hosts can persist a
+/// pending request body; the resulting JSON is private SDK state, **never**
+/// a notify/register wire body. Always route through
+/// [`Self::to_sdk_request`] before POSTing.
 ///
 /// Stability: 1.0-stable + `#[non_exhaustive]`. Build via
 /// `ChimePushRegisterDeviceRequest { ..Default::default() }` from external crates so
@@ -152,11 +151,6 @@ pub struct ChimePushRegisterDeviceRequest {
     pub idempotency_key: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub request_id: Option<String>,
-    /// SHA-256 fingerprint of the previously registered push token, set by
-    /// token-rotation strands so the gateway can correlate the new registration
-    /// with the old one and reclaim it server-side.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub previous_token_hash: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub proof: Option<Value>,
 }
@@ -174,7 +168,6 @@ impl fmt::Debug for ChimePushRegisterDeviceRequest {
             .field("display_name", &self.display_name)
             .field("idempotency_key", &self.idempotency_key)
             .field("request_id", &self.request_id)
-            .field("previous_token_hash", &self.previous_token_hash)
             .field("proof", &self.proof.as_ref().map(|_| "<present>"))
             .finish()
     }
@@ -214,11 +207,10 @@ pub type ChimePushRegisterDeviceOutcome = arkret_models_integration::PushRegiste
 /// app_id?}`. The remaining fields here (`operation_id`, `principal_id`,
 /// `registration_id`, `push_gateway`, `push_key_hash`, `push_key_preview`,
 /// `idempotency_key`, `request_id`, `proof`) are correlation / transport
-/// metadata that ride HTTP headers, the signing context, or local state —
-/// never the body (`push-operations.schema.json` sets
-/// `additionalProperties:false`; `service-http-binding.md:211-212`). The
-/// `Serialize`/`Deserialize` derives exist only so local-state types such
-/// as [`crate::PushTokenRotationPlan`] can persist a pending plan; the
+/// metadata that ride HTTP headers or local state — never the body
+/// (`push-operations.schema.json` sets `additionalProperties:false`;
+/// `service-http-binding.md:211-212`). The `Serialize`/`Deserialize`
+/// derives exist only so hosts can persist a pending request body; the
 /// resulting JSON is private SDK state, **never** an unregister wire body.
 /// Always route through [`Self::to_sdk_request`] before POSTing.
 ///

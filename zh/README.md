@@ -14,5 +14,5 @@
 - push wakeup 的 blind-wakeup 校验属于 SDK
   `arkret_push_policy::blind_payload_sanitizer` 的职责，不在 chime 内。
 - media token 校验走 SDK `arkret_signatures::media`，chime 不再提供包装。
-- `NonceTracker` 仅是内存/单实例防重放；服务端 relay 或多进程部署必须
-  接入共享持久化 nonce 存储。
+- register/unregister 面走 bearer + session grant；请求签名与 nonce 防重放
+  属于 soland fanout signer 与 floria 验证方，chime 不再承载。

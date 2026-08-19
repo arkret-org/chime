@@ -55,70 +55,6 @@ pub enum PushErrorKind {
     /// MUST NOT trigger another push fanout from a `historical_only`
     /// response.
     HistoricalOnly,
-    // ── AKP-0010 media binding + agent lifecycle ────────────────────────
-    // The variants below mirror the 20 new error codes added in the SDK
-    // (see `arkret::error`). Chime mirrors the media-binding,
-    // agent-lifecycle, and handle-homograph subsets because those are
-    // the codes a push-SDK consumer can plausibly observe — either while
-    // calling `ak.self.call.media.exchange.issue_token` directly (`Media*`) or
-    // while the user's agent/principal pair is in an inactive state
-    // (`Agent*`) or while a handle homograph slips through wire-level
-    // validation (`HandleHomographForbidden`).
-    /// AKP-0010 — focus referenced by client does not match the
-    /// committed `ak.call.state.session_focus`.
-    FocusMismatch,
-    /// AKP-0010 — media focus backend label not recognised by the SDK.
-    /// Receivers MUST fail closed instead of forwarding the focus.
-    UnknownFocusType,
-    /// AKP-0010 — token issuer DID is not anchored to the current
-    /// `ak.realm.media_service.service_id` epoch.
-    TokenIssuerUnauthorised,
-    /// AKP-0010 — `participant_binding` signature, tuple, or TTL does
-    /// not validate against the realm media-service binding.
-    ParticipantBindingInvalid,
-    /// AKP-0010 — `participant_identity` returned by the focus does not
-    /// match any entry in `ak.call.state.participants[]`.
-    ParticipantIdentityUnrecognised,
-    /// AKP-0010 — `ak.call.state.session_focus` is write-once; a
-    /// concurrent commit attempt collided with the existing value.
-    SessionFocusAlreadyCommitted,
-    /// AKP-0010 — backend cloud attempted to supply the SFrame key
-    /// material; MLS-Exporter is the only authorised source.
-    E2eeKeySourceUnauthorised,
-    /// AKP-0010 — recording artifact bypassed the Arkret blob upload
-    /// pipeline (e.g. LiveKit Egress direct-to-S3).
-    RecordingArtifactPipelineBypassed,
-    /// AKP-0010 — chosen focus is unavailable to this client (e.g. the
-    /// focus has been retired or the client is on an unsupported
-    /// platform); callers MUST surface this rather than silently
-    /// downgrading the media path.
-    FocusUnavailableForClient,
-    /// Agent lifecycle — pairing request expired before completion.
-    PairingRequestExpired,
-    /// Agent lifecycle — supplied proof signature did not validate.
-    ProofInvalid,
-    /// Agent lifecycle — verification method does not match the
-    /// asserted principal.
-    VerificationMethodPrincipalMismatch,
-    /// Agent lifecycle — agent principal is currently paused.
-    AgentPaused,
-    /// Agent lifecycle — agent principal has been deactivated
-    /// (terminal; no resume path).
-    AgentDeactivated,
-    /// Agent lifecycle — approval token already consumed.
-    ApprovalAlreadyConsumed,
-    /// Agent lifecycle — sidecar thread creation was denied by policy.
-    SidecarCreateDenied,
-    /// Agent lifecycle — actor kind is reducer-managed and cannot be
-    /// mutated through the requested surface.
-    ActorKindReducerManaged,
-    /// Recovery — recovery witness revoke lagged behind the policy
-    /// timeline; receivers should retry after the witness catches up.
-    RecoveryWitnessRevokeLagging,
-    /// Handle registration — authority-local UTS #39 skeleton collision or
-    /// declared Highly Restrictive policy failure. This never defines handle
-    /// equality and does not make resolve-time Unicode input invalid.
-    HandleHomographForbidden,
 }
 
 impl PushErrorKind {
@@ -151,44 +87,7 @@ impl PushErrorKind {
             Self::DeliveryBindingStale => 19,
             Self::DeliveryBindingHandedOver => 20,
             Self::HistoricalOnly => 21,
-            // Bit positions appended; never reorder. Codes are ordered to
-            // keep media-binding / agent-lifecycle / handle subgroups
-            // contiguous.
-            Self::FocusMismatch => 22,
-            Self::UnknownFocusType => 23,
-            Self::TokenIssuerUnauthorised => 24,
-            Self::ParticipantBindingInvalid => 25,
-            Self::ParticipantIdentityUnrecognised => 26,
-            Self::SessionFocusAlreadyCommitted => 27,
-            Self::E2eeKeySourceUnauthorised => 28,
-            Self::RecordingArtifactPipelineBypassed => 29,
-            Self::FocusUnavailableForClient => 30,
-            Self::PairingRequestExpired => 31,
-            Self::ProofInvalid => 32,
-            Self::VerificationMethodPrincipalMismatch => 33,
-            Self::AgentPaused => 34,
-            Self::AgentDeactivated => 35,
-            Self::ApprovalAlreadyConsumed => 36,
-            Self::SidecarCreateDenied => 37,
-            Self::ActorKindReducerManaged => 38,
-            Self::RecoveryWitnessRevokeLagging => 39,
-            Self::HandleHomographForbidden => 40,
         }
-    }
-
-    /// Agent-lifecycle subset of the mirrored error codes.
-    pub const fn is_agent_lifecycle_code(self) -> bool {
-        matches!(
-            self,
-            Self::PairingRequestExpired
-                | Self::ProofInvalid
-                | Self::VerificationMethodPrincipalMismatch
-                | Self::AgentPaused
-                | Self::AgentDeactivated
-                | Self::ApprovalAlreadyConsumed
-                | Self::SidecarCreateDenied
-                | Self::ActorKindReducerManaged
-        )
     }
 
     /// `historical_only` is a diagnostic surface: the server
@@ -220,9 +119,6 @@ impl PushErrorKind {
     pub fn from_failure_reason_code(code: &str) -> Option<Self> {
         // Canonical wire codes sourced from the SDK constants so chime's
         // classification stays byte-aligned with what soland/floria emit.
-        // Top-level error codes are glob-reexported at the crate root;
-        // reason-code classifications use SDK `arkret::error::REASON_*`
-        // constants when the SDK exposes them.
         const CODE_MAP: &[(&str, PushErrorKind)] = &[
             (
                 arkret_wire::ErrorCode::UNAUTHENTICATED,
@@ -284,18 +180,6 @@ impl PushErrorKind {
             (
                 arkret_wire::ErrorCode::HISTORICAL_ONLY,
                 PushErrorKind::HistoricalOnly,
-            ),
-            (
-                arkret_wire::ReasonCode::TOKEN_ISSUER_UNAUTHORISED,
-                PushErrorKind::TokenIssuerUnauthorised,
-            ),
-            (
-                arkret_wire::ReasonCode::E2EE_KEY_SOURCE_UNAUTHORISED,
-                PushErrorKind::E2eeKeySourceUnauthorised,
-            ),
-            (
-                arkret_wire::ReasonCode::RECORDING_ARTIFACT_PIPELINE_BYPASSED,
-                PushErrorKind::RecordingArtifactPipelineBypassed,
             ),
         ];
         if let Some(&(_, kind)) = CODE_MAP.iter().find(|(c, _)| *c == code) {
@@ -637,25 +521,6 @@ mod tests {
             PushErrorKind::DeliveryBindingStale,
             PushErrorKind::DeliveryBindingHandedOver,
             PushErrorKind::HistoricalOnly,
-            PushErrorKind::FocusMismatch,
-            PushErrorKind::UnknownFocusType,
-            PushErrorKind::TokenIssuerUnauthorised,
-            PushErrorKind::ParticipantBindingInvalid,
-            PushErrorKind::ParticipantIdentityUnrecognised,
-            PushErrorKind::SessionFocusAlreadyCommitted,
-            PushErrorKind::E2eeKeySourceUnauthorised,
-            PushErrorKind::RecordingArtifactPipelineBypassed,
-            PushErrorKind::FocusUnavailableForClient,
-            PushErrorKind::PairingRequestExpired,
-            PushErrorKind::ProofInvalid,
-            PushErrorKind::VerificationMethodPrincipalMismatch,
-            PushErrorKind::AgentPaused,
-            PushErrorKind::AgentDeactivated,
-            PushErrorKind::ApprovalAlreadyConsumed,
-            PushErrorKind::SidecarCreateDenied,
-            PushErrorKind::ActorKindReducerManaged,
-            PushErrorKind::RecoveryWitnessRevokeLagging,
-            PushErrorKind::HandleHomographForbidden,
         ];
         let mut seen = std::collections::BTreeSet::new();
         for kind in kinds {

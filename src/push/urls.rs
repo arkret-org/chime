@@ -6,14 +6,14 @@ use std::net::IpAddr;
 use url::Url;
 
 use super::errors::PushRegistrationError;
-use super::{FLORIA_INTEGRATION_DESCRIBE_PATH, FLORIA_PUSH_BRIDGE_DESCRIBE_PATH, PUSH_NOTIFY_PATH};
 
 /// Builds a normalized Arkret API URL.
 ///
 /// `service_base_url` may be either an origin (`https://server.example`) or a
 /// negative-space root (`https://server.example/_arkret`). Arkret paths are
 /// absolute under the `/_arkret/` root and carry no version segment.
-pub fn arkret_api_url(service_base_url: &str, path: &str) -> String {
+#[cfg(feature = "http")]
+fn arkret_api_url(service_base_url: &str, path: &str) -> String {
     let base = service_base_url.trim_end_matches('/');
     let path = path.trim_start_matches('/');
     let path = path.strip_prefix("_arkret/").unwrap_or(path);
@@ -25,6 +25,7 @@ pub fn arkret_api_url(service_base_url: &str, path: &str) -> String {
     }
 }
 
+#[cfg(feature = "http")]
 fn service_api_url(service_base_url: &str, path: &str) -> String {
     let base = service_base_url.trim_end_matches('/');
     let path = path.trim_start_matches('/');
@@ -35,59 +36,6 @@ fn service_api_url(service_base_url: &str, path: &str) -> String {
 
     let base = base.strip_suffix("/_arkret").unwrap_or(base);
     format!("{base}/{path}")
-}
-
-/// Derive the gateway service base URL from a configured push notify endpoint.
-pub fn push_gateway_service_base_url(
-    push_gateway_url: &str,
-) -> Result<String, PushRegistrationError> {
-    service_base_url_from_known_suffixes(
-        push_gateway_url,
-        &[PUSH_NOTIFY_PATH, "/_arkret/edge/push", "/_arkret/edge"],
-    )
-}
-
-fn service_base_url_from_known_suffixes(
-    push_gateway_url: &str,
-    suffixes: &[&str],
-) -> Result<String, PushRegistrationError> {
-    require_non_empty("push_gateway", push_gateway_url)?;
-
-    let mut url = Url::parse(push_gateway_url).map_err(|error| {
-        PushRegistrationError::InvalidPushGatewayUrl {
-            url: push_gateway_url.to_owned(),
-            reason: error.to_string(),
-        }
-    })?;
-
-    reject_credentials_and_secret_params(&url, || PushRegistrationError::InvalidPushGatewayUrl {
-        url: push_gateway_url.to_owned(),
-        reason: "embedded credentials are not allowed".to_owned(),
-    })?;
-
-    url.set_query(None);
-    url.set_fragment(None);
-
-    let mut path = url.path().trim_end_matches('/').to_owned();
-    for suffix in suffixes {
-        if let Some(prefix) = path.strip_suffix(suffix) {
-            path = prefix.to_owned();
-            break;
-        }
-    }
-
-    if path.is_empty() {
-        url.set_path("/");
-    } else {
-        url.set_path(&path);
-    }
-
-    // Avoid the extra `to_owned()` allocation by truncating the
-    // `String` in place after measuring the trailing-slash run.
-    let mut s = url.to_string();
-    let new_len = s.trim_end_matches('/').len();
-    s.truncate(new_len);
-    Ok(s)
 }
 
 fn reject_credentials_and_secret_params<F>(
@@ -110,41 +58,6 @@ where
     }
 
     Ok(())
-}
-
-/// Derive floria's product-local bridge-describe URL from a configured gateway URL.
-pub fn floria_push_bridge_describe_url(
-    push_gateway_url: &str,
-) -> Result<String, PushRegistrationError> {
-    Ok(service_api_url(
-        &floria_push_gateway_service_base_url(push_gateway_url)?,
-        FLORIA_PUSH_BRIDGE_DESCRIBE_PATH,
-    ))
-}
-
-/// Derive floria's product-local integration-describe URL from a configured gateway URL.
-pub fn floria_push_integration_describe_url(
-    push_gateway_url: &str,
-) -> Result<String, PushRegistrationError> {
-    Ok(service_api_url(
-        &floria_push_gateway_service_base_url(push_gateway_url)?,
-        FLORIA_INTEGRATION_DESCRIBE_PATH,
-    ))
-}
-
-fn floria_push_gateway_service_base_url(
-    push_gateway_url: &str,
-) -> Result<String, PushRegistrationError> {
-    service_base_url_from_known_suffixes(
-        push_gateway_url,
-        &[
-            FLORIA_PUSH_BRIDGE_DESCRIBE_PATH,
-            FLORIA_INTEGRATION_DESCRIBE_PATH,
-            PUSH_NOTIFY_PATH,
-            "/_arkret/edge/push",
-            "/_arkret/edge",
-        ],
-    )
 }
 
 /// Validate a Arkret push gateway endpoint.
@@ -260,6 +173,7 @@ pub fn redact_push_key(value: &str) -> String {
     format!("<redacted,len={len}>")
 }
 
+#[cfg(feature = "http")]
 pub(super) fn try_arkret_api_url(
     service_base_url: &str,
     path: &str,
@@ -268,6 +182,7 @@ pub(super) fn try_arkret_api_url(
     Ok(service_api_url(service_base_url, path))
 }
 
+#[cfg(feature = "http")]
 fn validate_service_base_url(value: &str) -> Result<(), PushRegistrationError> {
     require_non_empty("service_base_url", value)?;
 
@@ -426,24 +341,6 @@ pub(super) fn require_optional_non_empty<'a>(
         .ok_or(PushRegistrationError::MissingField(name))
 }
 
-pub(super) fn require_owned_non_empty(
-    name: &'static str,
-    value: String,
-) -> Result<String, PushRegistrationError> {
-    non_empty(&value)
-        .map(str::to_owned)
-        .ok_or(PushRegistrationError::MissingField(name))
-}
-
-pub(super) fn require_optional_owned_non_empty(
-    name: &'static str,
-    value: Option<String>,
-) -> Result<Option<String>, PushRegistrationError> {
-    value
-        .map(|value| require_owned_non_empty(name, value))
-        .transpose()
-}
-
 pub(super) fn non_empty(value: &str) -> Option<&str> {
     let value = value.trim();
     (!value.is_empty()).then_some(value)
@@ -452,11 +349,13 @@ pub(super) fn non_empty(value: &str) -> Option<&str> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::push::REGISTER_DEVICE_PATH;
     use crate::push::errors::PushErrorKind;
 
+    #[cfg(feature = "http")]
     #[test]
     fn url_builder_accepts_origin_or_api_root() {
+        use crate::push::REGISTER_DEVICE_PATH;
+
         assert_eq!(
             arkret_api_url("https://server.example", REGISTER_DEVICE_PATH),
             "https://server.example/_arkret/edge/push/register-device"

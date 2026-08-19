@@ -4,7 +4,10 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 
 use super::super::errors::{PushErrorKind, PushRegistrationError};
-use super::super::wire::PushDeviceConfig;
+use super::super::registration::{build_register_device_request, build_unregister_device_request};
+use super::super::wire::{
+    ChimePushRegisterDeviceRequest, ChimePushUnregisterDeviceRequest, PushDeviceConfig,
+};
 use super::super::{ARKRET_REQUEST_ID_HEADER, RETRY_AFTER_HEADER};
 use super::core::ArkretPushClient;
 use super::retry::PushRetryPolicy;
@@ -82,6 +85,14 @@ fn binding() -> crate::GatewayBinding {
     )
 }
 
+fn register_request() -> ChimePushRegisterDeviceRequest {
+    build_register_device_request(&config(), &binding(), &prefs()).unwrap()
+}
+
+fn unregister_request() -> ChimePushUnregisterDeviceRequest {
+    build_unregister_device_request(&config(), &binding(), &prefs()).unwrap()
+}
+
 /// Build a happy-path client with a dummy session grant pre-attached.
 ///
 /// Mirrors production usage where every register/unregister call is
@@ -104,15 +115,10 @@ async fn register_success_exposes_response_context_and_headers() {
         body: r#"{"ok":true,"registration_id":"reg-1","expires_at":"2026-04-29T00:00:00.000Z"}"#,
     }]);
 
+    let request = register_request();
     let response = client(base_url)
         .with_bearer_token("session-secret")
-        .with_user_agent("test-agent")
-        .with_header(
-            "Signature-Input",
-            r#"sig1=("@method" "@target-uri" "content-digest")"#,
-        )
-        .unwrap()
-        .register_device_with_context(&config(), &binding(), &prefs())
+        .register_device_with_request(&request, None, request.request_id.as_deref())
         .await
         .unwrap();
 
@@ -123,26 +129,21 @@ async fn register_success_exposes_response_context_and_headers() {
         Some("ak:request:01904100-0000-7000-8000-000000000021")
     );
 
-    let request = requests.lock().unwrap().join("\n");
-    assert!(request.contains("POST /_arkret/edge/push/register-device HTTP/1.1"));
-    assert!(request.contains("authorization: Bearer session-secret"));
+    let raw = requests.lock().unwrap().join("\n");
+    assert!(raw.contains("POST /_arkret/edge/push/register-device HTTP/1.1"));
+    assert!(raw.contains("authorization: Bearer session-secret"));
     // CHIME-01: idempotency key, request id, operation id, and proof are
-    // header / path / signing-context concerns — they ride the headers,
-    // never the canonical wire body.
-    assert!(request.contains("idempotency-key: idem-1"));
-    assert!(
-        request.contains("x-arkret-request-id: ak:request:01904100-0000-7000-8000-000000000020")
-    );
-    assert!(request.contains("user-agent: test-agent"));
+    // header / path concerns — they ride the headers, never the
+    // canonical wire body.
+    assert!(raw.contains("idempotency-key: idem-1"));
+    assert!(raw.contains("x-arkret-request-id: ak:request:01904100-0000-7000-8000-000000000020"));
+    assert!(raw.contains("user-agent: chime/"));
 
     // CHIME-01: the POSTed body is the canonical
     // `PushRegisterDeviceRequestBody` (`additionalProperties:false`), so it
     // MUST NOT carry any of the transport-only fields the local builder
     // tracks. Split off the headers so we only inspect the JSON body.
-    let body = request
-        .rsplit("\r\n\r\n")
-        .next()
-        .expect("request has a body");
+    let body = raw.rsplit("\r\n\r\n").next().expect("request has a body");
     for forbidden in [
         "\"idempotency_key\"",
         "\"operation_id\"",
@@ -158,34 +159,6 @@ async fn register_success_exposes_response_context_and_headers() {
 }
 
 #[tokio::test]
-async fn client_default_headers_fill_request_metadata() {
-    let (base_url, requests) = spawn_mock_server(vec![MockHttpOutcome {
-        status: "200 OK",
-        headers: vec![],
-        body: r#"{"ok":true}"#,
-    }]);
-    let mut config = config();
-    config.idempotency_key = None;
-    config.request_id = None;
-
-    ArkretPushClient::new(base_url)
-        .with_default_idempotency_key("client-idem")
-        .with_default_request_id("ak:request:01904100-0000-7000-8000-000000000022")
-        .with_session_grant("coauth-grant-secret")
-        .unwrap()
-        .register_device(&config, &binding(), &prefs())
-        .await
-        .unwrap();
-
-    let request = requests.lock().unwrap().join("\n");
-    assert!(request.contains("idempotency-key: client-idem"));
-    assert!(
-        request.contains("x-arkret-request-id: ak:request:01904100-0000-7000-8000-000000000022")
-    );
-    assert!(request.contains("x-arkret-session-grant: coauth-grant-secret"));
-}
-
-#[tokio::test]
 async fn unregister_success() {
     let (base_url, requests) = spawn_mock_server(vec![MockHttpOutcome {
         status: "200 OK",
@@ -194,11 +167,11 @@ async fn unregister_success() {
     }]);
 
     let response = client(base_url)
-        .unregister_device(&config(), &binding(), &prefs())
+        .unregister_device_with_request(&unregister_request(), None, None)
         .await
         .unwrap();
 
-    assert!(response.ok);
+    assert!(response.body.ok);
     let request = requests.lock().unwrap().join("\n");
     assert!(request.contains("POST /_arkret/edge/push/unregister-device HTTP/1.1"));
     let body = request
@@ -226,7 +199,7 @@ async fn unregister_not_found_is_idempotent_success() {
     }]);
 
     let response = client(base_url)
-        .unregister_device_with_context(&config(), &binding(), &prefs())
+        .unregister_device_with_request(&unregister_request(), None, None)
         .await
         .unwrap();
 
@@ -273,7 +246,7 @@ async fn classifies_json_error_responses() {
         }]);
 
         let err = client(base_url)
-            .register_device(&config(), &binding(), &prefs())
+            .register_device_with_request(&register_request(), None, None)
             .await
             .unwrap_err();
 
@@ -294,7 +267,7 @@ async fn exposes_non_json_error_body_without_debug_leak() {
     }]);
 
     let err = client(base_url)
-        .register_device(&config(), &binding(), &prefs())
+        .register_device_with_request(&register_request(), None, None)
         .await
         .unwrap_err();
 
@@ -312,7 +285,7 @@ async fn invalid_success_schema_is_invalid_response() {
     }]);
 
     let err = client(base_url)
-        .register_device(&config(), &binding(), &prefs())
+        .register_device_with_request(&register_request(), None, None)
         .await
         .unwrap_err();
 
@@ -329,7 +302,7 @@ async fn rejects_oversized_response_before_json_decode() {
     }]);
 
     let error = client(base_url)
-        .register_device(&config(), &binding(), &prefs())
+        .register_device_with_request(&register_request(), None, None)
         .await
         .unwrap_err();
 
@@ -348,7 +321,7 @@ async fn error_debug_redacts_envelope_message_and_details() {
     }]);
 
     let err = client(base_url)
-        .register_device(&config(), &binding(), &prefs())
+        .register_device_with_request(&register_request(), None, None)
         .await
         .unwrap_err();
 
@@ -383,11 +356,11 @@ async fn retries_429_and_honors_retry_after() {
             retry: arkret_retry::RetryPolicy::none().with_max_retries(1),
             disabled_kinds_mask: 0,
         })
-        .register_device(&config(), &binding(), &prefs())
+        .register_device_with_request(&register_request(), None, None)
         .await
         .unwrap();
 
-    assert!(response.ok);
+    assert!(response.body.ok);
     assert_eq!(requests.lock().unwrap().len(), 2);
 }
 
@@ -396,7 +369,7 @@ async fn default_register_rejects_without_session_grant() {
     // Default `require_session_grant = true` ⇒ no mock server needed:
     // the call fails fast before any request is sent.
     let err = ArkretPushClient::new("https://principal.example")
-        .register_device(&config(), &binding(), &prefs())
+        .register_device_with_request(&register_request(), None, None)
         .await
         .unwrap_err();
 
@@ -414,11 +387,11 @@ async fn default_register_allows_with_session_grant_header() {
     let response = ArkretPushClient::new(base_url)
         .with_session_grant("coauth-grant-secret")
         .unwrap()
-        .register_device(&config(), &binding(), &prefs())
+        .register_device_with_request(&register_request(), None, None)
         .await
         .unwrap();
 
-    assert!(response.ok);
+    assert!(response.body.ok);
     let raw = requests.lock().unwrap().join("\n");
     assert!(raw.contains("x-arkret-session-grant: coauth-grant-secret"));
 }
@@ -426,7 +399,7 @@ async fn default_register_allows_with_session_grant_header() {
 #[tokio::test]
 async fn default_unregister_rejects_without_session_grant() {
     let err = ArkretPushClient::new("https://principal.example")
-        .unregister_device(&config(), &binding(), &prefs())
+        .unregister_device_with_request(&unregister_request(), None, None)
         .await
         .unwrap_err();
 
@@ -443,11 +416,11 @@ async fn opting_out_session_grant_allows_register_without_header() {
 
     let response = ArkretPushClient::new(base_url)
         .with_required_session_grant(false)
-        .register_device(&config(), &binding(), &prefs())
+        .register_device_with_request(&register_request(), None, None)
         .await
         .unwrap();
 
-    assert!(response.ok);
+    assert!(response.body.ok);
 }
 
 #[tokio::test]
@@ -466,17 +439,18 @@ async fn register_auto_generates_idempotency_key_when_omitted() {
     ]);
     let mut config = config();
     config.idempotency_key = None;
+    let request = build_register_device_request(&config, &binding(), &prefs()).unwrap();
 
     let response = client(base_url)
         .with_retry_policy(PushRetryPolicy {
             retry: arkret_retry::RetryPolicy::none().with_max_retries(1),
             disabled_kinds_mask: 0,
         })
-        .register_device(&config, &binding(), &prefs())
+        .register_device_with_request(&request, None, None)
         .await
         .unwrap();
 
-    assert!(response.ok);
+    assert!(response.body.ok);
 
     let recorded = requests.lock().unwrap();
     assert_eq!(
@@ -511,7 +485,7 @@ async fn does_not_retry_duplicate_conflict() {
             retry: arkret_retry::RetryPolicy::none().with_max_retries(2),
             disabled_kinds_mask: 0,
         })
-        .register_device(&config(), &binding(), &prefs())
+        .register_device_with_request(&register_request(), None, None)
         .await
         .unwrap_err();
 
@@ -539,11 +513,11 @@ async fn retries_503() {
             retry: arkret_retry::RetryPolicy::none().with_max_retries(1),
             disabled_kinds_mask: 0,
         })
-        .register_device(&config(), &binding(), &prefs())
+        .register_device_with_request(&register_request(), None, None)
         .await
         .unwrap();
 
-    assert!(response.ok);
+    assert!(response.body.ok);
     assert_eq!(requests.lock().unwrap().len(), 2);
 }
 
@@ -568,76 +542,12 @@ async fn disabled_kinds_skip_otherwise_retryable_error() {
 
     let err = client(base_url)
         .with_retry_policy(policy)
-        .register_device(&config(), &binding(), &prefs())
+        .register_device_with_request(&register_request(), None, None)
         .await
         .unwrap_err();
 
     assert_eq!(err.kind(), PushErrorKind::TemporarilyUnavailable);
     assert_eq!(requests.lock().unwrap().len(), 1);
-}
-
-#[tokio::test]
-async fn register_device_all_exercises_each_binding_independently() {
-    // Two bindings → two responses. We pre-load the mock server
-    // with one response per expected request.
-    let (base_url, requests) = spawn_mock_server(vec![
-        MockHttpOutcome {
-            status: "200 OK",
-            headers: vec![],
-            body: r#"{"ok":true,"registration_id":"reg-standard"}"#,
-        },
-        MockHttpOutcome {
-            status: "200 OK",
-            headers: vec![],
-            body: r#"{"ok":true,"registration_id":"reg-bugle"}"#,
-        },
-    ]);
-
-    let prefs = PushPreferences {
-        enabled: true,
-        gateways: vec![
-            crate::GatewayBinding::new(
-                crate::PushGatewayType::Standard,
-                "https://push.example.com/_arkret/edge/push/notify",
-            ),
-            crate::GatewayBinding::new(
-                crate::PushGatewayType::Bugle,
-                "https://push.palpo.im/_arkret/edge/push/notify",
-            )
-            .with_push_key("vendor-token-cn-aaaaaaaaaa")
-            .with_app_id("app.example.android.cn"),
-        ],
-        ..Default::default()
-    };
-
-    let results = client(base_url)
-        .register_device_all(&config(), &prefs)
-        .await;
-
-    assert_eq!(results.len(), 2);
-    let r0 = results[0].as_ref().unwrap();
-    let r1 = results[1].as_ref().unwrap();
-    assert_eq!(r0.registration_id.as_deref(), Some("reg-standard"));
-    assert_eq!(r1.registration_id.as_deref(), Some("reg-bugle"));
-
-    let raw = requests.lock().unwrap().join("\n");
-    // Standard gateway uses caller-supplied token; Bugle uses
-    // per-binding override.
-    assert!(raw.contains("https://push.example.com"));
-    assert!(raw.contains("https://push.palpo.im"));
-    assert!(raw.contains("vendor-token-cn-aaaaaaaaaa"));
-    // Per-binding app_id override propagates to the Bugle request.
-    assert!(raw.contains("app.example.android.cn"));
-}
-
-#[tokio::test]
-async fn register_device_all_returns_empty_when_no_bindings_configured() {
-    // No mock server needed — empty `gateways` means no HTTP work.
-    let results = client("http://127.0.0.1:1")
-        .register_device_all(&config(), &prefs())
-        .await;
-
-    assert!(results.is_empty());
 }
 
 /// A.5 #2 — formatting a [`ArkretPushClient`] through `{:?}` MUST

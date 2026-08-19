@@ -116,9 +116,7 @@ impl ArkretPushClient {
         let mut retry_count = 0;
         let idempotency_key = idempotency_key
             .map(str::to_owned)
-            .or_else(|| self.default_idempotency_key.clone())
             .unwrap_or_else(generate_idempotency_key);
-        let request_id = request_id.or(self.default_request_id.as_deref());
 
         loop {
             let result = self
@@ -283,15 +281,6 @@ impl ArkretPushClient {
             // immediately by reqwest's builder. Do not stash the
             // returned `&str` elsewhere.
             request = request.bearer_auth(token.expose());
-        }
-
-        if let Some(request_id) = self.default_request_id.as_deref() {
-            let request_id = reqwest::header::HeaderValue::from_str(request_id).map_err(|_| {
-                PushRegistrationError::InvalidHeader {
-                    name: ARKRET_REQUEST_ID_HEADER.to_owned(),
-                }
-            })?;
-            request = request.header(ARKRET_REQUEST_ID_HEADER, request_id);
         }
 
         for (name, value) in &self.headers {

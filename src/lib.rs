@@ -22,8 +22,6 @@
 //! - `http` - enables `ArkretPushClient`, a small reqwest-based helper for `POST
 //!   /_arkret/edge/push/register-device` and `POST /_arkret/edge/push/unregister-device`.
 
-use std::collections::BTreeSet;
-
 use serde::{Deserialize, Serialize};
 
 /// Compile the README's rust code blocks as doc-tests so the public
@@ -35,7 +33,6 @@ use serde::{Deserialize, Serialize};
 #[doc = include_str!("../README.md")]
 mod readme_doctest {}
 
-pub mod bugle;
 mod gateway_binding;
 mod push;
 mod rules;
@@ -44,31 +41,14 @@ mod state;
 pub use arkret_models_integration::{
     DndPeriod, DndSchedule, DndSettings, PushCondition, PushRule, PushRulesConfig,
 };
-pub use bugle::BugleAppIdResolver;
 pub use gateway_binding::GatewayBinding;
 pub use push::{
-    ARKRET_ACTOR_ID_HEADER, ARKRET_AUDIENCE_HEADER, ARKRET_CREATED_AT_HEADER,
-    ARKRET_DESTINATION_SERVICE_ID_HEADER, ARKRET_DEVICE_ID_HEADER, ARKRET_EXPIRES_AT_HEADER,
-    ARKRET_IDEMPOTENCY_KEY_HEADER, ARKRET_NONCE_HEADER, ARKRET_OPERATION_ID_HEADER,
-    ARKRET_ORIGIN_HEADER, ARKRET_ORIGIN_SERVICE_ID_HEADER, ARKRET_REQUEST_ID_HEADER,
-    ARKRET_SESSION_GRANT_HEADER, ArkretError, ArkretErrorEnvelope, CONTENT_DIGEST_HEADER,
-    ChimePushRegisterDeviceOutcome, ChimePushRegisterDeviceRequest,
-    ChimePushUnregisterDeviceOutcome, ChimePushUnregisterDeviceRequest,
-    DefaultPlatformAppIdResolver, EXPECTED_SPEC_VERSION, IntegrationDependencyDescriptor,
-    IntegrationDescribeOutcome, IntegrationView, NonceReplayError, NonceTracker, PUSH_NOTIFY_PATH,
-    PlatformAppIdResolver, PushBridgeDescribeGatewayDescriptor, PushBridgeDescribeNotifyDescriptor,
-    PushBridgeDescribeOutcome, PushBridgeDescribePrivacyDescriptor, PushDeviceConfig,
-    PushErrorKind, PushPlatform, PushRegisterDeviceOutcome, PushRegisterDeviceRequestBody,
-    PushRegistrationError, PushRequestSigningContext, PushRequestSigningOptions, PushRoute,
-    PushRouteCapability, PushRouteError, PushRouteId, PushRouteValidationError,
-    PushRuleEventContext, PushUnregisterDeviceOutcome, PushUnregisterDeviceRequestBody,
-    REGISTER_DEVICE_PATH, SERVER_DESCRIBE_PATH, SIGNATURE_HEADER, SIGNATURE_INPUT_HEADER,
-    ServiceDescribe, ShouldNotify, UNREGISTER_DEVICE_PATH, WatchLevel, arkret_api_url,
-    build_register_device_request, build_register_signing_context,
-    build_register_signing_context_with_options, build_unregister_device_request,
-    build_unregister_signing_context, build_unregister_signing_context_with_options,
-    content_digest_sha256, evaluate_watch_level, floria_push_bridge_describe_url,
-    floria_push_integration_describe_url, push_gateway_service_base_url, push_rule_reason_code,
+    ArkretError, ArkretErrorEnvelope, ChimePushRegisterDeviceOutcome,
+    ChimePushRegisterDeviceRequest, ChimePushUnregisterDeviceOutcome,
+    ChimePushUnregisterDeviceRequest, PushBridgeDescribeGatewayDescriptor,
+    PushBridgeDescribeNotifyDescriptor, PushBridgeDescribeOutcome,
+    PushBridgeDescribePrivacyDescriptor, PushDeviceConfig, PushErrorKind, PushPlatform,
+    PushRegistrationError, build_register_device_request, build_unregister_device_request,
     redact_push_key, validate_push_gateway_url, validate_webpush_endpoint_allowlist,
 };
 #[cfg(feature = "http")]
@@ -79,26 +59,9 @@ pub use rules::{
 };
 pub use state::{
     BridgeContractCache, BridgeContractCacheError, BridgeContractDriftVerdict,
-    MemoizingPushPreferencesStore, PUSH_PREFERENCES_CACHE_TTL,
-    PUSH_REGISTRATION_STATE_SCHEMA_VERSION, PushMultiGatewayRepairPlan, PushPreferencesStore,
-    PushRegistrationLastError, PushRegistrationRepairPlan, PushRegistrationState,
-    PushRegistrationStore, PushTokenRotationPlan, PushTokenRotationStrategy,
-    build_registration_state, find_registration_by_token, find_registration_for_device,
-    hash_push_key, merge_registration_state, plan_multi_gateway_repair, plan_registration_repair,
-    plan_token_rotation, plan_token_rotation_with_strategy, token_moved_to_different_device,
-    token_rotation_required,
+    PUSH_REGISTRATION_STATE_SCHEMA_VERSION, PushRegistrationLastError, PushRegistrationState,
+    build_registration_state, hash_push_key,
 };
-
-// -- Constants ---------------------------------------------------------------
-
-/// Default standard Arkret push gateway URL.
-///
-/// Arkret does not define a single global push gateway. Consumers should set
-/// this from service discovery or application configuration before registering.
-pub const DEFAULT_ARKRET_PUSH_GATEWAY_URL: &str = "";
-
-/// Default Bugle push gateway URL using the Arkret push notify binding.
-pub const DEFAULT_BUGLE_PUSH_GATEWAY_URL: &str = "https://push.palpo.im/_arkret/edge/push/notify";
 
 // -- PushGatewayType ---------------------------------------------------------
 
@@ -123,37 +86,6 @@ pub enum PushGatewayType {
 }
 
 impl PushGatewayType {
-    /// Default push gateway URL for this type.
-    pub fn default_url(&self) -> &'static str {
-        match self {
-            Self::Standard => DEFAULT_ARKRET_PUSH_GATEWAY_URL,
-            Self::Bugle => DEFAULT_BUGLE_PUSH_GATEWAY_URL,
-            Self::Custom => DEFAULT_ARKRET_PUSH_GATEWAY_URL,
-        }
-    }
-
-    /// Human-readable display name.
-    pub fn display_name(&self) -> &'static str {
-        match self {
-            Self::Standard => "Arkret Standard",
-            Self::Bugle => "Bugle (China domestic)",
-            Self::Custom => "Custom",
-        }
-    }
-
-    /// Short description of this gateway type.
-    pub fn description(&self) -> &'static str {
-        match self {
-            Self::Standard => {
-                "Standard Arkret push via platform adapters such as FCM, APNs, Web Push, or desktop bridges."
-            }
-            Self::Bugle => {
-                "Domestic push for mainland China via JPush, Huawei, Xiaomi, OPPO, vivo, and HONOR providers."
-            }
-            Self::Custom => "Manually specify the push gateway URL.",
-        }
-    }
-
     /// Resolve the app id for a platform and gateway.
     ///
     /// For Android + Bugle, this returns `domestic_app_id` when provided;
@@ -177,8 +109,7 @@ impl PushGatewayType {
 /// Persisted Arkret push notification preferences.
 ///
 /// Serializable to JSON. The file path and persistence strategy are left to
-/// the consumer application — see [`PushPreferencesStore`] for a minimal
-/// trait abstraction.
+/// the consumer application.
 ///
 /// Stability: `1.0`-stable. New optional fields are added with
 /// `#[serde(default)]` so old persisted JSON keeps deserializing.
@@ -192,11 +123,6 @@ pub struct PushPreferences {
     ///
     /// Production gateway URLs must use HTTPS.
     pub allow_insecure_loopback_push_gateway: bool,
-    /// Whether a sender-provided, body-free `push_hint` may be used.
-    ///
-    /// Arkret push hints are blind wakeup metadata. They must not contain
-    /// plaintext message bodies for E2EE Spaces.
-    pub allow_push_hint: bool,
     /// Optional allowlist for WebPush endpoint origins.
     ///
     /// When non-empty and the platform is `web`, registration rejects WebPush
@@ -209,25 +135,9 @@ pub struct PushPreferences {
     ///
     /// Each binding carries its own gateway type, URL, and optional
     /// per-binding `push_key` / `app_id` overrides. Every binding is
-    /// exercised independently — see
-    /// `ArkretPushClient::register_device_all` (under the `http`
-    /// feature) for the multi-gateway register helper.
+    /// exercised independently.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub gateways: Vec<GatewayBinding>,
-    /// AKP-0007 (Circle primitive) — set of `ak:circle:` ids the user
-    /// has muted on this device. Wakeups whose `circle_id` is in this
-    /// set MUST NOT raise a UI surface; wire-level delivery is
-    /// unchanged so floria can still account for the receipt.
-    ///
-    /// Stored as a `BTreeSet` so the persisted JSON is deterministic
-    /// (essential for diff-based prefs sync).
-    #[serde(default, skip_serializing_if = "BTreeSet::is_empty")]
-    pub muted_circle_ids: BTreeSet<String>,
-    /// Set of `ak:realm:` ids the user has muted on this device. Same
-    /// semantics as [`Self::muted_circle_ids`], scoped to the Realm
-    /// (Realm-scoped wakeups + any Circle-less Realm wakeups).
-    #[serde(default, skip_serializing_if = "BTreeSet::is_empty")]
-    pub muted_realm_ids: BTreeSet<String>,
 }
 
 impl Default for PushPreferences {
@@ -235,11 +145,8 @@ impl Default for PushPreferences {
         Self {
             enabled: false,
             allow_insecure_loopback_push_gateway: false,
-            allow_push_hint: true,
             webpush_endpoint_allowlist: Vec::new(),
             gateways: Vec::new(),
-            muted_circle_ids: BTreeSet::new(),
-            muted_realm_ids: BTreeSet::new(),
         }
     }
 }
@@ -264,7 +171,6 @@ mod tests {
         assert!(!prefs.enabled);
         assert!(prefs.gateways.is_empty());
         assert!(!prefs.allow_insecure_loopback_push_gateway);
-        assert!(prefs.allow_push_hint);
     }
 
     #[test]
@@ -311,19 +217,16 @@ mod tests {
         let prefs = PushPreferences {
             enabled: true,
             allow_insecure_loopback_push_gateway: false,
-            allow_push_hint: false,
             webpush_endpoint_allowlist: vec!["https://fcm.googleapis.com".to_owned()],
             gateways: vec![GatewayBinding::new(
                 PushGatewayType::Bugle,
                 "https://example.com/_arkret/edge/push/notify",
             )],
-            ..Default::default()
         };
         let json = to_json(&prefs).unwrap();
         let loaded = from_json(&json).unwrap();
         assert_eq!(loaded.enabled, prefs.enabled);
         assert_eq!(loaded.gateways, prefs.gateways);
-        assert_eq!(loaded.allow_push_hint, prefs.allow_push_hint);
         assert_eq!(
             loaded.webpush_endpoint_allowlist,
             prefs.webpush_endpoint_allowlist
@@ -335,7 +238,6 @@ mod tests {
         let loaded = from_json(r#"{"enabled":true}"#).unwrap();
         assert!(loaded.enabled);
         assert!(loaded.gateways.is_empty());
-        assert!(loaded.allow_push_hint);
     }
 
     #[test]
@@ -380,46 +282,5 @@ mod tests {
             loaded.is_err(),
             "removed singular fields and aliases must error, not silently default"
         );
-    }
-
-    #[test]
-    fn muted_circle_and_realm_ids_round_trip() {
-        let mut prefs = PushPreferences {
-            enabled: true,
-            ..Default::default()
-        };
-        prefs
-            .muted_circle_ids
-            .insert("ak:circle:Ac7_fhSff6-Ypkj5FKEHqIfB3QgQuc43sOTboFIeWApN".to_owned());
-        prefs
-            .muted_circle_ids
-            .insert("ak:circle:Ad0N5owuEJCkEB0LEUlstCP52wUJK0Y3dUxVIirq7QAf".to_owned());
-        prefs
-            .muted_realm_ids
-            .insert("ak:realm:AQiwRS-YwfWAgoQu9H2297VS9UPBadmpjntpWErxz46T".to_owned());
-
-        let json = to_json(&prefs).unwrap();
-        assert!(json.contains("muted_circle_ids"));
-        assert!(json.contains("muted_realm_ids"));
-        let loaded = from_json(&json).unwrap();
-        assert_eq!(loaded.muted_circle_ids, prefs.muted_circle_ids);
-        assert_eq!(loaded.muted_realm_ids, prefs.muted_realm_ids);
-    }
-
-    #[test]
-    fn default_preferences_have_empty_mutes() {
-        let prefs = PushPreferences::default();
-        assert!(prefs.muted_circle_ids.is_empty());
-        assert!(prefs.muted_realm_ids.is_empty());
-    }
-
-    #[test]
-    fn empty_mute_sets_are_omitted_from_serialised_form() {
-        let prefs = PushPreferences::default();
-        let json = to_json(&prefs).unwrap();
-        // Defaults should not blow up the on-disk shape with empty
-        // collections; the `skip_serializing_if` predicate keeps them out.
-        assert!(!json.contains("muted_circle_ids"));
-        assert!(!json.contains("muted_realm_ids"));
     }
 }
