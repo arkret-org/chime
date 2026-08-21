@@ -144,6 +144,9 @@ mod tests {
             build_register_device_request(&config("fcm:new-token"), &binding(), &prefs()).unwrap();
         let response = ChimePushRegisterDeviceOutcome {
             ok: true,
+            // Server-derived pairwise pseudonym (SDK 9b08fe93 made the field
+            // required); the registration-state builder does not read it.
+            push_target_id: "pt-reg-new".to_owned(),
             registration_id: Some(arkret_wire::OpaqueLocalId::new("reg-new").unwrap()),
             expires_at: Some("2026-04-29T00:00:00.000Z".parse().expect("valid timestamp")),
         };
