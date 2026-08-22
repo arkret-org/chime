@@ -90,28 +90,6 @@ impl PushErrorKind {
         }
     }
 
-    /// `historical_only` is a diagnostic surface: the server
-    /// served a cached response after key/binding state changed and the
-    /// receiver MUST NOT take any new action on it (no push refanout,
-    /// no retry, no state mutation). Callers can branch on this when
-    /// they need to suppress side effects rather than treat it as an
-    /// error.
-    pub const fn is_diagnostic_only(self) -> bool {
-        matches!(self, Self::HistoricalOnly)
-    }
-
-    /// `delivery_binding_stale` and `delivery_binding_handed_over`
-    /// both signal "stop talking to this recipient and resolve the
-    /// current binding". Consumers SHOULD use this helper rather than
-    /// matching the two variants by hand so future additions stay
-    /// covered.
-    pub const fn is_delivery_binding_signal(self) -> bool {
-        matches!(
-            self,
-            Self::DeliveryBindingStale | Self::DeliveryBindingHandedOver
-        )
-    }
-
     /// Map a Arkret `bridge/describe.failure_reason_codes` string to a stable kind.
     ///
     /// Returns `None` when the code is not part of the contract, so callers can
@@ -476,24 +454,6 @@ mod tests {
             PushErrorKind::from_failure_reason_code(arkret_wire::ErrorCode::HISTORICAL_ONLY),
             Some(PushErrorKind::HistoricalOnly)
         );
-    }
-
-    #[test]
-    fn historical_only_is_diagnostic_only() {
-        // `historical_only` MUST be treated as diagnostic — no
-        // re-action, no fanout. Callers branch on this helper rather
-        // than matching the variant by hand.
-        assert!(PushErrorKind::HistoricalOnly.is_diagnostic_only());
-        assert!(!PushErrorKind::DeliveryBindingStale.is_diagnostic_only());
-        assert!(!PushErrorKind::DeliveryBindingHandedOver.is_diagnostic_only());
-    }
-
-    #[test]
-    fn delivery_binding_signals_grouped() {
-        assert!(PushErrorKind::DeliveryBindingStale.is_delivery_binding_signal());
-        assert!(PushErrorKind::DeliveryBindingHandedOver.is_delivery_binding_signal());
-        assert!(!PushErrorKind::HistoricalOnly.is_delivery_binding_signal());
-        assert!(!PushErrorKind::RateLimited.is_delivery_binding_signal());
     }
 
     #[test]

@@ -120,28 +120,6 @@ pub enum BridgeContractDriftVerdict {
     },
 }
 
-impl BridgeContractDriftVerdict {
-    /// Whether this verdict represents a drift (`true`) or a stable cache (`false`).
-    pub fn is_drift(&self) -> bool {
-        matches!(self, Self::Drifted { .. })
-    }
-
-    /// Whether the contract identifier changed across the cache boundary
-    /// (i.e. the contract string no longer matches the expected
-    /// `ak.push.bridge.v1`). Such a contract change is always a strong signal
-    /// that downstream state should be invalidated.
-    pub fn contract_changed(&self) -> bool {
-        match self {
-            Self::Unchanged => false,
-            Self::Drifted {
-                cached_contract,
-                fresh_contract,
-                ..
-            } => cached_contract != fresh_contract,
-        }
-    }
-}
-
 fn compute_digest(
     response: &PushBridgeDescribeOutcome,
 ) -> Result<String, BridgeContractCacheError> {
@@ -180,7 +158,6 @@ mod tests {
             cache.evaluate(&response).unwrap(),
             BridgeContractDriftVerdict::Unchanged
         );
-        assert!(!cache.evaluate(&response).unwrap().is_drift());
     }
 
     #[test]
@@ -189,19 +166,18 @@ mod tests {
         let mut fresh = baseline_response();
         fresh.version = "1.1.0".to_owned();
 
-        let verdict = cache.evaluate(&fresh).unwrap();
-        assert!(verdict.is_drift());
-        assert!(
-            !verdict.contract_changed(),
-            "version-only drift should not flip contract"
-        );
-
-        match verdict {
+        match cache.evaluate(&fresh).unwrap() {
             BridgeContractDriftVerdict::Drifted {
+                cached_contract,
+                fresh_contract,
                 cached_version,
                 fresh_version,
                 ..
             } => {
+                assert_eq!(
+                    cached_contract, fresh_contract,
+                    "version-only drift should not flip contract"
+                );
                 assert_eq!(cached_version, "1.0.0");
                 assert_eq!(fresh_version, "1.1.0");
             }
@@ -215,9 +191,14 @@ mod tests {
         let mut fresh = baseline_response();
         fresh.contract = "ak.push.bridge.unknown-drift-test".to_owned();
 
-        let verdict = cache.evaluate(&fresh).unwrap();
-        assert!(verdict.is_drift());
-        assert!(verdict.contract_changed());
+        match cache.evaluate(&fresh).unwrap() {
+            BridgeContractDriftVerdict::Drifted {
+                cached_contract,
+                fresh_contract,
+                ..
+            } => assert_ne!(cached_contract, fresh_contract),
+            other => panic!("expected drift, got {other:?}"),
+        }
     }
 
     #[test]
