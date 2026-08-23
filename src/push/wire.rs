@@ -324,7 +324,7 @@ mod tests {
     fn response_models_cover_frozen_wire_metadata() {
         let register: PushRegisterDeviceOutcome = serde_json::from_value(serde_json::json!({
             "ok": true,
-            "push_target_id": "ak:pseudonym:push:ABCDEFGHIJKLMNOPQRSTUV",
+            "push_target_id": "ak:pseudonym:push:kosc9iQ4gVct1OB-b6X364WIFIsJFVbVzn7BMBs1sm8",
             "registration_id": "reg-1",
             "expires_at": "2026-05-02T00:00:00.000Z"
         }))
@@ -332,8 +332,8 @@ mod tests {
 
         assert!(register.ok);
         assert_eq!(
-            register.push_target_id,
-            "ak:pseudonym:push:ABCDEFGHIJKLMNOPQRSTUV"
+            register.push_target_id.as_str(),
+            "ak:pseudonym:push:kosc9iQ4gVct1OB-b6X364WIFIsJFVbVzn7BMBs1sm8"
         );
         assert_eq!(register.registration_id.as_deref(), Some("reg-1"));
         assert_eq!(

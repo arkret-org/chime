@@ -89,9 +89,15 @@ pub fn hash_push_key(push_key: &str) -> String {
 ///     ..Default::default()
 /// };
 /// let request = build_register_device_request(&config, &binding, &prefs).unwrap();
-/// let mut response = PushRegisterDeviceOutcome::default();
-/// response.ok = true;
-/// response.registration_id = Some(arkret_wire::OpaqueLocalId::new("reg-1").unwrap());
+/// let response = PushRegisterDeviceOutcome {
+///     ok: true,
+///     push_target_id: arkret_wire::PushTargetId::new(
+///         "ak:pseudonym:push:kosc9iQ4gVct1OB-b6X364WIFIsJFVbVzn7BMBs1sm8",
+///     )
+///     .unwrap(),
+///     registration_id: Some(arkret_wire::OpaqueLocalId::new("reg-1").unwrap()),
+///     expires_at: None,
+/// };
 /// let state = build_registration_state(&binding, &request, &response, None);
 /// assert_eq!(state.registration_id.as_deref(), Some("reg-1"));
 /// ```
@@ -146,7 +152,10 @@ mod tests {
             ok: true,
             // Server-derived pairwise pseudonym (SDK 9b08fe93 made the field
             // required); the registration-state builder does not read it.
-            push_target_id: "pt-reg-new".to_owned(),
+            push_target_id: arkret_wire::PushTargetId::new(
+                "ak:pseudonym:push:kosc9iQ4gVct1OB-b6X364WIFIsJFVbVzn7BMBs1sm8",
+            )
+            .unwrap(),
             registration_id: Some(arkret_wire::OpaqueLocalId::new("reg-new").unwrap()),
             expires_at: Some("2026-04-29T00:00:00.000Z".parse().expect("valid timestamp")),
         };
