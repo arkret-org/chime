@@ -17,8 +17,16 @@
   the unused `ArkretPushClient` methods (`server_describe`,
   `floria_integration_*`, config-driven register/unregister,
   `register_device_all`, `rotate_token`, path/default-header setters).
+- Drop the unconsumed `ArkretPushClient::floria_bridge_describe_with_context`
+  metadata variant (`floria_bridge_describe()` remains) and the unused
+  `PushRegistrationError::status()` accessor (`kind()` plus
+  `error_envelope()` / `request_id()` / `retry_after()` cover the same
+  surface).
 - Drop the dead `base64`, `arkret-signatures`, and
   `arkret-models-discovery` dependencies.
+- Drop the `sha2` dependency; idempotency-key derivation now goes through
+  `arkret_canonical::sha256_hex_from_slices` like every other digest in
+  the crate.
 
 ### Changed
 

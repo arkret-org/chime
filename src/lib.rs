@@ -113,7 +113,7 @@ impl PushGatewayType {
 /// Stability: `1.0`-stable. New optional fields are added with
 /// `#[serde(default)]` so old persisted JSON keeps deserializing.
 /// Renaming or removing a field requires a major SemVer bump.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct PushPreferences {
     /// Whether push notifications are enabled.
@@ -137,17 +137,6 @@ pub struct PushPreferences {
     /// exercised independently.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub gateways: Vec<GatewayBinding>,
-}
-
-impl Default for PushPreferences {
-    fn default() -> Self {
-        Self {
-            enabled: false,
-            allow_insecure_loopback_push_gateway: false,
-            webpush_endpoint_allowlist: Vec::new(),
-            gateways: Vec::new(),
-        }
-    }
 }
 
 // -- Tests -------------------------------------------------------------------

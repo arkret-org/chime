@@ -2,7 +2,6 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, SystemTime};
 
 use arkret_retry::RetryPolicy;
-use sha2::{Digest, Sha256};
 
 /// Retry configuration for `ArkretPushClient`.
 ///
@@ -104,21 +103,18 @@ pub(super) fn generate_idempotency_key() -> String {
         .duration_since(SystemTime::UNIX_EPOCH)
         .map(|duration| duration.as_nanos())
         .unwrap_or(0);
-    let mut hasher = Sha256::new();
     // This is a client-local hash-domain separator, not an Arkret protocol
     // identifier. Keep it out of the reserved `ak.*` registry namespace.
-    hasher.update(b"org.arkret.chime.idempotency.v1");
-    hasher.update(nanos.to_le_bytes());
-    hasher.update(counter.to_le_bytes());
-    let digest = hasher.finalize();
+    let digest = arkret_canonical::sha256_hex_from_slices(&[
+        b"org.arkret.chime.idempotency.v1",
+        &nanos.to_le_bytes(),
+        &counter.to_le_bytes(),
+    ]);
 
-    use std::fmt::Write as _;
     // Idempotency-Key is opaque to the server. The product prefix is useful
     // for diagnostics but must not look like a registered Arkret identifier.
     let mut output = String::with_capacity("chime-sdk-".len() + 32);
     output.push_str("chime-sdk-");
-    for byte in &digest[..16] {
-        let _ = write!(output, "{byte:02x}");
-    }
+    output.push_str(&digest[..32]);
     output
 }

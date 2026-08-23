@@ -139,14 +139,10 @@ impl ArkretPushClient {
     pub async fn floria_bridge_describe(
         &self,
     ) -> Result<PushBridgeDescribeOutcome, PushRegistrationError> {
-        Ok(self.floria_bridge_describe_with_context().await?.body)
-    }
-
-    /// Discover floria's bridge contract and return response metadata.
-    pub async fn floria_bridge_describe_with_context(
-        &self,
-    ) -> Result<ArkretHttpOutcome<PushBridgeDescribeOutcome>, PushRegistrationError> {
-        self.get_json(FLORIA_PUSH_BRIDGE_DESCRIBE_PATH).await
+        Ok(self
+            .get_json::<PushBridgeDescribeOutcome>(FLORIA_PUSH_BRIDGE_DESCRIBE_PATH)
+            .await?
+            .body)
     }
 
     /// Post a pre-built [`ChimePushRegisterDeviceRequest`] through the
@@ -172,7 +168,6 @@ impl ArkretPushClient {
                 request_id,
             )
             .await?;
-        let response = response.map_body(|body| body);
 
         tracing::info!(
             platform = body.platform.as_deref().unwrap_or("unspecified"),

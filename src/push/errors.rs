@@ -305,13 +305,6 @@ impl PushRegistrationError {
         }
     }
 
-    pub fn status(&self) -> Option<u16> {
-        match self {
-            Self::HttpStatus { status, .. } => Some(*status),
-            _ => None,
-        }
-    }
-
     pub fn error_envelope(&self) -> Option<&ErrorEnvelope> {
         match self {
             Self::HttpStatus { error, .. } => error.as_deref(),

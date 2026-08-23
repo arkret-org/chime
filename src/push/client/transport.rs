@@ -69,16 +69,6 @@ pub struct ArkretHttpOutcome<T> {
     pub retry_after: Option<String>,
 }
 
-impl<T> ArkretHttpOutcome<T> {
-    pub fn map_body<U>(self, f: impl FnOnce(T) -> U) -> ArkretHttpOutcome<U> {
-        ArkretHttpOutcome {
-            body: f(self.body),
-            request_id: self.request_id,
-            retry_after: self.retry_after,
-        }
-    }
-}
-
 #[cfg(not(target_arch = "wasm32"))]
 pub(super) fn default_http_client() -> reqwest::Client {
     // Disable redirect-following: the push register/unregister/describe
