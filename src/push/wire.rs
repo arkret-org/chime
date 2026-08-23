@@ -186,7 +186,12 @@ impl ChimePushRegisterDeviceRequest {
                 }
             })?,
             push_gateway: self.push_gateway.clone(),
-            push_key: self.push_key.clone(),
+            push_key: arkret_models_integration::PushKey::new(self.push_key.clone()).map_err(
+                |error| PushRegistrationError::InvalidField {
+                    field: "push_key",
+                    reason: error.to_string(),
+                },
+            )?,
             platform: self.platform.clone(),
             app_id: self.app_id.clone(),
             display_name: self.display_name.clone(),
@@ -279,7 +284,18 @@ impl ChimePushUnregisterDeviceRequest {
                     reason: error.to_string(),
                 }
             })?,
-            push_key: self.push_key.clone(),
+            push_key: self
+                .push_key
+                .as_ref()
+                .map(|push_key| {
+                    arkret_models_integration::PushKey::new(push_key.clone()).map_err(|error| {
+                        PushRegistrationError::InvalidField {
+                            field: "push_key",
+                            reason: error.to_string(),
+                        }
+                    })
+                })
+                .transpose()?,
             app_id: self.app_id.clone(),
         })
     }
@@ -315,12 +331,17 @@ mod tests {
     fn response_models_cover_frozen_wire_metadata() {
         let register: ChimePushRegisterDeviceOutcome = serde_json::from_value(serde_json::json!({
             "ok": true,
+            "push_target_id": "ak:pseudonym:push:ABCDEFGHIJKLMNOPQRSTUV",
             "registration_id": "reg-1",
             "expires_at": "2026-05-02T00:00:00.000Z"
         }))
         .unwrap();
 
         assert!(register.ok);
+        assert_eq!(
+            register.push_target_id,
+            "ak:pseudonym:push:ABCDEFGHIJKLMNOPQRSTUV"
+        );
         assert_eq!(register.registration_id.as_deref(), Some("reg-1"));
         assert_eq!(
             register
