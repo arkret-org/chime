@@ -5,10 +5,8 @@
 [![coverage](https://img.shields.io/badge/coverage-local%20tarpaulin-informational)](docs/production-checklist.md#local-verification)
 
 > **Stability:** local `1.0.0` freeze candidate. Breaking public API changes
-> now require a major-version bump. Outcome wire types
-> (`ChimePushRegisterDeviceOutcome`, `ChimePushUnregisterDeviceOutcome`,
-> `ArkretErrorEnvelope`) carry `#[non_exhaustive]` so server-driven field
-> additions do not break downstream consumers.
+> now require a major-version bump. Canonical outcome and error wire types are
+> consumed directly from `arkret-models-integration` and `arkret-wire`.
 
 Arkret push notification gateway types, preferences, and device registration helpers.
 

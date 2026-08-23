@@ -200,9 +200,6 @@ impl ChimePushRegisterDeviceRequest {
     }
 }
 
-/// Canonical response body for `POST /_arkret/edge/push/register-device`.
-pub type ChimePushRegisterDeviceOutcome = arkret_models_integration::PushRegisterDeviceOutcome;
-
 /// Internal builder/config for an `unregister-device` call.
 ///
 /// **This is NOT a wire body.** The canonical `unregister-device` request
@@ -301,14 +298,10 @@ impl ChimePushUnregisterDeviceRequest {
     }
 }
 
-/// Canonical response body for `POST /_arkret/edge/push/unregister-device`.
-pub type ChimePushUnregisterDeviceOutcome = arkret_models_integration::PushUnregisterDeviceOutcome;
-
-pub type ArkretError = arkret_wire::ErrorDetail;
-pub type ArkretErrorEnvelope = arkret_wire::ErrorEnvelope;
-
 #[cfg(test)]
 mod tests {
+    use arkret_models_integration::{PushRegisterDeviceOutcome, PushUnregisterDeviceOutcome};
+
     use super::*;
     use crate::push::errors::PushErrorKind;
 
@@ -329,7 +322,7 @@ mod tests {
 
     #[test]
     fn response_models_cover_frozen_wire_metadata() {
-        let register: ChimePushRegisterDeviceOutcome = serde_json::from_value(serde_json::json!({
+        let register: PushRegisterDeviceOutcome = serde_json::from_value(serde_json::json!({
             "ok": true,
             "push_target_id": "ak:pseudonym:push:ABCDEFGHIJKLMNOPQRSTUV",
             "registration_id": "reg-1",
@@ -350,14 +343,14 @@ mod tests {
             Some("2026-05-02T00:00:00.000Z".to_owned())
         );
 
-        serde_json::from_value::<ChimePushRegisterDeviceOutcome>(serde_json::json!({
+        serde_json::from_value::<PushRegisterDeviceOutcome>(serde_json::json!({
             "ok": true,
             "registration_id": "reg-1",
             "request_id": "ak:request:01904100-0000-7000-8000-000000000030"
         }))
         .expect_err("register outcome must reject non-spec response fields");
 
-        serde_json::from_value::<ChimePushUnregisterDeviceOutcome>(serde_json::json!({
+        serde_json::from_value::<PushUnregisterDeviceOutcome>(serde_json::json!({
             "ok": true,
             "already_removed": true
         }))

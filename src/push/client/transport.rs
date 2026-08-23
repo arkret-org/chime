@@ -1,11 +1,11 @@
 use std::time::Duration;
 
 use arkret_retry::Jitter;
+use arkret_wire::ErrorEnvelope;
 use serde::{Deserialize, Serialize};
 
 use super::super::errors::{PushRegistrationError, classify_http_error};
 use super::super::urls::try_arkret_api_url;
-use super::super::wire::ArkretErrorEnvelope;
 use super::super::{ARKRET_REQUEST_ID_HEADER, RETRY_AFTER_HEADER};
 use super::core::ArkretPushClient;
 use super::retry::{generate_idempotency_key, retry_jitter_seed, sleep_for};
@@ -237,7 +237,7 @@ impl ArkretPushClient {
         let body = read_response_body(response).await?;
 
         if !status.is_success() {
-            let error = serde_json::from_str::<ArkretErrorEnvelope>(&body)
+            let error = serde_json::from_str::<ErrorEnvelope>(&body)
                 .ok()
                 .map(Box::new);
             let kind = classify_http_error(status.as_u16(), error.as_deref());
@@ -295,7 +295,7 @@ impl ArkretPushClient {
         let body = read_response_body(response).await?;
 
         if !status.is_success() {
-            let error = serde_json::from_str::<ArkretErrorEnvelope>(&body)
+            let error = serde_json::from_str::<ErrorEnvelope>(&body)
                 .ok()
                 .map(Box::new);
             let kind = classify_http_error(status.as_u16(), error.as_deref());

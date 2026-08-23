@@ -112,7 +112,7 @@ async fn register_success_exposes_response_context_and_headers() {
             ARKRET_REQUEST_ID_HEADER,
             "ak:request:01904100-0000-7000-8000-000000000021",
         )],
-        body: r#"{"ok":true,"registration_id":"reg-1","expires_at":"2026-04-29T00:00:00.000Z"}"#,
+        body: r#"{"ok":true,"push_target_id":"ak:pseudonym:push:ABCDEFGHIJKLMNOPQRSTUV","registration_id":"reg-1","expires_at":"2026-04-29T00:00:00.000Z"}"#,
     }]);
 
     let request = register_request();
@@ -328,7 +328,7 @@ async fn error_debug_redacts_envelope_message_and_details() {
     let debug = format!("{err:?}");
     assert_eq!(err.kind(), PushErrorKind::CapabilityDenied);
     assert!(
-        err.arkret_error()
+        err.error_envelope()
             .is_some_and(|envelope| !envelope.error.details.is_empty())
     );
     assert!(!debug.contains("very-secret-token"));
@@ -347,7 +347,7 @@ async fn retries_429_and_honors_retry_after() {
         MockHttpOutcome {
             status: "200 OK",
             headers: vec![],
-            body: r#"{"ok":true}"#,
+            body: r#"{"ok":true,"push_target_id":"ak:pseudonym:push:ABCDEFGHIJKLMNOPQRSTUV"}"#,
         },
     ]);
 
@@ -381,7 +381,7 @@ async fn default_register_allows_with_session_grant_header() {
     let (base_url, requests) = spawn_mock_server(vec![MockHttpOutcome {
         status: "200 OK",
         headers: vec![],
-        body: r#"{"ok":true,"registration_id":"reg-1"}"#,
+        body: r#"{"ok":true,"push_target_id":"ak:pseudonym:push:ABCDEFGHIJKLMNOPQRSTUV","registration_id":"reg-1"}"#,
     }]);
 
     let response = ArkretPushClient::new(base_url)
@@ -411,7 +411,7 @@ async fn opting_out_session_grant_allows_register_without_header() {
     let (base_url, _) = spawn_mock_server(vec![MockHttpOutcome {
         status: "200 OK",
         headers: vec![],
-        body: r#"{"ok":true}"#,
+        body: r#"{"ok":true,"push_target_id":"ak:pseudonym:push:ABCDEFGHIJKLMNOPQRSTUV"}"#,
     }]);
 
     let response = ArkretPushClient::new(base_url)
@@ -434,7 +434,7 @@ async fn register_auto_generates_idempotency_key_when_omitted() {
         MockHttpOutcome {
             status: "200 OK",
             headers: vec![],
-            body: r#"{"ok":true}"#,
+            body: r#"{"ok":true,"push_target_id":"ak:pseudonym:push:ABCDEFGHIJKLMNOPQRSTUV"}"#,
         },
     ]);
     let mut config = config();
@@ -504,7 +504,7 @@ async fn retries_503() {
         MockHttpOutcome {
             status: "200 OK",
             headers: vec![],
-            body: r#"{"ok":true}"#,
+            body: r#"{"ok":true,"push_target_id":"ak:pseudonym:push:ABCDEFGHIJKLMNOPQRSTUV"}"#,
         },
     ]);
 

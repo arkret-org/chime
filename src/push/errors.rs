@@ -3,10 +3,10 @@
 use std::fmt;
 use std::time::{Duration, SystemTime};
 
+use arkret_wire::ErrorEnvelope;
 use thiserror::Error;
 
 use super::urls::{redact_url, redact_webpush_endpoint};
-use super::wire::ArkretErrorEnvelope;
 
 /// Stable high-level category for push registration failures.
 ///
@@ -191,7 +191,7 @@ pub enum PushRegistrationError {
     HttpStatus {
         status: u16,
         kind: PushErrorKind,
-        error: Option<Box<ArkretErrorEnvelope>>,
+        error: Option<Box<ErrorEnvelope>>,
         body: String,
         retry_after: Option<String>,
         request_id: Option<String>,
@@ -250,7 +250,7 @@ impl fmt::Debug for PushRegistrationError {
                 retry_after,
                 request_id,
             } => {
-                let redacted_error = error.as_deref().map(RedactedArkretErrorEnvelope);
+                let redacted_error = error.as_deref().map(RedactedErrorEnvelope);
                 f.debug_struct("HttpStatus")
                     .field("status", status)
                     .field("kind", kind)
@@ -267,11 +267,11 @@ impl fmt::Debug for PushRegistrationError {
     }
 }
 
-struct RedactedArkretErrorEnvelope<'a>(&'a ArkretErrorEnvelope);
+struct RedactedErrorEnvelope<'a>(&'a ErrorEnvelope);
 
-impl fmt::Debug for RedactedArkretErrorEnvelope<'_> {
+impl fmt::Debug for RedactedErrorEnvelope<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("ArkretErrorEnvelope")
+        f.debug_struct("ErrorEnvelope")
             .field("ok", &self.0.ok)
             .field("code", &self.0.error.code)
             .field("message_present", &(!self.0.error.message.is_empty()))
@@ -312,7 +312,7 @@ impl PushRegistrationError {
         }
     }
 
-    pub fn arkret_error(&self) -> Option<&ArkretErrorEnvelope> {
+    pub fn error_envelope(&self) -> Option<&ErrorEnvelope> {
         match self {
             Self::HttpStatus { error, .. } => error.as_deref(),
             _ => None,
@@ -356,10 +356,7 @@ impl PushRegistrationError {
 }
 
 #[cfg(any(test, feature = "http"))]
-pub(super) fn classify_http_error(
-    status: u16,
-    error: Option<&ArkretErrorEnvelope>,
-) -> PushErrorKind {
+pub(super) fn classify_http_error(status: u16, error: Option<&ErrorEnvelope>) -> PushErrorKind {
     if let Some(code) = error.map(|envelope| envelope.error.code.as_str())
         && let Some(kind) = PushErrorKind::from_failure_reason_code(code)
     {
@@ -393,14 +390,15 @@ pub(super) fn parse_retry_after(value: &str) -> Option<Duration> {
 mod tests {
     use std::collections::BTreeMap;
 
+    use arkret_wire::ErrorDetail;
+
     use super::*;
-    use crate::push::wire::ArkretError;
 
     #[test]
-    fn classifies_arkret_error_codes() {
-        let envelope = ArkretErrorEnvelope {
+    fn classifies_error_codes() {
+        let envelope = ErrorEnvelope {
             ok: false,
-            error: ArkretError {
+            error: ErrorDetail {
                 code: arkret_wire::ErrorCode::CAPABILITY_DENIED.to_owned(),
                 message: "denied".to_owned(),
                 retry_after_ms: None,
@@ -493,9 +491,9 @@ mod tests {
     #[test]
     fn delivery_binding_stale_maps_409_and_historical_only_maps_200() {
         // Spec status mapping: stale/handed_over → 409, historical_only → 200.
-        let envelope = ArkretErrorEnvelope {
+        let envelope = ErrorEnvelope {
             ok: false,
-            error: ArkretError {
+            error: ErrorDetail {
                 code: arkret_wire::ErrorCode::DELIVERY_BINDING_STALE.to_owned(),
                 message: "stale".to_owned(),
                 retry_after_ms: None,
@@ -508,9 +506,9 @@ mod tests {
             PushErrorKind::DeliveryBindingStale
         );
 
-        let envelope = ArkretErrorEnvelope {
+        let envelope = ErrorEnvelope {
             ok: false,
-            error: ArkretError {
+            error: ErrorDetail {
                 code: arkret_wire::ErrorCode::HISTORICAL_ONLY.to_owned(),
                 message: "diagnostic".to_owned(),
                 retry_after_ms: None,

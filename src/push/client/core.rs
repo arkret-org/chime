@@ -1,13 +1,12 @@
 use std::fmt;
 use std::time::Duration;
 
+use arkret_models_integration::{PushRegisterDeviceOutcome, PushUnregisterDeviceOutcome};
+
 use super::super::bridge_describe::PushBridgeDescribeOutcome;
 use super::super::errors::{PushErrorKind, PushRegistrationError};
 use super::super::urls::redact_url;
-use super::super::wire::{
-    ChimePushRegisterDeviceOutcome, ChimePushRegisterDeviceRequest,
-    ChimePushUnregisterDeviceOutcome, ChimePushUnregisterDeviceRequest,
-};
+use super::super::wire::{ChimePushRegisterDeviceRequest, ChimePushUnregisterDeviceRequest};
 use super::super::{
     ARKRET_SESSION_GRANT_HEADER, FLORIA_PUSH_BRIDGE_DESCRIBE_PATH, REGISTER_DEVICE_PATH,
     SDK_USER_AGENT, UNREGISTER_DEVICE_PATH,
@@ -162,7 +161,7 @@ impl ArkretPushClient {
         body: &ChimePushRegisterDeviceRequest,
         idempotency_key: Option<&str>,
         request_id: Option<&str>,
-    ) -> Result<ArkretHttpOutcome<ChimePushRegisterDeviceOutcome>, PushRegistrationError> {
+    ) -> Result<ArkretHttpOutcome<PushRegisterDeviceOutcome>, PushRegistrationError> {
         self.assert_session_grant_if_required()?;
         let sdk_body = body.to_sdk_request()?;
         let response: ArkretHttpOutcome<arkret_models_integration::PushRegisterDeviceOutcome> =
@@ -193,7 +192,7 @@ impl ArkretPushClient {
         body: &ChimePushUnregisterDeviceRequest,
         idempotency_key: Option<&str>,
         request_id: Option<&str>,
-    ) -> Result<ArkretHttpOutcome<ChimePushUnregisterDeviceOutcome>, PushRegistrationError> {
+    ) -> Result<ArkretHttpOutcome<PushUnregisterDeviceOutcome>, PushRegistrationError> {
         self.assert_session_grant_if_required()?;
         let sdk_body = body.to_sdk_request()?;
         let response = match self
@@ -207,7 +206,7 @@ impl ArkretPushClient {
         {
             Ok(response) => response,
             Err(error) if error.kind() == PushErrorKind::NotFound => ArkretHttpOutcome {
-                body: ChimePushUnregisterDeviceOutcome { ok: true },
+                body: PushUnregisterDeviceOutcome { ok: true },
                 request_id: error.request_id().map(str::to_owned),
                 retry_after: error.retry_after().map(str::to_owned),
             },

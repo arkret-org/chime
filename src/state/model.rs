@@ -1,11 +1,10 @@
 //! Persistable push registration state types and helpers.
 
+use arkret_models_integration::PushRegisterDeviceOutcome;
 use serde::{Deserialize, Serialize};
 
 use super::PUSH_REGISTRATION_STATE_SCHEMA_VERSION;
-use crate::{
-    ChimePushRegisterDeviceOutcome, ChimePushRegisterDeviceRequest, GatewayBinding, redact_push_key,
-};
+use crate::{ChimePushRegisterDeviceRequest, GatewayBinding, redact_push_key};
 
 /// Persistable local state for a successful push registration.
 ///
@@ -62,9 +61,10 @@ pub fn hash_push_key(push_key: &str) -> String {
 /// Build persistable registration state after a successful register response.
 ///
 /// ```rust
+/// use arkret_models_integration::PushRegisterDeviceOutcome;
 /// use chime::{
-///     ChimePushRegisterDeviceOutcome, GatewayBinding, PushDeviceConfig, PushGatewayType,
-///     PushPreferences, build_register_device_request, build_registration_state,
+///     GatewayBinding, PushDeviceConfig, PushGatewayType, PushPreferences,
+///     build_register_device_request, build_registration_state,
 /// };
 ///
 /// let config = PushDeviceConfig {
@@ -89,7 +89,7 @@ pub fn hash_push_key(push_key: &str) -> String {
 ///     ..Default::default()
 /// };
 /// let request = build_register_device_request(&config, &binding, &prefs).unwrap();
-/// let mut response = ChimePushRegisterDeviceOutcome::default();
+/// let mut response = PushRegisterDeviceOutcome::default();
 /// response.ok = true;
 /// response.registration_id = Some(arkret_wire::OpaqueLocalId::new("reg-1").unwrap());
 /// let state = build_registration_state(&binding, &request, &response, None);
@@ -98,7 +98,7 @@ pub fn hash_push_key(push_key: &str) -> String {
 pub fn build_registration_state(
     binding: &GatewayBinding,
     request: &ChimePushRegisterDeviceRequest,
-    response: &ChimePushRegisterDeviceOutcome,
+    response: &PushRegisterDeviceOutcome,
     registered_at: Option<&str>,
 ) -> PushRegistrationState {
     PushRegistrationState {
@@ -142,7 +142,7 @@ mod tests {
     fn builds_registration_state_from_success() {
         let request =
             build_register_device_request(&config("fcm:new-token"), &binding(), &prefs()).unwrap();
-        let response = ChimePushRegisterDeviceOutcome {
+        let response = PushRegisterDeviceOutcome {
             ok: true,
             // Server-derived pairwise pseudonym (SDK 9b08fe93 made the field
             // required); the registration-state builder does not read it.

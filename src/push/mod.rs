@@ -1,7 +1,7 @@
 //! Arkret push device registration request types and HTTP helper.
 //!
 //! This module is split into:
-//! - [`wire`]: register/unregister request/response DTOs + `ArkretError`
+//! - [`wire`]: register/unregister request builders and local configuration DTOs
 //! - [`bridge_describe`]: floria `bridge/describe` DTOs
 //! - [`errors`]: `PushErrorKind` + `PushRegistrationError` + HTTP classification
 //! - [`urls`]: URL helpers, validation, redaction
@@ -57,7 +57,6 @@ pub use errors::{PushErrorKind, PushRegistrationError};
 pub use registration::{build_register_device_request, build_unregister_device_request};
 pub use urls::{redact_push_key, validate_push_gateway_url, validate_webpush_endpoint_allowlist};
 pub use wire::{
-    ArkretError, ArkretErrorEnvelope, ChimePushRegisterDeviceOutcome,
-    ChimePushRegisterDeviceRequest, ChimePushUnregisterDeviceOutcome,
-    ChimePushUnregisterDeviceRequest, PushDeviceConfig, PushPlatform,
+    ChimePushRegisterDeviceRequest, ChimePushUnregisterDeviceRequest, PushDeviceConfig,
+    PushPlatform,
 };
