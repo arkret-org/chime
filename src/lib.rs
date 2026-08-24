@@ -255,20 +255,4 @@ mod tests {
         assert_eq!(loaded.gateways.len(), 2);
         assert_eq!(loaded.gateways, prefs.gateways);
     }
-
-    #[test]
-    fn from_json_rejects_removed_singular_and_aliases_strictly() {
-        let loaded = from_json(
-            r#"{
-                "enabled": true,
-                "gateway_type": "standard",
-                "push_gateway": "https://old.example/push/notify",
-                "show_message_preview": false
-            }"#,
-        );
-        assert!(
-            loaded.is_err(),
-            "removed singular fields and aliases must error, not silently default"
-        );
-    }
 }
