@@ -29,21 +29,9 @@ impl PushRetryPolicy {
         }
     }
 
-    /// The `sync/api-conventions.md` §9 curve with a small retry budget.
-    ///
-    /// The delays are normative, not a client-side tuning knob: the previous
-    /// 200 ms / 3 s pair breached both the 1,000 ms first-wait floor and the
-    /// 60,000 ms ceiling that §9 requires.
-    pub const fn conservative() -> Self {
-        Self {
-            retry: RetryPolicy::arkret_default().with_max_retries(2),
-            disabled_kinds_mask: 0,
-        }
-    }
-
     /// Disable retries for the listed error kinds. Returns a new
     /// policy; the input slice is OR-folded into the existing mask so
-    /// callers can layer this on top of `conservative()`.
+    /// callers can layer this on top of the base policy.
     pub const fn with_disabled_kinds(mut self, kinds: &[super::super::PushErrorKind]) -> Self {
         let mut i = 0;
         while i < kinds.len() {

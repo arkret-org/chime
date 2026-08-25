@@ -2,11 +2,10 @@
 //!
 //! ## Stability
 //!
-//! The local `1.0.0` wire shape evolves additively. The SDK leans on
-//! `#[non_exhaustive]` + `#[derive(Default)]` for request/response types so
-//! adding optional fields never breaks downstream construction. Use
-//! `..Default::default()` when building these types in external crates.
-//! Renames and removals require a major SemVer bump.
+//! chime is in its v1 development phase: the wire shape may change
+//! aggressively, with no compatibility guarantee for persisted data.
+//! Use `..Default::default()` when building these types in external
+//! crates so field additions stay source-compatible.
 
 use std::fmt;
 
@@ -18,8 +17,8 @@ use super::urls::{redact_push_key, redact_url};
 
 /// Supported Arkret push platform values.
 ///
-/// Stability: `1.0`-stable. New variants are additive; renaming or
-/// removing a variant requires a major SemVer bump.
+/// Stability: v1 development phase — variants may be renamed or removed
+/// without a compatibility window.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum PushPlatform {
@@ -56,10 +55,8 @@ impl TryFrom<&str> for PushPlatform {
 
 /// Device configuration supplied by the host app.
 ///
-/// Stability: `1.0`-stable. The struct is borrowed (every field is
-/// `Option<&'a str>` or `&'a str`) so adding a new optional field is
-/// always source-compatible. Renaming or removing fields requires a
-/// major SemVer bump.
+/// Stability: v1 development phase — fields may be renamed or removed
+/// without a compatibility window.
 #[derive(Clone, Copy)]
 pub struct PushDeviceConfig<'a> {
     /// Arkret principal ID that owns this device registration.
@@ -129,9 +126,9 @@ impl fmt::Debug for PushDeviceConfig<'_> {
 /// a notify/register wire body. Always route through
 /// [`Self::to_sdk_request`] before POSTing.
 ///
-/// Stability: 1.0-stable + `#[non_exhaustive]`. Build via
-/// `ChimePushRegisterDeviceRequest { ..Default::default() }` from external crates so
-/// future field additions stay source-compatible.
+/// Stability: v1 development phase; the shape may change aggressively.
+/// Build via `ChimePushRegisterDeviceRequest { ..Default::default() }`
+/// from external crates so field additions stay source-compatible.
 #[derive(Clone, Default, PartialEq, Serialize, Deserialize)]
 #[non_exhaustive]
 pub struct ChimePushRegisterDeviceRequest {
@@ -216,8 +213,9 @@ impl ChimePushRegisterDeviceRequest {
 /// resulting JSON is private SDK state, **never** an unregister wire body.
 /// Always route through [`Self::to_sdk_request`] before POSTing.
 ///
-/// Stability: 1.0-stable + `#[non_exhaustive]`. Build via
-/// `ChimePushUnregisterDeviceRequest { ..Default::default() }` from external crates.
+/// Stability: v1 development phase; the shape may change aggressively.
+/// Build via `ChimePushUnregisterDeviceRequest { ..Default::default() }`
+/// from external crates.
 #[derive(Clone, Default, PartialEq, Serialize, Deserialize)]
 #[non_exhaustive]
 pub struct ChimePushUnregisterDeviceRequest {

@@ -104,6 +104,18 @@ fn client(base_url: impl Into<String>) -> ArkretPushClient {
         .expect("test session grant header is valid")
 }
 
+/// Test-only variant of [`client`] with an explicit retry policy. Tests
+/// set the field directly because the public builder intentionally does
+/// not expose one.
+fn client_with_retry_policy(
+    base_url: impl Into<String>,
+    retry_policy: PushRetryPolicy,
+) -> ArkretPushClient {
+    let mut client = client(base_url);
+    client.retry_policy = retry_policy;
+    client
+}
+
 #[tokio::test]
 async fn register_success_exposes_response_context_and_headers() {
     let (base_url, requests) = spawn_mock_server(vec![MockHttpOutcome {
@@ -327,10 +339,13 @@ async fn error_debug_redacts_envelope_message_and_details() {
 
     let debug = format!("{err:?}");
     assert_eq!(err.kind(), PushErrorKind::CapabilityDenied);
-    assert!(
-        err.error_envelope()
-            .is_some_and(|envelope| !envelope.error.details.is_empty())
-    );
+    assert!(matches!(
+        &err,
+        PushRegistrationError::HttpStatus {
+            error: Some(envelope),
+            ..
+        } if !envelope.error.details.is_empty()
+    ));
     assert!(!debug.contains("very-secret-token"));
     assert!(!debug.contains("super-secret-proof"));
     assert!(debug.contains("details_present"));
@@ -351,14 +366,16 @@ async fn retries_429_and_honors_retry_after() {
         },
     ]);
 
-    let response = client(base_url)
-        .with_retry_policy(PushRetryPolicy {
+    let response = client_with_retry_policy(
+        base_url,
+        PushRetryPolicy {
             retry: arkret_retry::RetryPolicy::none().with_max_retries(1),
             disabled_kinds_mask: 0,
-        })
-        .register_device_with_request(&register_request(), None, None)
-        .await
-        .unwrap();
+        },
+    )
+    .register_device_with_request(&register_request(), None, None)
+    .await
+    .unwrap();
 
     assert!(response.body.ok);
     assert_eq!(requests.lock().unwrap().len(), 2);
@@ -441,14 +458,16 @@ async fn register_auto_generates_idempotency_key_when_omitted() {
     config.idempotency_key = None;
     let request = build_register_device_request(&config, &binding(), &prefs()).unwrap();
 
-    let response = client(base_url)
-        .with_retry_policy(PushRetryPolicy {
+    let response = client_with_retry_policy(
+        base_url,
+        PushRetryPolicy {
             retry: arkret_retry::RetryPolicy::none().with_max_retries(1),
             disabled_kinds_mask: 0,
-        })
-        .register_device_with_request(&request, None, None)
-        .await
-        .unwrap();
+        },
+    )
+    .register_device_with_request(&request, None, None)
+    .await
+    .unwrap();
 
     assert!(response.body.ok);
 
@@ -480,14 +499,16 @@ async fn does_not_retry_duplicate_conflict() {
         body: r#"{"ok":false,"error":{"code":"duplicate_conflict","message":"different body"}}"#,
     }]);
 
-    let err = client(base_url)
-        .with_retry_policy(PushRetryPolicy {
+    let err = client_with_retry_policy(
+        base_url,
+        PushRetryPolicy {
             retry: arkret_retry::RetryPolicy::none().with_max_retries(2),
             disabled_kinds_mask: 0,
-        })
-        .register_device_with_request(&register_request(), None, None)
-        .await
-        .unwrap_err();
+        },
+    )
+    .register_device_with_request(&register_request(), None, None)
+    .await
+    .unwrap_err();
 
     assert_eq!(err.kind(), PushErrorKind::DuplicateConflict);
     assert_eq!(requests.lock().unwrap().len(), 1);
@@ -508,14 +529,16 @@ async fn retries_503() {
         },
     ]);
 
-    let response = client(base_url)
-        .with_retry_policy(PushRetryPolicy {
+    let response = client_with_retry_policy(
+        base_url,
+        PushRetryPolicy {
             retry: arkret_retry::RetryPolicy::none().with_max_retries(1),
             disabled_kinds_mask: 0,
-        })
-        .register_device_with_request(&register_request(), None, None)
-        .await
-        .unwrap();
+        },
+    )
+    .register_device_with_request(&register_request(), None, None)
+    .await
+    .unwrap();
 
     assert!(response.body.ok);
     assert_eq!(requests.lock().unwrap().len(), 2);
@@ -540,8 +563,7 @@ async fn disabled_kinds_skip_otherwise_retryable_error() {
     assert!(policy.retries_disabled_for(PushErrorKind::TemporarilyUnavailable));
     assert!(!policy.retries_disabled_for(PushErrorKind::RateLimited));
 
-    let err = client(base_url)
-        .with_retry_policy(policy)
+    let err = client_with_retry_policy(base_url, policy)
         .register_device_with_request(&register_request(), None, None)
         .await
         .unwrap_err();

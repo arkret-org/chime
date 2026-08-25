@@ -16,10 +16,10 @@ promoted out of this roadmap.
   parallel ABI now would either freeze chime in place or force every
   language binding to chase the spec — neither is acceptable.
 - The host-app responsibilities documented in `SECURITY.md` (inbound
-  signature verification, `EncryptedEnvelope` nonce checks,
-  stale-timestamp enforcement) need a binding-language story before
-  the binding ships. The default in a foreign language is "the
-  binding does it for me", which silently inverts the boundary.
+  signature verification and stale-timestamp enforcement) need a
+  binding-language story before the binding ships. The default in a
+  foreign language is "the binding does it for me", which silently
+  inverts the boundary.
 - The host-persisted registration state needs binding-language
   equivalents for storage. A binding API has to pick
   a concrete shape per language. We will defer that until at least two
@@ -45,10 +45,10 @@ chime_status chime_build_register_device_request(
     const chime_push_preferences*   prefs,
     char**                          out_json);
 
-/* Validate an inbound notify frame against the blind-wakeup policy.
- * `payload_json` is borrowed; the function returns one of the
- * `chime_status` codes that map 1:1 to `PushNotifyPrivacyError`. */
-chime_status chime_assert_payload_safe(
+/* Sanitize an outbound blind-wakeup payload before it leaves the
+ * gateway. `payload_json` is borrowed; the function returns one of the
+ * `chime_status` codes that map 1:1 to `BlindPayloadError`. */
+chime_status chime_sanitize_blind_payload(
     const char*                          payload_json,
     const chime_push_notify_policy_ctx*  policy);
 
@@ -69,8 +69,8 @@ Rust process.
 **Shape (illustrative, not stable):**
 
 ```ts
-import { buildRegisterDeviceRequest, assertPayloadSafe,
-         PushGatewayType, PushNotifyPolicyMode } from "@arkret/chime";
+import { buildRegisterDeviceRequest, sanitizeBlindPayload,
+         PushGatewayType } from "@arkret/chime";
 
 const request = buildRegisterDeviceRequest({
     config: { deviceId: "did:web:alice.example#web", /* … */ },
@@ -78,7 +78,7 @@ const request = buildRegisterDeviceRequest({
     prefs: { enabled: true },
 });
 
-assertPayloadSafe(payloadJson, { mode: PushNotifyPolicyMode.BlindWakeupOnly });
+sanitizeBlindPayload(payloadJson);
 ```
 
 Build path: `wasm-pack build --target bundler` on a `chime-wasm`
@@ -104,8 +104,8 @@ object Chime {
                                             prefsJson: String): String
 
     @JvmStatic
-    @Throws(PushNotifyPrivacyException::class)
-    external fun assertPayloadSafe(payloadJson: String, policyJson: String)
+    @Throws(BlindPayloadException::class)
+    external fun sanitizeBlindPayload(payloadJson: String)
 }
 ```
 
@@ -132,7 +132,7 @@ let request = try Chime.buildRegisterDeviceRequest(
                    pushGateway: "https://push.example.com/_arkret/edge/push/notify"),
     prefs: .init(enabled: true))
 
-try Chime.assertPayloadSafe(payloadJson, policy: .blindWakeupOnly)
+try Chime.sanitizeBlindPayload(payloadJson)
 ```
 
 Build path: `cargo-swift` (or hand-rolled `swift-bridge`) producing an

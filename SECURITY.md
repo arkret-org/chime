@@ -2,14 +2,9 @@
 
 ## Supported Versions
 
-`chime` is in its local `1.0.0` freeze line. Local security fixes should target
-the latest `1.0.x` branch. Remote publication is outside this readiness
-workflow.
-
-| Version | Supported |
-| ------- | --------- |
-| 1.0.x   | Yes       |
-| < 1.0   | No        |
+`chime` is in its v1 development phase: the crate is pre-release, and wire or
+storage formats may change aggressively without a compatibility window.
+Security fixes land on the current development line only.
 
 ## Reporting a Vulnerability
 
@@ -27,8 +22,8 @@ Use one of the following private channels:
 When you report, please include:
 
 - a description of the issue and its impact in the Arkret push surface
-  (`register-device`, `unregister-device`, `bridge/describe`,
-  `ak.edge.push.command.notify` validators, or local `PushRegistrationState` state);
+  (`register-device`, `unregister-device`, `bridge/describe`, or local
+  `PushRegistrationState` state);
 - a minimal reproduction (test fixture, JSON payload, request strand);
 - whether the issue is exploitable through the public crate API, requires
   a malicious server response, or requires local code change;
@@ -89,10 +84,11 @@ it as a security report and use the private channels above.
 
 ## Inbound push frame handling
 
-`chime` ships the wire-shape, privacy, and replay validators for inbound
-`ak.edge.push.command.notify` frames, but it deliberately stops short of cryptographic
-authentication of the frame itself. The host application owns the
-remaining pieces.
+`chime` does not ship inbound `ak.edge.push.command.notify` frame
+validators — inbound wire-shape, privacy, and replay checks are owned by
+the host application (gateway-side payload sanitization lives in the
+SDK's `arkret_push_policy::blind_payload_sanitizer`). The sections below
+capture the remaining host-side requirements.
 
 ### Signature verification is the host's responsibility
 
@@ -120,36 +116,15 @@ Host applications MUST:
 - include the verifier's accepted `kid` set in their monitoring so
   unexpected `kid` values page on appearance.
 
-### `EncryptedEnvelope` nonce check path
-
-When an inbound frame carries an `EncryptedEnvelope` (E2EE message
-body for plaintext-visible destination services), the host MUST:
-
-1. Decode the `nonce` field as base64url and reject the frame if it
-   decodes to anything other than the algorithm's required nonce
-   width (e.g. 12 bytes for `AES-256-GCM`, 24 bytes for
-   `XChaCha20-Poly1305`).
-2. Maintain a per-`(recipient, key_id)` nonce-seen set for the
-   envelope's key lifetime. A repeated nonce under the same key is a
-   protocol break and MUST cause the frame to be dropped with an alert.
-3. Refuse envelopes whose `algorithm` field is not in chime's active
-   HPKE suite allowlist. Hosts may apply a stricter local capability
-   allowlist after that, but unknown or reserved registry rows fail
-   closed at the SDK boundary.
-
-`EncryptedEnvelope::nonce` is intentionally `Option<String>` because
-some algorithms (e.g. deterministic AEAD variants) omit it; the host
-MUST treat the absence as algorithm-dependent rather than as a default
-"any nonce is fine" path.
-
 ### Stale-timestamp frame handling
 
 Inbound frames carry a signed creation timestamp header. The host MUST
 enforce a freshness window on that header:
 
 - **Recommended window: 5 minutes.**
-- Frames older than the window MUST be dropped before
-  `assert_payload_safe` runs. Old frames may carry signatures that
+- Frames older than the window MUST be dropped before the blind-payload
+  sanitizer (`arkret_push_policy::blind_payload_sanitizer::sanitize_blind_payload`)
+  runs. Old frames may carry signatures that
   were valid at signing time but reference keys that have since
   rotated; treating them as fresh defeats the rotation.
 - Clock skew tolerance MUST be symmetric and small (≤ 30 seconds).

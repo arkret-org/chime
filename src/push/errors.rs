@@ -8,12 +8,11 @@ use thiserror::Error;
 
 use super::urls::{redact_url, redact_webpush_endpoint};
 
-/// Stable high-level category for push registration failures.
+/// High-level category for push registration failures.
 ///
-/// Stability: `1.0`-stable. New variants are additive; matching against
-/// the enum should always include a wildcard arm to forward-compat
-/// against future error categories. Renaming or removing a variant
-/// requires a major SemVer bump.
+/// Stability: v1 development phase — variants may be renamed or removed
+/// without a compatibility window. Matching against the enum should
+/// include a wildcard arm (the enum is `#[non_exhaustive]`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum PushErrorKind {
@@ -302,13 +301,6 @@ impl PushRegistrationError {
             #[cfg(feature = "http")]
             Self::Http(_) => PushErrorKind::Network,
             Self::Json(_) => PushErrorKind::ResponseInvalid,
-        }
-    }
-
-    pub fn error_envelope(&self) -> Option<&ErrorEnvelope> {
-        match self {
-            Self::HttpStatus { error, .. } => error.as_deref(),
-            _ => None,
         }
     }
 

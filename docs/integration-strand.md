@@ -92,7 +92,8 @@ soland                  floria (server)         chime (server)    provider (APNS
    │                        │                       │                    │                       │                    │
    │                        │ (2) chime validates   │                    │                       │                    │
    │                        │  visible payload:     │                    │                       │                    │
-   │                        │  - assert_payload_safe│                    │                       │                    │
+   │                        │  - sanitize_blind_    │                    │                       │                    │
+   │                        │    payload            │                    │                       │                    │
    │                        │  - no forbidden fields│                    │                       │                    │
    │                        │  - bridge contract    │                    │                       │                    │
    │                        │──────────────────────►│                    │                       │                    │
@@ -135,7 +136,8 @@ soland                  floria (server)         chime (server)    provider      
    │                        │  blind wakeup:        │                    │                       │                    │
    │                        │  - payload_size ≤     │                    │                       │                    │
    │                        │    blind_wakeup_max   │                    │                       │                    │
-   │                        │  - assert_payload_safe│                    │                       │                    │
+   │                        │  - sanitize_blind_    │                    │                       │                    │
+   │                        │    payload            │                    │                       │                    │
    │                        │  - validate_blind_    │                    │                       │                    │
    │                        │    wakeup             │                    │                       │                    │
    │                        │──────────────────────►│                    │                       │                    │

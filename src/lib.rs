@@ -56,17 +56,14 @@ pub use rules::{
     NotificationDecision, NotificationEvalContext, NotificationSound, PushRulesRejection,
     evaluate_notification, parse_dnd_settings, parse_push_rules,
 };
-pub use state::{
-    PUSH_REGISTRATION_STATE_SCHEMA_VERSION, PushRegistrationLastError, PushRegistrationState,
-    build_registration_state, hash_push_key,
-};
+pub use state::{PushRegistrationState, build_registration_state, hash_push_key};
 
 // -- PushGatewayType ---------------------------------------------------------
 
 /// Which downstream push gateway to ask the Arkret service to use.
 ///
-/// Stability: `1.0`-stable. New variants are additive; renaming or
-/// removing a variant requires a major SemVer bump.
+/// Stability: v1 development phase — variants may be renamed or removed
+/// without a compatibility window.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum PushGatewayType {
@@ -109,9 +106,9 @@ impl PushGatewayType {
 /// Serializable to JSON. The file path and persistence strategy are left to
 /// the consumer application.
 ///
-/// Stability: `1.0`-stable. New optional fields are added with
-/// `#[serde(default)]` so old persisted JSON keeps deserializing.
-/// Renaming or removing a field requires a major SemVer bump.
+/// Stability: v1 development phase — fields may be renamed or removed
+/// without a compatibility window; old persisted JSON is not guaranteed
+/// to deserialize.
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct PushPreferences {

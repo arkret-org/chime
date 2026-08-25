@@ -11,10 +11,7 @@ readme = "README.md"
 description = "Arkret push notification gateway types and device registration helpers, with support for domestic Chinese Android OEM providers through Bugle."
 keywords = ["arkret", "push", "notification", "fcm", "apns"]
 categories = ["api-bindings", "network-programming", "web-programming"]
-exclude = [
-    ".claude/",
-    ".github/",
-]
+exclude = [".github/"]
 
 [package.metadata.docs.rs]
 all-features = true

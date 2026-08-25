@@ -14,8 +14,8 @@ use crate::{PushGatewayType, PushPlatform, redact_push_key};
 
 /// Binding of a single push gateway target.
 ///
-/// Stability: `1.0`-stable. New optional fields are added with
-/// `#[serde(default)]` so older persisted JSON keeps deserializing.
+/// Stability: v1 development phase — the persisted shape may change
+/// aggressively; old persisted JSON is not guaranteed to deserialize.
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct GatewayBinding {

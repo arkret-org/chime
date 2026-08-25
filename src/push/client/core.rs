@@ -78,11 +78,6 @@ impl ArkretPushClient {
         self
     }
 
-    pub fn with_retry_policy(mut self, retry_policy: PushRetryPolicy) -> Self {
-        self.retry_policy = retry_policy;
-        self
-    }
-
     pub fn without_retries(mut self) -> Self {
         self.retry_policy = PushRetryPolicy::disabled();
         self

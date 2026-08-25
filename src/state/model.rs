@@ -3,20 +3,15 @@
 use arkret_models_integration::PushRegisterDeviceOutcome;
 use serde::{Deserialize, Serialize};
 
-use super::PUSH_REGISTRATION_STATE_SCHEMA_VERSION;
 use crate::{ChimePushRegisterDeviceRequest, GatewayBinding, redact_push_key};
 
 /// Persistable local state for a successful push registration.
 ///
-/// Stability: `1.0`-stable. The struct is versioned with
-/// `schema_version`; new fields are added with `#[serde(default)]` so
-/// older persisted blobs continue to deserialize. Renaming or
-/// removing a field bumps `schema_version` and requires a major
-/// SemVer bump.
+/// Stability: v1 development phase — the persisted shape may change
+/// aggressively and old development blobs are not retained as a compatibility
+/// surface.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PushRegistrationState {
-    #[serde(default = "default_state_schema_version")]
-    pub schema_version: u16,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub principal_id: Option<String>,
     pub registration_id: Option<String>,
@@ -30,27 +25,7 @@ pub struct PushRegistrationState {
     pub registered_at: Option<String>,
     pub expires_at: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub refresh_hint: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub last_success_at: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub last_error: Option<PushRegistrationLastError>,
-}
-
-/// Persistable non-secret summary of the last registration failure.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct PushRegistrationLastError {
-    pub kind: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub request_id: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub retry_after: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub occurred_at: Option<String>,
-}
-
-fn default_state_schema_version() -> u16 {
-    PUSH_REGISTRATION_STATE_SCHEMA_VERSION
 }
 
 /// Return a stable SHA-256 fingerprint for local token comparison.
@@ -108,7 +83,6 @@ pub fn build_registration_state(
     registered_at: Option<&str>,
 ) -> PushRegistrationState {
     PushRegistrationState {
-        schema_version: PUSH_REGISTRATION_STATE_SCHEMA_VERSION,
         principal_id: request.principal_id.clone(),
         registration_id: response
             .registration_id
@@ -124,9 +98,7 @@ pub fn build_registration_state(
         expires_at: response
             .expires_at
             .map(arkret_canonical::format_timestamp_canonical),
-        refresh_hint: None,
         last_success_at: registered_at.map(str::to_owned),
-        last_error: None,
     }
 }
 
@@ -167,7 +139,6 @@ mod tests {
             Some("2026-04-29T00:00:00.000Z"),
         );
 
-        assert_eq!(state.schema_version, PUSH_REGISTRATION_STATE_SCHEMA_VERSION);
         assert_eq!(state.principal_id.as_deref(), Some("did:web:alice.example"));
         assert_eq!(state.platform.as_deref(), Some("android"));
         assert_eq!(state.registration_id.as_deref(), Some("reg-new"));

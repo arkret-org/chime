@@ -20,8 +20,13 @@
 - Drop the unconsumed `ArkretPushClient::floria_bridge_describe_with_context`
   metadata variant (`floria_bridge_describe()` remains) and the unused
   `PushRegistrationError::status()` accessor (`kind()` plus
-  `error_envelope()` / `request_id()` / `retry_after()` cover the same
-  surface).
+  `request_id()` / `retry_after()` cover the same surface).
+- Drop the unused `PushRetryPolicy::conservative()` preset, the
+  `ArkretPushClient::with_retry_policy` builder, and
+  `PushRegistrationError::error_envelope()`.
+- Drop the never-written `PushRegistrationState.refresh_hint` /
+  `last_error` fields together with the `PushRegistrationLastError`
+  struct.
 - Drop the dead `base64`, `arkret-signatures`, and
   `arkret-models-discovery` dependencies.
 - Drop the `sha2` dependency; idempotency-key derivation now goes through

@@ -4,9 +4,10 @@
 
 [![coverage](https://img.shields.io/badge/coverage-local%20tarpaulin-informational)](docs/production-checklist.md#local-verification)
 
-> **Stability:** local `1.0.0` freeze candidate. Breaking public API changes
-> now require a major-version bump. Canonical outcome and error wire types are
-> consumed directly from `arkret-models-integration` and `arkret-wire`.
+> **Stability:** v1 development phase. The public API and persisted formats
+> may change aggressively without backward compatibility. Canonical outcome
+> and error wire types are consumed directly from `arkret-models-integration`
+> and `arkret-wire`.
 
 Arkret push notification gateway types, preferences, and device registration helpers.
 
@@ -219,7 +220,6 @@ use chime::{ArkretPushClient, build_register_device_request};
 let client = ArkretPushClient::new("https://principal.example")
     .with_bearer_token("session-token")
     .with_timeout(std::time::Duration::from_secs(10))
-    .with_retry_policy(chime::PushRetryPolicy::conservative())
     .with_session_grant("externally-issued-coauth-or-soland-grant")?;
 
 let request = build_register_device_request(&config, &binding, &prefs)?;
@@ -241,7 +241,7 @@ Production notes:
 
 ### Local registration state
 
-`PushRegistrationState` stores non-secret local state: principal ID, device id, platform/app id, gateway, token hash/preview, registration id, expiry/refresh hint, and last success/error summary. Build it from a successful register response with `build_registration_state()`.
+`PushRegistrationState` stores non-secret local state: principal ID, device id, platform/app id, gateway, token hash/preview, registration id, expiry, and last success timestamp. Build it from a successful register response with `build_registration_state()`.
 
 Persistence is host-owned: store the state through an OS keychain, encrypted app storage, or another locally protected store. The state includes `schema_version` so applications can migrate persisted records without exposing raw platform tokens.
 
@@ -283,9 +283,10 @@ into a Arkret Principal Server / Sync Service deployment.
   client generates one and reuses it across retries. Persist your own
   key for server-side dedup if you care about cross-process
   deduplication.
-- **Retries.** Default `PushRetryPolicy::disabled()`. Use
-  `PushRetryPolicy::conservative()` for `429`/`503`/network-timeout
-  retries with `Retry-After` honoring and bounded jitter.
+- **Retries.** The client does not retry (`PushRetryPolicy::disabled()`
+  is the fixed policy); hosts that need retries wrap calls in their own
+  retry loop built on `arkret_retry::RetryPolicy`, honoring `Retry-After`
+  via `PushRegistrationError::retry_after_duration()`.
 - **Token storage.** Persist `PushRegistrationState` in an OS
   keychain, encrypted app storage, or another locally protected store.
   Never log raw `push_key`; the crate redacts it in `Debug` impls and

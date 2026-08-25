@@ -85,9 +85,8 @@ chime: bridge capability accessors (B2) + notify agent privacy tests (F4)
   refactors should land separately so reviewers can reason about wire
   changes without bundle churn.
 - Document wire-shape changes in `CHANGELOG.md` under the
-  `[Unreleased]` section. For the local `1.0.0` line, call out
-  additions separately from renames or removals so downstream consumers
-  can judge SemVer impact.
+  `[Unreleased]` section, calling out additions separately from
+  renames or removals so downstream consumers can follow along.
 - Run the full feature matrix before handing off the branch. CI
   reproduces it, but the local gates catch regressions earlier.
 
