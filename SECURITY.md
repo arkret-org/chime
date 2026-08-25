@@ -75,8 +75,7 @@ it as a security report and use the private channels above.
 - The local `chime` package artifact (`http` feature included).
 - Default `ArkretPushClient` HTTPS / TLS / retry / idempotency
   behaviour.
-- The `PushRegistrationState` client-side validators and
-  the `BridgeContractCache` drift gate.
+- The `PushRegistrationState` client-side validators.
 
 ## What is out of scope
 

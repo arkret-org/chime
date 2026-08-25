@@ -3,10 +3,9 @@
 ## 编译与协议
 
 - 生产构建启用 `--features http`。
-- floria 适配层通过 `floria_bridge_describe()` 发现 bridge 契约，并用
-  `BridgeContractCache` 做 digest 漂移检测。
+- floria 适配层通过 `floria_bridge_describe()` 发现 bridge 契约。
 - 当前 chime 审计目标是 `arkret-spec @ 5d66aeb`；升级协议头前需要重新跑
-  drift gate 和集成 smoke test。
+  集成 smoke test。
 
 ## Bugle / 国内 OEM
 

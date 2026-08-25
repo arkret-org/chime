@@ -17,6 +17,5 @@ Bugle 说明：host 仍负责华为/小米/OPPO/vivo/HONOR/HarmonyOS/JPush SDK
 
 ## drift 检查
 
-floria 部署通过 `floria_bridge_describe()` 发现 bridge 契约，并用
-`BridgeContractCache` 对响应做 digest 漂移检测。smoke test 应在漂移时
-失败，而不是继续注册设备。
+floria 部署通过 `floria_bridge_describe()` 发现 bridge 契约。smoke test
+应在契约不符合预期时失败，而不是继续注册设备。

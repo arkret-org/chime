@@ -57,7 +57,6 @@ pub use rules::{
     evaluate_notification, parse_dnd_settings, parse_push_rules,
 };
 pub use state::{
-    BridgeContractCache, BridgeContractCacheError, BridgeContractDriftVerdict,
     PUSH_REGISTRATION_STATE_SCHEMA_VERSION, PushRegistrationLastError, PushRegistrationState,
     build_registration_state, hash_push_key,
 };

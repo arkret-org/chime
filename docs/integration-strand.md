@@ -182,5 +182,4 @@ Where a failure originates determines which team to page:
 | `chime.push.notify.rejected_total{reason="forbidden_field"}` non-zero | floria | floria composed an envelope with a forbidden field; chime caught it server-side. File against floria. |
 | `chime.push.nonce.replay_rejected_total{device_id_hash}` spike on one device | inkson or attacker | If hash maps to a known stable device that recently restarted, suspect inkson nonce-store loss. Otherwise treat as replay attempt. |
 | Provider 4xx spike (`floria_apns_status_codes{status="403"}` rises) | floria | APNS cert / topic mismatch; see floria runbook. |
-| `chime.push.bridge.drift_verdict{verdict="breaking_drift"}` page | chime ↔ floria | A spec / floria release has broken a chime contract. Roll forward chime or roll back floria; do NOT silence the alert. |
 | inkson reports notifications "vanishing" silently | chime device side | Device-side chime rejected a payload; check device logs for the rejection reason. Blind-wakeup payloads can fail silently from the user POV; floria should have logged the dispatch. |

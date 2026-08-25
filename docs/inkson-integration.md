@@ -38,18 +38,14 @@ Notes:
 ## Bridge contract alignment
 
 The push bridge's `PushBridgeDescribeOutcome` carries whatever contract
-the deployed gateway advertises. chime ships `BridgeContractCache` as
-the drift guard: cache the digest of the last accepted response and
-compare fresh fetches against it.
+the deployed gateway advertises; fetch it via `floria_bridge_describe()`.
 
-inkson's smoke-test harness MUST:
-
-1. Call `floria_bridge_describe()` against the deployed gateway.
-2. Evaluate the response against the cached `BridgeContractCache`
-   entry.
-3. Fail the smoke test on a contract drift verdict — gateway drift is
-   the most common cause of "registrations succeed but notifications
-   never arrive" bugs and is cheap to catch up-front.
+inkson's smoke-test harness MUST call `floria_bridge_describe()` against
+the deployed gateway and fail the smoke test when the fetch fails or the
+advertised contract does not match what this chime release expects —
+gateway contract drift is the most common cause of "registrations
+succeed but notifications never arrive" bugs and is cheap to catch
+up-front.
 
 The crate-level audited spec target is `arkret-spec @ 5d66aeb`; older
 SHAs in changelog history are retained only as round-by-round audit

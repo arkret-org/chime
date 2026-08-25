@@ -39,7 +39,6 @@ is left to the host.
 | `chime.push.notify.received_total{wakeup_kind,destination_service}` | counter | Inbound `ak.edge.push.command.notify` volume per wakeup kind. A sudden drop is usually an upstream floria / soland routing regression. |
 | `chime.push.register_device.latency_seconds{gateway_type,result}` | histogram | End-to-end `register-device` latency. `gateway_type` separates Standard from Bugle so OEM-route degradation is visible. |
 | `chime.push.register_device.retries_total{gateway_type,reason}` | counter | Retry attempts emitted by `PushRetryPolicy`. Persistent non-zero traffic on a single `reason` usually means the gateway is rate-limiting or returning a transient envelope. |
-| `chime.push.bridge.drift_verdict{verdict}` | gauge | Last `BridgeContractCache` verdict per gateway: `match` / `additive_drift` / `breaking_drift`. Page on `breaking_drift`; set a host-owned review window for persistent `additive_drift`. |
 
 All metric labels MUST be low cardinality. Never label by `push_key`,
 raw `device_id`, or DID. Hash device ids with a per-deployment salt
