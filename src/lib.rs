@@ -39,7 +39,7 @@ mod rules;
 mod state;
 
 pub use arkret_models_integration::{
-    DndPeriod, DndSchedule, DndSettings, PushCondition, PushRule, PushRulesConfig,
+    DndDocument, DndPeriod, DndSchedule, DndSettings, PushCondition, PushRule, PushRulesConfig,
 };
 pub use gateway_binding::GatewayBinding;
 #[cfg(feature = "http")]
@@ -53,8 +53,9 @@ pub use push::{
     validate_webpush_endpoint_allowlist,
 };
 pub use rules::{
-    NotificationDecision, NotificationEvalContext, NotificationSound, PushRulesRejection,
-    evaluate_notification, parse_dnd_settings, parse_push_rules,
+    DND_TZDB_VERSION, DndSettingsRejection, NotificationDecision, NotificationEvalContext,
+    NotificationSound, PushRulesRejection, evaluate_notification, parse_dnd_settings,
+    parse_push_rules,
 };
 pub use state::{PushRegistrationState, build_registration_state, hash_push_key};
 

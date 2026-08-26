@@ -1,12 +1,15 @@
 //! Client-side evaluation of actor-private push rules and DND schedules.
 
 use arkret_models_integration::{
-    DndSettings, PushCondition, PushRule, PushRuleAction, PushRuleKind, PushRulesConfig,
+    DndDocument, DndSettings, PushCondition, PushRule, PushRuleAction, PushRuleKind,
+    PushRulesConfig,
 };
 use arkret_push_policy::push_rule_core::{
     self, EventContext as PushRuleEventContext, ShouldNotify as PushRuleDecision, WatchLevel,
 };
 use serde_json::Value;
+
+pub const DND_TZDB_VERSION: &str = chrono_tz::IANA_TZDB_VERSION;
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct NotificationEvalContext {
@@ -90,6 +93,18 @@ pub enum PushRulesRejection {
     Malformed { reason: String },
 }
 
+/// Why a stored `ak.dnd_schedule` document was rejected.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct DndSettingsRejection {
+    pub reason: String,
+}
+
+impl DndSettingsRejection {
+    pub const fn wire_code(&self) -> &'static str {
+        "schema_violation"
+    }
+}
+
 impl PushRulesRejection {
     /// The canonical wire error code for this rejection.
     pub fn wire_code(&self) -> &'static str {
@@ -130,9 +145,114 @@ pub fn parse_push_rules(value: &Value) -> Result<PushRulesConfig, PushRulesRejec
     })
 }
 
-pub fn parse_dnd_settings(value: &Value) -> Option<DndSettings> {
-    let body = value.get("dnd").cloned().unwrap_or_else(|| value.clone());
-    serde_json::from_value(body).ok()
+pub fn parse_dnd_settings(value: &Value) -> Result<DndSettings, DndSettingsRejection> {
+    let document: DndDocument =
+        serde_json::from_value(value.clone()).map_err(|error| DndSettingsRejection {
+            reason: error.to_string(),
+        })?;
+    validate_dnd_settings(&document.dnd)?;
+    Ok(document.dnd)
+}
+
+fn validate_dnd_settings(settings: &DndSettings) -> Result<(), DndSettingsRejection> {
+    let schedule = &settings.schedule;
+    let timezone = schedule
+        .timezone
+        .parse::<chrono_tz::Tz>()
+        .map_err(|_| dnd_rejection("schedule.timezone must be a canonical IANA timezone"))?;
+    if timezone.name() != schedule.timezone {
+        return Err(dnd_rejection(
+            "schedule.timezone must use the canonical IANA spelling",
+        ));
+    }
+    if schedule.tzdb_version != DND_TZDB_VERSION {
+        return Err(dnd_rejection(format!(
+            "schedule.tzdb_version must be {DND_TZDB_VERSION}"
+        )));
+    }
+    if schedule.all_day && !schedule.periods.is_empty() {
+        return Err(dnd_rejection(
+            "schedule.periods must be empty when schedule.all_day is true",
+        ));
+    }
+    if schedule.periods.len() > 32 {
+        return Err(dnd_rejection("schedule.periods exceeds the v1 limit of 32"));
+    }
+
+    let mut occupied = [false; 24 * 60];
+    let mut previous_start = None;
+    let mut parsed_periods = Vec::with_capacity(schedule.periods.len());
+    for period in &schedule.periods {
+        let start = parse_hhmm(&period.start)
+            .ok_or_else(|| dnd_rejection("period.start must be canonical HH:MM"))?;
+        let end = parse_hhmm(&period.end)
+            .ok_or_else(|| dnd_rejection("period.end must be canonical HH:MM"))?;
+        if start == end {
+            return Err(dnd_rejection(
+                "period start and end must differ; use schedule.all_day for all-day DND",
+            ));
+        }
+        if previous_start.is_some_and(|previous| previous >= start) {
+            return Err(dnd_rejection(
+                "schedule.periods must be sorted by strictly increasing start time",
+            ));
+        }
+        previous_start = Some(start);
+
+        for minute in period_minutes(start, end) {
+            if occupied[minute as usize] {
+                return Err(dnd_rejection("schedule.periods must not overlap"));
+            }
+            occupied[minute as usize] = true;
+        }
+        parsed_periods.push((start, end));
+    }
+
+    for (index, (start, end)) in parsed_periods.iter().enumerate() {
+        if parsed_periods
+            .iter()
+            .enumerate()
+            .any(|(other_index, (other_start, other_end))| {
+                index != other_index && (end == other_start || start == other_end)
+            })
+        {
+            return Err(dnd_rejection(
+                "adjacent schedule periods must be merged by the producer",
+            ));
+        }
+    }
+
+    let mut previous_exception: Option<&str> = None;
+    for exception in &settings.exceptions {
+        if exception.is_empty() || exception.len() > 128 {
+            return Err(dnd_rejection(
+                "exceptions entries must contain 1 to 128 characters",
+            ));
+        }
+        if previous_exception.is_some_and(|previous| previous >= exception.as_str()) {
+            return Err(dnd_rejection(
+                "exceptions must be sorted and contain no duplicates",
+            ));
+        }
+        previous_exception = Some(exception);
+    }
+    Ok(())
+}
+
+fn dnd_rejection(reason: impl Into<String>) -> DndSettingsRejection {
+    DndSettingsRejection {
+        reason: reason.into(),
+    }
+}
+
+fn period_minutes(start: u16, end: u16) -> impl Iterator<Item = u16> {
+    (0..24 * 60).filter(move |minute| {
+        if start < end {
+            (start..end).contains(minute)
+        } else {
+            *minute >= start || *minute < end
+        }
+    })
 }
 
 pub fn evaluate_notification(
@@ -238,7 +358,7 @@ fn apply_dnd(
     let Some(dnd) = dnd else {
         return decision;
     };
-    if !dnd.enabled || !dnd_active(dnd, ctx.now_minutes.unwrap_or_else(current_local_minute)) {
+    if !dnd.enabled || !dnd_active(dnd, ctx.now_minutes) {
         return decision;
     }
     if ctx.priority_override
@@ -489,7 +609,14 @@ fn glob_match(pattern: &str, value: &str) -> bool {
     !anchored_end || remainder.is_empty()
 }
 
-fn dnd_active(dnd: &DndSettings, minute: u16) -> bool {
+fn dnd_active(dnd: &DndSettings, minute_override: Option<u16>) -> bool {
+    if dnd.schedule.all_day {
+        return true;
+    }
+    let Some(minute) = minute_override.or_else(|| current_schedule_minute(&dnd.schedule.timezone))
+    else {
+        return false;
+    };
     dnd.schedule.periods.iter().any(|period| {
         let (Some(start), Some(end)) = (parse_hhmm(&period.start), parse_hhmm(&period.end)) else {
             return false;
@@ -504,16 +631,25 @@ fn dnd_active(dnd: &DndSettings, minute: u16) -> bool {
 }
 
 fn parse_hhmm(value: &str) -> Option<u16> {
+    let bytes = value.as_bytes();
+    if bytes.len() != 5
+        || bytes[2] != b':'
+        || !bytes[..2].iter().all(u8::is_ascii_digit)
+        || !bytes[3..].iter().all(u8::is_ascii_digit)
+    {
+        return None;
+    }
     let (hour, minute) = value.split_once(':')?;
     let (hour, minute) = (hour.parse::<u16>().ok()?, minute.parse::<u16>().ok()?);
     (hour < 24 && minute < 60).then_some(hour * 60 + minute)
 }
 
-fn current_local_minute() -> u16 {
+fn current_schedule_minute(timezone: &str) -> Option<u16> {
     use chrono::Timelike;
 
-    let now = chrono::Local::now();
-    (now.hour() as u16) * 60 + now.minute() as u16
+    let timezone = timezone.parse::<chrono_tz::Tz>().ok()?;
+    let now = chrono::Utc::now().with_timezone(&timezone);
+    Some((now.hour() as u16) * 60 + now.minute() as u16)
 }
 
 #[cfg(test)]
@@ -636,6 +772,87 @@ mod tests {
         let rejection = parse_push_rules(&serde_json::json!({ "rules": "not-an-array" }))
             .expect_err("a non-array rules member does not parse");
         assert_eq!(rejection.wire_code(), "schema_violation");
+    }
+
+    fn dnd_document(periods: Value) -> Value {
+        serde_json::json!({
+            "dnd": {
+                "enabled": true,
+                "schedule": {
+                    "timezone": "Asia/Shanghai",
+                    "tzdb_version": DND_TZDB_VERSION,
+                    "all_day": false,
+                    "periods": periods
+                },
+                "exceptions": ["override.priority"]
+            }
+        })
+    }
+
+    #[test]
+    fn dnd_periods_use_half_open_and_cross_midnight_semantics() {
+        let dnd = parse_dnd_settings(&dnd_document(serde_json::json!([
+            {"start": "22:00", "end": "08:00"}
+        ])))
+        .expect("canonical DND document");
+
+        assert!(!dnd_active(&dnd, Some(8 * 60)));
+        assert!(dnd_active(&dnd, Some(22 * 60)));
+        assert!(dnd_active(&dnd, Some(23 * 60 + 59)));
+        assert!(dnd_active(&dnd, Some(0)));
+        assert!(dnd_active(&dnd, Some(7 * 60 + 59)));
+    }
+
+    #[test]
+    fn dnd_requires_closed_canonical_document_and_current_tzdb() {
+        let direct_inner = dnd_document(serde_json::json!([]))["dnd"].clone();
+        assert!(parse_dnd_settings(&direct_inner).is_err());
+
+        let mut invalid_timezone = dnd_document(serde_json::json!([]));
+        invalid_timezone["dnd"]["schedule"]["timezone"] = serde_json::json!("local");
+        assert!(parse_dnd_settings(&invalid_timezone).is_err());
+
+        let mut invalid_tzdb = dnd_document(serde_json::json!([]));
+        invalid_tzdb["dnd"]["schedule"]["tzdb_version"] = serde_json::json!("future");
+        assert!(parse_dnd_settings(&invalid_tzdb).is_err());
+
+        let mut unknown_field = dnd_document(serde_json::json!([]));
+        unknown_field["dnd"]["legacy_mode"] = serde_json::json!(true);
+        assert!(parse_dnd_settings(&unknown_field).is_err());
+    }
+
+    #[test]
+    fn dnd_rejects_ambiguous_or_noncanonical_period_sets() {
+        for periods in [
+            serde_json::json!([{"start": "08:00", "end": "08:00"}]),
+            serde_json::json!([{"start": "8:00", "end": "09:00"}]),
+            serde_json::json!([
+                {"start": "08:00", "end": "10:00"},
+                {"start": "09:00", "end": "11:00"}
+            ]),
+            serde_json::json!([
+                {"start": "08:00", "end": "10:00"},
+                {"start": "10:00", "end": "11:00"}
+            ]),
+            serde_json::json!([
+                {"start": "12:00", "end": "13:00"},
+                {"start": "08:00", "end": "09:00"}
+            ]),
+        ] {
+            assert!(parse_dnd_settings(&dnd_document(periods)).is_err());
+        }
+    }
+
+    #[test]
+    fn dnd_all_day_is_explicit_and_cannot_mix_with_periods() {
+        let mut all_day = dnd_document(serde_json::json!([]));
+        all_day["dnd"]["schedule"]["all_day"] = serde_json::json!(true);
+        let settings = parse_dnd_settings(&all_day).expect("all-day DND");
+        assert!(dnd_active(&settings, Some(12 * 60)));
+
+        all_day["dnd"]["schedule"]["periods"] =
+            serde_json::json!([{"start": "08:00", "end": "09:00"}]);
+        assert!(parse_dnd_settings(&all_day).is_err());
     }
 
     /// The coarse server-side watch gate and user rule evaluation are separate
