@@ -1,6 +1,8 @@
 //! Client-side evaluation of actor-private push rules and DND schedules.
 
-use arkret_models_integration::{DndSettings, PushCondition, PushRule, PushRulesConfig};
+use arkret_models_integration::{
+    DndSettings, PushCondition, PushRule, PushRuleAction, PushRuleKind, PushRulesConfig,
+};
 use arkret_push_policy::push_rule_core::{
     self, EventContext as PushRuleEventContext, ShouldNotify as PushRuleDecision, WatchLevel,
 };
@@ -153,60 +155,69 @@ fn evaluate_rule_chain(
     config: &PushRulesConfig,
     ctx: &NotificationEvalContext,
 ) -> NotificationDecision {
-    for rule in config.rules.iter().filter(|rule| rule.enabled) {
-        match rule_matches(rule, ctx) {
-            RuleMatch::Matched => {
-                return decision_from_actions(
-                    rule.actions.clone(),
-                    Some(rule.rule_id.clone()),
-                    "matched push rule",
-                );
+    for kind in PushRuleKind::EVALUATION_ORDER {
+        for rule in config
+            .rules
+            .iter()
+            .filter(|rule| rule.enabled && rule.kind == kind)
+        {
+            match rule_matches(rule, ctx) {
+                RuleMatch::Matched => {
+                    return decision_from_actions(
+                        rule.actions.clone(),
+                        Some(rule.rule_id.clone()),
+                        "matched push rule",
+                    );
+                }
+                RuleMatch::UnresolvedClient => {
+                    let mut decision = NotificationDecision::dont_notify(
+                        "client-side rule unresolved in E2EE context",
+                    );
+                    decision.matched_rule_id = Some(rule.rule_id.clone());
+                    decision.unresolved_client_evaluation = true;
+                    decision.blind_wakeup_required = true;
+                    return decision;
+                }
+                RuleMatch::NoMatch => {}
             }
-            RuleMatch::UnresolvedClient => {
-                let mut decision = NotificationDecision::dont_notify(
-                    "client-side rule unresolved in E2EE context",
-                );
-                decision.matched_rule_id = Some(rule.rule_id.clone());
-                decision.unresolved_client_evaluation = true;
-                decision.blind_wakeup_required = true;
-                return decision;
-            }
-            RuleMatch::NoMatch => {}
         }
     }
     NotificationDecision::dont_notify("no push rule matched")
 }
 
 fn default_decision(ctx: &NotificationEvalContext) -> NotificationDecision {
-    let mut actions = vec!["notify".to_owned()];
+    let mut actions = vec![PushRuleAction::Notify];
     if directed_event(ctx) {
-        actions.push("highlight".to_owned());
+        actions.push(PushRuleAction::Highlight);
     }
     decision_from_actions(actions, None, "default notification policy")
 }
 
 fn decision_from_actions(
-    actions: Vec<String>,
+    actions: Vec<PushRuleAction>,
     matched_rule_id: Option<String>,
     reason: impl Into<String>,
 ) -> NotificationDecision {
-    let dont_notify = actions.iter().any(|action| action == "dont_notify");
-    let notify = actions.iter().any(|action| action == "notify") && !dont_notify;
+    let dont_notify = actions.contains(&PushRuleAction::DontNotify);
+    let notify = actions.contains(&PushRuleAction::Notify) && !dont_notify;
     let sound = if !notify {
         NotificationSound::None
-    } else if actions.iter().any(|action| action == "sound_critical") {
+    } else if actions.contains(&PushRuleAction::SoundCritical) {
         NotificationSound::Critical
-    } else if actions.iter().any(|action| action == "sound_default") {
+    } else if actions.contains(&PushRuleAction::SoundDefault) {
         NotificationSound::Default
     } else {
         NotificationSound::None
     };
     NotificationDecision {
         should_notify: notify,
-        highlight: notify && actions.iter().any(|action| action == "highlight"),
+        highlight: notify && actions.contains(&PushRuleAction::Highlight),
         sound,
         matched_rule_id,
-        actions,
+        actions: actions
+            .into_iter()
+            .map(|action| action.as_str().to_owned())
+            .collect(),
         muted_short_circuit: false,
         watch_suppressed: false,
         dnd_suppressed: false,
@@ -540,6 +551,37 @@ mod tests {
                 ..Default::default()
             },
         );
+        assert!(!decision.should_notify);
+        assert_eq!(decision.matched_rule_id.as_deref(), Some("override.mute"));
+    }
+
+    #[test]
+    fn rule_kind_priority_precedes_document_order() {
+        let rules = parse_push_rules(&serde_json::json!({
+            "rules": [
+                {
+                    "rule_id": "underride.all",
+                    "kind": "underride",
+                    "enabled": true,
+                    "evaluation_locus": "client",
+                    "conditions": [],
+                    "actions": ["notify"]
+                },
+                {
+                    "rule_id": "override.mute",
+                    "kind": "override",
+                    "enabled": true,
+                    "evaluation_locus": "client",
+                    "conditions": [],
+                    "actions": ["dont_notify"]
+                }
+            ]
+        }))
+        .expect("rules");
+
+        let decision =
+            evaluate_notification(Some(&rules), None, &NotificationEvalContext::default());
+
         assert!(!decision.should_notify);
         assert_eq!(decision.matched_rule_id.as_deref(), Some("override.mute"));
     }

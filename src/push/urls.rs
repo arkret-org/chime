@@ -164,7 +164,7 @@ pub fn redact_push_key(value: &str) -> String {
 
     let len = value.chars().count();
     if let Some((prefix, token)) = value.split_once(':')
-        && is_safe_token_prefix(prefix)
+        && matches!(prefix, "apns" | "fcm" | "unifiedpush" | "webpush")
         && !token.is_empty()
     {
         return format!("{prefix}:<redacted,len={}>", token.chars().count());
@@ -249,7 +249,7 @@ fn webpush_allowlist_entry_matches(endpoint: &Url, entry: &str) -> bool {
     let pattern = entry.to_ascii_lowercase();
 
     if let Some(suffix) = pattern.strip_prefix("*.") {
-        host == suffix || host.ends_with(&format!(".{suffix}"))
+        host.ends_with(&format!(".{suffix}"))
     } else if let Some(suffix) = pattern.strip_prefix('.') {
         host.ends_with(&format!(".{suffix}"))
     } else {
@@ -311,15 +311,26 @@ fn is_loopback_url(url: &Url) -> bool {
     }
 }
 
-fn is_safe_token_prefix(prefix: &str) -> bool {
-    !prefix.is_empty()
-        && prefix.len() <= 24
-        && prefix
-            .chars()
-            .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '_' | '-' | '.'))
-}
-
 // -- Shared input validators ------------------------------------------------
+
+#[cfg(test)]
+mod redaction_tests {
+    use super::*;
+
+    #[test]
+    fn only_registered_push_key_schemes_are_exposed() {
+        assert_eq!(redact_push_key("fcm:secret"), "fcm:<redacted,len=6>");
+        assert_eq!(redact_push_key("tenant-secret:token"), "<redacted,len=19>");
+    }
+
+    #[test]
+    fn wildcard_host_pattern_excludes_the_bare_domain() {
+        let apex = Url::parse("https://example.com/push").unwrap();
+        let child = Url::parse("https://push.example.com/push").unwrap();
+        assert!(!webpush_allowlist_entry_matches(&apex, "*.example.com"));
+        assert!(webpush_allowlist_entry_matches(&child, "*.example.com"));
+    }
+}
 
 pub(super) fn require_non_empty(
     name: &'static str,
