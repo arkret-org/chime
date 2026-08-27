@@ -124,7 +124,7 @@ async fn register_success_exposes_response_context_and_headers() {
             ARKRET_REQUEST_ID_HEADER,
             "ak:request:01904100-0000-7000-8000-000000000021",
         )],
-        body: r#"{"ok":true,"push_target_id":"ak:pseudonym:push:kosc9iQ4gVct1OB-b6X364WIFIsJFVbVzn7BMBs1sm8","registration_id":"reg-1","expires_at":"2026-04-29T00:00:00.000Z"}"#,
+        body: r#"{"push_target_id":"ak:pseudonym:push:kosc9iQ4gVct1OB-b6X364WIFIsJFVbVzn7BMBs1sm8","registration_id":"reg-1","expires_at":"2026-04-29T00:00:00.000Z"}"#,
     }]);
 
     let request = register_request();
@@ -134,7 +134,6 @@ async fn register_success_exposes_response_context_and_headers() {
         .await
         .unwrap();
 
-    assert!(response.body.ok);
     assert_eq!(response.body.registration_id.as_deref(), Some("reg-1"));
     assert_eq!(
         response.request_id.as_deref(),
@@ -173,9 +172,9 @@ async fn register_success_exposes_response_context_and_headers() {
 #[tokio::test]
 async fn unregister_success() {
     let (base_url, requests) = spawn_mock_server(vec![MockHttpOutcome {
-        status: "200 OK",
+        status: "204 No Content",
         headers: vec![],
-        body: r#"{"ok":true}"#,
+        body: "",
     }]);
 
     let response = client(base_url)
@@ -183,7 +182,6 @@ async fn unregister_success() {
         .await
         .unwrap();
 
-    assert!(response.body.ok);
     let request = requests.lock().unwrap().join("\n");
     assert!(request.contains("POST /_arkret/edge/push/unregister-device HTTP/1.1"));
     let body = request
@@ -207,7 +205,7 @@ async fn unregister_not_found_is_idempotent_success() {
             ARKRET_REQUEST_ID_HEADER,
             "ak:request:01904100-0000-7000-8000-000000000023",
         )],
-        body: r#"{"ok":false,"error":{"code":"not_found","message":"missing"}}"#,
+        body: r#"{"type":"https://arkret.org/problems/not_found","title":"Not found","status":404,"detail":"missing"}"#,
     }]);
 
     let response = client(base_url)
@@ -215,7 +213,6 @@ async fn unregister_not_found_is_idempotent_success() {
         .await
         .unwrap();
 
-    assert!(response.body.ok);
     assert_eq!(
         response.request_id.as_deref(),
         Some("ak:request:01904100-0000-7000-8000-000000000023")
@@ -249,7 +246,7 @@ async fn classifies_json_error_responses() {
 
     for (status, code, expected) in cases {
         let body = format!(
-            r#"{{"ok":false,"error":{{"code":"{code}","message":"x"}},"request_id":"ak:request:01904100-0000-7000-8000-000000000024"}}"#
+            r#"{{"type":"https://arkret.org/problems/{code}","title":"Test problem","status":400,"detail":"x","instance":"ak:request:01904100-0000-7000-8000-000000000024"}}"#
         );
         let (base_url, _) = spawn_mock_server(vec![MockHttpOutcome {
             status,
@@ -329,7 +326,7 @@ async fn error_debug_redacts_envelope_message_and_details() {
     let (base_url, _) = spawn_mock_server(vec![MockHttpOutcome {
         status: "403 Forbidden",
         headers: vec![],
-        body: r#"{"ok":false,"error":{"code":"capability_denied","message":"token fcm:very-secret-token proof super-secret-proof","details":{"proof":"super-secret-proof","push_key":"fcm:very-secret-token"}},"request_id":"ak:request:01904100-0000-7000-8000-000000000025"}"#,
+        body: r#"{"type":"https://arkret.org/problems/capability_denied","title":"Capability denied","status":403,"detail":"token fcm:very-secret-token proof super-secret-proof","instance":"ak:request:01904100-0000-7000-8000-000000000025","proof":"super-secret-proof","push_key":"fcm:very-secret-token"}"#,
     }]);
 
     let err = client(base_url)
@@ -357,12 +354,12 @@ async fn retries_429_and_honors_retry_after() {
         MockHttpOutcome {
             status: "429 Too Many Requests",
             headers: vec![(RETRY_AFTER_HEADER, "0")],
-            body: r#"{"ok":false,"error":{"code":"rate_limited","message":"slow"}}"#,
+            body: r#"{"type":"https://arkret.org/problems/rate_limited","title":"Rate limited","status":429,"detail":"slow"}"#,
         },
         MockHttpOutcome {
             status: "200 OK",
             headers: vec![],
-            body: r#"{"ok":true,"push_target_id":"ak:pseudonym:push:kosc9iQ4gVct1OB-b6X364WIFIsJFVbVzn7BMBs1sm8"}"#,
+            body: r#"{"push_target_id":"ak:pseudonym:push:kosc9iQ4gVct1OB-b6X364WIFIsJFVbVzn7BMBs1sm8"}"#,
         },
     ]);
 
@@ -377,7 +374,6 @@ async fn retries_429_and_honors_retry_after() {
     .await
     .unwrap();
 
-    assert!(response.body.ok);
     assert_eq!(requests.lock().unwrap().len(), 2);
 }
 
@@ -398,7 +394,7 @@ async fn default_register_allows_with_session_grant_header() {
     let (base_url, requests) = spawn_mock_server(vec![MockHttpOutcome {
         status: "200 OK",
         headers: vec![],
-        body: r#"{"ok":true,"push_target_id":"ak:pseudonym:push:kosc9iQ4gVct1OB-b6X364WIFIsJFVbVzn7BMBs1sm8","registration_id":"reg-1"}"#,
+        body: r#"{"push_target_id":"ak:pseudonym:push:kosc9iQ4gVct1OB-b6X364WIFIsJFVbVzn7BMBs1sm8","registration_id":"reg-1"}"#,
     }]);
 
     let response = ArkretPushClient::new(base_url)
@@ -408,7 +404,6 @@ async fn default_register_allows_with_session_grant_header() {
         .await
         .unwrap();
 
-    assert!(response.body.ok);
     let raw = requests.lock().unwrap().join("\n");
     assert!(raw.contains("x-arkret-session-grant: coauth-grant-secret"));
 }
@@ -428,7 +423,7 @@ async fn opting_out_session_grant_allows_register_without_header() {
     let (base_url, _) = spawn_mock_server(vec![MockHttpOutcome {
         status: "200 OK",
         headers: vec![],
-        body: r#"{"ok":true,"push_target_id":"ak:pseudonym:push:kosc9iQ4gVct1OB-b6X364WIFIsJFVbVzn7BMBs1sm8"}"#,
+        body: r#"{"push_target_id":"ak:pseudonym:push:kosc9iQ4gVct1OB-b6X364WIFIsJFVbVzn7BMBs1sm8"}"#,
     }]);
 
     let response = ArkretPushClient::new(base_url)
@@ -436,8 +431,6 @@ async fn opting_out_session_grant_allows_register_without_header() {
         .register_device_with_request(&register_request(), None, None)
         .await
         .unwrap();
-
-    assert!(response.body.ok);
 }
 
 #[tokio::test]
@@ -446,12 +439,12 @@ async fn register_auto_generates_idempotency_key_when_omitted() {
         MockHttpOutcome {
             status: "503 Service Unavailable",
             headers: vec![(RETRY_AFTER_HEADER, "0")],
-            body: r#"{"ok":false,"error":{"code":"temporarily_unavailable","message":"try later"}}"#,
+            body: r#"{"type":"https://arkret.org/problems/temporarily_unavailable","title":"Temporarily unavailable","status":503,"detail":"try later"}"#,
         },
         MockHttpOutcome {
             status: "200 OK",
             headers: vec![],
-            body: r#"{"ok":true,"push_target_id":"ak:pseudonym:push:kosc9iQ4gVct1OB-b6X364WIFIsJFVbVzn7BMBs1sm8"}"#,
+            body: r#"{"push_target_id":"ak:pseudonym:push:kosc9iQ4gVct1OB-b6X364WIFIsJFVbVzn7BMBs1sm8"}"#,
         },
     ]);
     let mut config = config();
@@ -468,8 +461,6 @@ async fn register_auto_generates_idempotency_key_when_omitted() {
     .register_device_with_request(&request, None, None)
     .await
     .unwrap();
-
-    assert!(response.body.ok);
 
     let recorded = requests.lock().unwrap();
     assert_eq!(
@@ -496,7 +487,7 @@ async fn does_not_retry_duplicate_conflict() {
     let (base_url, requests) = spawn_mock_server(vec![MockHttpOutcome {
         status: "409 Conflict",
         headers: vec![],
-        body: r#"{"ok":false,"error":{"code":"duplicate_conflict","message":"different body"}}"#,
+        body: r#"{"type":"https://arkret.org/problems/duplicate_conflict","title":"Duplicate conflict","status":409,"detail":"different body"}"#,
     }]);
 
     let err = client_with_retry_policy(
@@ -520,12 +511,12 @@ async fn retries_503() {
         MockHttpOutcome {
             status: "503 Service Unavailable",
             headers: vec![(RETRY_AFTER_HEADER, "0")],
-            body: r#"{"ok":false,"error":{"code":"temporarily_unavailable","message":"try later"}}"#,
+            body: r#"{"type":"https://arkret.org/problems/temporarily_unavailable","title":"Temporarily unavailable","status":503,"detail":"try later"}"#,
         },
         MockHttpOutcome {
             status: "200 OK",
             headers: vec![],
-            body: r#"{"ok":true,"push_target_id":"ak:pseudonym:push:kosc9iQ4gVct1OB-b6X364WIFIsJFVbVzn7BMBs1sm8"}"#,
+            body: r#"{"push_target_id":"ak:pseudonym:push:kosc9iQ4gVct1OB-b6X364WIFIsJFVbVzn7BMBs1sm8"}"#,
         },
     ]);
 
@@ -540,7 +531,6 @@ async fn retries_503() {
     .await
     .unwrap();
 
-    assert!(response.body.ok);
     assert_eq!(requests.lock().unwrap().len(), 2);
 }
 
@@ -551,7 +541,7 @@ async fn disabled_kinds_skip_otherwise_retryable_error() {
     let (base_url, requests) = spawn_mock_server(vec![MockHttpOutcome {
         status: "503 Service Unavailable",
         headers: vec![(RETRY_AFTER_HEADER, "0")],
-        body: r#"{"ok":false,"error":{"code":"temporarily_unavailable","message":"down"}}"#,
+        body: r#"{"type":"https://arkret.org/problems/temporarily_unavailable","title":"Temporarily unavailable","status":503,"detail":"down"}"#,
     }]);
 
     let policy = PushRetryPolicy {

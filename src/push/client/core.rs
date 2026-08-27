@@ -185,7 +185,7 @@ impl ArkretPushClient {
     ) -> Result<ArkretHttpOutcome<PushUnregisterDeviceOutcome>, PushRegistrationError> {
         self.assert_session_grant_if_required()?;
         let sdk_body = body.to_sdk_request()?;
-        let response = match self
+        let response: ArkretHttpOutcome<()> = match self
             .post_json(
                 UNREGISTER_DEVICE_PATH,
                 &sdk_body,
@@ -196,14 +196,18 @@ impl ArkretPushClient {
         {
             Ok(response) => response,
             Err(error) if error.kind() == PushErrorKind::NotFound => ArkretHttpOutcome {
-                body: PushUnregisterDeviceOutcome { ok: true },
+                body: (),
                 request_id: error.request_id().map(str::to_owned),
                 retry_after: error.retry_after().map(str::to_owned),
             },
             Err(error) => return Err(error),
         };
 
-        Ok(response)
+        Ok(ArkretHttpOutcome {
+            body: PushUnregisterDeviceOutcome,
+            request_id: response.request_id,
+            retry_after: response.retry_after,
+        })
     }
 
     pub(super) fn assert_session_grant_if_required(&self) -> Result<(), PushRegistrationError> {

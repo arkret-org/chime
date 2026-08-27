@@ -241,8 +241,13 @@ impl ArkretPushClient {
             });
         }
 
+        let decoded = if status == reqwest::StatusCode::NO_CONTENT && body.is_empty() {
+            serde_json::from_str("null")?
+        } else {
+            serde_json::from_str(&body)?
+        };
         Ok(ArkretHttpOutcome {
-            body: serde_json::from_str(&body)?,
+            body: decoded,
             request_id,
             retry_after,
         })

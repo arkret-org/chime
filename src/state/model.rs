@@ -65,7 +65,6 @@ pub fn hash_push_key(push_key: &str) -> String {
 /// };
 /// let request = build_register_device_request(&config, &binding, &prefs).unwrap();
 /// let response = PushRegisterDeviceOutcome {
-///     ok: true,
 ///     push_target_id: arkret_wire::PushTargetId::new(
 ///         "ak:pseudonym:push:kosc9iQ4gVct1OB-b6X364WIFIsJFVbVzn7BMBs1sm8",
 ///     )
@@ -121,7 +120,6 @@ mod tests {
         let request =
             build_register_device_request(&config("fcm:new-token"), &binding(), &prefs()).unwrap();
         let response = PushRegisterDeviceOutcome {
-            ok: true,
             // Server-derived pairwise pseudonym (required by the SDK wire
             // model); the registration-state builder does not read it.
             push_target_id: arkret_wire::PushTargetId::new(
