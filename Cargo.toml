@@ -31,6 +31,7 @@ workspace = true
 chrono = {workspace = true,default-features = false,features = ["serde", "clock"]}
 chrono-tz = {workspace = true}
 arkret-canonical = {workspace = true}
+arkret-models-discovery = {workspace = true}
 arkret-models-integration = {workspace = true}
 arkret-push-policy = {workspace = true}
 arkret-retry = {workspace = true}
@@ -89,6 +90,7 @@ unimplemented = "deny"
 chrono = {version = "0.4",default-features = false}
 chrono-tz = "0.10"
 arkret-canonical = {version = "0.3.0",path = "../arkret-rust-sdk/crates/canonical"}
+arkret-models-discovery = {version = "0.3.0",path = "../arkret-rust-sdk/crates/models-discovery"}
 arkret-models-integration = {version = "0.3.0",path = "../arkret-rust-sdk/crates/models-integration"}
 arkret-push-policy = {version = "0.3.0",path = "../arkret-rust-sdk/crates/push-policy"}
 arkret-retry = {version = "0.3.0",path = "../arkret-rust-sdk/crates/retry"}

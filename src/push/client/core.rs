@@ -1,15 +1,15 @@
 use std::fmt;
 use std::time::Duration;
 
+use arkret_models_discovery::ServiceDescribe;
 use arkret_models_integration::{PushRegisterDeviceOutcome, PushUnregisterDeviceOutcome};
 
-use super::super::bridge_describe::PushBridgeDescribeOutcome;
 use super::super::errors::{PushErrorKind, PushRegistrationError};
 use super::super::urls::redact_url;
 use super::super::wire::{ChimePushRegisterDeviceRequest, ChimePushUnregisterDeviceRequest};
 use super::super::{
-    ARKRET_SESSION_GRANT_HEADER, FLORIA_PUSH_BRIDGE_DESCRIBE_PATH, REGISTER_DEVICE_PATH,
-    SDK_USER_AGENT, UNREGISTER_DEVICE_PATH,
+    ARKRET_SESSION_GRANT_HEADER, REGISTER_DEVICE_PATH, SDK_USER_AGENT, SERVICE_DESCRIBE_PATH,
+    UNREGISTER_DEVICE_PATH,
 };
 use super::retry::{PushRetryPolicy, retry_jitter_seed};
 use super::secret::SecretString;
@@ -130,12 +130,10 @@ impl ArkretPushClient {
         Ok(self)
     }
 
-    /// Discover floria's product-local active push gateway bridge contract.
-    pub async fn floria_bridge_describe(
-        &self,
-    ) -> Result<PushBridgeDescribeOutcome, PushRegistrationError> {
+    /// Discover a push gateway through the canonical role-scoped service description.
+    pub async fn service_describe(&self) -> Result<ServiceDescribe, PushRegistrationError> {
         Ok(self
-            .get_json::<PushBridgeDescribeOutcome>(FLORIA_PUSH_BRIDGE_DESCRIBE_PATH)
+            .get_json::<ServiceDescribe>(SERVICE_DESCRIBE_PATH)
             .await?
             .body)
     }

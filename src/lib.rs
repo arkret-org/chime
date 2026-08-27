@@ -45,12 +45,10 @@ pub use gateway_binding::GatewayBinding;
 #[cfg(feature = "http")]
 pub use push::{ArkretHttpOutcome, ArkretPushClient, PushRetryPolicy};
 pub use push::{
-    ChimePushRegisterDeviceRequest, ChimePushUnregisterDeviceRequest,
-    PushBridgeDescribeGatewayDescriptor, PushBridgeDescribeNotifyDescriptor,
-    PushBridgeDescribeOutcome, PushBridgeDescribePrivacyDescriptor, PushDeviceConfig,
-    PushErrorKind, PushPlatform, PushRegistrationError, build_register_device_request,
-    build_unregister_device_request, redact_push_key, validate_push_gateway_url,
-    validate_webpush_endpoint_allowlist,
+    ChimePushRegisterDeviceRequest, ChimePushUnregisterDeviceRequest, PushDeviceConfig,
+    PushErrorKind, PushPlatform, PushRegistrationError, ServiceDescribe,
+    build_register_device_request, build_unregister_device_request, redact_push_key,
+    validate_push_gateway_url, validate_webpush_endpoint_allowlist,
 };
 pub use rules::{
     DND_TZDB_VERSION, DndSettingsRejection, NotificationDecision, NotificationEvalContext,

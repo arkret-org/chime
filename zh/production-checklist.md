@@ -3,9 +3,8 @@
 ## 编译与协议
 
 - 生产构建启用 `--features http`。
-- floria 适配层通过 `floria_bridge_describe()` 发现 bridge 契约。
-- 当前 chime 审计目标是 `arkret-spec @ 5d66aeb`；升级协议头前需要重新跑
-  集成 smoke test。
+- push gateway 通过 `service_describe()` 读取 canonical `/_arkret/describe`。
+- 升级 SDK/spec artifact 后重新运行集成 smoke test；不在 README 中维护手写 SHA。
 
 ## Bugle / 国内 OEM
 

@@ -35,21 +35,15 @@ Notes:
   bare HTTPS URL so the gateway router treats them as the same
   transport family as desktop UnifiedPush.
 
-## Bridge contract alignment
+## Push gateway discovery
 
-The push bridge's `PushBridgeDescribeOutcome` carries whatever contract
-the deployed gateway advertises; fetch it via `floria_bridge_describe()`.
+The deployed gateway publishes canonical `ServiceDescribe`; fetch it via
+`service_describe()` at `/_arkret/describe`.
 
-inkson's smoke-test harness MUST call `floria_bridge_describe()` against
-the deployed gateway and fail the smoke test when the fetch fails or the
-advertised contract does not match what this chime release expects —
-gateway contract drift is the most common cause of "registrations
-succeed but notifications never arrive" bugs and is cheap to catch
-up-front.
-
-The crate-level audited spec target is `arkret-spec @ 5d66aeb`; older
-SHAs in changelog history are retained only as round-by-round audit
-records.
+inkson's smoke-test harness MUST call `service_describe()` and fail when
+validation fails, the role is not `push_gateway`, or the canonical notify
+operation bundle is absent. SDK/artifact digests belong in generated CI evidence,
+not in this hand-maintained guide.
 
 ## chime APIs inkson calls
 

@@ -17,5 +17,6 @@ Bugle 说明：host 仍负责华为/小米/OPPO/vivo/HONOR/HarmonyOS/JPush SDK
 
 ## drift 检查
 
-floria 部署通过 `floria_bridge_describe()` 发现 bridge 契约。smoke test
-应在契约不符合预期时失败，而不是继续注册设备。
+push gateway 通过 `service_describe()` 发现 canonical role capability。smoke test
+应在 `ServiceDescribe` 无效、service kind 错误或缺少 push notify operation bundle 时失败，
+而不是继续注册设备。

@@ -2,13 +2,12 @@
 //!
 //! This module is split into:
 //! - [`wire`]: register/unregister request builders and local configuration DTOs
-//! - [`bridge_describe`]: floria `bridge/describe` DTOs
+//! - canonical push-gateway [`ServiceDescribe`] discovery
 //! - [`errors`]: `PushErrorKind` + `PushRegistrationError` + HTTP classification
 //! - [`urls`]: URL helpers, validation, redaction
 //! - [`registration`]: request body builders
 //! - [`client`]: async `ArkretPushClient` (feature = "http")
 
-mod bridge_describe;
 #[cfg(feature = "http")]
 mod client;
 mod errors;
@@ -26,9 +25,9 @@ pub(crate) const REGISTER_DEVICE_PATH: &str = "/_arkret/edge/push/register-devic
 #[cfg(feature = "http")]
 pub(crate) const UNREGISTER_DEVICE_PATH: &str = "/_arkret/edge/push/unregister-device";
 
-/// Floria product path for discovering the active push gateway bridge contract.
+/// Canonical role-scoped service discovery path.
 #[cfg(feature = "http")]
-pub(crate) const FLORIA_PUSH_BRIDGE_DESCRIBE_PATH: &str = "/_floria/push/bridge/describe";
+pub(crate) const SERVICE_DESCRIBE_PATH: &str = "/_arkret/describe";
 
 // -- Header constants -------------------------------------------------------
 
@@ -47,10 +46,7 @@ const RETRY_AFTER_HEADER: &str = "Retry-After";
 
 // -- Re-exports -------------------------------------------------------------
 
-pub use bridge_describe::{
-    PushBridgeDescribeGatewayDescriptor, PushBridgeDescribeNotifyDescriptor,
-    PushBridgeDescribeOutcome, PushBridgeDescribePrivacyDescriptor,
-};
+pub use arkret_models_discovery::ServiceDescribe;
 #[cfg(feature = "http")]
 pub use client::{ArkretHttpOutcome, ArkretPushClient, PushRetryPolicy};
 pub use errors::{PushErrorKind, PushRegistrationError};
