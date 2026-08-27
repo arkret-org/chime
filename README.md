@@ -1,7 +1,5 @@
 # chime
 
-> **Spec target**: [arkret-spec @ 074aefee](../arkret-spec) (sync 2026-06-23)
-
 [![coverage](https://img.shields.io/badge/coverage-local%20tarpaulin-informational)](docs/production-checklist.md#local-verification)
 
 > **Stability:** v1 development phase. The public API and persisted formats
@@ -42,12 +40,6 @@ Ephemeral kinds (`ak.presence`, `ak.typing`, `ak.receipt.read`,
 `ak.call.signal`) are confirmed not consumed by chime. See
 [`CHANGELOG.md`](CHANGELOG.md) `[Unreleased]`; the normative source
 remains `../arkret-spec/spec/v1/`.
-
-## Protocol Baseline
-
-The current audited protocol pin for this crate is the **Spec target** at the
-top of this file; older SHAs in `CHANGELOG.md` are historical entries, not the
-active completion gate.
 
 ## Chinese docs
 
