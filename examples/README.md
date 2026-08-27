@@ -30,7 +30,7 @@ cargo run --example desktop-tauri
 - **Platform UI surfacing.** Toast / banner / call-screen integration is
   out of scope.
 - **Gateway-side payload validation.** Blind-wakeup validation of
-  outbound `ak.edge.push.command.notify` payloads is the SDK's
+  outbound `ak.edge.push.command.notify.v1` payloads is the SDK's
   `arkret_push_policy::blind_payload_sanitizer` surface, not chime's.
 
 Refer to `docs/production-checklist.md` for the full host-wiring

@@ -166,7 +166,7 @@ impl ArkretPushClient {
 
         tracing::info!(
             platform = body.platform.as_deref().unwrap_or("unspecified"),
-            operation_id = arkret_wire::ServiceOperationId::EDGE_PUSH_COMMAND_REGISTER_DEVICE,
+            operation_id = arkret_wire::ServiceOperationId::EDGE_PUSH_COMMAND_REGISTER_DEVICE_V1,
             request_id = response.request_id.as_deref(),
             "Arkret push device registered (prebuilt body)"
         );

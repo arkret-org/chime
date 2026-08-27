@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use arkret_retry::Jitter;
-use arkret_wire::ErrorEnvelope;
+use arkret_wire::{ErrorEnvelope, ServiceOperationId};
 use serde::{Deserialize, Serialize};
 
 use super::super::errors::{PushRegistrationError, classify_http_error};
@@ -190,6 +190,10 @@ impl ArkretPushClient {
             .header(reqwest::header::CONTENT_TYPE, "application/json")
             .body(body_bytes);
 
+        if let Some(operation) = ServiceOperationId::from_http_request("POST", path) {
+            request = request.header("Arkret-Operation", operation.as_str());
+        }
+
         if let Some(timeout) = self.timeout {
             request = request.timeout(timeout);
         }
@@ -265,6 +269,10 @@ impl ArkretPushClient {
             .http
             .get(url)
             .header(reqwest::header::USER_AGENT, self.user_agent.as_str());
+
+        if let Some(operation) = ServiceOperationId::from_http_request("GET", path) {
+            request = request.header("Arkret-Operation", operation.as_str());
+        }
 
         if let Some(timeout) = self.timeout {
             request = request.timeout(timeout);

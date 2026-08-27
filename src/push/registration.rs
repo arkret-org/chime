@@ -72,7 +72,8 @@ pub fn build_register_device_request(
     }
 
     Ok(ChimePushRegisterDeviceRequest {
-        operation_id: arkret_wire::ServiceOperationId::EDGE_PUSH_COMMAND_REGISTER_DEVICE.to_owned(),
+        operation_id: arkret_wire::ServiceOperationId::EDGE_PUSH_COMMAND_REGISTER_DEVICE_V1
+            .to_owned(),
         principal_id: config
             .principal_id
             .and_then(non_empty_str)
@@ -145,7 +146,7 @@ pub fn build_unregister_device_request(
         .and_then(non_empty_str);
 
     Ok(ChimePushUnregisterDeviceRequest {
-        operation_id: arkret_wire::ServiceOperationId::EDGE_PUSH_COMMAND_UNREGISTER_DEVICE
+        operation_id: arkret_wire::ServiceOperationId::EDGE_PUSH_COMMAND_UNREGISTER_DEVICE_V1
             .to_owned(),
         principal_id: config
             .principal_id
@@ -219,7 +220,7 @@ mod tests {
 
         assert_eq!(
             request.operation_id,
-            arkret_wire::ServiceOperationId::EDGE_PUSH_COMMAND_REGISTER_DEVICE
+            arkret_wire::ServiceOperationId::EDGE_PUSH_COMMAND_REGISTER_DEVICE_V1
         );
         assert_eq!(
             request.principal_id.as_deref(),
@@ -256,7 +257,7 @@ mod tests {
 
         assert_eq!(
             request.operation_id,
-            arkret_wire::ServiceOperationId::EDGE_PUSH_COMMAND_UNREGISTER_DEVICE
+            arkret_wire::ServiceOperationId::EDGE_PUSH_COMMAND_UNREGISTER_DEVICE_V1
         );
         assert_eq!(
             request.principal_id.as_deref(),

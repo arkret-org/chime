@@ -6,7 +6,7 @@ platform receivers and call into chime for validation and wire-shape handling.
 
 ## Required Host Wiring
 
-- Route every decoded `ak.edge.push.command.notify` request through the
+- Route every decoded `ak.edge.push.command.notify.v1` request through the
   SDK's `arkret_push_policy::blind_payload_sanitizer` before showing UI.
   Gateway-side notify wire types are not part of chime.
 - Drain local push queues before invalidating the device session.
@@ -36,7 +36,7 @@ is left to the host.
 
 | Metric | Type | What it tells you |
 |--------|------|-------------------|
-| `chime.push.notify.received_total{wakeup_kind,destination_service}` | counter | Inbound `ak.edge.push.command.notify` volume per wakeup kind. A sudden drop is usually an upstream floria / soland routing regression. |
+| `chime.push.notify.received_total{wakeup_kind,destination_service}` | counter | Inbound `ak.edge.push.command.notify.v1` volume per wakeup kind. A sudden drop is usually an upstream floria / soland routing regression. |
 | `chime.push.register_device.latency_seconds{gateway_type,result}` | histogram | End-to-end `register-device` latency. `gateway_type` separates Standard from Bugle so OEM-route degradation is visible. |
 | `chime.push.register_device.retries_total{gateway_type,reason}` | counter | Retry attempts emitted by `PushRetryPolicy`. Persistent non-zero traffic on a single `reason` usually means the gateway is rate-limiting or returning a transient envelope. |
 

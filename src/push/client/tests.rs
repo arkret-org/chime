@@ -142,6 +142,10 @@ async fn register_success_exposes_response_context_and_headers() {
 
     let raw = requests.lock().unwrap().join("\n");
     assert!(raw.contains("POST /_arkret/edge/push/register-device HTTP/1.1"));
+    assert!(
+        raw.to_ascii_lowercase()
+            .contains("arkret-operation: ak.edge.push.command.register_device.v1")
+    );
     assert!(raw.contains("authorization: Bearer session-secret"));
     // CHIME-01: idempotency key, request id, operation id, and proof are
     // header / path concerns — they ride the headers, never the
@@ -184,6 +188,11 @@ async fn unregister_success() {
 
     let request = requests.lock().unwrap().join("\n");
     assert!(request.contains("POST /_arkret/edge/push/unregister-device HTTP/1.1"));
+    assert!(
+        request
+            .to_ascii_lowercase()
+            .contains("arkret-operation: ak.edge.push.command.unregister_device.v1")
+    );
     let body = request
         .rsplit("\r\n\r\n")
         .next()

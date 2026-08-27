@@ -1,4 +1,5 @@
-//! Wire DTOs for `ak.edge.push.command.register_device` / `ak.edge.push.command.unregister_device`.
+//! Wire DTOs for `ak.edge.push.command.register_device.v1` /
+//! `ak.edge.push.command.unregister_device.v1`.
 //!
 //! ## Stability
 //!

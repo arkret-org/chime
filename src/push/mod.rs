@@ -18,11 +18,11 @@ mod wire;
 
 // -- Path constants ---------------------------------------------------------
 
-/// Arkret HTTP path for `ak.edge.push.command.register_device`.
+/// Arkret HTTP path for `ak.edge.push.command.register_device.v1`.
 #[cfg(feature = "http")]
 pub(crate) const REGISTER_DEVICE_PATH: &str = "/_arkret/edge/push/register-device";
 
-/// Arkret HTTP path for `ak.edge.push.command.unregister_device`.
+/// Arkret HTTP path for `ak.edge.push.command.unregister_device.v1`.
 #[cfg(feature = "http")]
 pub(crate) const UNREGISTER_DEVICE_PATH: &str = "/_arkret/edge/push/unregister-device";
 

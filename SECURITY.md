@@ -36,7 +36,7 @@ When you report, please include:
 - `push_key` (FCM/APNs/WebPush tokens) MUST NOT appear in logs, debug
   output, or error messages.
 - DIDs (`did:*`) MUST NOT appear in `push_hint` or any token-shaped wire field.
-- `ak.edge.push.command.notify` payloads default to E2EE blind wakeup; only services
+- `ak.edge.push.command.notify.v1` payloads default to E2EE blind wakeup; only services
   on the explicit `plaintext_visible_services` allowlist may receive
   identifying metadata.
 
@@ -84,7 +84,7 @@ it as a security report and use the private channels above.
 
 ## Inbound push frame handling
 
-`chime` does not ship inbound `ak.edge.push.command.notify` frame
+`chime` does not ship inbound `ak.edge.push.command.notify.v1` frame
 validators — inbound wire-shape, privacy, and replay checks are owned by
 the host application (gateway-side payload sanitization lives in the
 SDK's `arkret_push_policy::blind_payload_sanitizer`). The sections below
