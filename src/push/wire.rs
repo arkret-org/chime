@@ -183,7 +183,7 @@ impl ChimePushRegisterDeviceRequest {
                     reason: error.to_string(),
                 }
             })?,
-            push_gateway: self.push_gateway.clone(),
+            push_gateway_uri: self.push_gateway.clone(),
             push_key: arkret_models_integration::PushKey::new(self.push_key.clone()).map_err(
                 |error| PushRegistrationError::InvalidField {
                     field: "push_key",
