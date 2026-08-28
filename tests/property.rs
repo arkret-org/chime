@@ -45,13 +45,13 @@ proptest! {
     /// declared `PushRegistrationError`. It must never panic.
     #[test]
     fn register_request_round_trips_or_fails_cleanly(
-        device_id in ascii_token(4, 32),
+        device_suffix in proptest::string::string_regex("[0-9a-f]{12}").expect("regex compiles"),
         push_key in ascii_token(8, 96),
         app_id in ascii_token(4, 32),
         platform in arb_platform(),
         gateway in arb_gateway_type(),
     ) {
-        let device_id_with_fragment = format!("ak:did_core:web:alice.example#device-{device_id}");
+        let device_id = format!("ak:device:01904100-0000-7000-8000-{device_suffix}");
         let prefs = PushPreferences {
             enabled: true,
             ..Default::default()
@@ -62,7 +62,7 @@ proptest! {
         );
         let config = PushDeviceConfig {
             principal_id: Some("ak:did_core:web:alice.example"),
-            device_id: &device_id_with_fragment,
+            device_id: &device_id,
             push_key: Some(&push_key),
             platform: platform.map(PushPlatform::as_str),
             app_id: Some(&app_id),
@@ -76,7 +76,7 @@ proptest! {
 
         match build_register_device_request(&config, &binding, &prefs) {
             Ok(request) => {
-                prop_assert_eq!(request.device_id, device_id_with_fragment);
+                prop_assert_eq!(request.device_id, device_id);
                 prop_assert_eq!(request.push_key, push_key);
                 if let Some(p) = platform {
                     prop_assert_eq!(request.platform.as_deref(), Some(p.as_str()));
@@ -105,10 +105,10 @@ proptest! {
     /// field that would carry token material.
     #[test]
     fn unregister_request_never_echoes_random_into_push_key(
-        device_id in ascii_token(4, 32),
         registration_id in ascii_token(4, 32),
     ) {
-        let device_id_with_fragment = format!("did:web:bob.example#dev-{device_id}");
+        let device_id =
+            "ak:device:01904100-0000-7000-8000-000000000008".to_owned();
         let prefs = PushPreferences {
             enabled: true,
             ..Default::default()
@@ -118,8 +118,8 @@ proptest! {
             "https://push.example.com/_arkret/edge/push/notify",
         );
         let config = PushDeviceConfig {
-            principal_id: Some("did:web:bob.example"),
-            device_id: &device_id_with_fragment,
+            principal_id: Some("ak:did_core:web:bob.example"),
+            device_id: &device_id,
             push_key: None,
             platform: None,
             app_id: None,
