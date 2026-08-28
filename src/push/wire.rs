@@ -10,6 +10,7 @@
 
 use std::fmt;
 
+use arkret_wire::DidCoreId;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -58,10 +59,10 @@ impl TryFrom<&str> for PushPlatform {
 ///
 /// Stability: v1 development phase — fields may be renamed or removed
 /// without a compatibility window.
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub struct PushDeviceConfig<'a> {
     /// Arkret principal ID that owns this device registration.
-    pub principal_id: Option<&'a str>,
+    pub principal_id: Option<DidCoreId>,
     /// Arkret device id, usually a `ak:device:*` typed id.
     pub device_id: &'a str,
     /// Platform push token, e.g. `fcm:...`, `apns:...`, `webpush:...`.
@@ -135,7 +136,7 @@ impl fmt::Debug for PushDeviceConfig<'_> {
 pub struct ChimePushRegisterDeviceRequest {
     pub operation_id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub principal_id: Option<String>,
+    pub principal_id: Option<DidCoreId>,
     pub device_id: String,
     pub push_gateway: String,
     pub push_key: String,
@@ -183,7 +184,7 @@ impl ChimePushRegisterDeviceRequest {
                     reason: error.to_string(),
                 }
             })?,
-            push_gateway_uri: self.push_gateway.clone(),
+            push_gateway_url: self.push_gateway.clone(),
             push_key: arkret_models_integration::PushKey::new(self.push_key.clone()).map_err(
                 |error| PushRegistrationError::InvalidField {
                     field: "push_key",
@@ -222,7 +223,7 @@ impl ChimePushRegisterDeviceRequest {
 pub struct ChimePushUnregisterDeviceRequest {
     pub operation_id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub principal_id: Option<String>,
+    pub principal_id: Option<DidCoreId>,
     pub device_id: String,
     /// Opaque push-gateway-local registration id, not a typed-ID; see
     /// [`PushDeviceConfig::registration_id`].

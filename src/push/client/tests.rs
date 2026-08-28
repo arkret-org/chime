@@ -57,7 +57,7 @@ fn spawn_mock_server(responses: Vec<MockHttpOutcome>) -> (String, Arc<Mutex<Vec<
 
 fn config<'a>() -> PushDeviceConfig<'a> {
     PushDeviceConfig {
-        principal_id: Some("ak:did_core:web:alice.example"),
+        principal_id: Some(arkret_wire::DidCoreId::new("ak:did_core:web:alice.example").unwrap()),
         device_id: "ak:device:01904100-0000-7000-8000-000000000005",
         push_key: Some("fcm:very-secret-token"),
         platform: Some("android"),

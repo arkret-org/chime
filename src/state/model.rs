@@ -1,6 +1,7 @@
 //! Persistable push registration state types and helpers.
 
 use arkret_models_integration::PushRegisterDeviceOutcome;
+use arkret_wire::{DidCoreId, OpaqueLocalId};
 use serde::{Deserialize, Serialize};
 
 use crate::{ChimePushRegisterDeviceRequest, GatewayBinding, redact_push_key};
@@ -13,8 +14,8 @@ use crate::{ChimePushRegisterDeviceRequest, GatewayBinding, redact_push_key};
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PushRegistrationState {
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub principal_id: Option<String>,
-    pub registration_id: Option<String>,
+    pub principal_id: Option<DidCoreId>,
+    pub registration_id: Option<OpaqueLocalId>,
     pub device_id: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub platform: Option<String>,
@@ -43,7 +44,7 @@ pub fn hash_push_key(push_key: &str) -> String {
 /// };
 ///
 /// let config = PushDeviceConfig {
-///     principal_id: Some("ak:did_core:web:alice.example"),
+///     principal_id: Some(arkret_wire::DidCoreId::new("ak:did_core:web:alice.example").unwrap()),
 ///     device_id: "ak:device:01904100-0000-7000-8000-000000000004",
 ///     push_key: Some("fcm:token"),
 ///     platform: Some("android"),
@@ -83,10 +84,7 @@ pub fn build_registration_state(
 ) -> PushRegistrationState {
     PushRegistrationState {
         principal_id: request.principal_id.clone(),
-        registration_id: response
-            .registration_id
-            .as_ref()
-            .map(|id| id.as_str().to_owned()),
+        registration_id: response.registration_id.clone(),
         device_id: request.device_id.clone(),
         platform: request.platform.clone(),
         app_id: request.app_id.clone(),
@@ -138,7 +136,7 @@ mod tests {
         );
 
         assert_eq!(
-            state.principal_id.as_deref(),
+            state.principal_id.as_ref().map(DidCoreId::as_str),
             Some("ak:did_core:web:alice.example")
         );
         assert_eq!(state.platform.as_deref(), Some("android"));

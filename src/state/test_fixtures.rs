@@ -19,7 +19,7 @@ pub(crate) fn binding() -> GatewayBinding {
 
 pub(crate) fn config(push_key: &str) -> PushDeviceConfig<'_> {
     PushDeviceConfig {
-        principal_id: Some("ak:did_core:web:alice.example"),
+        principal_id: Some(arkret_wire::DidCoreId::new("ak:did_core:web:alice.example").unwrap()),
         device_id: "ak:device:01904100-0000-7000-8000-000000000004",
         push_key: Some(push_key),
         platform: Some("android"),
