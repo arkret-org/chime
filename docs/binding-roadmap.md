@@ -73,7 +73,7 @@ import { buildRegisterDeviceRequest, sanitizeBlindPayload,
          PushGatewayType } from "@arkret/chime";
 
 const request = buildRegisterDeviceRequest({
-    config: { deviceId: "did:web:alice.example#web", /* … */ },
+    config: { deviceId: "ak:did_core:web:alice.example#web", /* … */ },
     binding: { gatewayType: PushGatewayType.Standard, pushGateway: "https://…" },
     prefs: { enabled: true },
 });
@@ -127,7 +127,7 @@ not.
 import Chime
 
 let request = try Chime.buildRegisterDeviceRequest(
-    config: .init(deviceId: "did:web:alice.example#ios", /* … */),
+    config: .init(deviceId: "ak:did_core:web:alice.example#ios", /* … */),
     binding: .init(gatewayType: .standard,
                    pushGateway: "https://push.example.com/_arkret/edge/push/notify"),
     prefs: .init(enabled: true))

@@ -25,7 +25,7 @@ use crate::{GatewayBinding, PushPreferences, hash_push_key};
 /// };
 ///
 /// let config = PushDeviceConfig {
-///     principal_id: Some("did:web:alice.example"),
+///     principal_id: Some("ak:did_core:web:alice.example"),
 ///     device_id: "ak:device:01904100-0000-7000-8000-000000000004",
 ///     push_key: Some("fcm:token"),
 ///     platform: Some("android"),
@@ -101,7 +101,7 @@ pub fn build_register_device_request(
 /// };
 ///
 /// let config = PushDeviceConfig {
-///     principal_id: Some("did:web:alice.example"),
+///     principal_id: Some("ak:did_core:web:alice.example"),
 ///     device_id: "ak:device:01904100-0000-7000-8000-000000000004",
 ///     push_key: None,
 ///     platform: Some("android"),
@@ -184,7 +184,7 @@ mod tests {
 
     fn config<'a>(platform: Option<&'a str>) -> PushDeviceConfig<'a> {
         PushDeviceConfig {
-            principal_id: Some("did:web:alice.example"),
+            principal_id: Some("ak:did_core:web:alice.example"),
             device_id: "ak:device:01904100-0000-7000-8000-000000000004",
             push_key: Some("fcm:very-secret-token"),
             platform,
@@ -224,7 +224,7 @@ mod tests {
         );
         assert_eq!(
             request.principal_id.as_deref(),
-            Some("did:web:alice.example")
+            Some("ak:did_core:web:alice.example")
         );
         assert_eq!(
             request.device_id,
@@ -261,7 +261,7 @@ mod tests {
         );
         assert_eq!(
             request.principal_id.as_deref(),
-            Some("did:web:alice.example")
+            Some("ak:did_core:web:alice.example")
         );
         assert_eq!(
             request.device_id,

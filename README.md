@@ -151,7 +151,7 @@ use chime::{
 };
 
 let config = PushDeviceConfig {
-    principal_id: Some("did:web:alice.example"),
+    principal_id: Some("ak:did_core:web:alice.example"),
     device_id: "ak:device:01904100-0000-7000-8000-000000000004",
     push_key: Some("fcm-or-apns-device-token"),
     platform: Some("android"),

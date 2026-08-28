@@ -77,8 +77,8 @@ fn inkson_register_request(
         ..Default::default()
     };
     let config = PushDeviceConfig {
-        principal_id: Some("did:web:inkson.local"),
-        device_id: "did:web:inkson.local#device-smoke",
+        principal_id: Some("ak:did_core:web:inkson.local"),
+        device_id: "ak:device:01904100-0000-7000-8000-000000000007",
         push_key: Some(token),
         platform: Some(platform),
         app_id: Some(app_id),

@@ -43,8 +43,8 @@ pub fn hash_push_key(push_key: &str) -> String {
 /// };
 ///
 /// let config = PushDeviceConfig {
-///     principal_id: Some("did:web:alice.example"),
-///     device_id: "did:web:alice.example#device-phone",
+///     principal_id: Some("ak:did_core:web:alice.example"),
+///     device_id: "ak:device:01904100-0000-7000-8000-000000000004",
 ///     push_key: Some("fcm:token"),
 ///     platform: Some("android"),
 ///     app_id: Some("app.example.android"),
@@ -137,7 +137,10 @@ mod tests {
             Some("2026-04-29T00:00:00.000Z"),
         );
 
-        assert_eq!(state.principal_id.as_deref(), Some("did:web:alice.example"));
+        assert_eq!(
+            state.principal_id.as_deref(),
+            Some("ak:did_core:web:alice.example")
+        );
         assert_eq!(state.platform.as_deref(), Some("android"));
         assert_eq!(state.registration_id.as_deref(), Some("reg-new"));
         assert_eq!(state.push_key_preview, "fcm:<redacted,len=9>");

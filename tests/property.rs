@@ -51,7 +51,7 @@ proptest! {
         platform in arb_platform(),
         gateway in arb_gateway_type(),
     ) {
-        let device_id_with_fragment = format!("did:web:alice.example#device-{device_id}");
+        let device_id_with_fragment = format!("ak:did_core:web:alice.example#device-{device_id}");
         let prefs = PushPreferences {
             enabled: true,
             ..Default::default()
@@ -61,7 +61,7 @@ proptest! {
             "https://push.example.com/_arkret/edge/push/notify",
         );
         let config = PushDeviceConfig {
-            principal_id: Some("did:web:alice.example"),
+            principal_id: Some("ak:did_core:web:alice.example"),
             device_id: &device_id_with_fragment,
             push_key: Some(&push_key),
             platform: platform.map(PushPlatform::as_str),
