@@ -193,7 +193,7 @@ impl ChimePushRegisterDeviceRequest {
             platform: self.platform.clone(),
             app_id: self.app_id.clone(),
             display_name: self.display_name.clone(),
-            recipient_service_id: None,
+            recipient_id: None,
         })
     }
 }
