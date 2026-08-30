@@ -77,7 +77,10 @@ fn inkson_register_request(
         ..Default::default()
     };
     let config = PushDeviceConfig {
-        principal_id: Some(arkret_wire::DidCoreId::new("ak:did_core:web:inkson.local").unwrap()),
+        account_id: Some(arkret_wire::AccountId::new(
+            arkret_wire::DidCoreId::new("ak:did_core:web:inkson.local").unwrap(),
+            arkret_wire::DidCoreId::new("ak:did_core:web:station.example").unwrap(),
+        )),
         device_id: "ak:device:01904100-0000-7000-8000-000000000007",
         push_key: Some(token),
         platform: Some(platform),

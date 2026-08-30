@@ -149,9 +149,10 @@ use chime::{
 };
 
 let config = PushDeviceConfig {
-    principal_id: Some(
+    account_id: Some(arkret_wire::AccountId::new(
         arkret_wire::DidCoreId::new("ak:did_core:web:alice.example").unwrap(),
-    ),
+        arkret_wire::DidCoreId::new("ak:did_core:web:station.example").unwrap(),
+    )),
     device_id: "ak:device:01904100-0000-7000-8000-000000000004",
     push_key: Some("fcm-or-apns-device-token"),
     platform: Some("android"),
@@ -187,7 +188,7 @@ assert_eq!(
 # async fn doc_run() -> Result<(), chime::PushRegistrationError> {
 # use chime::{GatewayBinding, PushDeviceConfig, PushGatewayType, PushPreferences};
 # let config = PushDeviceConfig {
-#     principal_id: None,
+#     account_id: None,
 #     device_id: "ak:device:01904100-0000-7000-8000-000000000004",
 #     push_key: Some("fcm-or-apns-device-token"),
 #     platform: None,
@@ -320,7 +321,7 @@ The crate maps to the Arkret v1 push HTTP binding:
 | `ak.edge.push.command.unregister_device.v1` | `POST /_arkret/edge/push/unregister-device` | `build_unregister_device_request()` |
 | `ak.edge.push.command.notify.v1` | `POST /_arkret/edge/push/notify` | Gateway/server-side operation, not a client registration call. |
 
-Register/unregister builders carry the canonical operation id, optional `principal_id`, `device_id`, app id, gateway URL, idempotency key, request id, and caller-supplied proof. Register responses expose only the spec response body fields (`ok`, `registration_id`, and `expires_at`); response headers carry transport metadata such as request id.
+Register/unregister builders keep the complete optional `AccountId {principal_id, station_id}` as local ownership metadata. It is never added to gateway request bodies or headers. Device id, app id, gateway URL, and push key are projected into the canonical request; operation id, idempotency key, request id, and proof follow their transport bindings. Register responses carry `push_target_id`, optional `registration_id`, and optional `expires_at`; response headers carry transport metadata such as request id.
 
 Push notifications are derived wakeups, not canonical truth. For E2EE Realms, push gateways should receive only minimized metadata such as `push_target_id`, `wakeup_kind`, counts, priority/TTL/collapse hints, and optional body-free `push_hint`.
 

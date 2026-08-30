@@ -57,7 +57,10 @@ fn spawn_mock_server(responses: Vec<MockHttpOutcome>) -> (String, Arc<Mutex<Vec<
 
 fn config<'a>() -> PushDeviceConfig<'a> {
     PushDeviceConfig {
-        principal_id: Some(arkret_wire::DidCoreId::new("ak:did_core:web:alice.example").unwrap()),
+        account_id: Some(arkret_wire::AccountId::new(
+            arkret_wire::DidCoreId::new("ak:did_core:web:alice.example").unwrap(),
+            arkret_wire::DidCoreId::new("ak:did_core:web:station.example").unwrap(),
+        )),
         device_id: "ak:device:01904100-0000-7000-8000-000000000005",
         push_key: Some("fcm:very-secret-token"),
         platform: Some("android"),
@@ -162,7 +165,9 @@ async fn register_success_exposes_response_context_and_headers() {
     for forbidden in [
         "\"idempotency_key\"",
         "\"operation_id\"",
+        "\"account_id\"",
         "\"principal_id\"",
+        "\"station_id\"",
         "\"request_id\"",
         "\"proof\"",
     ] {

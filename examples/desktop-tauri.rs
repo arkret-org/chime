@@ -30,7 +30,10 @@ fn register_desktop_device() -> Result<(), Box<dyn std::error::Error>> {
     // WebPush endpoint and now needs to hand the resulting token
     // to Arkret.
     let config = PushDeviceConfig {
-        principal_id: Some(arkret_wire::DidCoreId::new("ak:did_core:web:alice.example").unwrap()),
+        account_id: Some(arkret_wire::AccountId::new(
+            arkret_wire::DidCoreId::new("ak:did_core:web:alice.example").unwrap(),
+            arkret_wire::DidCoreId::new("ak:did_core:web:station.example").unwrap(),
+        )),
         device_id: "ak:device:01904100-0000-7000-8000-000000000006",
         // In a real Tauri integration this is the
         // `PushSubscription.endpoint` returned by the embedded

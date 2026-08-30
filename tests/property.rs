@@ -61,9 +61,7 @@ proptest! {
             "https://push.example.com/_arkret/edge/push/notify",
         );
         let config = PushDeviceConfig {
-            principal_id: Some(
-                arkret_wire::DidCoreId::new("ak:did_core:web:alice.example").unwrap(),
-            ),
+            account_id: Some(arkret_wire::AccountId::new(arkret_wire::DidCoreId::new("ak:did_core:web:alice.example").unwrap(), arkret_wire::DidCoreId::new("ak:did_core:web:station.example").unwrap())),
             device_id: &device_id,
             push_key: Some(&push_key),
             platform: platform.map(PushPlatform::as_str),
@@ -120,9 +118,7 @@ proptest! {
             "https://push.example.com/_arkret/edge/push/notify",
         );
         let config = PushDeviceConfig {
-            principal_id: Some(
-                arkret_wire::DidCoreId::new("ak:did_core:web:bob.example").unwrap(),
-            ),
+            account_id: Some(arkret_wire::AccountId::new(arkret_wire::DidCoreId::new("ak:did_core:web:bob.example").unwrap(), arkret_wire::DidCoreId::new("ak:did_core:web:station.example").unwrap())),
             device_id: &device_id,
             push_key: None,
             platform: None,

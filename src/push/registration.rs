@@ -25,7 +25,10 @@ use crate::{GatewayBinding, PushPreferences, hash_push_key};
 /// };
 ///
 /// let config = PushDeviceConfig {
-///     principal_id: Some(arkret_wire::DidCoreId::new("ak:did_core:web:alice.example").unwrap()),
+///     account_id: Some(arkret_wire::AccountId::new(
+///         arkret_wire::DidCoreId::new("ak:did_core:web:alice.example").unwrap(),
+///         arkret_wire::DidCoreId::new("ak:did_core:web:station.example").unwrap(),
+///     )),
 ///     device_id: "ak:device:01904100-0000-7000-8000-000000000004",
 ///     push_key: Some("fcm:token"),
 ///     platform: Some("android"),
@@ -74,7 +77,7 @@ pub fn build_register_device_request(
     Ok(ChimePushRegisterDeviceRequest {
         operation_id: arkret_wire::ServiceOperationId::EDGE_PUSH_COMMAND_REGISTER_DEVICE_V1
             .to_owned(),
-        principal_id: config.principal_id.clone(),
+        account_id: config.account_id.clone(),
         device_id: config.device_id.to_owned(),
         push_gateway: binding.push_gateway.clone(),
         push_key: push_key.to_owned(),
@@ -98,7 +101,10 @@ pub fn build_register_device_request(
 /// };
 ///
 /// let config = PushDeviceConfig {
-///     principal_id: Some(arkret_wire::DidCoreId::new("ak:did_core:web:alice.example").unwrap()),
+///     account_id: Some(arkret_wire::AccountId::new(
+///         arkret_wire::DidCoreId::new("ak:did_core:web:alice.example").unwrap(),
+///         arkret_wire::DidCoreId::new("ak:did_core:web:station.example").unwrap(),
+///     )),
 ///     device_id: "ak:device:01904100-0000-7000-8000-000000000004",
 ///     push_key: None,
 ///     platform: Some("android"),
@@ -145,7 +151,7 @@ pub fn build_unregister_device_request(
     Ok(ChimePushUnregisterDeviceRequest {
         operation_id: arkret_wire::ServiceOperationId::EDGE_PUSH_COMMAND_UNREGISTER_DEVICE_V1
             .to_owned(),
-        principal_id: config.principal_id.clone(),
+        account_id: config.account_id.clone(),
         device_id: config.device_id.to_owned(),
         registration_id: non_empty_str(config.registration_id.unwrap_or_default())
             .map(str::to_owned),
@@ -178,9 +184,10 @@ mod tests {
 
     fn config<'a>(platform: Option<&'a str>) -> PushDeviceConfig<'a> {
         PushDeviceConfig {
-            principal_id: Some(
+            account_id: Some(arkret_wire::AccountId::new(
                 arkret_wire::DidCoreId::new("ak:did_core:web:alice.example").unwrap(),
-            ),
+                arkret_wire::DidCoreId::new("ak:did_core:web:station.example").unwrap(),
+            )),
             device_id: "ak:device:01904100-0000-7000-8000-000000000004",
             push_key: Some("fcm:very-secret-token"),
             platform,
@@ -220,9 +227,9 @@ mod tests {
         );
         assert_eq!(
             request
-                .principal_id
+                .account_id
                 .as_ref()
-                .map(arkret_wire::DidCoreId::as_str),
+                .map(|account| account.principal_id.as_str()),
             Some("ak:did_core:web:alice.example")
         );
         assert_eq!(
@@ -260,9 +267,9 @@ mod tests {
         );
         assert_eq!(
             request
-                .principal_id
+                .account_id
                 .as_ref()
-                .map(arkret_wire::DidCoreId::as_str),
+                .map(|account| account.principal_id.as_str()),
             Some("ak:did_core:web:alice.example")
         );
         assert_eq!(

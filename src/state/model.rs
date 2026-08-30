@@ -1,7 +1,7 @@
 //! Persistable push registration state types and helpers.
 
 use arkret_models_integration::PushRegisterDeviceOutcome;
-use arkret_wire::{DidCoreId, OpaqueLocalId};
+use arkret_wire::{AccountId, OpaqueLocalId};
 use serde::{Deserialize, Serialize};
 
 use crate::{ChimePushRegisterDeviceRequest, GatewayBinding, redact_push_key};
@@ -12,9 +12,10 @@ use crate::{ChimePushRegisterDeviceRequest, GatewayBinding, redact_push_key};
 /// aggressively and old development blobs are not retained as a compatibility
 /// surface.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct PushRegistrationState {
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub principal_id: Option<DidCoreId>,
+    pub account_id: Option<AccountId>,
     pub registration_id: Option<OpaqueLocalId>,
     pub device_id: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -44,7 +45,10 @@ pub fn hash_push_key(push_key: &str) -> String {
 /// };
 ///
 /// let config = PushDeviceConfig {
-///     principal_id: Some(arkret_wire::DidCoreId::new("ak:did_core:web:alice.example").unwrap()),
+///     account_id: Some(arkret_wire::AccountId::new(
+///         arkret_wire::DidCoreId::new("ak:did_core:web:alice.example").unwrap(),
+///         arkret_wire::DidCoreId::new("ak:did_core:web:station.example").unwrap(),
+///     )),
 ///     device_id: "ak:device:01904100-0000-7000-8000-000000000004",
 ///     push_key: Some("fcm:token"),
 ///     platform: Some("android"),
@@ -83,7 +87,7 @@ pub fn build_registration_state(
     registered_at: Option<&str>,
 ) -> PushRegistrationState {
     PushRegistrationState {
-        principal_id: request.principal_id.clone(),
+        account_id: request.account_id.clone(),
         registration_id: response.registration_id.clone(),
         device_id: request.device_id.clone(),
         platform: request.platform.clone(),
@@ -136,7 +140,10 @@ mod tests {
         );
 
         assert_eq!(
-            state.principal_id.as_ref().map(DidCoreId::as_str),
+            state
+                .account_id
+                .as_ref()
+                .map(|account| account.principal_id.as_str()),
             Some("ak:did_core:web:alice.example")
         );
         assert_eq!(state.platform.as_deref(), Some("android"));
@@ -147,5 +154,26 @@ mod tests {
             state.last_success_at.as_deref(),
             Some("2026-04-29T00:00:00.000Z")
         );
+    }
+
+    #[test]
+    fn same_principal_station_registrations_remain_distinct_and_private() {
+        let request =
+            build_register_device_request(&config("fcm:token"), &binding(), &prefs()).unwrap();
+        let mut other = request.clone();
+        other.account_id.as_mut().unwrap().station_id =
+            arkret_wire::DidCoreId::new("ak:did_core:web:other-station.example").unwrap();
+        assert_ne!(request.account_id, other.account_id);
+        let wire = serde_json::to_value(request.to_sdk_request().unwrap()).unwrap();
+        assert_eq!(
+            wire,
+            serde_json::to_value(other.to_sdk_request().unwrap()).unwrap()
+        );
+        assert!(wire.get("account_id").is_none());
+        assert!(wire.get("principal_id").is_none());
+        let mut persisted = serde_json::to_value(&request).unwrap();
+        assert!(persisted["account_id"].is_object());
+        persisted["principal_id"] = serde_json::json!("ak:did_core:web:alice.example");
+        assert!(serde_json::from_value::<ChimePushRegisterDeviceRequest>(persisted).is_err());
     }
 }

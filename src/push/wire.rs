@@ -10,7 +10,7 @@
 
 use std::fmt;
 
-use arkret_wire::DidCoreId;
+use arkret_wire::AccountId;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -61,8 +61,8 @@ impl TryFrom<&str> for PushPlatform {
 /// without a compatibility window.
 #[derive(Clone)]
 pub struct PushDeviceConfig<'a> {
-    /// Arkret principal ID that owns this device registration.
-    pub principal_id: Option<DidCoreId>,
+    /// Complete Station-local account owning this registration; local metadata only.
+    pub account_id: Option<AccountId>,
     /// Arkret device id, usually a `ak:device:*` typed id.
     pub device_id: &'a str,
     /// Platform push token, e.g. `fcm:...`, `apns:...`, `webpush:...`.
@@ -98,7 +98,7 @@ pub struct PushDeviceConfig<'a> {
 impl fmt::Debug for PushDeviceConfig<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("PushDeviceConfig")
-            .field("principal_id", &self.principal_id)
+            .field("account_id", &self.account_id)
             .field("device_id", &self.device_id)
             .field("push_key", &self.push_key.map(redact_push_key))
             .field("platform", &self.platform)
@@ -119,24 +119,26 @@ impl fmt::Debug for PushDeviceConfig<'_> {
 /// body is [`arkret_models_integration::PushRegisterDeviceRequestBody`] and is the only thing
 /// ever serialized onto the wire — chime derives it from this builder via
 /// [`Self::to_sdk_request`]. The transport-only fields carried here
-/// (`operation_id`, `principal_id`, `idempotency_key`, `request_id`,
+/// (`operation_id`, `idempotency_key`, `request_id`,
 /// `proof`) ride HTTP headers and the URL path, never the body
 /// (`push-operations.schema.json` sets `additionalProperties:false` on the
 /// canonical body; `service-http-binding.md:211-212`). The
 /// `Serialize`/`Deserialize` derives exist only so hosts can persist a
 /// pending request body; the resulting JSON is private SDK state, **never**
 /// a notify/register wire body. Always route through
-/// [`Self::to_sdk_request`] before POSTing.
+/// [`Self::to_sdk_request`] before POSTing. `account_id` is local ownership
+/// metadata only and is never sent in a body or header to the push gateway.
 ///
 /// Stability: v1 development phase; the shape may change aggressively.
 /// Build via `ChimePushRegisterDeviceRequest { ..Default::default() }`
 /// from external crates so field additions stay source-compatible.
 #[derive(Clone, Default, PartialEq, Serialize, Deserialize)]
 #[non_exhaustive]
+#[serde(deny_unknown_fields)]
 pub struct ChimePushRegisterDeviceRequest {
     pub operation_id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub principal_id: Option<DidCoreId>,
+    pub account_id: Option<AccountId>,
     pub device_id: String,
     pub push_gateway: String,
     pub push_key: String,
@@ -158,7 +160,7 @@ impl fmt::Debug for ChimePushRegisterDeviceRequest {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("ChimePushRegisterDeviceRequest")
             .field("operation_id", &self.operation_id)
-            .field("principal_id", &self.principal_id)
+            .field("account_id", &self.account_id)
             .field("device_id", &self.device_id)
             .field("push_gateway", &redact_url(&self.push_gateway))
             .field("push_key", &redact_push_key(&self.push_key))
@@ -205,7 +207,7 @@ impl ChimePushRegisterDeviceRequest {
 /// body is [`arkret_models_integration::PushUnregisterDeviceRequestBody`] and is the only
 /// thing serialized onto the wire — chime derives it from this builder via
 /// [`Self::to_sdk_request`], which keeps only `{device_id, push_key?,
-/// app_id?}`. The remaining fields here (`operation_id`, `principal_id`,
+/// app_id?}`. The remaining fields here (`operation_id`, `account_id`,
 /// `registration_id`, `push_gateway`, `push_key_hash`, `push_key_preview`,
 /// `idempotency_key`, `request_id`, `proof`) are correlation / transport
 /// metadata that ride HTTP headers or local state — never the body
@@ -214,16 +216,18 @@ impl ChimePushRegisterDeviceRequest {
 /// derives exist only so hosts can persist a pending request body; the
 /// resulting JSON is private SDK state, **never** an unregister wire body.
 /// Always route through [`Self::to_sdk_request`] before POSTing.
+/// `account_id` stays exclusively in local state, never HTTP headers.
 ///
 /// Stability: v1 development phase; the shape may change aggressively.
 /// Build via `ChimePushUnregisterDeviceRequest { ..Default::default() }`
 /// from external crates.
 #[derive(Clone, Default, PartialEq, Serialize, Deserialize)]
 #[non_exhaustive]
+#[serde(deny_unknown_fields)]
 pub struct ChimePushUnregisterDeviceRequest {
     pub operation_id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub principal_id: Option<DidCoreId>,
+    pub account_id: Option<AccountId>,
     pub device_id: String,
     /// Opaque push-gateway-local registration id, not a typed-ID; see
     /// [`PushDeviceConfig::registration_id`].
@@ -251,7 +255,7 @@ impl fmt::Debug for ChimePushUnregisterDeviceRequest {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("ChimePushUnregisterDeviceRequest")
             .field("operation_id", &self.operation_id)
-            .field("principal_id", &self.principal_id)
+            .field("account_id", &self.account_id)
             .field("device_id", &self.device_id)
             .field("registration_id", &self.registration_id)
             .field(
