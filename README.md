@@ -220,7 +220,7 @@ let request = build_register_device_request(&config, &binding, &prefs)?;
 let response = client
     .register_device_with_request(&request, None, None)
     .await?;
-assert!(response.body.ok);
+let _push_target_id = response.body.push_target_id;
 # Ok(())
 # }
 ```

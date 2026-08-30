@@ -17,44 +17,38 @@ exclude = [".github/"]
 all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
 
-[lints]
-workspace = true
+[workspace]
+resolver = "3"
 
-[dependencies]
-# `chrono` backs the DND schedule evaluation in `rules.rs`; the default
-# features are stripped to keep the wasm32 build slim.
+[workspace.lints.rust]
+unsafe_code = "deny"
 
-# C34.1: split the `http` transport deps per target. Native targets keep
-# reqwest+rustls+tokio; the wasm32 build routes through reqwest's
-# fetch-backed wasm32 backend and uses `gloo-timers` for retry sleeps
-# because there is no tokio runtime on the browser main thread.
-chrono = {workspace = true,default-features = false,features = ["serde", "clock"]}
-chrono-tz = {workspace = true}
-arkret-canonical = {workspace = true}
-arkret-models-discovery = {workspace = true}
-arkret-models-integration = {workspace = true}
-arkret-push-policy = {workspace = true}
-arkret-retry = {workspace = true}
-arkret-wire = {workspace = true}
-httpdate = {workspace = true}
-serde = {workspace = true,features = ["derive"]}
-serde_json = {workspace = true}
-thiserror = {workspace = true}
-tracing = {workspace = true}
-url = {workspace = true}
-[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-# A.5 #2 — wrap bearer tokens in a `SecretString` so Drop zeroes the
-# heap allocation. Pulled in only for native targets that build the
-# `http` client; the wasm32 build also needs it (token surface is
-# identical) and so re-declares the same dep below.
-reqwest = {workspace = true,default-features = false,features = ["json", "rustls"],optional = true}
-tokio = {workspace = true,features = ["time"],optional = true}
-zeroize = {workspace = true,features = ["derive"],optional = true}
+[workspace.lints.clippy]
+dbg_macro = "deny"
+mem_forget = "deny"
+todo = "deny"
+unimplemented = "deny"
 
-[target.'cfg(target_arch = "wasm32")'.dependencies]
-gloo-timers = {workspace = true,features = ["futures"],optional = true}
-reqwest = {workspace = true,default-features = false,features = ["json"],optional = true}
-zeroize = {workspace = true,features = ["derive"],optional = true}
+[workspace.dependencies]
+arkret-canonical = { version = "0.3.0", path = "../arkret-rust-sdk/crates/canonical" }
+arkret-models-discovery = { version = "0.3.0", path = "../arkret-rust-sdk/crates/models-discovery" }
+arkret-models-integration = { version = "0.3.0", path = "../arkret-rust-sdk/crates/models-integration" }
+arkret-push-policy = { version = "0.3.0", path = "../arkret-rust-sdk/crates/push-policy" }
+arkret-retry = { version = "0.3.0", path = "../arkret-rust-sdk/crates/retry" }
+arkret-wire = { version = "0.3.0", path = "../arkret-rust-sdk/crates/wire" }
+chrono = { version = "0.4", default-features = false }
+chrono-tz = "0.10"
+gloo-timers = "0.4"
+httpdate = "1"
+proptest = { version = "1", default-features = false }
+reqwest = { version = "0.13", default-features = false }
+serde = "1.0"
+serde_json = "1.0"
+thiserror = "2"
+tokio = "1"
+tracing = "0.1"
+url = "2"
+zeroize = "1"
 
 [features]
 default = []
@@ -70,39 +64,45 @@ default = []
 ## exists when the `http` client is compiled.
 http = ["dep:reqwest", "dep:tokio", "dep:gloo-timers", "dep:zeroize"]
 
+[dependencies]
+arkret-canonical = { workspace = true }
+arkret-models-discovery = { workspace = true }
+arkret-models-integration = { workspace = true }
+arkret-push-policy = { workspace = true }
+arkret-retry = { workspace = true }
+arkret-wire = { workspace = true }
+# `chrono` backs the DND schedule evaluation in `rules.rs`; the default
+# features are stripped to keep the wasm32 build slim.
+
+# C34.1: split the `http` transport deps per target. Native targets keep
+# reqwest+rustls+tokio; the wasm32 build routes through reqwest's
+# fetch-backed wasm32 backend and uses `gloo-timers` for retry sleeps
+# because there is no tokio runtime on the browser main thread.
+chrono = { workspace = true, default-features = false, features = ["serde", "clock"] }
+chrono-tz = { workspace = true }
+httpdate = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+url = { workspace = true }
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+# A.5 #2 — wrap bearer tokens in a `SecretString` so Drop zeroes the
+# heap allocation. Pulled in only for native targets that build the
+# `http` client; the wasm32 build also needs it (token surface is
+# identical) and so re-declares the same dep below.
+reqwest = { workspace = true, default-features = false, features = ["json", "rustls"], optional = true }
+tokio = { workspace = true, features = ["time"], optional = true }
+zeroize = { workspace = true, features = ["derive"], optional = true }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+gloo-timers = { workspace = true, features = ["futures"], optional = true }
+reqwest = { workspace = true, default-features = false, features = ["json"], optional = true }
+zeroize = { workspace = true, features = ["derive"], optional = true }
+
 [dev-dependencies]
-proptest = {workspace = true,default-features = false,features = ["std"]}
-tokio = {workspace = true,features = ["io-util", "macros", "net", "rt-multi-thread", "time"]}
+proptest = { workspace = true, default-features = false, features = ["std"] }
+tokio = { workspace = true, features = ["io-util", "macros", "net", "rt-multi-thread", "time"] }
 
-[workspace]
-resolver = "3"
-
-[workspace.lints.rust]
-unsafe_code = "deny"
-
-[workspace.lints.clippy]
-dbg_macro = "deny"
-mem_forget = "deny"
-todo = "deny"
-unimplemented = "deny"
-
-[workspace.dependencies]
-chrono = {version = "0.4",default-features = false}
-chrono-tz = "0.10"
-arkret-canonical = {version = "0.3.0",path = "../arkret-rust-sdk/crates/canonical"}
-arkret-models-discovery = {version = "0.3.0",path = "../arkret-rust-sdk/crates/models-discovery"}
-arkret-models-integration = {version = "0.3.0",path = "../arkret-rust-sdk/crates/models-integration"}
-arkret-push-policy = {version = "0.3.0",path = "../arkret-rust-sdk/crates/push-policy"}
-arkret-retry = {version = "0.3.0",path = "../arkret-rust-sdk/crates/retry"}
-arkret-wire = {version = "0.3.0",path = "../arkret-rust-sdk/crates/wire"}
-gloo-timers = "0.4"
-httpdate = "1"
-proptest = {version = "1",default-features = false}
-reqwest = {version = "0.13",default-features = false}
-serde = "1.0"
-serde_json = "1.0"
-thiserror = "2"
-tokio = "1"
-tracing = "0.1"
-url = "2"
-zeroize = "1"
+[lints]
+workspace = true

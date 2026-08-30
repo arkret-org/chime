@@ -181,7 +181,7 @@ async fn unregister_success() {
         body: "",
     }]);
 
-    let response = client(base_url)
+    client(base_url)
         .unregister_device_with_request(&unregister_request(), None, None)
         .await
         .unwrap();
@@ -372,7 +372,7 @@ async fn retries_429_and_honors_retry_after() {
         },
     ]);
 
-    let response = client_with_retry_policy(
+    client_with_retry_policy(
         base_url,
         PushRetryPolicy {
             retry: arkret_retry::RetryPolicy::none().with_max_retries(1),
@@ -406,7 +406,7 @@ async fn default_register_allows_with_session_grant_header() {
         body: r#"{"push_target_id":"ak:pseudonym:push:kosc9iQ4gVct1OB-b6X364WIFIsJFVbVzn7BMBs1sm8","registration_id":"reg-1"}"#,
     }]);
 
-    let response = ArkretPushClient::new(base_url)
+    ArkretPushClient::new(base_url)
         .with_session_grant("coauth-grant-secret")
         .unwrap()
         .register_device_with_request(&register_request(), None, None)
@@ -435,7 +435,7 @@ async fn opting_out_session_grant_allows_register_without_header() {
         body: r#"{"push_target_id":"ak:pseudonym:push:kosc9iQ4gVct1OB-b6X364WIFIsJFVbVzn7BMBs1sm8"}"#,
     }]);
 
-    let response = ArkretPushClient::new(base_url)
+    ArkretPushClient::new(base_url)
         .with_required_session_grant(false)
         .register_device_with_request(&register_request(), None, None)
         .await
@@ -460,7 +460,7 @@ async fn register_auto_generates_idempotency_key_when_omitted() {
     config.idempotency_key = None;
     let request = build_register_device_request(&config, &binding(), &prefs()).unwrap();
 
-    let response = client_with_retry_policy(
+    client_with_retry_policy(
         base_url,
         PushRetryPolicy {
             retry: arkret_retry::RetryPolicy::none().with_max_retries(1),
@@ -529,7 +529,7 @@ async fn retries_503() {
         },
     ]);
 
-    let response = client_with_retry_policy(
+    client_with_retry_policy(
         base_url,
         PushRetryPolicy {
             retry: arkret_retry::RetryPolicy::none().with_max_retries(1),
