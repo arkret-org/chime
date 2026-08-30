@@ -28,10 +28,8 @@ wire-breaking list; the normative source remains `../arkret-spec/spec/v1/`.
   push-payload structs expose the field; consumers decide whether the
   active device route token is an authorised
   redirect target.
-- **New floria-passthrough error reason codes** —
-  `delivery_binding_stale` / `delivery_binding_handed_over` /
-  `historical_only` join the typed reason-code surface;
-  `historical_only` is annotated as diagnostic and suppresses
+- **Floria-passthrough diagnostic reason code** —
+  `historical_only` is part of the typed reason-code surface and suppresses
   user-visible notification.
 
 ## Ephemeral kinds

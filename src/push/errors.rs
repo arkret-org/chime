@@ -37,17 +37,6 @@ pub enum PushErrorKind {
     Network,
     ResponseInvalid,
     HttpStatus,
-    /// Federation sender used an obsolete member
-    /// delivery binding frontier. The response carries
-    /// `new_recipient_id` + `handover_frontier`; chime
-    /// consumers MUST resolve the current binding and retry against the
-    /// new recipient rather than re-issuing the same wakeup.
-    DeliveryBindingStale,
-    /// Sender continued using a previous `recipient_id`
-    /// after the handover grace window expired. Sender MUST resolve the
-    /// current binding and retry there. Treat as terminal for the old
-    /// recipient.
-    DeliveryBindingHandedOver,
     /// Idempotency cache replay served only as a historical
     /// diagnostic after key or binding state changed. Receivers MUST NOT
     /// perform new reducer side effects; in particular chime consumers
@@ -81,10 +70,8 @@ impl PushErrorKind {
             Self::Network => 16,
             Self::ResponseInvalid => 17,
             Self::HttpStatus => 18,
-            // Delivery-binding additions are bit-position appended;
-            // never reorder existing ones.
-            Self::DeliveryBindingStale => 19,
-            Self::DeliveryBindingHandedOver => 20,
+            // Preserve the historical bit position after the retired
+            // delivery-handover categories; never reorder existing values.
             Self::HistoricalOnly => 21,
         }
     }
@@ -145,14 +132,6 @@ impl PushErrorKind {
             (
                 arkret_wire::ErrorCode::PARAM_INVALID,
                 PushErrorKind::SchemaViolation,
-            ),
-            (
-                arkret_wire::ErrorCode::DELIVERY_BINDING_STALE,
-                PushErrorKind::DeliveryBindingStale,
-            ),
-            (
-                arkret_wire::ErrorCode::DELIVERY_BINDING_HANDED_OVER,
-                PushErrorKind::DeliveryBindingHandedOver,
             ),
             (
                 arkret_wire::ErrorCode::HISTORICAL_ONLY,
@@ -420,19 +399,7 @@ mod tests {
     }
 
     #[test]
-    fn delivery_binding_and_historical_only_codes_classify() {
-        // chime must recognise the delivery-binding and historical-only wire
-        // codes that floria/soland forward so consumers can branch on them.
-        assert_eq!(
-            PushErrorKind::from_failure_reason_code(arkret_wire::ErrorCode::DELIVERY_BINDING_STALE),
-            Some(PushErrorKind::DeliveryBindingStale)
-        );
-        assert_eq!(
-            PushErrorKind::from_failure_reason_code(
-                arkret_wire::ErrorCode::DELIVERY_BINDING_HANDED_OVER
-            ),
-            Some(PushErrorKind::DeliveryBindingHandedOver)
-        );
+    fn historical_only_code_classifies() {
         assert_eq!(
             PushErrorKind::from_failure_reason_code(arkret_wire::ErrorCode::HISTORICAL_ONLY),
             Some(PushErrorKind::HistoricalOnly)
@@ -461,8 +428,6 @@ mod tests {
             PushErrorKind::Network,
             PushErrorKind::ResponseInvalid,
             PushErrorKind::HttpStatus,
-            PushErrorKind::DeliveryBindingStale,
-            PushErrorKind::DeliveryBindingHandedOver,
             PushErrorKind::HistoricalOnly,
         ];
         let mut seen = std::collections::BTreeSet::new();
@@ -474,23 +439,7 @@ mod tests {
     }
 
     #[test]
-    fn delivery_binding_stale_maps_409_and_historical_only_maps_200() {
-        // Spec status mapping: stale/handed_over → 409, historical_only → 200.
-        let envelope = ErrorEnvelope {
-            ok: false,
-            error: ErrorDetail {
-                code: arkret_wire::ErrorCode::DELIVERY_BINDING_STALE.to_owned(),
-                message: "stale".to_owned(),
-                retry_after_ms: None,
-                details: BTreeMap::new(),
-            },
-            request_id: "ak:request:01904100-0000-7000-8000-000000000011".to_owned(),
-        };
-        assert_eq!(
-            classify_http_error(409, Some(&envelope)),
-            PushErrorKind::DeliveryBindingStale
-        );
-
+    fn historical_only_maps_200() {
         let envelope = ErrorEnvelope {
             ok: false,
             error: ErrorDetail {

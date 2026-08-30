@@ -15,9 +15,7 @@ chime 将网关/协议失败归一到 `PushErrorKind`。调用方应优先按 ki
 | `DuplicateConflict` | 幂等冲突；确认 idempotency key 后再决定是否重发。 |
 | `Gone` | push token 或 registration 已失效，丢弃本地状态并重新注册。 |
 
-## delivery binding
+## 历史诊断
 
-- `DeliveryBindingStale` / `DeliveryBindingHandedOver`：停止向旧 recipient
-  发送，重新解析当前 binding。
 - `HistoricalOnly`：只作为诊断响应，不要触发新的 reducer 副作用、push
   fanout 或重试。
