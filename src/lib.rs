@@ -6,7 +6,7 @@
 //! registration helpers.
 //!
 //! This crate provides the shared data types and logic used by Arkret
-//! clients to register push-capable devices with a Arkret Principal Server,
+//! clients to register push-capable devices with a Arkret Station,
 //! Sync Service, or delegated Push Gateway.
 //!
 //! ## Gateway support

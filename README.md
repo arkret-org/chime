@@ -9,7 +9,7 @@
 
 Arkret push notification gateway types, preferences, and device registration helpers.
 
-**chime** provides shared data types and request-building logic for Arkret clients that need to register push-capable devices with a Principal Server, Sync Service, or delegated Push Gateway.
+**chime** provides shared data types and request-building logic for Arkret clients that need to register push-capable devices with a Station, Sync Service, or delegated Push Gateway.
 
 ## Realm vs Space
 
@@ -244,7 +244,7 @@ Persistence is host-owned: store the state through an OS keychain, encrypted app
 `chime` is a library, not a service — it has no daemon, no config file
 of its own, and no environment variables it reads. Operational concerns
 live entirely in the host application that wires `ArkretPushClient`
-into a Arkret Principal Server / Sync Service deployment.
+into a Arkret Station / Sync Service deployment.
 
 ### Build profile
 
@@ -339,7 +339,7 @@ Arkret Client
    +----+----+     build_register_device_request(config, binding, prefs)
         |          ArkretPushClient (optional)
         v
-Principal Server / Sync Service
+Station / Sync Service
         |
         v
 Arkret Push Gateway
