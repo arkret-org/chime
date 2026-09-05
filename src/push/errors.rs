@@ -3,7 +3,7 @@
 use std::fmt;
 use std::time::{Duration, SystemTime};
 
-use arkret_wire::ErrorEnvelope;
+use arkret_wire::Problem;
 use thiserror::Error;
 
 use super::urls::{redact_url, redact_webpush_endpoint};
@@ -169,7 +169,7 @@ pub enum PushRegistrationError {
     HttpStatus {
         status: u16,
         kind: PushErrorKind,
-        error: Option<Box<ErrorEnvelope>>,
+        error: Option<Box<Problem>>,
         body: String,
         retry_after: Option<String>,
         request_id: Option<String>,
@@ -228,7 +228,7 @@ impl fmt::Debug for PushRegistrationError {
                 retry_after,
                 request_id,
             } => {
-                let redacted_error = error.as_deref().map(RedactedErrorEnvelope);
+                let redacted_error = error.as_deref().map(RedactedProblem);
                 f.debug_struct("HttpStatus")
                     .field("status", status)
                     .field("kind", kind)
@@ -245,17 +245,17 @@ impl fmt::Debug for PushRegistrationError {
     }
 }
 
-struct RedactedErrorEnvelope<'a>(&'a ErrorEnvelope);
+struct RedactedProblem<'a>(&'a Problem);
 
-impl fmt::Debug for RedactedErrorEnvelope<'_> {
+impl fmt::Debug for RedactedProblem<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("ErrorEnvelope")
-            .field("ok", &self.0.ok)
-            .field("code", &self.0.error.code)
-            .field("message_present", &(!self.0.error.message.is_empty()))
-            .field("retry_after_ms", &self.0.error.retry_after_ms)
-            .field("details_present", &(!self.0.error.details.is_empty()))
-            .field("request_id", &self.0.request_id)
+        f.debug_struct("Problem")
+            .field("code", &self.0.code())
+            .field("status", &self.0.status)
+            .field("detail_present", &(!self.0.detail.is_empty()))
+            .field("retry_after_ms", &self.0.retry_after_ms())
+            .field("extensions_present", &(!self.0.extensions.is_empty()))
+            .field("instance", &self.0.instance)
             .finish()
     }
 }
@@ -302,7 +302,7 @@ impl PushRegistrationError {
             } => request_id.as_deref().or_else(|| {
                 error
                     .as_deref()
-                    .map(|envelope| envelope.request_id.as_str())
+                    .and_then(|problem| problem.instance.as_deref())
             }),
             _ => None,
         }
@@ -320,8 +320,8 @@ impl PushRegistrationError {
 }
 
 #[cfg(any(test, feature = "http"))]
-pub(super) fn classify_http_error(status: u16, error: Option<&ErrorEnvelope>) -> PushErrorKind {
-    if let Some(code) = error.map(|envelope| envelope.error.code.as_str())
+pub(super) fn classify_http_error(status: u16, error: Option<&Problem>) -> PushErrorKind {
+    if let Some(code) = error.map(|envelope| envelope.code())
         && let Some(kind) = PushErrorKind::from_failure_reason_code(code)
     {
         return kind;
@@ -352,24 +352,16 @@ pub(super) fn parse_retry_after(value: &str) -> Option<Duration> {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::BTreeMap;
-
-    use arkret_wire::ErrorDetail;
 
     use super::*;
 
     #[test]
     fn classifies_error_codes() {
-        let envelope = ErrorEnvelope {
-            ok: false,
-            error: ErrorDetail {
-                code: arkret_wire::ErrorCode::CAPABILITY_DENIED.to_owned(),
-                message: "denied".to_owned(),
-                retry_after_ms: None,
-                details: BTreeMap::new(),
-            },
-            request_id: "ak:request:01904100-0000-7000-8000-000000000010".to_owned(),
-        };
+        let envelope = Problem::from_code(
+            arkret_wire::ErrorCode::CAPABILITY_DENIED.to_owned(),
+            "denied",
+        )
+        .with_instance("ak:request:01904100-0000-7000-8000-000000000010");
 
         assert_eq!(
             classify_http_error(403, Some(&envelope)),
@@ -440,16 +432,11 @@ mod tests {
 
     #[test]
     fn historical_only_maps_200() {
-        let envelope = ErrorEnvelope {
-            ok: false,
-            error: ErrorDetail {
-                code: arkret_wire::ErrorCode::HISTORICAL_ONLY.to_owned(),
-                message: "diagnostic".to_owned(),
-                retry_after_ms: None,
-                details: BTreeMap::new(),
-            },
-            request_id: "ak:request:01904100-0000-7000-8000-000000000012".to_owned(),
-        };
+        let envelope = Problem::from_code(
+            arkret_wire::ErrorCode::HISTORICAL_ONLY.to_owned(),
+            "diagnostic",
+        )
+        .with_instance("ak:request:01904100-0000-7000-8000-000000000012");
         assert_eq!(
             classify_http_error(200, Some(&envelope)),
             PushErrorKind::HistoricalOnly

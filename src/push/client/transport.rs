@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use arkret_retry::Jitter;
-use arkret_wire::{ErrorEnvelope, ServiceOperationId};
+use arkret_wire::{Problem, ServiceOperationId};
 use serde::{Deserialize, Serialize};
 
 use super::super::errors::{PushRegistrationError, classify_http_error};
@@ -231,9 +231,7 @@ impl ArkretPushClient {
         let body = read_response_body(response).await?;
 
         if !status.is_success() {
-            let error = serde_json::from_str::<ErrorEnvelope>(&body)
-                .ok()
-                .map(Box::new);
+            let error = serde_json::from_str::<Problem>(&body).ok().map(Box::new);
             let kind = classify_http_error(status.as_u16(), error.as_deref());
             return Err(PushRegistrationError::HttpStatus {
                 status: status.as_u16(),
@@ -298,9 +296,7 @@ impl ArkretPushClient {
         let body = read_response_body(response).await?;
 
         if !status.is_success() {
-            let error = serde_json::from_str::<ErrorEnvelope>(&body)
-                .ok()
-                .map(Box::new);
+            let error = serde_json::from_str::<Problem>(&body).ok().map(Box::new);
             let kind = classify_http_error(status.as_u16(), error.as_deref());
             return Err(PushRegistrationError::HttpStatus {
                 status: status.as_u16(),
