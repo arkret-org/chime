@@ -817,7 +817,7 @@ mod tests {
         assert!(parse_dnd_settings(&invalid_tzdb).is_err());
 
         let mut unknown_field = dnd_document(serde_json::json!([]));
-        unknown_field["dnd"]["legacy_mode"] = serde_json::json!(true);
+        unknown_field["dnd"]["unknown_mode"] = serde_json::json!(true);
         assert!(parse_dnd_settings(&unknown_field).is_err());
     }
 
