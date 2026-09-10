@@ -336,7 +336,7 @@ async fn rejects_oversized_response_before_json_decode() {
 }
 
 #[tokio::test]
-async fn error_debug_redacts_envelope_message_and_details() {
+async fn error_debug_redacts_problem_detail_and_extensions() {
     let (base_url, _) = spawn_mock_server(vec![MockHttpOutcome {
         status: "403 Forbidden",
         headers: vec![],
@@ -355,11 +355,11 @@ async fn error_debug_redacts_envelope_message_and_details() {
         PushRegistrationError::HttpStatus {
             error: Some(envelope),
             ..
-        } if !envelope.error.details.is_empty()
+        } if !envelope.extensions.is_empty()
     ));
     assert!(!debug.contains("very-secret-token"));
     assert!(!debug.contains("super-secret-proof"));
-    assert!(debug.contains("details_present"));
+    assert!(debug.contains("extensions_present"));
 }
 
 #[tokio::test]
