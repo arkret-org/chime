@@ -30,6 +30,7 @@ pub(crate) fn config(push_key: &str) -> PushDeviceConfig<'_> {
         domestic_app_id: None,
         registration_id: Some("reg-old"),
         display_name: Some("Alice Phone"),
+        visible_notification_opt_in: false,
         idempotency_key: Some("idem-1"),
         request_id: None,
         proof: None,

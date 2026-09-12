@@ -56,6 +56,7 @@ pub fn hash_push_key(push_key: &str) -> String {
 ///     domestic_app_id: None,
 ///     registration_id: None,
 ///     display_name: None,
+///     visible_notification_opt_in: false,
 ///     idempotency_key: None,
 ///     request_id: None,
 ///     proof: None,

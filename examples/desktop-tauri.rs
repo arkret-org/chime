@@ -44,6 +44,7 @@ fn register_desktop_device() -> Result<(), Box<dyn std::error::Error>> {
         domestic_app_id: None,
         registration_id: None,
         display_name: Some("Alice -- Tauri Desktop"),
+        visible_notification_opt_in: false,
         idempotency_key: Some("register-tauri-desktop-v1"),
         request_id: None,
         proof: None,

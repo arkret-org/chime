@@ -36,6 +36,7 @@ use crate::{GatewayBinding, PushPreferences, hash_push_key};
 ///     domestic_app_id: None,
 ///     registration_id: None,
 ///     display_name: Some("Alice Phone"),
+///     visible_notification_opt_in: false,
 ///     idempotency_key: Some("register-phone-v1"),
 ///     request_id: None,
 ///     proof: None,
@@ -84,6 +85,7 @@ pub fn build_register_device_request(
         platform: platform.map(|value| value.as_str().to_owned()),
         app_id: app_id.map(str::to_owned),
         display_name: config.display_name.map(str::to_owned),
+        visible_notification_opt_in: config.visible_notification_opt_in,
         idempotency_key: config.idempotency_key.map(str::to_owned),
         request_id: config.request_id.map(str::to_owned),
         proof: config.proof.cloned(),
@@ -112,6 +114,7 @@ pub fn build_register_device_request(
 ///     domestic_app_id: None,
 ///     registration_id: Some("pushreg-01JS0KE000000000000000000"),
 ///     display_name: None,
+///     visible_notification_opt_in: false,
 ///     idempotency_key: Some("unregister-phone-v1"),
 ///     request_id: None,
 ///     proof: None,
@@ -195,6 +198,7 @@ mod tests {
             domestic_app_id: Some("app.example.android.cn"),
             registration_id: Some("pushreg-01JS0KE000000000000000000"),
             display_name: Some("Alice Phone"),
+            visible_notification_opt_in: false,
             idempotency_key: Some("idem-1"),
             request_id: Some("ak:request:01904100-0000-7000-8000-000000000050"),
             proof: None,
@@ -394,5 +398,32 @@ mod tests {
         let unregister_debug = format!("{unregister:?}");
         assert!(!unregister_debug.contains("very-secret-token"));
         assert!(!unregister_debug.contains("debug=true"));
+    }
+    #[test]
+    fn visible_notification_opt_in_is_explicit_registration_state() {
+        let mut device = config(Some("android"));
+        let binding = GatewayBinding::new(
+            PushGatewayType::Standard,
+            "https://push.example.com/_arkret/edge/push/notify",
+        );
+        let prefs = PushPreferences::default();
+        let blind = build_register_device_request(&device, &binding, &prefs).unwrap();
+        assert!(!blind.to_sdk_request().unwrap().visible_notification_opt_in);
+        device.visible_notification_opt_in = true;
+        let visible = build_register_device_request(&device, &binding, &prefs).unwrap();
+        assert!(
+            visible
+                .to_sdk_request()
+                .unwrap()
+                .visible_notification_opt_in
+        );
+        let persisted = serde_json::to_string(&visible).unwrap();
+        let restored: ChimePushRegisterDeviceRequest = serde_json::from_str(&persisted).unwrap();
+        assert!(
+            restored
+                .to_sdk_request()
+                .unwrap()
+                .visible_notification_opt_in
+        );
     }
 }

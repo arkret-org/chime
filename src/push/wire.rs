@@ -83,6 +83,8 @@ pub struct PushDeviceConfig<'a> {
     pub registration_id: Option<&'a str>,
     /// User-readable device name.
     pub display_name: Option<&'a str>,
+    /// Explicit permission for provider-visible notification metadata.
+    pub visible_notification_opt_in: bool,
     /// Idempotency key sent both as request metadata and, for services that
     /// persist it, as an optional request body field.
     pub idempotency_key: Option<&'a str>,
@@ -106,6 +108,10 @@ impl fmt::Debug for PushDeviceConfig<'_> {
             .field("domestic_app_id", &self.domestic_app_id)
             .field("registration_id", &self.registration_id)
             .field("display_name", &self.display_name)
+            .field(
+                "visible_notification_opt_in",
+                &self.visible_notification_opt_in,
+            )
             .field("idempotency_key", &self.idempotency_key)
             .field("request_id", &self.request_id)
             .field("proof", &self.proof.map(|_| "<present>"))
@@ -148,6 +154,7 @@ pub struct ChimePushRegisterDeviceRequest {
     pub app_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub display_name: Option<String>,
+    pub visible_notification_opt_in: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub idempotency_key: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -167,6 +174,10 @@ impl fmt::Debug for ChimePushRegisterDeviceRequest {
             .field("platform", &self.platform)
             .field("app_id", &self.app_id)
             .field("display_name", &self.display_name)
+            .field(
+                "visible_notification_opt_in",
+                &self.visible_notification_opt_in,
+            )
             .field("idempotency_key", &self.idempotency_key)
             .field("request_id", &self.request_id)
             .field("proof", &self.proof.as_ref().map(|_| "<present>"))
@@ -196,7 +207,7 @@ impl ChimePushRegisterDeviceRequest {
             platform: self.platform.clone(),
             app_id: self.app_id.clone(),
             display_name: self.display_name.clone(),
-            recipient_id: None,
+            visible_notification_opt_in: self.visible_notification_opt_in,
         })
     }
 }

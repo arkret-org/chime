@@ -88,6 +88,7 @@ fn inkson_register_request(
         domestic_app_id: None,
         registration_id: None,
         display_name: Some("inkson smoke device"),
+        visible_notification_opt_in: false,
         idempotency_key: Some("chime-inkson-smoke"),
         request_id: Some("ak:request:01904100-0000-7000-8000-000000000060"),
         proof: None,

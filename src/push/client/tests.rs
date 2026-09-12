@@ -68,6 +68,7 @@ fn config<'a>() -> PushDeviceConfig<'a> {
         domestic_app_id: None,
         registration_id: Some("pushreg-01JS0KE000000000000000000"),
         display_name: Some("Alice Phone"),
+        visible_notification_opt_in: false,
         idempotency_key: Some("idem-1"),
         request_id: Some("ak:request:01904100-0000-7000-8000-000000000020"),
         proof: None,
