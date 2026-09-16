@@ -163,6 +163,7 @@ let config = PushDeviceConfig {
     idempotency_key: Some("device-phone-register-v1"),
     request_id: Some("ak:request:01904100-0000-7000-8000-000000000001"),
     proof: None,
+    visible_notification_opt_in: false,
 };
 
 let binding = GatewayBinding::new(
@@ -199,6 +200,7 @@ assert_eq!(
 #     idempotency_key: None,
 #     request_id: None,
 #     proof: None,
+#     visible_notification_opt_in: false,
 # };
 # let binding = GatewayBinding::new(
 #     PushGatewayType::Standard,
