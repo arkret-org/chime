@@ -9,7 +9,7 @@
 
 Arkret push notification gateway types, preferences, and device registration helpers.
 
-**chime** provides shared data types and request-building logic for Arkret clients that need to register push-capable devices with a Station, Sync Service, or delegated Push Gateway.
+**chime** provides shared data types and request-building logic for Arkret clients that register push-capable devices with their own Station. A Gateway URL is registration data; the client never calls the Gateway directly.
 
 ## Realm vs Space
 
@@ -63,7 +63,7 @@ and `PushGatewayType::Bugle` prefer `domestic_app_id` for Android.
 | Feature | Description |
 | --- | --- |
 | _(default)_ | Core types, JSON serialization helpers, and Arkret register/unregister request builders. No network dependencies. |
-| `http` | Adds `ArkretPushClient`, a small `reqwest` helper for `POST /_arkret/edge/push/register-device` and `POST /_arkret/edge/push/unregister-device`. |
+| `http` | Adds `ArkretPushClient`, a small `reqwest` helper for calling the signed-in account's Station at `POST /_arkret/edge/push/register-device` and `POST /_arkret/edge/push/unregister-device`. |
 
 > **Server-side `ak.edge.push.command.notify.v1` wire types are not part of
 > this crate.** chime is a client SDK: it builds register/unregister
@@ -212,7 +212,8 @@ assert_eq!(
 # };
 use chime::{ArkretPushClient, build_register_device_request};
 
-let client = ArkretPushClient::new("https://principal.example")
+// This is the signed-in account's Station, never `binding.push_gateway`.
+let client = ArkretPushClient::new("https://station.example")
     .with_bearer_token("session-token")
     .with_timeout(std::time::Duration::from_secs(10))
     .with_session_grant("externally-issued-coauth-or-soland-grant")?;
@@ -228,7 +229,7 @@ let _push_target_id = response.body.push_target_id;
 
 Production notes:
 
-- Authentication material is only sent through headers. Do not put session tokens, API keys, signatures, or bearer tokens in a binding's `push_gateway` URL query string.
+- Authentication material is sent only to the account's Station through headers. It is never forwarded to `binding.push_gateway`; do not put secrets in that URL either.
 - Each binding's `push_gateway` must be HTTPS unless `allow_insecure_loopback_push_gateway` is enabled for localhost development.
 - WebPush registrations can set `webpush_endpoint_allowlist` to restrict accepted endpoint origins or host patterns before a browser endpoint is sent to the service.
 - `push_key` is redacted in debug output and logs; callers should still store it as a secret.
@@ -245,7 +246,7 @@ Persistence is host-owned: store the state through an OS keychain, encrypted app
 `chime` is a library, not a service — it has no daemon, no config file
 of its own, and no environment variables it reads. Operational concerns
 live entirely in the host application that wires `ArkretPushClient`
-into a Arkret Station / Sync Service deployment.
+into the signed-in account's Arkret Station.
 
 ### Build profile
 
@@ -323,7 +324,7 @@ The crate maps to the Arkret v1 push HTTP binding:
 | `ak.edge.push.command.unregister_device.v1` | `POST /_arkret/edge/push/unregister-device` | `build_unregister_device_request()` |
 | `ak.edge.push.command.notify.v1` | `POST /_arkret/edge/push/notify` | Gateway/server-side operation, not a client registration call. |
 
-Register/unregister builders keep the complete optional `AccountId {principal_id, station_id}` as local ownership metadata. It is never added to gateway request bodies or headers. Device id, app id, gateway URL, and push key are projected into the canonical request; operation id, idempotency key, request id, and proof follow their transport bindings. Register responses carry `push_target_id`, optional `registration_id`, and optional `expires_at`; response headers carry transport metadata such as request id.
+Register/unregister builders keep the complete optional `AccountId {principal_id, station_id}` as local ownership metadata. It is never added to Station request bodies or headers. Device id, app id, gateway URL, and push key are projected into the canonical request; operation id, idempotency key, request id, and proof follow their transport bindings. Register responses carry `push_target_id`, optional `registration_id`, and optional `expires_at`; response headers carry transport metadata such as request id.
 
 Push notifications are derived wakeups, not canonical truth. For E2EE Realms, push gateways should receive only minimized metadata such as `push_target_id`, `wakeup_kind`, counts, priority/TTL/collapse hints, and optional body-free `push_hint`.
 
@@ -340,7 +341,7 @@ Arkret Client
    +----+----+     build_register_device_request(config, binding, prefs)
         |          ArkretPushClient (optional)
         v
-Station / Sync Service
+Account Station
         |
         v
 Arkret Push Gateway

@@ -6,8 +6,8 @@
 //! registration helpers.
 //!
 //! This crate provides the shared data types and logic used by Arkret
-//! clients to register push-capable devices with a Arkret Station,
-//! Sync Service, or delegated Push Gateway.
+//! clients to register push-capable devices with their own Arkret Station.
+//! Gateway URLs are registration data; clients never call them directly.
 //!
 //! ## Gateway support
 //!
@@ -46,9 +46,9 @@ pub use gateway_binding::GatewayBinding;
 pub use push::{ArkretHttpOutcome, ArkretPushClient, PushRetryPolicy};
 pub use push::{
     ChimePushRegisterDeviceRequest, ChimePushUnregisterDeviceRequest, PushDeviceConfig,
-    PushErrorKind, PushPlatform, PushRegistrationError, ServiceDescribe,
-    build_register_device_request, build_unregister_device_request, redact_push_key,
-    validate_push_gateway_url, validate_webpush_endpoint_allowlist,
+    PushErrorKind, PushPlatform, PushRegistrationError, build_register_device_request,
+    build_unregister_device_request, redact_push_key, validate_push_gateway_url,
+    validate_webpush_endpoint_allowlist,
 };
 pub use rules::{
     DND_TZDB_VERSION, DndSettingsRejection, NotificationDecision, NotificationEvalContext,

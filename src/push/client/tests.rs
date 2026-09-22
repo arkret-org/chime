@@ -163,6 +163,9 @@ async fn register_success_exposes_response_context_and_headers() {
     // MUST NOT carry any of the transport-only fields the local builder
     // tracks. Split off the headers so we only inspect the JSON body.
     let body = raw.rsplit("\r\n\r\n").next().expect("request has a body");
+    assert!(
+        body.contains("\"push_gateway_url\":\"https://push.example.com/_arkret/edge/push/notify\"")
+    );
     for forbidden in [
         "\"idempotency_key\"",
         "\"operation_id\"",
@@ -206,6 +209,7 @@ async fn unregister_success() {
     assert!(body.contains("\"device_id\":\"ak:device:01904100-0000-7000-8000-000000000005\""));
     assert!(body.contains("\"push_key\":\"fcm:very-secret-token\""));
     assert!(body.contains("\"app_id\":\"app.example.android\""));
+    assert!(!body.contains("push_gateway_url"));
     assert!(
         !body.contains("\"registration_id\""),
         "unregister wire body must not contain registration_id: {body}"
@@ -213,7 +217,7 @@ async fn unregister_success() {
 }
 
 #[tokio::test]
-async fn unregister_not_found_is_idempotent_success() {
+async fn unregister_not_found_is_not_a_station_success() {
     let (base_url, _) = spawn_mock_server(vec![MockHttpOutcome {
         status: "404 Not Found",
         headers: vec![(
@@ -223,13 +227,14 @@ async fn unregister_not_found_is_idempotent_success() {
         body: r#"{"type":"https://arkret.org/problems/not_found","title":"Not found","status":404,"detail":"missing"}"#,
     }]);
 
-    let response = client(base_url)
+    let error = client(base_url)
         .unregister_device_with_request(&unregister_request(), None, None)
         .await
-        .unwrap();
+        .unwrap_err();
 
+    assert_eq!(error.kind(), PushErrorKind::NotFound);
     assert_eq!(
-        response.request_id.as_deref(),
+        error.request_id(),
         Some("ak:request:01904100-0000-7000-8000-000000000023")
     );
 }
@@ -314,6 +319,22 @@ async fn invalid_success_schema_is_invalid_response() {
         .unwrap_err();
 
     assert_eq!(err.kind(), PushErrorKind::ResponseInvalid);
+}
+
+#[tokio::test]
+async fn register_no_content_is_not_a_station_typed_success() {
+    let (station_base_url, _) = spawn_mock_server(vec![MockHttpOutcome {
+        status: "204 No Content",
+        headers: vec![],
+        body: "",
+    }]);
+
+    let error = client(station_base_url)
+        .register_device_with_request(&register_request(), None, None)
+        .await
+        .unwrap_err();
+
+    assert_eq!(error.kind(), PushErrorKind::ResponseInvalid);
 }
 
 #[tokio::test]

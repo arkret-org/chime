@@ -1,15 +1,13 @@
 use std::fmt;
 use std::time::Duration;
 
-use arkret_models_discovery::ServiceDescribe;
 use arkret_models_integration::{PushRegisterDeviceOutcome, PushUnregisterDeviceOutcome};
 
-use super::super::errors::{PushErrorKind, PushRegistrationError};
+use super::super::errors::PushRegistrationError;
 use super::super::urls::redact_url;
 use super::super::wire::{ChimePushRegisterDeviceRequest, ChimePushUnregisterDeviceRequest};
 use super::super::{
-    ARKRET_SESSION_GRANT_HEADER, REGISTER_DEVICE_PATH, SDK_USER_AGENT, SERVICE_DESCRIBE_PATH,
-    UNREGISTER_DEVICE_PATH,
+    ARKRET_SESSION_GRANT_HEADER, REGISTER_DEVICE_PATH, SDK_USER_AGENT, UNREGISTER_DEVICE_PATH,
 };
 use super::retry::{PushRetryPolicy, retry_jitter_seed};
 use super::secret::SecretString;
@@ -18,7 +16,7 @@ use super::transport::{ArkretHttpOutcome, default_http_client};
 #[derive(Clone)]
 pub struct ArkretPushClient {
     pub(super) http: reqwest::Client,
-    pub(super) service_base_url: String,
+    pub(super) station_base_url: String,
     // A.5 #2 — bearer token is held in a zeroize-on-drop wrapper so
     // it does not linger in freed heap allocations after the client is
     // dropped. The Debug impl below redacts it.
@@ -39,7 +37,7 @@ impl fmt::Debug for ArkretPushClient {
         // `Option<&SecretString>` makes that contract grep-able.
         let bearer: Option<&SecretString> = self.bearer_token.as_ref();
         f.debug_struct("ArkretPushClient")
-            .field("service_base_url", &redact_url(&self.service_base_url))
+            .field("station_base_url", &redact_url(&self.station_base_url))
             .field("bearer_token", &bearer)
             .field("timeout", &self.timeout)
             .field("retry_policy", &self.retry_policy)
@@ -51,10 +49,15 @@ impl fmt::Debug for ArkretPushClient {
 }
 
 impl ArkretPushClient {
-    pub fn new(service_base_url: impl Into<String>) -> Self {
+    /// Create a client for the signed-in account's own Station.
+    ///
+    /// A Push Gateway URL belongs only in the register/unregister request
+    /// fields. Passing a Gateway URL here would forward user authentication
+    /// material across the Station boundary and is outside the client API.
+    pub fn new(station_base_url: impl Into<String>) -> Self {
         Self {
             http: default_http_client(),
-            service_base_url: service_base_url.into(),
+            station_base_url: station_base_url.into(),
             bearer_token: None,
             timeout: None,
             retry_policy: PushRetryPolicy::disabled(),
@@ -130,14 +133,6 @@ impl ArkretPushClient {
         Ok(self)
     }
 
-    /// Discover a push gateway through the canonical role-scoped service description.
-    pub async fn service_describe(&self) -> Result<ServiceDescribe, PushRegistrationError> {
-        Ok(self
-            .get_json::<ServiceDescribe>(SERVICE_DESCRIBE_PATH)
-            .await?
-            .body)
-    }
-
     /// Post a pre-built [`ChimePushRegisterDeviceRequest`] through the
     /// configured client (session-grant header, retry policy, and
     /// caller-supplied headers all honored). Use this when callers
@@ -183,23 +178,14 @@ impl ArkretPushClient {
     ) -> Result<ArkretHttpOutcome<PushUnregisterDeviceOutcome>, PushRegistrationError> {
         self.assert_session_grant_if_required()?;
         let sdk_body = body.to_sdk_request()?;
-        let response: ArkretHttpOutcome<()> = match self
+        let response: ArkretHttpOutcome<()> = self
             .post_json(
                 UNREGISTER_DEVICE_PATH,
                 &sdk_body,
                 idempotency_key.or(body.idempotency_key.as_deref()),
                 request_id,
             )
-            .await
-        {
-            Ok(response) => response,
-            Err(error) if error.kind() == PushErrorKind::NotFound => ArkretHttpOutcome {
-                body: (),
-                request_id: error.request_id().map(str::to_owned),
-                retry_after: error.retry_after().map(str::to_owned),
-            },
-            Err(error) => return Err(error),
-        };
+            .await?;
 
         Ok(ArkretHttpOutcome {
             body: PushUnregisterDeviceOutcome,

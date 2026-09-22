@@ -5,7 +5,7 @@ Runnable integration samples that show host applications how to wire
 surface.
 
 All examples are deliberately dependency-free at runtime — they print
-to stdout rather than calling a real gateway, broker, or UI surface —
+to stdout rather than calling a real Station, gateway, broker, or UI surface —
 so `cargo build --examples` stays fast in CI and the example code can
 be reviewed in isolation.
 
@@ -24,7 +24,7 @@ cargo run --example desktop-tauri
 - **Live HTTP I/O.** The desktop example builds the request body and
   hands it back to the caller; the actual `POST` is the host
   application's responsibility (typically via `ArkretPushClient` under
-  the `http` feature).
+  the `http` feature), and its destination is always the account Station.
 - **Inbound signature verification.** chime does not verify push frame
   signatures — see `SECURITY.md` for why and where the host must do it.
 - **Platform UI surfacing.** Toast / banner / call-screen integration is

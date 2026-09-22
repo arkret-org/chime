@@ -4,6 +4,8 @@
 
 ### Removed
 
+- Remove client-side Gateway `ServiceDescribe` fetching. Register/unregister
+  clients are Station-only; Gateway URLs remain request fields.
 - Drop the request-signing surface (`PushRequestSigningContext`,
   `PushRequestSigningOptions`, `content_digest_sha256`, `NonceTracker`,
   the signing-context builders, and the signed-header constants): the
@@ -35,6 +37,8 @@
 
 ### Changed
 
+- Reject unregister `404` instead of manufacturing local success, and require
+  register success to decode the Station's typed outcome (`204` is not enough).
 - Align the active protocol target to `arkret-spec @ 5d66aeb`.
 - Push discovery is host-owned; floria's product-local
   `floria_bridge_describe()` remains the bridge-contract adapter.

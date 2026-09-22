@@ -11,7 +11,7 @@
 //! `cargo build --examples` stay fast in CI. The host application is
 //! expected to own:
 //!
-//! - the actual reqwest / Tauri command bridge to the gateway,
+//! - the actual reqwest / Tauri command bridge to the account Station,
 //! - signature verification on inbound frames (see `SECURITY.md`),
 //! - the platform-specific code that displays the resulting toast.
 //!
@@ -22,9 +22,9 @@ use chime::{
     build_register_device_request,
 };
 
-/// Registers the desktop shell's WebPush endpoint with a Arkret push
-/// gateway. The host owns the actual HTTP call; `chime` only builds
-/// the validated request body.
+/// Registers the desktop shell's WebPush endpoint through its Arkret Station.
+/// The host owns the Station HTTP call; `chime` only builds the validated
+/// request body, including the Gateway URL as data.
 fn register_desktop_device() -> Result<(), Box<dyn std::error::Error>> {
     // Tauri-style: the host shell has subscribed to a browser
     // WebPush endpoint and now needs to hand the resulting token
@@ -67,8 +67,8 @@ fn register_desktop_device() -> Result<(), Box<dyn std::error::Error>> {
         "[desktop-tauri] built register-device for {}",
         request.device_id
     );
-    // The host shell hands `request` to its outbound HTTP layer
-    // (e.g. Tauri command + reqwest). The chime contract ends here.
+    // The host shell hands `request` to its Station-only outbound HTTP layer
+    // (e.g. Tauri command + reqwest). It never calls the Gateway URL directly.
     Ok(())
 }
 

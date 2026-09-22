@@ -5,7 +5,7 @@ use arkret_wire::{Problem, ServiceOperationId};
 use serde::{Deserialize, Serialize};
 
 use super::super::errors::{PushRegistrationError, classify_http_error};
-use super::super::urls::try_arkret_api_url;
+use super::super::urls::try_station_api_url;
 use super::super::{ARKRET_REQUEST_ID_HEADER, RETRY_AFTER_HEADER};
 use super::core::ArkretPushClient;
 use super::retry::{generate_idempotency_key, retry_jitter_seed, sleep_for};
@@ -133,38 +133,6 @@ impl ArkretPushClient {
         }
     }
 
-    pub(super) async fn get_json<R>(
-        &self,
-        path: &str,
-    ) -> Result<ArkretHttpOutcome<R>, PushRegistrationError>
-    where
-        R: for<'de> Deserialize<'de>,
-    {
-        let mut retry_count = 0;
-
-        loop {
-            let result = self.get_json_once(path).await;
-
-            match result {
-                Ok(response) => return Ok(response),
-                Err(error)
-                    if retry_count < self.retry_policy.retry.max_retries()
-                        && error.is_retryable()
-                        && !self.retry_policy.retries_disabled_for(error.kind()) =>
-                {
-                    let delay = error
-                        .retry_after_duration()
-                        .unwrap_or_else(|| self.backoff_delay(retry_count));
-                    if !delay.is_zero() {
-                        sleep_for(delay).await;
-                    }
-                    retry_count += 1;
-                }
-                Err(error) => return Err(error),
-            }
-        }
-    }
-
     async fn post_json_once<T, R>(
         &self,
         path: &str,
@@ -176,7 +144,7 @@ impl ArkretPushClient {
         T: Serialize + ?Sized,
         R: for<'de> Deserialize<'de>,
     {
-        let url = try_arkret_api_url(&self.service_base_url, path)?;
+        let url = try_station_api_url(&self.station_base_url, path)?;
         let body_bytes = arkret_canonical::canonical_json_bytes(body).map_err(|error| {
             PushRegistrationError::InvalidField {
                 field: "body",
@@ -250,66 +218,6 @@ impl ArkretPushClient {
         };
         Ok(ArkretHttpOutcome {
             body: decoded,
-            request_id,
-            retry_after,
-        })
-    }
-
-    async fn get_json_once<R>(
-        &self,
-        path: &str,
-    ) -> Result<ArkretHttpOutcome<R>, PushRegistrationError>
-    where
-        R: for<'de> Deserialize<'de>,
-    {
-        let url = try_arkret_api_url(&self.service_base_url, path)?;
-        let mut request = self
-            .http
-            .get(url)
-            .header(reqwest::header::USER_AGENT, self.user_agent.as_str());
-
-        if let Some(operation) = ServiceOperationId::from_http_request("GET", path) {
-            request = request.header("Arkret-Operation", operation.as_str());
-        }
-
-        if let Some(timeout) = self.timeout {
-            request = request.timeout(timeout);
-        }
-
-        if let Some(token) = &self.bearer_token {
-            // `SecretString::expose` is the one and only sanctioned
-            // place to materialise the bearer secret — it is consumed
-            // immediately by reqwest's builder. Do not stash the
-            // returned `&str` elsewhere.
-            request = request.bearer_auth(token.expose());
-        }
-
-        for (name, value) in &self.headers {
-            request = request.header(name, value);
-        }
-
-        let response = request.send().await?;
-        let status = response.status();
-        let headers = response.headers().clone();
-        let retry_after = header_value(&headers, RETRY_AFTER_HEADER);
-        let request_id = header_value(&headers, ARKRET_REQUEST_ID_HEADER);
-        let body = read_response_body(response).await?;
-
-        if !status.is_success() {
-            let error = serde_json::from_str::<Problem>(&body).ok().map(Box::new);
-            let kind = classify_http_error(status.as_u16(), error.as_deref());
-            return Err(PushRegistrationError::HttpStatus {
-                status: status.as_u16(),
-                kind,
-                error,
-                body,
-                retry_after,
-                request_id,
-            });
-        }
-
-        Ok(ArkretHttpOutcome {
-            body: serde_json::from_str(&body)?,
             request_id,
             retry_after,
         })

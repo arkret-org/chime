@@ -9,14 +9,13 @@
    `domestic_app_id`。
 3. 为每个网关构造 `GatewayBinding`，再调用
    `build_register_device_request(&config, &binding, &prefs)`。
-4. 通过 `ArkretPushClient` 或 host 自己的 HTTP 栈发送请求。
+4. 通过 `ArkretPushClient` 或 host 自己的 HTTP 栈，只向已登录账户自己的
+   Station 发送请求。Gateway URL 只进入注册字段，不是客户端 HTTP 目标。
 
 Bugle 说明：host 仍负责华为/小米/OPPO/vivo/HONOR/HarmonyOS/JPush SDK
 接入和 token 获取。chime 只负责 wire shape。app id 解析走
 `GatewayBinding::resolve_app_id`；Android Bugle 路由优先 `domestic_app_id`。
 
-## drift 检查
-
-push gateway 通过 `service_describe()` 发现 canonical role capability。smoke test
-应在 `ServiceDescribe` 无效、service kind 错误或缺少 push notify operation bundle 时失败，
-而不是继续注册设备。
+客户端不得直连 Gateway 读取 `ServiceDescribe`、VAPID 或 provider endpoint，
+也不得把 bearer/session grant 转发给 Gateway。Gateway capability 与 durable
+receipt 由 Station 侧 handoff 编排验证。

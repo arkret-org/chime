@@ -35,15 +35,12 @@ Notes:
   bare HTTPS URL so the gateway router treats them as the same
   transport family as desktop UnifiedPush.
 
-## Push gateway discovery
+## Station boundary
 
-The deployed gateway publishes canonical `ServiceDescribe`; fetch it via
-`service_describe()` at `/_arkret/describe`.
-
-inkson's smoke-test harness MUST call `service_describe()` and fail when
-validation fails, the role is not `push_gateway`, or the canonical notify
-operation bundle is absent. SDK/artifact digests belong in generated CI evidence,
-not in this hand-maintained guide.
+inkson sends register/unregister only to the signed-in account's Station.
+`GatewayBinding::push_gateway` is copied into the registration body so the
+Station can perform the trusted handoff; it is never an HTTP destination for
+the client, and no bearer or session grant is sent to it.
 
 ## chime APIs inkson calls
 
@@ -55,7 +52,7 @@ releases.
   — assembles the canonical `RegisterDeviceRequest` from the
   inkson-side device descriptor, the gateway binding (account/route
   binding cached locally), and the user's notification preferences.
-  Returns a request struct the caller serialises via the chime HTTP
-  client (or hands off to whatever transport inkson prefers).
+  Returns a request struct sent to the account Station through the chime HTTP
+  client (or an equivalent Station-only transport).
 - `chime::build_unregister_device_request(...)` — symmetric tear-down call
   for device deregistration / sign-out strands.

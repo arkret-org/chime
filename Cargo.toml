@@ -31,7 +31,6 @@ unimplemented = "deny"
 
 [workspace.dependencies]
 arkret-canonical = { version = "0.3.0", path = "../arkret-rust-sdk/crates/canonical" }
-arkret-models-discovery = { version = "0.3.0", path = "../arkret-rust-sdk/crates/models-discovery" }
 arkret-models-integration = { version = "0.3.0", path = "../arkret-rust-sdk/crates/models-integration" }
 arkret-push-policy = { version = "0.3.0", path = "../arkret-rust-sdk/crates/push-policy" }
 arkret-retry = { version = "0.3.0", path = "../arkret-rust-sdk/crates/retry" }
@@ -66,7 +65,6 @@ http = ["dep:reqwest", "dep:tokio", "dep:gloo-timers", "dep:zeroize"]
 
 [dependencies]
 arkret-canonical = { workspace = true }
-arkret-models-discovery = { workspace = true }
 arkret-models-integration = { workspace = true }
 arkret-push-policy = { workspace = true }
 arkret-retry = { workspace = true }

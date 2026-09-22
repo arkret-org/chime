@@ -9,12 +9,12 @@ use super::errors::PushRegistrationError;
 
 /// Builds a normalized Arkret API URL.
 ///
-/// `service_base_url` may be either an origin (`https://server.example`) or a
-/// negative-space root (`https://server.example/_arkret`). Arkret paths are
+/// `station_base_url` may be either an origin (`https://station.example`) or a
+/// negative-space root (`https://station.example/_arkret`). Arkret paths are
 /// absolute under the `/_arkret/` root and carry no version segment.
 #[cfg(feature = "http")]
-fn arkret_api_url(service_base_url: &str, path: &str) -> String {
-    let base = service_base_url.trim_end_matches('/');
+fn arkret_api_url(station_base_url: &str, path: &str) -> String {
+    let base = station_base_url.trim_end_matches('/');
     let path = path.trim_start_matches('/');
     let path = path.strip_prefix("_arkret/").unwrap_or(path);
 
@@ -26,8 +26,8 @@ fn arkret_api_url(service_base_url: &str, path: &str) -> String {
 }
 
 #[cfg(feature = "http")]
-fn service_api_url(service_base_url: &str, path: &str) -> String {
-    let base = service_base_url.trim_end_matches('/');
+fn station_api_url(station_base_url: &str, path: &str) -> String {
+    let base = station_base_url.trim_end_matches('/');
     let path = path.trim_start_matches('/');
 
     if path.starts_with("_arkret/") {
@@ -174,17 +174,17 @@ pub fn redact_push_key(value: &str) -> String {
 }
 
 #[cfg(feature = "http")]
-pub(super) fn try_arkret_api_url(
-    service_base_url: &str,
+pub(super) fn try_station_api_url(
+    station_base_url: &str,
     path: &str,
 ) -> Result<String, PushRegistrationError> {
-    validate_service_base_url(service_base_url)?;
-    Ok(service_api_url(service_base_url, path))
+    validate_station_base_url(station_base_url)?;
+    Ok(station_api_url(station_base_url, path))
 }
 
 #[cfg(feature = "http")]
-fn validate_service_base_url(value: &str) -> Result<(), PushRegistrationError> {
-    require_non_empty("service_base_url", value)?;
+fn validate_station_base_url(value: &str) -> Result<(), PushRegistrationError> {
+    require_non_empty("station_base_url", value)?;
 
     let url = Url::parse(value).map_err(|error| PushRegistrationError::InvalidPushGatewayUrl {
         url: value.to_owned(),
@@ -199,14 +199,14 @@ fn validate_service_base_url(value: &str) -> Result<(), PushRegistrationError> {
     if url.query().is_some() {
         return Err(PushRegistrationError::InvalidPushGatewayUrl {
             url: value.to_owned(),
-            reason: "service base URL must not contain a query string".to_owned(),
+            reason: "Station base URL must not contain a query string".to_owned(),
         });
     }
 
     if url.fragment().is_some() {
         return Err(PushRegistrationError::InvalidPushGatewayUrl {
             url: value.to_owned(),
-            reason: "service base URL must not contain a fragment".to_owned(),
+            reason: "Station base URL must not contain a fragment".to_owned(),
         });
     }
 
@@ -215,7 +215,7 @@ fn validate_service_base_url(value: &str) -> Result<(), PushRegistrationError> {
         "http" if is_loopback_url(&url) => Ok(()),
         "http" => Err(PushRegistrationError::InvalidPushGatewayUrl {
             url: value.to_owned(),
-            reason: "plain HTTP service URLs are only allowed for loopback development".to_owned(),
+            reason: "plain HTTP Station URLs are only allowed for loopback development".to_owned(),
         }),
         scheme => Err(PushRegistrationError::InvalidPushGatewayUrl {
             url: value.to_owned(),

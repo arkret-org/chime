@@ -133,7 +133,7 @@ impl fmt::Debug for PushDeviceConfig<'_> {
 /// pending request body; the resulting JSON is private SDK state, **never**
 /// a notify/register wire body. Always route through
 /// [`Self::to_sdk_request`] before POSTing. `account_id` is local ownership
-/// metadata only and is never sent in a body or header to the push gateway.
+/// metadata only and is never sent in a body or header to the Station.
 ///
 /// Stability: v1 development phase; the shape may change aggressively.
 /// Build via `ChimePushRegisterDeviceRequest { ..Default::default() }`
@@ -227,7 +227,7 @@ impl ChimePushRegisterDeviceRequest {
 /// derives exist only so hosts can persist a pending request body; the
 /// resulting JSON is private SDK state, **never** an unregister wire body.
 /// Always route through [`Self::to_sdk_request`] before POSTing.
-/// `account_id` stays exclusively in local state, never HTTP headers.
+/// `account_id` stays exclusively in local state, never Station HTTP headers.
 ///
 /// Stability: v1 development phase; the shape may change aggressively.
 /// Build via `ChimePushUnregisterDeviceRequest { ..Default::default() }`

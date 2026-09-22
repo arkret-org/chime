@@ -22,7 +22,7 @@ Use one of the following private channels:
 When you report, please include:
 
 - a description of the issue and its impact in the Arkret push surface
-  (`register-device`, `unregister-device`, `bridge/describe`, or local
+  (`register-device`, `unregister-device`, or local
   `PushRegistrationState` state);
 - a minimal reproduction (test fixture, JSON payload, request strand);
 - whether the issue is exploitable through the public crate API, requires
@@ -35,6 +35,9 @@ When you report, please include:
 
 - `push_key` (FCM/APNs/WebPush tokens) MUST NOT appear in logs, debug
   output, or error messages.
+- Register/unregister bearer and session material is sent only to the signed-in
+  account's Station. A configured Gateway URL is request data and MUST NOT be
+  used as a client HTTP destination.
 - DIDs (`did:*`) MUST NOT appear in `push_hint` or any token-shaped wire field.
 - `ak.edge.push.command.notify.v1` payloads default to E2EE blind wakeup; only services
   on the explicit `plaintext_visible_services` allowlist may receive

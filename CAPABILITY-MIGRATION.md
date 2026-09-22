@@ -1,9 +1,9 @@
 # Authority-Commit Capability Migration
 
 chime is a client-side library: push preferences, gateway binding, device
-register/unregister request building, an optional HTTP client, and the
-notification rule / DND evaluator. It authors no Realm Event, submits nothing to
-a Station, and never holds a `RealmCommit`.
+register/unregister request building, an optional Station-only HTTP client, and
+the notification rule / DND evaluator. It authors no Realm Event and never
+holds a `RealmCommit`.
 
 This file records, for every product entry point that existed before the
 authority-commit clean break, where the capability lives now and which test
@@ -22,8 +22,9 @@ The rest of the protocol has no surface here.
 - [x] Device registration is a Station-side operation
   (`ak.edge.push.command.register_device.v1` /
   `ak.edge.push.command.unregister_device.v1`), not a Gateway self-service one.
-  `ArkretPushClient` sends the registration calls to the service base URL and
-  requires an Arkret session grant header by default.
+  `ArkretPushClient` sends the registration calls only to its Station base URL
+  and requires an Arkret session grant header by default. Gateway discovery and
+  direct Gateway HTTP are absent.
 - [x] A registration identifies its owner by the complete `AccountId`
   (`principal_id` + `station_id`). A bare principal id is not an identity: two
   Stations may host the same principal, and the local state must keep them
@@ -43,9 +44,9 @@ The rest of the protocol has no surface here.
 | Register-device request building, including required `device_id`, gateway, push key, explicit consent and WebPush allowlist enforcement | `src/push/registration.rs:build_register_device_request` | `push::registration::tests::register_request_matches_arkret_schema`, `::requires_device_id`, `::requires_register_push_gateway`, `::requires_register_push_key`, `::validates_webpush_endpoint_allowlist`, `::visible_notification_opt_in_is_explicit_registration_state`, `::redacts_push_tokens_from_debug_output`; doctest `src/push/registration.rs` line 21 |
 | Unregister-device request building, by registration id or by device | `src/push/registration.rs:build_unregister_device_request` | `push::registration::tests::unregister_request_supports_registration_id`; doctest `src/push/registration.rs` line 99; `tests/property.rs:unregister_request_never_echoes_random_into_push_key` |
 | Frozen wire DTOs and platform enum for the two registration operations | `src/push/wire.rs:ChimePushRegisterDeviceRequest`, `:ChimePushUnregisterDeviceRequest`, `:PushDeviceConfig`, `:PushPlatform` | `push::wire::tests::response_models_cover_frozen_wire_metadata`, `::supports_web_and_desktop_platforms`, `::rejects_unknown_platform` |
-| Gateway URL validation (HTTPS, loopback exception, no query secrets), API-root normalisation, push-key and URL redaction | `src/push/urls.rs:validate_push_gateway_url`, `:validate_webpush_endpoint_allowlist`, `:redact_push_key`, `:redact_url`, `:try_arkret_api_url` | `push::urls::tests` (5): `url_builder_accepts_origin_or_api_root`, `rejects_non_loopback_http_push_gateway_url`, `allows_loopback_http_push_gateway_when_enabled`, `rejects_query_secret_in_push_gateway_url`, `rejects_insecure_webpush_endpoint_when_url_is_present`; `push::urls::redaction_tests::only_registered_push_key_schemes_are_exposed`, `::wildcard_host_pattern_excludes_the_bare_domain` |
+| Gateway URL validation (HTTPS, loopback exception, no query secrets), Station API-root normalisation, push-key and URL redaction | `src/push/urls.rs:validate_push_gateway_url`, `:validate_webpush_endpoint_allowlist`, `:redact_push_key`, `:redact_url`, `:try_station_api_url` | `push::urls::tests` (5): `url_builder_accepts_origin_or_api_root`, `rejects_non_loopback_http_push_gateway_url`, `allows_loopback_http_push_gateway_when_enabled`, `rejects_query_secret_in_push_gateway_url`, `rejects_insecure_webpush_endpoint_when_url_is_present`; `push::urls::redaction_tests::only_registered_push_key_schemes_are_exposed`, `::wildcard_host_pattern_excludes_the_bare_domain` |
 | Typed error classification over the RFC 9457 problem envelope and the wire reason codes | `src/push/errors.rs:PushErrorKind`, `:PushRegistrationError`, `:classify_http_error`, `:PushErrorKind::from_failure_reason_code` | `push::errors::tests` (6): `classifies_error_codes`, `from_failure_reason_code_covers_contract`, `historical_only_code_classifies`, `historical_only_maps_200`, `maps_410_gone_status`, `ordinals_are_unique_and_fit_retry_mask` |
-| Async register / unregister / describe client, session-grant header policy, idempotency key generation, response-size cap | `src/push/client/core.rs:ArkretPushClient`, `src/push/client/transport.rs:ArkretHttpOutcome` | `push::client::tests` (18), notably `default_register_rejects_without_session_grant`, `default_register_allows_with_session_grant_header`, `default_unregister_rejects_without_session_grant`, `opting_out_session_grant_allows_register_without_header`, `register_auto_generates_idempotency_key_when_omitted`, `register_success_exposes_response_context_and_headers`, `unregister_success`, `unregister_not_found_is_idempotent_success`, `rejects_oversized_response_before_json_decode`, `invalid_success_schema_is_invalid_response` |
+| Station-only async register / unregister client, session-grant header policy, idempotency key generation, response-size cap | `src/push/client/core.rs:ArkretPushClient`, `src/push/client/transport.rs:ArkretHttpOutcome` | `push::client::tests`, notably `default_register_rejects_without_session_grant`, `default_register_allows_with_session_grant_header`, `default_unregister_rejects_without_session_grant`, `register_success_exposes_response_context_and_headers`, `unregister_success`, `unregister_not_found_is_not_a_station_success`, `register_no_content_is_not_a_station_typed_success`, `rejects_oversized_response_before_json_decode`, `invalid_success_schema_is_invalid_response` |
 | Retry curve, `Retry-After` honouring, per-error-kind retry suppression | `src/push/client/retry.rs:PushRetryPolicy` (curve delegated to `arkret_retry::RetryPolicy`) | `push::client::tests::retries_429_and_honors_retry_after`, `::retries_503`, `::does_not_retry_duplicate_conflict`, `::disabled_kinds_skip_otherwise_retryable_error` |
 | Credential hygiene: zeroize-on-drop bearer material, redacted `Debug` for errors and problem extensions | `src/push/client/secret.rs:SecretString` | `push::client::tests::bearer_token_is_redacted_in_debug_output`, `::error_debug_redacts_problem_detail_and_extensions`, `::exposes_non_json_error_body_without_debug_leak` |
 | Local persisted registration state keyed by the complete `AccountId`, with an opaque push-key hash instead of the token | `src/state/model.rs:PushRegistrationState`, `:build_registration_state`, `:hash_push_key` | `state::model::tests::builds_registration_state_from_success`, `::hashes_push_key_without_exposing_value`, `::same_principal_station_registrations_remain_distinct_and_private`; doctest `src/state/model.rs` line 40; `tests/property.rs:hash_push_key_is_deterministic_and_opaque` |

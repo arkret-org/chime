@@ -2,7 +2,6 @@
 //!
 //! This module is split into:
 //! - [`wire`]: register/unregister request builders and local configuration DTOs
-//! - canonical push-gateway [`ServiceDescribe`] discovery
 //! - [`errors`]: `PushErrorKind` + `PushRegistrationError` + HTTP classification
 //! - [`urls`]: URL helpers, validation, redaction
 //! - [`registration`]: request body builders
@@ -25,10 +24,6 @@ pub(crate) const REGISTER_DEVICE_PATH: &str = "/_arkret/edge/push/register-devic
 #[cfg(feature = "http")]
 pub(crate) const UNREGISTER_DEVICE_PATH: &str = "/_arkret/edge/push/unregister-device";
 
-/// Canonical role-scoped service discovery path.
-#[cfg(feature = "http")]
-pub(crate) const SERVICE_DESCRIBE_PATH: &str = "/_arkret/describe";
-
 // -- Header constants -------------------------------------------------------
 
 /// Header used to correlate Arkret requests across clients and services.
@@ -46,7 +41,6 @@ const RETRY_AFTER_HEADER: &str = "Retry-After";
 
 // -- Re-exports -------------------------------------------------------------
 
-pub use arkret_models_discovery::ServiceDescribe;
 #[cfg(feature = "http")]
 pub use client::{ArkretHttpOutcome, ArkretPushClient, PushRetryPolicy};
 pub use errors::{PushErrorKind, PushRegistrationError};
