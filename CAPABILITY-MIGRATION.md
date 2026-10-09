@@ -136,7 +136,7 @@ correctness: the sibling `arkret-rust-sdk` checkout is being edited by other
 agents in parallel, and a first attempt at the test run above was stopped by
 three errors in `crates/models-identity/src/signer_key_operations.rs`
 (`validate_for_selector` missing on `ResolvedSignerKey`, and
-`SignerKeyQueryResult::selector` used as a field at lines 278 and 308). That is
+`SignerKeyQueryOutcome::selector` used as a field at lines 278 and 308). That is
 SDK-internal and was fixed upstream without any change here; the retry produced
 the 80/0 above. The SDK tree went red twice more later in the session
 (`crates/signatures/src/detached_object.rs`, then
