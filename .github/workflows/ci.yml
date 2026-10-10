@@ -10,6 +10,9 @@ env:
   CARGO_TERM_COLOR: always
   RUSTFLAGS: -Dwarnings
 
+permissions:
+  contents: read
+
 jobs:
   check:
     name: Check
@@ -21,9 +24,10 @@ jobs:
           - "http"          # ArkretPushClient HTTP helper (release surface)
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@nightly
         with:
           components: rustfmt
+      - uses: dtolnay/rust-toolchain@stable
       - name: Checkout sibling Arkret Rust SDK
         env:
           CI_REPO_TOKEN: ${{ secrets.CI_REPO_TOKEN || github.token }}
@@ -160,7 +164,7 @@ jobs:
       - uses: crate-ci/typos@master
 
   package:
-    name: Package (cargo publish --dry-run)
+    name: Package source archive
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -170,10 +174,11 @@ jobs:
           CI_REPO_TOKEN: ${{ secrets.CI_REPO_TOKEN || github.token }}
         run: bash .ci/checkout-sibling.sh arkret-rust-sdk ../arkret-rust-sdk
       - uses: Swatinem/rust-cache@v2
-      - name: cargo package --no-verify
-        run: cargo package --no-verify --allow-dirty
-      - name: cargo publish --dry-run
-        run: cargo publish --dry-run --allow-dirty --all-features
+      # SDK dependencies are developed together and have no registry release.
+      # Compilation is covered by the feature and target jobs above; this gate
+      # checks the actual source archive without resolving a publish-time lock.
+      - name: Package source archive
+        run: cargo package --exclude-lockfile --no-verify --allow-dirty
 
   deny:
     name: Cargo deny
@@ -193,6 +198,7 @@ jobs:
     name: Security audit
     runs-on: ubuntu-latest
     permissions:
+      contents: read
       issues: write
       checks: write
     steps:
