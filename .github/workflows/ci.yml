@@ -190,9 +190,12 @@ jobs:
         env:
           CI_REPO_TOKEN: ${{ secrets.CI_REPO_TOKEN || github.token }}
         run: bash .ci/checkout-sibling.sh arkret-rust-sdk ../arkret-rust-sdk
-      - uses: EmbarkStudios/cargo-deny-action@v2
-        with:
-          command: check
+      # The sibling checkout lives outside GITHUB_WORKSPACE and is not mounted
+      # inside Docker actions. Run the same policy on the runner host.
+      - name: Install cargo-deny
+        run: cargo install cargo-deny --version 0.19.5 --locked
+      - name: Cargo deny
+        run: cargo deny check
 
   audit:
     name: Security audit
