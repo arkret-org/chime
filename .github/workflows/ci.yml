@@ -178,7 +178,7 @@ jobs:
       # Compilation is covered by the feature and target jobs above; this gate
       # checks the actual source archive without resolving a publish-time lock.
       - name: Package source archive
-        run: cargo package --exclude-lockfile --no-verify --allow-dirty
+        run: cargo package --exclude-lockfile --no-verify
 
   deny:
     name: Cargo deny
