@@ -211,6 +211,8 @@ jobs:
         env:
           CI_REPO_TOKEN: ${{ secrets.CI_REPO_TOKEN || github.token }}
         run: bash .ci/checkout-sibling.sh arkret-rust-sdk ../arkret-rust-sdk
+      - name: Resolve dependency lockfile for audit
+        run: cargo generate-lockfile
       - uses: rustsec/audit-check@v2.0.0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
