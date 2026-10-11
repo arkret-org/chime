@@ -103,7 +103,7 @@ impl ArkretPushClient {
     /// [`with_header`](Self::with_header).
     ///
     /// Pass `false` for development sandboxes or test fixtures that
-    /// intentionally skip soland session binding.
+    /// intentionally skip coland session binding.
     pub fn with_required_session_grant(mut self, required: bool) -> Self {
         self.require_session_grant = required;
         self

@@ -78,7 +78,7 @@ it as a security report and use the private channels above.
 ## What is out of scope
 
 - Vulnerabilities in upstream Arkret services (Sync Service, Principal
-  Server, soland, floria, …) — please report those to the respective
+  Server, coland, floria, …) — please report those to the respective
   service maintainers.
 - Vulnerabilities in third-party crates listed in `Cargo.toml`. Report
   those upstream; we will pull a fixed dependency once it is available.

@@ -16,8 +16,8 @@ Companions:
 |---|---|
 | **inkson** | Client SDK running inside the host app on the device. Owns the platform-native push token, the device identity, and the rendering of incoming notifications. |
 | **chime** | In-process contract validator, runs both in the host app (alongside inkson) and on the server (alongside floria). Enforces nonce-replay protection, payload privacy, and the bridge contract. |
-| **floria** | Server-side push gateway. Talks to APNS / FCM / OEM providers. Speaks `ak.edge.push.command.notify.v1` to soland on one side and the provider-native push API on the other. |
-| **soland** | Upstream event store (not pictured below in the call-path; appears only as the producer of `ak.edge.push.command.notify.v1`). |
+| **floria** | Server-side push gateway. Talks to APNS / FCM / OEM providers. Speaks `ak.edge.push.command.notify.v1` to coland on one side and the provider-native push API on the other. |
+| **coland** | Upstream event store (not pictured below in the call-path; appears only as the producer of `ak.edge.push.command.notify.v1`). |
 
 ## End-to-end sequence: device registration
 
@@ -84,7 +84,7 @@ Notes:
 ## End-to-end sequence: incoming notification (visible)
 
 ```text
-soland                  floria (server)         chime (server)    provider (APNS/FCM)    chime (device)        inkson (device)
+coland                  floria (server)         chime (server)    provider (APNS/FCM)    chime (device)        inkson (device)
    │                        │                       │                    │                       │                    │
    │ (1) emit               │                       │                    │                       │                    │
    │  ak.edge.push.command.notify.v1        │                       │                    │                       │                    │
@@ -125,7 +125,7 @@ soland                  floria (server)         chime (server)    provider (APNS
 ## End-to-end sequence: incoming notification (blind wakeup)
 
 ```text
-soland                  floria (server)         chime (server)    provider             chime (device)        inkson (device)
+coland                  floria (server)         chime (server)    provider             chime (device)        inkson (device)
    │                        │                       │                    │                       │                    │
    │ (1) emit               │                       │                    │                       │                    │
    │  ak.edge.push.command.notify.v1        │                       │                    │                       │                    │
@@ -164,7 +164,7 @@ soland                  floria (server)         chime (server)    provider      
    │                        │                       │                    │                       │                    │
    │                        │                       │                    │                       │                    │ (7) inkson pulls
    │                        │                       │                    │                       │                    │  the real payload
-   │                        │                       │                    │                       │                    │  from soland sync
+   │                        │                       │                    │                       │                    │  from coland sync
    │                        │                       │                    │                       │                    │  (NO OS notification
    │                        │                       │                    │                       │                    │  rendered)
 ```

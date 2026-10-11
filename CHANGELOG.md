@@ -10,7 +10,7 @@
   `PushRequestSigningOptions`, `content_digest_sha256`, `NonceTracker`,
   the signing-context builders, and the signed-header constants): the
   register/unregister face is bearer + session grant per the spec
-  security scheme, and notify-direction signing lives in soland/floria.
+  security scheme, and notify-direction signing lives in coland/floria.
 - Drop the unconsumed `PushRoute` model, the storage trait surface
   (`PushPreferencesStore`, `PushRegistrationStore`,
   `MemoizingPushPreferencesStore`), token-rotation and repair planning,

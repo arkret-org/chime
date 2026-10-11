@@ -30,7 +30,7 @@ pub(crate) const UNREGISTER_DEVICE_PATH: &str = "/_arkret/edge/push/unregister-d
 #[cfg(feature = "http")]
 pub(crate) const ARKRET_REQUEST_ID_HEADER: &str = "X-Arkret-Request-Id";
 
-/// Header used to carry an externally supplied coauth/soland session grant.
+/// Header used to carry an externally supplied coauth/coland session grant.
 #[cfg(feature = "http")]
 pub(crate) const ARKRET_SESSION_GRANT_HEADER: &str = "X-Arkret-Session-Grant";
 

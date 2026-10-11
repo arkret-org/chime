@@ -100,7 +100,7 @@ fn unregister_request() -> ChimePushUnregisterDeviceRequest {
 /// Build a happy-path client with a dummy session grant pre-attached.
 ///
 /// Mirrors production usage where every register/unregister call is
-/// expected to carry a soland session grant. Tests that specifically
+/// expected to carry a coland session grant. Tests that specifically
 /// exercise the "missing grant" path use raw `ArkretPushClient::new`.
 fn client(base_url: impl Into<String>) -> ArkretPushClient {
     ArkretPushClient::new(base_url)

@@ -216,7 +216,7 @@ use chime::{ArkretPushClient, build_register_device_request};
 let client = ArkretPushClient::new("https://station.example")
     .with_bearer_token("session-token")
     .with_timeout(std::time::Duration::from_secs(10))
-    .with_session_grant("externally-issued-coauth-or-soland-grant")?;
+    .with_session_grant("externally-issued-coauth-or-coland-grant")?;
 
 let request = build_register_device_request(&config, &binding, &prefs)?;
 let response = client

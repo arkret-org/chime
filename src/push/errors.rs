@@ -82,7 +82,7 @@ impl PushErrorKind {
     /// decide between treating it as `HttpStatus` or surfacing the raw code.
     pub fn from_failure_reason_code(code: &str) -> Option<Self> {
         // Canonical wire codes sourced from the SDK constants so chime's
-        // classification stays byte-aligned with what soland/floria emit.
+        // classification stays byte-aligned with what coland/floria emit.
         const CODE_MAP: &[(&str, PushErrorKind)] = &[
             (
                 arkret_wire::ErrorCode::UNAUTHENTICATED,
