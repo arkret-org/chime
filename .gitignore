@@ -1,5 +1,6 @@
 /target
 /target-*/
+/artifacts/
 
 /_circle_rollout_baseline.md
 /_*_todos.md
