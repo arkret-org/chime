@@ -11,7 +11,7 @@ use super::super::{
 };
 use super::retry::{PushRetryPolicy, retry_jitter_seed};
 use super::secret::SecretString;
-use super::transport::{ArkretHttpOutcome, default_http_client};
+use super::transport::{ArkretHttpResponse, default_http_client};
 
 #[derive(Clone)]
 pub struct ArkretPushClient {
@@ -145,11 +145,13 @@ impl ArkretPushClient {
         body: &ChimePushRegisterDeviceRequest,
         idempotency_key: Option<&str>,
         request_id: Option<&str>,
-    ) -> Result<ArkretHttpOutcome<PushRegisterDeviceResponseBody>, PushRegistrationError> {
+    ) -> Result<ArkretHttpResponse<PushRegisterDeviceResponseBody>, PushRegistrationError> {
         self.assert_session_grant_if_required()?;
         let sdk_body = body.to_sdk_request()?;
-        let response: ArkretHttpOutcome<arkret_models_integration::PushRegisterDeviceResponseBody> =
-            self.post_json(
+        let response: ArkretHttpResponse<
+            arkret_models_integration::PushRegisterDeviceResponseBody,
+        > = self
+            .post_json(
                 REGISTER_DEVICE_PATH,
                 &sdk_body,
                 idempotency_key.or(body.idempotency_key.as_deref()),
@@ -175,10 +177,10 @@ impl ArkretPushClient {
         body: &ChimePushUnregisterDeviceRequest,
         idempotency_key: Option<&str>,
         request_id: Option<&str>,
-    ) -> Result<ArkretHttpOutcome<PushUnregisterDeviceResponseBody>, PushRegistrationError> {
+    ) -> Result<ArkretHttpResponse<PushUnregisterDeviceResponseBody>, PushRegistrationError> {
         self.assert_session_grant_if_required()?;
         let sdk_body = body.to_sdk_request()?;
-        let response: ArkretHttpOutcome<()> = self
+        let response: ArkretHttpResponse<()> = self
             .post_json(
                 UNREGISTER_DEVICE_PATH,
                 &sdk_body,
@@ -187,7 +189,7 @@ impl ArkretPushClient {
             )
             .await?;
 
-        Ok(ArkretHttpOutcome {
+        Ok(ArkretHttpResponse {
             body: PushUnregisterDeviceResponseBody,
             request_id: response.request_id,
             retry_after: response.retry_after,

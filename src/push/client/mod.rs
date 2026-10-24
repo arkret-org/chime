@@ -5,7 +5,7 @@
 //! This module is split into:
 //! - [`secret`]: `SecretString` zeroize-on-drop credential wrapper
 //! - [`retry`]: `PushRetryPolicy` + retry/backoff/idempotency primitives
-//! - [`transport`]: `ArkretHttpOutcome` + low-level JSON request plumbing
+//! - [`transport`]: `ArkretHttpResponse` + low-level JSON request plumbing
 //! - [`core`]: the `ArkretPushClient` builder + high-level register/describe API
 
 mod core;
@@ -19,4 +19,4 @@ mod tests;
 pub use core::ArkretPushClient;
 
 pub use retry::PushRetryPolicy;
-pub use transport::ArkretHttpOutcome;
+pub use transport::ArkretHttpResponse;

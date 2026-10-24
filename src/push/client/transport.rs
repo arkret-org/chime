@@ -63,7 +63,7 @@ async fn read_response_body(response: reqwest::Response) -> Result<String, PushR
 
 /// HTTP response body plus Arkret response metadata.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct ArkretHttpOutcome<T> {
+pub struct ArkretHttpResponse<T> {
     pub body: T,
     pub request_id: Option<String>,
     pub retry_after: Option<String>,
@@ -98,7 +98,7 @@ impl ArkretPushClient {
         body: &T,
         idempotency_key: Option<&str>,
         request_id: Option<&str>,
-    ) -> Result<ArkretHttpOutcome<R>, PushRegistrationError>
+    ) -> Result<ArkretHttpResponse<R>, PushRegistrationError>
     where
         T: Serialize + ?Sized,
         R: for<'de> Deserialize<'de>,
@@ -139,7 +139,7 @@ impl ArkretPushClient {
         body: &T,
         idempotency_key: Option<&str>,
         request_id: Option<&str>,
-    ) -> Result<ArkretHttpOutcome<R>, PushRegistrationError>
+    ) -> Result<ArkretHttpResponse<R>, PushRegistrationError>
     where
         T: Serialize + ?Sized,
         R: for<'de> Deserialize<'de>,
@@ -216,7 +216,7 @@ impl ArkretPushClient {
         } else {
             serde_json::from_str(&body)?
         };
-        Ok(ArkretHttpOutcome {
+        Ok(ArkretHttpResponse {
             body: decoded,
             request_id,
             retry_after,

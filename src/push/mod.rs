@@ -42,7 +42,7 @@ const RETRY_AFTER_HEADER: &str = "Retry-After";
 // -- Re-exports -------------------------------------------------------------
 
 #[cfg(feature = "http")]
-pub use client::{ArkretHttpOutcome, ArkretPushClient, PushRetryPolicy};
+pub use client::{ArkretHttpResponse, ArkretPushClient, PushRetryPolicy};
 pub use errors::{PushErrorKind, PushRegistrationError};
 pub use registration::{build_register_device_request, build_unregister_device_request};
 pub use urls::{redact_push_key, validate_push_gateway_url, validate_webpush_endpoint_allowlist};

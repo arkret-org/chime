@@ -44,7 +44,7 @@ pub use arkret_models_integration::{
 };
 pub use gateway_binding::GatewayBinding;
 #[cfg(feature = "http")]
-pub use push::{ArkretHttpOutcome, ArkretPushClient, PushRetryPolicy};
+pub use push::{ArkretHttpResponse, ArkretPushClient, PushRetryPolicy};
 pub use push::{
     ChimePushRegisterDeviceRequest, ChimePushUnregisterDeviceRequest, PushDeviceConfig,
     PushErrorKind, PushPlatform, PushRegistrationError, build_register_device_request,
