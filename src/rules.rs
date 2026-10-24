@@ -2,7 +2,7 @@
 
 use arkret_models_integration::{
     DndDocument, DndSettings, PushCondition, PushRule, PushRuleAction, PushRuleKind,
-    PushRulesConfig,
+    PushRulesConfiguration,
 };
 use arkret_push_policy::push_rule_core::{
     self, EventContext as PushRuleEventContext, ShouldNotify as PushRuleDecision, WatchLevel,
@@ -120,7 +120,7 @@ impl PushRulesRejection {
 /// The non-client locus check is performed on the raw document rather than by
 /// inspecting the SDK deserializer's error text, so the classification does not
 /// depend on an error message staying stable.
-pub fn parse_push_rules(value: &Value) -> Result<PushRulesConfig, PushRulesRejection> {
+pub fn parse_push_rules(value: &Value) -> Result<PushRulesConfiguration, PushRulesRejection> {
     if let Some(rules) = value.get("rules").and_then(Value::as_array) {
         for rule in rules {
             let locus = rule.get("evaluation_locus").and_then(Value::as_str);
@@ -256,7 +256,7 @@ fn period_minutes(start: u16, end: u16) -> impl Iterator<Item = u16> {
 }
 
 pub fn evaluate_notification(
-    rules: Option<&PushRulesConfig>,
+    rules: Option<&PushRulesConfiguration>,
     dnd: Option<&DndSettings>,
     ctx: &NotificationEvalContext,
 ) -> NotificationDecision {
@@ -272,7 +272,7 @@ pub fn evaluate_notification(
 }
 
 fn evaluate_rule_chain(
-    config: &PushRulesConfig,
+    config: &PushRulesConfiguration,
     ctx: &NotificationEvalContext,
 ) -> NotificationDecision {
     for kind in PushRuleKind::EVALUATION_ORDER {

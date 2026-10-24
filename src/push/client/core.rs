@@ -1,7 +1,7 @@
 use std::fmt;
 use std::time::Duration;
 
-use arkret_models_integration::{PushRegisterDeviceOutcome, PushUnregisterDeviceOutcome};
+use arkret_models_integration::{PushRegisterDeviceResponseBody, PushUnregisterDeviceResponseBody};
 
 use super::super::errors::PushRegistrationError;
 use super::super::urls::redact_url;
@@ -145,10 +145,10 @@ impl ArkretPushClient {
         body: &ChimePushRegisterDeviceRequest,
         idempotency_key: Option<&str>,
         request_id: Option<&str>,
-    ) -> Result<ArkretHttpOutcome<PushRegisterDeviceOutcome>, PushRegistrationError> {
+    ) -> Result<ArkretHttpOutcome<PushRegisterDeviceResponseBody>, PushRegistrationError> {
         self.assert_session_grant_if_required()?;
         let sdk_body = body.to_sdk_request()?;
-        let response: ArkretHttpOutcome<arkret_models_integration::PushRegisterDeviceOutcome> =
+        let response: ArkretHttpOutcome<arkret_models_integration::PushRegisterDeviceResponseBody> =
             self.post_json(
                 REGISTER_DEVICE_PATH,
                 &sdk_body,
@@ -175,7 +175,7 @@ impl ArkretPushClient {
         body: &ChimePushUnregisterDeviceRequest,
         idempotency_key: Option<&str>,
         request_id: Option<&str>,
-    ) -> Result<ArkretHttpOutcome<PushUnregisterDeviceOutcome>, PushRegistrationError> {
+    ) -> Result<ArkretHttpOutcome<PushUnregisterDeviceResponseBody>, PushRegistrationError> {
         self.assert_session_grant_if_required()?;
         let sdk_body = body.to_sdk_request()?;
         let response: ArkretHttpOutcome<()> = self
@@ -188,7 +188,7 @@ impl ArkretPushClient {
             .await?;
 
         Ok(ArkretHttpOutcome {
-            body: PushUnregisterDeviceOutcome,
+            body: PushUnregisterDeviceResponseBody,
             request_id: response.request_id,
             retry_after: response.retry_after,
         })

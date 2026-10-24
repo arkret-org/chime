@@ -113,7 +113,7 @@ coland                  floria (server)         chime (server)    provider (APNS
    │                        │                       │                    │                       │ (6) chime device-  │
    │                        │                       │                    │                       │  side validates:   │
    │                        │                       │                    │                       │  - nonce window    │
-   │                        │                       │                    │                       │  - sig over payload│
+   │                        │                       │                    │                       │  - signature over payload│
    │                        │                       │                    │                       │  - payload shape   │
    │                        │                       │                    │                       │───────────────────►│
    │                        │                       │                    │                       │                    │

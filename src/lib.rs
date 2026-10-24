@@ -39,7 +39,8 @@ mod rules;
 mod state;
 
 pub use arkret_models_integration::{
-    DndDocument, DndPeriod, DndSchedule, DndSettings, PushCondition, PushRule, PushRulesConfig,
+    DndDocument, DndPeriod, DndSchedule, DndSettings, PushCondition, PushRule,
+    PushRulesConfiguration,
 };
 pub use gateway_binding::GatewayBinding;
 #[cfg(feature = "http")]

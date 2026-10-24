@@ -315,7 +315,9 @@ impl ChimePushUnregisterDeviceRequest {
 
 #[cfg(test)]
 mod tests {
-    use arkret_models_integration::{PushRegisterDeviceOutcome, PushUnregisterDeviceOutcome};
+    use arkret_models_integration::{
+        PushRegisterDeviceResponseBody, PushUnregisterDeviceResponseBody,
+    };
 
     use super::*;
     use crate::push::errors::PushErrorKind;
@@ -337,7 +339,7 @@ mod tests {
 
     #[test]
     fn response_models_cover_frozen_wire_metadata() {
-        let register: PushRegisterDeviceOutcome = serde_json::from_value(serde_json::json!({
+        let register: PushRegisterDeviceResponseBody = serde_json::from_value(serde_json::json!({
             "push_target_id": "ak:pseudonym:push:kosc9iQ4gVct1OB-b6X364WIFIsJFVbVzn7BMBs1sm8",
             "registration_id": "reg-1",
             "expires_at": "2026-05-02T00:00:00.000Z"
@@ -356,13 +358,13 @@ mod tests {
             Some("2026-05-02T00:00:00.000Z".to_owned())
         );
 
-        serde_json::from_value::<PushRegisterDeviceOutcome>(serde_json::json!({
+        serde_json::from_value::<PushRegisterDeviceResponseBody>(serde_json::json!({
             "ok": true,
             "registration_id": "reg-1",
             "request_id": "ak:request:01904100-0000-7000-8000-000000000030"
         }))
         .expect_err("register outcome must reject non-spec response fields");
 
-        let _empty_response_marker = PushUnregisterDeviceOutcome;
+        let _empty_response_marker = PushUnregisterDeviceResponseBody;
     }
 }
