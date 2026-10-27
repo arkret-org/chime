@@ -128,7 +128,7 @@ async fn register_success_exposes_response_context_and_headers() {
             ARKRET_REQUEST_ID_HEADER,
             "ak:request:01904100-0000-7000-8000-000000000021",
         )],
-        body: r#"{"push_target_id":"ak:pseudonym:push:kosc9iQ4gVct1OB-b6X364WIFIsJFVbVzn7BMBs1sm8","registration_id":"reg-1","expires_at":"2026-04-29T00:00:00.000Z"}"#,
+        body: r#"{"push_target_id":"ak:pseudonym:push:kosc9iQ4gVct1OB-b6X364WIFIsJFVbVzn7BMBs1sm8","registration_id":"registration-test-00000001","expires_at":"2026-04-29T00:00:00.000Z"}"#,
     }]);
 
     let request = register_request();
@@ -138,7 +138,10 @@ async fn register_success_exposes_response_context_and_headers() {
         .await
         .unwrap();
 
-    assert_eq!(response.body.registration_id.as_deref(), Some("reg-1"));
+    assert_eq!(
+        response.body.registration_id.as_str(),
+        "registration-test-00000001"
+    );
     assert_eq!(
         response.request_id.as_deref(),
         Some("ak:request:01904100-0000-7000-8000-000000000021")
@@ -430,7 +433,7 @@ async fn default_register_allows_with_session_grant_header() {
     let (base_url, requests) = spawn_mock_server(vec![MockHttpOutcome {
         status: "200 OK",
         headers: vec![],
-        body: r#"{"push_target_id":"ak:pseudonym:push:kosc9iQ4gVct1OB-b6X364WIFIsJFVbVzn7BMBs1sm8","registration_id":"reg-1"}"#,
+        body: r#"{"push_target_id":"ak:pseudonym:push:kosc9iQ4gVct1OB-b6X364WIFIsJFVbVzn7BMBs1sm8","registration_id":"registration-test-00000001"}"#,
     }]);
 
     ArkretPushClient::new(base_url)

@@ -341,7 +341,7 @@ mod tests {
     fn response_models_cover_frozen_wire_metadata() {
         let register: PushRegisterDeviceResponseBody = serde_json::from_value(serde_json::json!({
             "push_target_id": "ak:pseudonym:push:kosc9iQ4gVct1OB-b6X364WIFIsJFVbVzn7BMBs1sm8",
-            "registration_id": "reg-1",
+            "registration_id": "registration-test-00000001",
             "expires_at": "2026-05-02T00:00:00.000Z"
         }))
         .unwrap();
@@ -350,7 +350,10 @@ mod tests {
             register.push_target_id.as_str(),
             "ak:pseudonym:push:kosc9iQ4gVct1OB-b6X364WIFIsJFVbVzn7BMBs1sm8"
         );
-        assert_eq!(register.registration_id.as_deref(), Some("reg-1"));
+        assert_eq!(
+            register.registration_id.as_str(),
+            "registration-test-00000001"
+        );
         assert_eq!(
             register
                 .expires_at
@@ -360,7 +363,7 @@ mod tests {
 
         serde_json::from_value::<PushRegisterDeviceResponseBody>(serde_json::json!({
             "ok": true,
-            "registration_id": "reg-1",
+            "registration_id": "registration-test-00000001",
             "request_id": "ak:request:01904100-0000-7000-8000-000000000030"
         }))
         .expect_err("register outcome must reject non-spec response fields");

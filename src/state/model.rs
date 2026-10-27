@@ -75,11 +75,17 @@ pub fn hash_push_key(push_key: &str) -> String {
 ///         "ak:pseudonym:push:kosc9iQ4gVct1OB-b6X364WIFIsJFVbVzn7BMBs1sm8",
 ///     )
 ///     .unwrap(),
-///     registration_id: Some(arkret_wire::OpaqueLocalId::new("reg-1").unwrap()),
+///     registration_id: arkret_models_integration::PushRegistrationId::new(
+///         "registration-test-00000001",
+///     )
+///     .unwrap(),
 ///     expires_at: None,
 /// };
 /// let state = build_registration_state(&binding, &request, &response, None);
-/// assert_eq!(state.registration_id.as_deref(), Some("reg-1"));
+/// assert_eq!(
+///     state.registration_id.as_deref(),
+///     Some("registration-test-00000001")
+/// );
 /// ```
 pub fn build_registration_state(
     binding: &GatewayBinding,
@@ -89,7 +95,7 @@ pub fn build_registration_state(
 ) -> PushRegistrationState {
     PushRegistrationState {
         account_id: request.account_id.clone(),
-        registration_id: response.registration_id.clone(),
+        registration_id: Some(response.registration_id.clone().into()),
         device_id: request.device_id.clone(),
         platform: request.platform.clone(),
         app_id: request.app_id.clone(),
@@ -129,7 +135,10 @@ mod tests {
                 "ak:pseudonym:push:kosc9iQ4gVct1OB-b6X364WIFIsJFVbVzn7BMBs1sm8",
             )
             .unwrap(),
-            registration_id: Some(arkret_wire::OpaqueLocalId::new("reg-new").unwrap()),
+            registration_id: arkret_models_integration::PushRegistrationId::new(
+                "registration-test-new-00001",
+            )
+            .unwrap(),
             expires_at: Some("2026-04-29T00:00:00.000Z".parse().expect("valid timestamp")),
         };
 
@@ -148,7 +157,10 @@ mod tests {
             Some("ak:did_core:web:alice.example")
         );
         assert_eq!(state.platform.as_deref(), Some("android"));
-        assert_eq!(state.registration_id.as_deref(), Some("reg-new"));
+        assert_eq!(
+            state.registration_id.as_deref(),
+            Some("registration-test-new-00001")
+        );
         assert_eq!(state.push_key_preview, "fcm:<redacted,len=9>");
         assert!(!state.push_key_hash.contains("new-token"));
         assert_eq!(
