@@ -398,7 +398,7 @@ async fn retries_429_and_honors_retry_after() {
         MockHttpOutcome {
             status: "200 OK",
             headers: vec![],
-            body: r#"{"push_target_id":"ak:pseudonym:push:kosc9iQ4gVct1OB-b6X364WIFIsJFVbVzn7BMBs1sm8"}"#,
+            body: r#"{"push_target_id":"ak:pseudonym:push:kosc9iQ4gVct1OB-b6X364WIFIsJFVbVzn7BMBs1sm8","registration_id":"registration-test-00000001"}"#,
         },
     ]);
 
@@ -462,7 +462,7 @@ async fn opting_out_session_grant_allows_register_without_header() {
     let (base_url, _) = spawn_mock_server(vec![MockHttpOutcome {
         status: "200 OK",
         headers: vec![],
-        body: r#"{"push_target_id":"ak:pseudonym:push:kosc9iQ4gVct1OB-b6X364WIFIsJFVbVzn7BMBs1sm8"}"#,
+        body: r#"{"push_target_id":"ak:pseudonym:push:kosc9iQ4gVct1OB-b6X364WIFIsJFVbVzn7BMBs1sm8","registration_id":"registration-test-00000001"}"#,
     }]);
 
     ArkretPushClient::new(base_url)
@@ -483,7 +483,7 @@ async fn register_auto_generates_idempotency_key_when_omitted() {
         MockHttpOutcome {
             status: "200 OK",
             headers: vec![],
-            body: r#"{"push_target_id":"ak:pseudonym:push:kosc9iQ4gVct1OB-b6X364WIFIsJFVbVzn7BMBs1sm8"}"#,
+            body: r#"{"push_target_id":"ak:pseudonym:push:kosc9iQ4gVct1OB-b6X364WIFIsJFVbVzn7BMBs1sm8","registration_id":"registration-test-00000001"}"#,
         },
     ]);
     let mut config = config();
@@ -555,7 +555,7 @@ async fn retries_503() {
         MockHttpOutcome {
             status: "200 OK",
             headers: vec![],
-            body: r#"{"push_target_id":"ak:pseudonym:push:kosc9iQ4gVct1OB-b6X364WIFIsJFVbVzn7BMBs1sm8"}"#,
+            body: r#"{"push_target_id":"ak:pseudonym:push:kosc9iQ4gVct1OB-b6X364WIFIsJFVbVzn7BMBs1sm8","registration_id":"registration-test-00000001"}"#,
         },
     ]);
 
