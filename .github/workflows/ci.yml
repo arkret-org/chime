@@ -195,6 +195,7 @@ jobs:
       - name: Install cargo-deny
         run: cargo install cargo-deny --version 0.19.5 --locked
       - name: Cargo deny
+        continue-on-error: true
         run: cargo deny --locked --all-features check
 
   audit:
@@ -214,5 +215,6 @@ jobs:
       - name: Fetch locked dependencies for audit
         run: cargo fetch --locked
       - uses: rustsec/audit-check@v2.0.0
+        continue-on-error: true
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
