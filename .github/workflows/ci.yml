@@ -109,13 +109,13 @@ jobs:
         run: cargo build --locked --examples --no-default-features
 
   msrv:
-    name: MSRV (1.98)
+    name: MSRV (1.99)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: "1.98"
+          toolchain: "1.99"
       - name: Checkout sibling Arkret Rust SDK
         env:
           CI_REPO_TOKEN: ${{ secrets.CI_REPO_TOKEN || github.token }}

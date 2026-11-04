@@ -252,7 +252,7 @@ into the signed-in account's Arkret Station.
 
 | Knob | Value | Note |
 | ---- | ----- | ---- |
-| MSRV | `1.98` | Enforced by CI; bump only with a minor release. |
+| MSRV | `1.99` | Enforced by CI; bump only with a minor release. |
 | TLS backend | `rustls-tls` (via reqwest) | No system OpenSSL dependency. |
 | Tokio runtime | optional via `http` feature | Multi-thread or current-thread, host's choice. |
 | Logging | `tracing` events on the `chime` target | No allocator on the hot path; subscribe at info-level for register/unregister breadcrumbs. |
