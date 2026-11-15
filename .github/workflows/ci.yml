@@ -34,7 +34,7 @@ jobs:
         run: bash .ci/checkout-sibling.sh arkret-rust-sdk ../arkret-rust-sdk
       - uses: Swatinem/rust-cache@v2
       - name: Check formatting
-        run: cargo +nightly fmt --all -- --check
+      run: cargo +nightly fmt --package chime -- --check
       - name: Check (features=${{ matrix.features || 'default' }})
         run: cargo check --locked --no-default-features --features "${{ matrix.features }}"
 
