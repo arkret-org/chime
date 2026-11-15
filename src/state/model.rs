@@ -59,7 +59,6 @@ pub fn hash_push_key(push_key: &str) -> String {
 ///     visible_notification_opt_in: false,
 ///     idempotency_key: None,
 ///     request_id: None,
-///     proof: None,
 /// };
 /// let binding = GatewayBinding::new(
 ///     PushGatewayType::Standard,

@@ -39,7 +39,6 @@ use crate::{GatewayBinding, PushPreferences, hash_push_key};
 ///     visible_notification_opt_in: false,
 ///     idempotency_key: Some("register-phone-v1"),
 ///     request_id: None,
-///     proof: None,
 /// };
 /// let binding = GatewayBinding::new(
 ///     PushGatewayType::Standard,
@@ -76,8 +75,6 @@ pub fn build_register_device_request(
     }
 
     Ok(ChimePushRegisterDeviceRequest {
-        operation_id: arkret_wire::ServiceOperationId::EDGE_PUSH_COMMAND_REGISTER_DEVICE_V1
-            .to_owned(),
         account_id: config.account_id.clone(),
         device_id: config.device_id.to_owned(),
         push_gateway: binding.push_gateway.clone(),
@@ -88,7 +85,6 @@ pub fn build_register_device_request(
         visible_notification_opt_in: config.visible_notification_opt_in,
         idempotency_key: config.idempotency_key.map(str::to_owned),
         request_id: config.request_id.map(str::to_owned),
-        proof: config.proof.cloned(),
         ..Default::default()
     })
 }
@@ -117,7 +113,6 @@ pub fn build_register_device_request(
 ///     visible_notification_opt_in: false,
 ///     idempotency_key: Some("unregister-phone-v1"),
 ///     request_id: None,
-///     proof: None,
 /// };
 /// let binding = GatewayBinding::new(
 ///     PushGatewayType::Standard,
@@ -152,8 +147,6 @@ pub fn build_unregister_device_request(
         .and_then(non_empty_str);
 
     Ok(ChimePushUnregisterDeviceRequest {
-        operation_id: arkret_wire::ServiceOperationId::EDGE_PUSH_COMMAND_UNREGISTER_DEVICE_V1
-            .to_owned(),
         account_id: config.account_id.clone(),
         device_id: config.device_id.to_owned(),
         registration_id: non_empty_str(config.registration_id.unwrap_or_default())
@@ -165,7 +158,6 @@ pub fn build_unregister_device_request(
         app_id: app_id.map(str::to_owned),
         idempotency_key: config.idempotency_key.map(str::to_owned),
         request_id: config.request_id.map(str::to_owned),
-        proof: config.proof.cloned(),
         ..Default::default()
     })
 }
@@ -201,7 +193,6 @@ mod tests {
             visible_notification_opt_in: false,
             idempotency_key: Some("idem-1"),
             request_id: Some("ak:request:01904100-0000-7000-8000-000000000050"),
-            proof: None,
         }
     }
 
@@ -224,11 +215,6 @@ mod tests {
         let request =
             build_register_device_request(&config(Some("android")), &binding, &enabled_prefs())
                 .unwrap();
-
-        assert_eq!(
-            request.operation_id,
-            arkret_wire::ServiceOperationId::EDGE_PUSH_COMMAND_REGISTER_DEVICE_V1
-        );
         assert_eq!(
             request
                 .account_id
@@ -264,11 +250,6 @@ mod tests {
             &PushPreferences::default(),
         )
         .unwrap();
-
-        assert_eq!(
-            request.operation_id,
-            arkret_wire::ServiceOperationId::EDGE_PUSH_COMMAND_UNREGISTER_DEVICE_V1
-        );
         assert_eq!(
             request
                 .account_id

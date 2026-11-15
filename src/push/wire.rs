@@ -12,7 +12,6 @@ use std::fmt;
 
 use arkret_wire::AccountId;
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 
 use super::errors::PushRegistrationError;
 use super::urls::{redact_push_key, redact_url};
@@ -90,11 +89,6 @@ pub struct PushDeviceConfig<'a> {
     pub idempotency_key: Option<&'a str>,
     /// Request id sent as `X-Arkret-Request-Id`.
     pub request_id: Option<&'a str>,
-    /// Optional caller-supplied DID proof or canonical proof body.
-    ///
-    /// `chime` does not sign this proof; it only carries the already-built
-    /// proof through the wire model.
-    pub proof: Option<&'a Value>,
 }
 
 impl fmt::Debug for PushDeviceConfig<'_> {
@@ -114,7 +108,6 @@ impl fmt::Debug for PushDeviceConfig<'_> {
             )
             .field("idempotency_key", &self.idempotency_key)
             .field("request_id", &self.request_id)
-            .field("proof", &self.proof.map(|_| "<present>"))
             .finish()
     }
 }
@@ -125,8 +118,7 @@ impl fmt::Debug for PushDeviceConfig<'_> {
 /// body is [`arkret_models_integration::PushRegisterDeviceRequestBody`] and is the only thing
 /// ever serialized onto the wire — chime derives it from this builder via
 /// [`Self::to_sdk_request`]. The transport-only fields carried here
-/// (`operation_id`, `idempotency_key`, `request_id`,
-/// `proof`) ride HTTP headers and the URL path, never the body
+/// (`idempotency_key`, `request_id`) ride HTTP headers, never the body
 /// (`push-operations.schema.json` sets `additionalProperties:false` on the
 /// canonical body; `service-http-binding.md:211-212`). The
 /// `Serialize`/`Deserialize` derives exist only so hosts can persist a
@@ -142,7 +134,6 @@ impl fmt::Debug for PushDeviceConfig<'_> {
 #[non_exhaustive]
 #[serde(deny_unknown_fields)]
 pub struct ChimePushRegisterDeviceRequest {
-    pub operation_id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub account_id: Option<AccountId>,
     pub device_id: String,
@@ -159,14 +150,11 @@ pub struct ChimePushRegisterDeviceRequest {
     pub idempotency_key: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub request_id: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub proof: Option<Value>,
 }
 
 impl fmt::Debug for ChimePushRegisterDeviceRequest {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("ChimePushRegisterDeviceRequest")
-            .field("operation_id", &self.operation_id)
             .field("account_id", &self.account_id)
             .field("device_id", &self.device_id)
             .field("push_gateway", &redact_url(&self.push_gateway))
@@ -180,7 +168,6 @@ impl fmt::Debug for ChimePushRegisterDeviceRequest {
             )
             .field("idempotency_key", &self.idempotency_key)
             .field("request_id", &self.request_id)
-            .field("proof", &self.proof.as_ref().map(|_| "<present>"))
             .finish()
     }
 }
@@ -218,9 +205,9 @@ impl ChimePushRegisterDeviceRequest {
 /// body is [`arkret_models_integration::PushUnregisterDeviceRequestBody`] and is the only
 /// thing serialized onto the wire — chime derives it from this builder via
 /// [`Self::to_sdk_request`], which keeps only `{device_id, push_key?,
-/// app_id?}`. The remaining fields here (`operation_id`, `account_id`,
+/// app_id?}`. The remaining fields here (`account_id`,
 /// `registration_id`, `push_gateway`, `push_key_hash`, `push_key_preview`,
-/// `idempotency_key`, `request_id`, `proof`) are correlation / transport
+/// `idempotency_key`, `request_id`) are correlation / transport
 /// metadata that ride HTTP headers or local state — never the body
 /// (`push-operations.schema.json` sets `additionalProperties:false`;
 /// `service-http-binding.md:211-212`). The `Serialize`/`Deserialize`
@@ -236,7 +223,6 @@ impl ChimePushRegisterDeviceRequest {
 #[non_exhaustive]
 #[serde(deny_unknown_fields)]
 pub struct ChimePushUnregisterDeviceRequest {
-    pub operation_id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub account_id: Option<AccountId>,
     pub device_id: String,
@@ -258,14 +244,11 @@ pub struct ChimePushUnregisterDeviceRequest {
     pub idempotency_key: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub request_id: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub proof: Option<Value>,
 }
 
 impl fmt::Debug for ChimePushUnregisterDeviceRequest {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("ChimePushUnregisterDeviceRequest")
-            .field("operation_id", &self.operation_id)
             .field("account_id", &self.account_id)
             .field("device_id", &self.device_id)
             .field("registration_id", &self.registration_id)
@@ -279,7 +262,6 @@ impl fmt::Debug for ChimePushUnregisterDeviceRequest {
             .field("app_id", &self.app_id)
             .field("idempotency_key", &self.idempotency_key)
             .field("request_id", &self.request_id)
-            .field("proof", &self.proof.as_ref().map(|_| "<present>"))
             .finish()
     }
 }

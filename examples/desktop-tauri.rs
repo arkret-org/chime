@@ -47,7 +47,6 @@ fn register_desktop_device() -> Result<(), Box<dyn std::error::Error>> {
         visible_notification_opt_in: false,
         idempotency_key: Some("register-tauri-desktop-v1"),
         request_id: None,
-        proof: None,
     };
 
     let binding = GatewayBinding::new(

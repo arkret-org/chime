@@ -10,7 +10,6 @@ use super::super::wire::{
 };
 use super::super::{ARKRET_REQUEST_ID_HEADER, RETRY_AFTER_HEADER};
 use super::core::ArkretPushClient;
-use super::retry::PushRetryPolicy;
 use crate::PushPreferences;
 
 struct MockHttpOutcome {
@@ -71,7 +70,6 @@ fn config<'a>() -> PushDeviceConfig<'a> {
         visible_notification_opt_in: false,
         idempotency_key: Some("idem-1"),
         request_id: Some("ak:request:01904100-0000-7000-8000-000000000020"),
-        proof: None,
     }
 }
 
@@ -106,18 +104,6 @@ fn client(base_url: impl Into<String>) -> ArkretPushClient {
     ArkretPushClient::new(base_url)
         .with_session_grant("test-session-grant")
         .expect("test session grant header is valid")
-}
-
-/// Test-only variant of [`client`] with an explicit retry policy. Tests
-/// set the field directly because the public builder intentionally does
-/// not expose one.
-fn client_with_retry_policy(
-    base_url: impl Into<String>,
-    retry_policy: PushRetryPolicy,
-) -> ArkretPushClient {
-    let mut client = client(base_url);
-    client.retry_policy = retry_policy;
-    client
 }
 
 #[tokio::test]
@@ -388,47 +374,6 @@ async fn error_debug_redacts_problem_detail_and_extensions() {
 }
 
 #[tokio::test]
-async fn retries_429_and_honors_retry_after() {
-    let (base_url, requests) = spawn_mock_server(vec![
-        MockHttpOutcome {
-            status: "429 Too Many Requests",
-            headers: vec![(RETRY_AFTER_HEADER, "0")],
-            body: r#"{"type":"https://arkret.org/problems/rate_limited","title":"Rate limited","status":429,"detail":"slow"}"#,
-        },
-        MockHttpOutcome {
-            status: "200 OK",
-            headers: vec![],
-            body: r#"{"push_target_id":"ak:pseudonym:push:kosc9iQ4gVct1OB-b6X364WIFIsJFVbVzn7BMBs1sm8","registration_id":"registration-test-00000001"}"#,
-        },
-    ]);
-
-    client_with_retry_policy(
-        base_url,
-        PushRetryPolicy {
-            retry: arkret_retry::RetryPolicy::none().with_max_retries(1),
-            disabled_kinds_mask: 0,
-        },
-    )
-    .register_device_with_request(&register_request(), None, None)
-    .await
-    .unwrap();
-
-    assert_eq!(requests.lock().unwrap().len(), 2);
-}
-
-#[tokio::test]
-async fn default_register_rejects_without_session_grant() {
-    // Default `require_session_grant = true` ⇒ no mock server needed:
-    // the call fails fast before any request is sent.
-    let err = ArkretPushClient::new("https://principal.example")
-        .register_device_with_request(&register_request(), None, None)
-        .await
-        .unwrap_err();
-
-    assert_eq!(err.kind(), PushErrorKind::MissingField);
-}
-
-#[tokio::test]
 async fn default_register_allows_with_session_grant_header() {
     let (base_url, requests) = spawn_mock_server(vec![MockHttpOutcome {
         status: "200 OK",
@@ -473,55 +418,6 @@ async fn opting_out_session_grant_allows_register_without_header() {
 }
 
 #[tokio::test]
-async fn register_auto_generates_idempotency_key_when_omitted() {
-    let (base_url, requests) = spawn_mock_server(vec![
-        MockHttpOutcome {
-            status: "503 Service Unavailable",
-            headers: vec![(RETRY_AFTER_HEADER, "0")],
-            body: r#"{"type":"https://arkret.org/problems/temporarily_unavailable","title":"Temporarily unavailable","status":503,"detail":"try later"}"#,
-        },
-        MockHttpOutcome {
-            status: "200 OK",
-            headers: vec![],
-            body: r#"{"push_target_id":"ak:pseudonym:push:kosc9iQ4gVct1OB-b6X364WIFIsJFVbVzn7BMBs1sm8","registration_id":"registration-test-00000001"}"#,
-        },
-    ]);
-    let mut config = config();
-    config.idempotency_key = None;
-    let request = build_register_device_request(&config, &binding(), &prefs()).unwrap();
-
-    client_with_retry_policy(
-        base_url,
-        PushRetryPolicy {
-            retry: arkret_retry::RetryPolicy::none().with_max_retries(1),
-            disabled_kinds_mask: 0,
-        },
-    )
-    .register_device_with_request(&request, None, None)
-    .await
-    .unwrap();
-
-    let recorded = requests.lock().unwrap();
-    assert_eq!(
-        recorded.len(),
-        2,
-        "auto-generated key should make POST retryable"
-    );
-
-    let key_of = |raw: &String| -> Option<String> {
-        raw.lines()
-            .find(|line| line.to_ascii_lowercase().starts_with("idempotency-key:"))
-            .and_then(|line| line.split_once(':'))
-            .map(|(_, value)| value.trim().to_owned())
-    };
-
-    let first = key_of(&recorded[0]).expect("first request carries idempotency key");
-    let second = key_of(&recorded[1]).expect("retry carries idempotency key");
-    assert_eq!(first, second, "retry must reuse the same key");
-    assert!(first.starts_with("chime-sdk-"));
-}
-
-#[tokio::test]
 async fn does_not_retry_duplicate_conflict() {
     let (base_url, requests) = spawn_mock_server(vec![MockHttpOutcome {
         status: "409 Conflict",
@@ -529,75 +425,12 @@ async fn does_not_retry_duplicate_conflict() {
         body: r#"{"type":"https://arkret.org/problems/duplicate_conflict","title":"Duplicate conflict","status":409,"detail":"different body"}"#,
     }]);
 
-    let err = client_with_retry_policy(
-        base_url,
-        PushRetryPolicy {
-            retry: arkret_retry::RetryPolicy::none().with_max_retries(2),
-            disabled_kinds_mask: 0,
-        },
-    )
-    .register_device_with_request(&register_request(), None, None)
-    .await
-    .unwrap_err();
-
-    assert_eq!(err.kind(), PushErrorKind::DuplicateConflict);
-    assert_eq!(requests.lock().unwrap().len(), 1);
-}
-
-#[tokio::test]
-async fn retries_503() {
-    let (base_url, requests) = spawn_mock_server(vec![
-        MockHttpOutcome {
-            status: "503 Service Unavailable",
-            headers: vec![(RETRY_AFTER_HEADER, "0")],
-            body: r#"{"type":"https://arkret.org/problems/temporarily_unavailable","title":"Temporarily unavailable","status":503,"detail":"try later"}"#,
-        },
-        MockHttpOutcome {
-            status: "200 OK",
-            headers: vec![],
-            body: r#"{"push_target_id":"ak:pseudonym:push:kosc9iQ4gVct1OB-b6X364WIFIsJFVbVzn7BMBs1sm8","registration_id":"registration-test-00000001"}"#,
-        },
-    ]);
-
-    client_with_retry_policy(
-        base_url,
-        PushRetryPolicy {
-            retry: arkret_retry::RetryPolicy::none().with_max_retries(1),
-            disabled_kinds_mask: 0,
-        },
-    )
-    .register_device_with_request(&register_request(), None, None)
-    .await
-    .unwrap();
-
-    assert_eq!(requests.lock().unwrap().len(), 2);
-}
-
-#[tokio::test]
-async fn disabled_kinds_skip_otherwise_retryable_error() {
-    // 503 normally retries, but with TemporarilyUnavailable disabled
-    // the very first response should be surfaced immediately.
-    let (base_url, requests) = spawn_mock_server(vec![MockHttpOutcome {
-        status: "503 Service Unavailable",
-        headers: vec![(RETRY_AFTER_HEADER, "0")],
-        body: r#"{"type":"https://arkret.org/problems/temporarily_unavailable","title":"Temporarily unavailable","status":503,"detail":"down"}"#,
-    }]);
-
-    let policy = PushRetryPolicy {
-        retry: arkret_retry::RetryPolicy::none().with_max_retries(3),
-        disabled_kinds_mask: 0,
-    }
-    .with_disabled_kinds(&[PushErrorKind::TemporarilyUnavailable]);
-
-    assert!(policy.retries_disabled_for(PushErrorKind::TemporarilyUnavailable));
-    assert!(!policy.retries_disabled_for(PushErrorKind::RateLimited));
-
-    let err = client_with_retry_policy(base_url, policy)
+    let err = client(base_url)
         .register_device_with_request(&register_request(), None, None)
         .await
         .unwrap_err();
 
-    assert_eq!(err.kind(), PushErrorKind::TemporarilyUnavailable);
+    assert_eq!(err.kind(), PushErrorKind::DuplicateConflict);
     assert_eq!(requests.lock().unwrap().len(), 1);
 }
 
@@ -624,5 +457,76 @@ fn bearer_token_is_redacted_in_debug_output() {
     assert!(
         debug.contains("<redacted>"),
         "Debug output is missing the redaction marker: {debug}"
+    );
+}
+
+#[tokio::test]
+async fn register_reports_transient_errors_without_retrying() {
+    for (status, code, expected) in [
+        (
+            "429 Too Many Requests",
+            "rate_limited",
+            PushErrorKind::RateLimited,
+        ),
+        (
+            "503 Service Unavailable",
+            "temporarily_unavailable",
+            PushErrorKind::TemporarilyUnavailable,
+        ),
+    ] {
+        let body = match code {
+            "rate_limited" => {
+                r#"{"type":"https://arkret.org/problems/rate_limited","title":"Rate limited","status":429,"detail":"slow"}"#
+            }
+            _ => {
+                r#"{"type":"https://arkret.org/problems/temporarily_unavailable","title":"Temporarily unavailable","status":503,"detail":"down"}"#
+            }
+        };
+        let (base_url, requests) = spawn_mock_server(vec![MockHttpOutcome {
+            status,
+            headers: vec![(RETRY_AFTER_HEADER, "2")],
+            body,
+        }]);
+        let error = client(base_url)
+            .register_device_with_request(&register_request(), None, None)
+            .await
+            .unwrap_err();
+        assert_eq!(error.kind(), expected);
+        assert_eq!(
+            error.retry_after_duration(),
+            Some(std::time::Duration::from_secs(2))
+        );
+        assert_eq!(requests.lock().unwrap().len(), 1);
+    }
+}
+
+#[tokio::test]
+async fn register_generates_idempotency_key_and_selects_wire_operation() {
+    let (base_url, requests) = spawn_mock_server(vec![MockHttpOutcome {
+        status: "200 OK",
+        headers: vec![],
+        body: r#"{"push_target_id":"ak:pseudonym:push:kosc9iQ4gVct1OB-b6X364WIFIsJFVbVzn7BMBs1sm8","registration_id":"registration-test-00000001"}"#,
+    }]);
+    let mut request = register_request();
+    request.idempotency_key = None;
+    client(base_url)
+        .register_device_with_request(&request, None, None)
+        .await
+        .unwrap();
+    let requests = requests.lock().unwrap();
+    assert_eq!(requests.len(), 1);
+    let header = |name: &str| {
+        requests[0]
+            .split("\r\n")
+            .skip(1)
+            .take_while(|line| !line.is_empty())
+            .filter_map(|line| line.split_once(':'))
+            .find(|(candidate, _)| candidate.eq_ignore_ascii_case(name))
+            .map(|(_, value)| value.trim())
+    };
+    assert!(header("Idempotency-Key").unwrap().starts_with("chime-sdk-"));
+    assert_eq!(
+        header("Arkret-Operation"),
+        Some("ak.edge.push.command.register_device.v1")
     );
 }

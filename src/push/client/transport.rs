@@ -1,6 +1,3 @@
-use std::time::Duration;
-
-use arkret_retry::Jitter;
 use arkret_wire::{Problem, ServiceOperationId};
 use serde::{Deserialize, Serialize};
 
@@ -8,7 +5,7 @@ use super::super::errors::{PushRegistrationError, classify_http_error};
 use super::super::urls::try_station_api_url;
 use super::super::{ARKRET_REQUEST_ID_HEADER, RETRY_AFTER_HEADER};
 use super::core::ArkretPushClient;
-use super::retry::{generate_idempotency_key, retry_jitter_seed, sleep_for};
+use super::idempotency::generate_idempotency_key;
 
 pub(super) const MAX_RESPONSE_BODY_BYTES: usize = 1024 * 1024;
 
@@ -103,47 +100,10 @@ impl ArkretPushClient {
         T: Serialize + ?Sized,
         R: for<'de> Deserialize<'de>,
     {
-        let mut retry_count = 0;
         let idempotency_key = idempotency_key
             .map(str::to_owned)
             .unwrap_or_else(generate_idempotency_key);
-
-        loop {
-            let result = self
-                .post_json_once(path, body, Some(idempotency_key.as_str()), request_id)
-                .await;
-
-            match result {
-                Ok(response) => return Ok(response),
-                Err(error)
-                    if retry_count < self.retry_policy.retry.max_retries()
-                        && error.is_retryable()
-                        && !self.retry_policy.retries_disabled_for(error.kind()) =>
-                {
-                    let delay = error
-                        .retry_after_duration()
-                        .unwrap_or_else(|| self.backoff_delay(retry_count));
-                    if !delay.is_zero() {
-                        sleep_for(delay).await;
-                    }
-                    retry_count += 1;
-                }
-                Err(error) => return Err(error),
-            }
-        }
-    }
-
-    async fn post_json_once<T, R>(
-        &self,
-        path: &str,
-        body: &T,
-        idempotency_key: Option<&str>,
-        request_id: Option<&str>,
-    ) -> Result<ArkretHttpResponse<R>, PushRegistrationError>
-    where
-        T: Serialize + ?Sized,
-        R: for<'de> Deserialize<'de>,
-    {
+        let idempotency_key = Some(idempotency_key.as_str());
         let url = try_station_api_url(&self.station_base_url, path)?;
         let body_bytes = arkret_canonical::canonical_json_bytes(body).map_err(|error| {
             PushRegistrationError::InvalidField {
@@ -221,21 +181,6 @@ impl ArkretPushClient {
             request_id,
             retry_after,
         })
-    }
-
-    pub(super) fn backoff_delay(&self, retry_count: u32) -> Duration {
-        // C.6 #10 — re-seed the jitter mixer per attempt by folding in a fresh
-        // wall-clock sample. Without this every retry of a given
-        // `(client, retry_count)` pair would produce the same jitter, so
-        // concurrent retries from many clients that share a construction
-        // timestamp (a fleet restarting at the same minute) would line up into
-        // a thundering herd. The fresh-per-attempt seed breaks the alignment
-        // without pulling in the `rand` crate.
-        let mut jitter = Jitter::from_seed(
-            self.retry_jitter_seed.wrapping_add(retry_jitter_seed())
-                ^ (u64::from(retry_count).wrapping_add(1)).wrapping_mul(0x9E37_79B9_7F4A_7C15),
-        );
-        self.retry_policy.retry.delay(retry_count, &mut jitter)
     }
 }
 
