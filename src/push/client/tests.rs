@@ -54,6 +54,16 @@ fn spawn_mock_server(responses: Vec<MockHttpOutcome>) -> (String, Arc<Mutex<Vec<
     (format!("http://{addr}"), requests)
 }
 
+fn request_header<'a>(request: &'a str, name: &str) -> Option<&'a str> {
+    request
+        .split("\r\n")
+        .skip(1)
+        .take_while(|line| !line.is_empty())
+        .filter_map(|line| line.split_once(':'))
+        .find(|(candidate, _)| candidate.eq_ignore_ascii_case(name))
+        .map(|(_, value)| value.trim())
+}
+
 fn config<'a>() -> PushDeviceConfig<'a> {
     PushDeviceConfig {
         account_id: Some(arkret_wire::AccountId::new(
@@ -135,9 +145,9 @@ async fn register_success_exposes_response_context_and_headers() {
 
     let raw = requests.lock().unwrap().join("\n");
     assert!(raw.contains("POST /_arkret/edge/push/register-device HTTP/1.1"));
-    assert!(
-        raw.to_ascii_lowercase()
-            .contains("arkret-operation: ak.edge.push.command.register_device.v1")
+    assert_eq!(
+        request_header(&raw, "Arkret-Operation"),
+        Some("ak.edge.push.command.register_device.v1")
     );
     assert!(raw.contains("authorization: Bearer session-secret"));
     // CHIME-01: idempotency key, request id, operation id, and proof are
@@ -186,10 +196,9 @@ async fn unregister_success() {
 
     let request = requests.lock().unwrap().join("\n");
     assert!(request.contains("POST /_arkret/edge/push/unregister-device HTTP/1.1"));
-    assert!(
-        request
-            .to_ascii_lowercase()
-            .contains("arkret-operation: ak.edge.push.command.unregister_device.v1")
+    assert_eq!(
+        request_header(&request, "Arkret-Operation"),
+        Some("ak.edge.push.command.unregister_device.v1")
     );
     let body = request
         .rsplit("\r\n\r\n")
@@ -515,18 +524,13 @@ async fn register_generates_idempotency_key_and_selects_wire_operation() {
         .unwrap();
     let requests = requests.lock().unwrap();
     assert_eq!(requests.len(), 1);
-    let header = |name: &str| {
-        requests[0]
-            .split("\r\n")
-            .skip(1)
-            .take_while(|line| !line.is_empty())
-            .filter_map(|line| line.split_once(':'))
-            .find(|(candidate, _)| candidate.eq_ignore_ascii_case(name))
-            .map(|(_, value)| value.trim())
-    };
-    assert!(header("Idempotency-Key").unwrap().starts_with("chime-sdk-"));
+    assert!(
+        request_header(&requests[0], "Idempotency-Key")
+            .unwrap()
+            .starts_with("chime-sdk-")
+    );
     assert_eq!(
-        header("Arkret-Operation"),
+        request_header(&requests[0], "Arkret-Operation"),
         Some("ak.edge.push.command.register_device.v1")
     );
 }
