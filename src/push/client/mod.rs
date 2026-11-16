@@ -4,12 +4,12 @@
 //!
 //! This module is split into:
 //! - [`secret`]: `SecretString` zeroize-on-drop credential wrapper
-//! - [`retry`]: `PushRetryPolicy` + retry/backoff/idempotency primitives
+//! - [`idempotency`]: per-request idempotency-key generation
 //! - [`transport`]: `ArkretHttpResponse` + low-level JSON request plumbing
 //! - [`core`]: the `ArkretPushClient` builder + high-level register/describe API
 
 mod core;
-mod retry;
+mod idempotency;
 mod secret;
 mod transport;
 
@@ -18,5 +18,4 @@ mod tests;
 
 pub use core::ArkretPushClient;
 
-pub use retry::PushRetryPolicy;
 pub use transport::ArkretHttpResponse;

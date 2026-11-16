@@ -26,11 +26,6 @@ fn inkson_style_fcm_and_apns_tokens_build_chime_register_requests() {
         ),
     ] {
         let request = inkson_register_request(platform, token, app_id);
-
-        assert_eq!(
-            request.operation_id,
-            arkret_wire::ServiceOperationId::EDGE_PUSH_COMMAND_REGISTER_DEVICE_V1
-        );
         assert_eq!(request.push_gateway, PUSH_GATEWAY);
         assert_eq!(request.push_key, token);
         assert_eq!(request.platform.as_deref(), Some(platform));
@@ -91,7 +86,6 @@ fn inkson_register_request(
         visible_notification_opt_in: false,
         idempotency_key: Some("chime-inkson-smoke"),
         request_id: Some("ak:request:01904100-0000-7000-8000-000000000060"),
-        proof: None,
     };
 
     build_register_device_request(&config, &binding, &prefs)

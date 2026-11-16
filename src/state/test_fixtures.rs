@@ -33,6 +33,5 @@ pub(crate) fn config(push_key: &str) -> PushDeviceConfig<'_> {
         visible_notification_opt_in: false,
         idempotency_key: Some("idem-1"),
         request_id: None,
-        proof: None,
     }
 }

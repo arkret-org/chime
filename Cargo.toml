@@ -33,11 +33,9 @@ unimplemented = "deny"
 arkret-canonical = { version = "0.3.0", path = "../arkret-rust-sdk/crates/canonical" }
 arkret-models-integration = { version = "0.3.0", path = "../arkret-rust-sdk/crates/models-integration" }
 arkret-push-policy = { version = "0.3.0", path = "../arkret-rust-sdk/crates/push-policy" }
-arkret-retry = { version = "0.3.0", path = "../arkret-rust-sdk/crates/retry" }
 arkret-wire = { version = "0.3.0", path = "../arkret-rust-sdk/crates/wire" }
 chrono = { version = "0.4", default-features = false }
 chrono-tz = "0.10"
-gloo-timers = "0.4"
 httpdate = "1"
 proptest = { version = "1", default-features = false }
 reqwest = { version = "0.13", default-features = false }
@@ -54,28 +52,25 @@ default = []
 ## Enable Arkret HTTP push device registration via reqwest.
 ##
 ## On native targets this enables reqwest with rustls + a tokio
-## time driver. On wasm32 it enables reqwest's fetch backend and
-## gloo-timers (browser `setTimeout`) for the retry backoff.
+## backend. On wasm32 it enables reqwest's fetch backend.
 ##
 ## A.5 #2 — also pulls in `zeroize` so bearer tokens stored on
 ## `ArkretPushClient` zero their heap allocation on drop. The
 ## dependency is feature-gated because the bearer-token surface only
 ## exists when the `http` client is compiled.
-http = ["dep:reqwest", "dep:tokio", "dep:gloo-timers", "dep:zeroize"]
+http = ["dep:reqwest", "dep:zeroize"]
 
 [dependencies]
 arkret-canonical = { workspace = true }
 arkret-models-integration = { workspace = true }
 arkret-push-policy = { workspace = true }
-arkret-retry = { workspace = true }
 arkret-wire = { workspace = true }
 # `chrono` backs the DND schedule evaluation in `rules.rs`; the default
 # features are stripped to keep the wasm32 build slim.
 
 # C34.1: split the `http` transport deps per target. Native targets keep
 # reqwest+rustls+tokio; the wasm32 build routes through reqwest's
-# fetch-backed wasm32 backend and uses `gloo-timers` for retry sleeps
-# because there is no tokio runtime on the browser main thread.
+# fetch-backed wasm32 backend.
 chrono = { workspace = true, default-features = false, features = ["serde", "clock"] }
 chrono-tz = { workspace = true }
 httpdate = { workspace = true }
@@ -90,11 +85,9 @@ url = { workspace = true }
 # `http` client; the wasm32 build also needs it (token surface is
 # identical) and so re-declares the same dep below.
 reqwest = { workspace = true, default-features = false, features = ["json", "rustls"], optional = true }
-tokio = { workspace = true, features = ["time"], optional = true }
 zeroize = { workspace = true, features = ["derive"], optional = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-gloo-timers = { workspace = true, features = ["futures"], optional = true }
 reqwest = { workspace = true, default-features = false, features = ["json"], optional = true }
 zeroize = { workspace = true, features = ["derive"], optional = true }
 

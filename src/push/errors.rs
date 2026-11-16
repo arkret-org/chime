@@ -46,36 +46,6 @@ pub enum PushErrorKind {
 }
 
 impl PushErrorKind {
-    /// Stable bit position used by retry-policy bitmasks. Hand-assigned
-    /// so `#[non_exhaustive]` additions never silently reorder existing
-    /// callers' masks.
-    pub const fn ordinal(self) -> u8 {
-        match self {
-            Self::MissingField => 0,
-            Self::InvalidPlatform => 1,
-            Self::InvalidPushGatewayUrl => 2,
-            Self::InvalidWebPushEndpoint => 3,
-            Self::WebPushEndpointNotAllowed => 4,
-            Self::ForbiddenPushGatewayQueryParam => 5,
-            Self::InvalidHeader => 6,
-            Self::Unauthenticated => 7,
-            Self::CapabilityDenied => 8,
-            Self::RateLimited => 9,
-            Self::TemporarilyUnavailable => 10,
-            Self::DuplicateConflict => 11,
-            Self::NotFound => 12,
-            Self::Gone => 13,
-            Self::SchemaViolation => 14,
-            Self::NetworkTimeout => 15,
-            Self::Network => 16,
-            Self::ResponseInvalid => 17,
-            Self::HttpStatus => 18,
-            // Preserve the historical bit position after the retired
-            // delivery-handover categories; never reorder existing values.
-            Self::HistoricalOnly => 21,
-        }
-    }
-
     /// Map a Arkret `bridge/describe.failure_reason_codes` string to a stable kind.
     ///
     /// Returns `None` when the code is not part of the contract, so callers can
@@ -307,16 +277,6 @@ impl PushRegistrationError {
             _ => None,
         }
     }
-
-    #[cfg(feature = "http")]
-    pub(super) fn is_retryable(&self) -> bool {
-        matches!(
-            self.kind(),
-            PushErrorKind::RateLimited
-                | PushErrorKind::TemporarilyUnavailable
-                | PushErrorKind::NetworkTimeout
-        )
-    }
 }
 
 #[cfg(any(test, feature = "http"))]
@@ -396,38 +356,6 @@ mod tests {
             PushErrorKind::from_failure_reason_code(arkret_wire::ErrorCode::HISTORICAL_ONLY),
             Some(PushErrorKind::HistoricalOnly)
         );
-    }
-
-    #[test]
-    fn ordinals_are_unique_and_fit_retry_mask() {
-        let kinds = [
-            PushErrorKind::MissingField,
-            PushErrorKind::InvalidPlatform,
-            PushErrorKind::InvalidPushGatewayUrl,
-            PushErrorKind::InvalidWebPushEndpoint,
-            PushErrorKind::WebPushEndpointNotAllowed,
-            PushErrorKind::ForbiddenPushGatewayQueryParam,
-            PushErrorKind::InvalidHeader,
-            PushErrorKind::Unauthenticated,
-            PushErrorKind::CapabilityDenied,
-            PushErrorKind::RateLimited,
-            PushErrorKind::TemporarilyUnavailable,
-            PushErrorKind::DuplicateConflict,
-            PushErrorKind::NotFound,
-            PushErrorKind::Gone,
-            PushErrorKind::SchemaViolation,
-            PushErrorKind::NetworkTimeout,
-            PushErrorKind::Network,
-            PushErrorKind::ResponseInvalid,
-            PushErrorKind::HttpStatus,
-            PushErrorKind::HistoricalOnly,
-        ];
-        let mut seen = std::collections::BTreeSet::new();
-        for kind in kinds {
-            let ordinal = kind.ordinal();
-            assert!(ordinal < 64, "{kind:?} ordinal must fit u64 mask");
-            assert!(seen.insert(ordinal), "{kind:?} reuses ordinal {ordinal}");
-        }
     }
 
     #[test]

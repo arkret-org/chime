@@ -162,7 +162,6 @@ let config = PushDeviceConfig {
     display_name: Some("Alice Phone"),
     idempotency_key: Some("device-phone-register-v1"),
     request_id: Some("ak:request:01904100-0000-7000-8000-000000000001"),
-    proof: None,
     visible_notification_opt_in: false,
 };
 
@@ -199,7 +198,6 @@ assert_eq!(
 #     display_name: None,
 #     idempotency_key: None,
 #     request_id: None,
-#     proof: None,
 #     visible_notification_opt_in: false,
 # };
 # let binding = GatewayBinding::new(
@@ -233,7 +231,7 @@ Production notes:
 - Each binding's `push_gateway` must be HTTPS unless `allow_insecure_loopback_push_gateway` is enabled for localhost development.
 - WebPush registrations can set `webpush_endpoint_allowlist` to restrict accepted endpoint origins or host patterns before a browser endpoint is sent to the service.
 - `push_key` is redacted in debug output and logs; callers should still store it as a secret.
-- `ArkretPushClient` retries only safe idempotent requests: register calls need an idempotency key, while unregister is treated as idempotent. `Retry-After` is honored before exponential backoff plus bounded jitter.
+- `ArkretPushClient` sends one request per call. Hosts retain the same idempotency key across retries and use `PushRegistrationError::retry_after_duration()` to honor `Retry-After`.
 
 ### Local registration state
 
@@ -279,8 +277,7 @@ into the signed-in account's Arkret Station.
   client generates one and reuses it across retries. Persist your own
   key for server-side dedup if you care about cross-process
   deduplication.
-- **Retries.** The client does not retry (`PushRetryPolicy::disabled()`
-  is the fixed policy); hosts that need retries wrap calls in their own
+- **Retries.** The client does not retry (one attempt per call); hosts that need retries wrap calls in their own
   retry loop built on `arkret_retry::RetryPolicy`, honoring `Retry-After`
   via `PushRegistrationError::retry_after_duration()`.
 - **Token storage.** Persist `PushRegistrationState` in an OS
@@ -324,7 +321,7 @@ The crate maps to the Arkret v1 push HTTP binding:
 | `ak.edge.push.command.unregister_device.v1` | `POST /_arkret/edge/push/unregister-device` | `build_unregister_device_request()` |
 | `ak.edge.push.command.notify.v1` | `POST /_arkret/edge/push/notify` | Gateway/server-side operation, not a client registration call. |
 
-Register/unregister builders keep the complete optional `AccountId {principal_id, station_id}` as local ownership metadata. It is never added to Station request bodies or headers. Device id, app id, gateway URL, and push key are projected into the canonical request; operation id, idempotency key, request id, and proof follow their transport bindings. Register responses carry `push_target_id`, optional `registration_id`, and optional `expires_at`; response headers carry transport metadata such as request id.
+Register/unregister builders keep the complete optional `AccountId {principal_id, station_id}` as local ownership metadata. It is never added to Station request bodies or headers. Device id, app id, gateway URL, and push key are projected into the canonical request; the transport selects the canonical operation id and carries idempotency key and request id in headers. Register responses carry `push_target_id`, optional `registration_id`, and optional `expires_at`; response headers carry transport metadata such as request id.
 
 Push notifications are derived wakeups, not canonical truth. For E2EE Realms, push gateways should receive only minimized metadata such as `push_target_id`, `wakeup_kind`, counts, priority/TTL/collapse hints, and optional body-free `push_hint`.
 

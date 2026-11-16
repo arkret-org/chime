@@ -126,7 +126,7 @@ jobs:
 
   # AKP-0007 P2D.4 — wasm32-unknown-unknown coverage. chime advertises
   # first-class wasm32 support (Cargo.toml splits per-target
-  # dependencies for reqwest/gloo-timers); without this job a wasm-only
+  # dependencies for reqwest); without this job a wasm-only
   # regression — e.g. a tokio API call leaking into the http feature
   # path or a doc-link relying on a native-only re-export — slips
   # through the linux-only matrix above.

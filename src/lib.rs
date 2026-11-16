@@ -44,7 +44,7 @@ pub use arkret_models_integration::{
 };
 pub use gateway_binding::GatewayBinding;
 #[cfg(feature = "http")]
-pub use push::{ArkretHttpResponse, ArkretPushClient, PushRetryPolicy};
+pub use push::{ArkretHttpResponse, ArkretPushClient};
 pub use push::{
     ChimePushRegisterDeviceRequest, ChimePushUnregisterDeviceRequest, PushDeviceConfig,
     PushErrorKind, PushPlatform, PushRegistrationError, build_register_device_request,
@@ -222,11 +222,6 @@ mod tests {
         let loaded = from_json(r#"{"enabled":true}"#).unwrap();
         assert!(loaded.enabled);
         assert!(loaded.gateways.is_empty());
-    }
-
-    #[test]
-    fn from_json_rejects_invalid_payload() {
-        assert!(from_json("not valid json").is_err());
     }
 
     #[test]

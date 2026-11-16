@@ -9,7 +9,6 @@ use super::super::wire::{ChimePushRegisterDeviceRequest, ChimePushUnregisterDevi
 use super::super::{
     ARKRET_SESSION_GRANT_HEADER, REGISTER_DEVICE_PATH, SDK_USER_AGENT, UNREGISTER_DEVICE_PATH,
 };
-use super::retry::{PushRetryPolicy, retry_jitter_seed};
 use super::secret::SecretString;
 use super::transport::{ArkretHttpResponse, default_http_client};
 
@@ -22,8 +21,6 @@ pub struct ArkretPushClient {
     // dropped. The Debug impl below redacts it.
     pub(super) bearer_token: Option<SecretString>,
     pub(super) timeout: Option<Duration>,
-    pub(super) retry_policy: PushRetryPolicy,
-    pub(super) retry_jitter_seed: u64,
     pub(super) user_agent: String,
     pub(super) headers: Vec<(reqwest::header::HeaderName, reqwest::header::HeaderValue)>,
     pub(super) require_session_grant: bool,
@@ -40,7 +37,6 @@ impl fmt::Debug for ArkretPushClient {
             .field("station_base_url", &redact_url(&self.station_base_url))
             .field("bearer_token", &bearer)
             .field("timeout", &self.timeout)
-            .field("retry_policy", &self.retry_policy)
             .field("user_agent", &self.user_agent)
             .field("header_count", &self.headers.len())
             .field("require_session_grant", &self.require_session_grant)
@@ -60,8 +56,6 @@ impl ArkretPushClient {
             station_base_url: station_base_url.into(),
             bearer_token: None,
             timeout: None,
-            retry_policy: PushRetryPolicy::disabled(),
-            retry_jitter_seed: retry_jitter_seed(),
             user_agent: SDK_USER_AGENT.to_owned(),
             headers: Vec::new(),
             // Default: register/unregister fail-closed unless the caller
@@ -78,11 +72,6 @@ impl ArkretPushClient {
 
     pub fn with_timeout(mut self, timeout: Duration) -> Self {
         self.timeout = Some(timeout);
-        self
-    }
-
-    pub fn without_retries(mut self) -> Self {
-        self.retry_policy = PushRetryPolicy::disabled();
         self
     }
 
@@ -134,7 +123,7 @@ impl ArkretPushClient {
     }
 
     /// Post a pre-built [`ChimePushRegisterDeviceRequest`] through the
-    /// configured client (session-grant header, retry policy, and
+    /// configured client (session-grant header and
     /// caller-supplied headers all honored). Use this when callers
     /// already constructed the wire body — typically because they
     /// cached it for retry or built it in one place and post in

@@ -11,7 +11,7 @@ chime 将网关/协议失败归一到 `PushErrorKind`。调用方应优先按 ki
 | `WebPushEndpointNotAllowed` | WebPush endpoint origin 未在 allowlist 中，更新配置后重试。 |
 | `Unauthenticated` | 刷新 bearer/session grant 后重试。 |
 | `CapabilityDenied` | 当前 principal 或 device 没有权限，不要自动重试。 |
-| `RateLimited` / `TemporarilyUnavailable` | 按 `Retry-After` 和 `PushRetryPolicy` 退避重试。 |
+| `RateLimited` / `TemporarilyUnavailable` | 调用方保留同一幂等键，按 `retry_after_duration()` 返回的 `Retry-After` 等待后重试。 |
 | `DuplicateConflict` | 幂等冲突；确认 idempotency key 后再决定是否重发。 |
 | `Gone` | push token 或 registration 已失效，丢弃本地状态并重新注册。 |
 
