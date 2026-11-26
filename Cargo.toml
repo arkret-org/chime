@@ -5,7 +5,7 @@ edition = "2024"
 rust-version = "1.99"
 license = "Apache-2.0"
 repository = "https://github.com/arkret-org/chime"
-homepage = "https://github.com/arkret-org/chime"
+homepage = "https://arkret.org"
 documentation = "https://docs.rs/chime"
 readme = "README.md"
 description = "Arkret push notification gateway types and device registration helpers, with support for domestic Chinese Android OEM providers through Bugle."
@@ -71,7 +71,7 @@ arkret-wire = { workspace = true }
 # C34.1: split the `http` transport deps per target. Native targets keep
 # reqwest+rustls+tokio; the wasm32 build routes through reqwest's
 # fetch-backed wasm32 backend.
-chrono = { workspace = true, default-features = false, features = ["serde", "clock"] }
+chrono = { workspace = true, default-features = false, features = ["serde", "clock", "wasmbind"] }
 chrono-tz = { workspace = true }
 httpdate = { workspace = true }
 serde = { workspace = true, features = ["derive"] }

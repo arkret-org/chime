@@ -1,7 +1,7 @@
 //! Push registration error types and HTTP status classification.
 
 use std::fmt;
-use std::time::{Duration, SystemTime};
+use std::time::Duration;
 
 use arkret_wire::Problem;
 use thiserror::Error;
@@ -306,8 +306,11 @@ pub(super) fn parse_retry_after(value: &str) -> Option<Duration> {
     }
 
     let retry_at = httpdate::parse_http_date(value).ok()?;
-    let now = SystemTime::now();
-    retry_at.duration_since(now).ok().or(Some(Duration::ZERO))
+    Some(
+        retry_at
+            .duration_since(chrono::Utc::now().into())
+            .unwrap_or_default(),
+    )
 }
 
 #[cfg(test)]

@@ -578,35 +578,24 @@ fn keyword_matches(pattern: Option<&Value>, body: &str) -> bool {
 }
 
 fn glob_match(pattern: &str, value: &str) -> bool {
-    if pattern == "*" {
-        return true;
-    }
-    if !pattern.contains('*') {
+    let mut parts = pattern.split('*');
+    let prefix = parts.next().unwrap_or_default();
+    let Some(suffix) = parts.next_back() else {
         return pattern == value;
-    }
-    let mut remainder = value;
-    let anchored_start = !pattern.starts_with('*');
-    let anchored_end = !pattern.ends_with('*');
-    let parts = pattern
-        .split('*')
-        .filter(|part| !part.is_empty())
-        .collect::<Vec<_>>();
-    if parts.is_empty() {
-        return true;
-    }
-    if anchored_start {
-        let Some(stripped) = remainder.strip_prefix(parts[0]) else {
+    };
+    let Some(mut rest) = value
+        .strip_prefix(prefix)
+        .and_then(|s| s.strip_suffix(suffix))
+    else {
+        return false;
+    };
+    for literal in parts.filter(|part| !part.is_empty()) {
+        let Some((_, after)) = rest.split_once(literal) else {
             return false;
         };
-        remainder = stripped;
+        rest = after;
     }
-    for part in parts.iter().skip(usize::from(anchored_start)) {
-        let Some(index) = remainder.find(part) else {
-            return false;
-        };
-        remainder = &remainder[index + part.len()..];
-    }
-    !anchored_end || remainder.is_empty()
+    true
 }
 
 fn dnd_active(dnd: &DndSettings, minute_override: Option<u16>) -> bool {
@@ -655,6 +644,15 @@ fn current_schedule_minute(timezone: &str) -> Option<u16> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn glob_reserves_the_anchored_suffix_after_repeated_matches() {
+        assert!(glob_match("*end", "end-again-end"));
+        assert!(glob_match("a**b*c", "abcabc"));
+        assert!(glob_match("**", ""));
+        assert!(!glob_match("abc*bc", "abc"));
+        assert!(!glob_match("*b*c", "cb"));
+    }
 
     #[test]
     fn first_matching_rule_wins() {
