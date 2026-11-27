@@ -43,27 +43,11 @@ When you report, please include:
   on the explicit `plaintext_visible_services` allowlist may receive
   identifying metadata.
 
-### AKP-0007 Circle metadata invariants
+### Blind-wakeup metadata
 
-The Circle primitive introduces an encrypted sub-boundary inside a
-Realm. chime's wakeup wire MUST preserve the following invariants on
-top of the generic blind-wakeup rules above:
-
-- The push wakeup wire MUST NOT carry a Circle identifier, a Realm
-  identifier, or a scope field. Per `push-notifications.md` §5.1, raw
-  Realm ids, Circle ids and `effective_scope` MUST NOT enter the
-  `/_arkret/edge/push/notify` wire under the default
-  `ak.profile.push_gateway.blind_wakeup.v1` profile; the only routing
-  inputs are `route_tokens` and `devices[].target_route_token`.
-- The security scope of an Event is its producer-signed `scope_ref`
-  (`models/circle.md` §6.2). A client learns the boundary by fetching
-  the durable Event, never from the wakeup.
-- The display label (`circle_name` / `circle_display_name`) and any
-  membership listing (`circle_members` / `circle_member_dids` /
-  `circle_member_actor_ids`) are never allowed on the wakeup wire,
-  including in the plaintext-visible mode that whitelisted destination
-  service DIDs see. A wakeup that surfaces them MUST be rejected with
-  `PushNotifyPrivacyError::SensitiveField`.
+Blind wakeups use only `route_tokens` and `devices[].target_route_token` for routing.
+The client obtains the security scope from the durable Event's signed `scope_ref`.
+Raw Realm IDs and membership lists must stay outside the blind wakeup.
 
 If you believe you have found a way to bypass any of those rules, treat
 it as a security report and use the private channels above.

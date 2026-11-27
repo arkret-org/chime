@@ -71,30 +71,11 @@ and `PushGatewayType::Bugle` prefer `domestic_app_id` for Android.
 > that need to validate outbound blind-wakeup payloads use the SDK's
 > `arkret_push_policy::blind_payload_sanitizer` directly.
 
-## AKP-0007 Circle subscriptions
+## Wakeup routing
 
-[AKP-0007 Circle primitive](../arkret-spec/spec/v1/zh/models/circle.md)
-introduces an encrypted sub-boundary inside a Realm. The security scope
-of an Event lives in its producer-signed `scope_ref`; object read
-projections may materialize an equal `effective_scope`. Neither name
-reaches the push wire:
-
-- **Receiving a Circle-scoped wakeup.** The push wakeup wire carries no
-  Circle identifier and no scope field. Raw Realm ids, Circle ids and
-  `effective_scope` MUST NOT enter `/_arkret/edge/push/notify`
-  (`push-notifications.md` §5.1); the wakeup only carries opaque
-  `route_tokens.scope_route_token` / `devices[].target_route_token`.
-  The client resolves the security boundary from the durable Event it
-  fetches after the wakeup, never from the wakeup itself. The closed SDK
-  wire type rejects `circle_name` / `circle_display_name` and the
-  `circle_members` / `circle_member_dids` / `circle_member_actor_ids`
-  membership surfaces during deserialization.
-- **Muting a Circle on this device.** Per-scope mute state lives in the
-  host application, matched host-side against the scope the client
-  resolved for the fetched Event — the wakeup itself cannot be matched,
-  because it carries no scope. A muted scope MUST NOT raise a UI
-  surface; wire-level delivery is unchanged so floria can still account
-  for the receipt.
+Blind wakeups carry opaque route tokens. The client fetches the durable Event
+and uses its signed `scope_ref` to apply the host application's mute policy.
+Muting suppresses local presentation while allowing delivery accounting.
 
 ## Quick Start
 
